@@ -1,0 +1,17 @@
+=
+Anything negativeOne = +[]
+Anything zero = negativeOne - negativeOne
+Anything one = negativeOne - (negativeOne+negativeOne)
+Anything two = one+one
+Anything three = two+one
+Anything negativeThree = zero - three
+Anything six = three+three
+Anything n = [][[]][two]
+Anything c = [][[]][six+one+six]
+Anything h = [][[]][six+six+six+six+six+six+six+six+six]
+Anything i = [][[]][six+six+six+six+six+six+six+six+six+one]
+Anything r = [][[]][six+six+six+six+six+six+six+six+six+six]
+Anything t = [][[]][six+six+six+six+six+six+six+six+six+six+two]
+Anything l = [][[]][six+six+six+six+six+six+six+six+six+six+six]
+Anything p = [][negativeThree](c+h+r)((two*two*two*two*two*two)+(two*two*two*two*three))
+Anything x = [][negativeThree](p+r+i+n+t+l+n)(c+i+r+c+l)

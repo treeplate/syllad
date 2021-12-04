@@ -1,0 +1,999 @@
+import 'core.syd';
+
+// class TAstNode
+AnythingList TAstNode = extend(TObject, 'TAstNode');
+Integer TAstNode_instanceSize = TObject_instanceSize;
+Integer toStringIndent = len(TAstNode);
+String TAstNode_toString(AnythingList this) {
+  return cast(method(this, toStringIndent)(this, 0));
+}
+TAstNode[toString] = TAstNode_toString;
+append(TAstNode, null);
+AnythingList TAstNode_constructor(AnythingList vmt) {
+  AnythingList instance = TObject_constructor(vmt);
+  assert(is(instance, TAstNode));
+  return instance;
+}
+
+// class TExpression extends TAstNode
+AnythingList TExpression = extend(TAstNode, 'TExpression');
+Integer TExpression_instanceSize = TAstNode_instanceSize;
+Integer isLValue = len(TExpression);
+Boolean TExpression_isLValue(AnythingList this) {
+  return false;
+}
+append(TExpression, TExpression_isLValue);
+AnythingList TExpression_constructor(AnythingList vmt) {
+  AnythingList instance = TAstNode_constructor(vmt);
+  assert(is(instance, TExpression));
+  return instance;
+}
+
+// class TStringLiteralExpression extends TExpression
+AnythingList TStringLiteralExpression = extend(TExpression, 'TStringLiteralExpression');
+Integer TStringLiteralExpression_value = TExpression_instanceSize;
+Integer TStringLiteralExpression_instanceSize = TStringLiteralExpression_value + 1;
+String TStringLiteralExpression_toStringIndent(AnythingList this, Integer indent) {
+  // XXX TODO escape quotes and backslashes (and newlines)
+  return concat('\'', this[TStringLiteralExpression_value], '\'');
+}
+TStringLiteralExpression[toStringIndent] = TStringLiteralExpression_toStringIndent;
+AnythingList TStringLiteralExpression_constructor(AnythingList vmt, String value) {
+  AnythingList instance = TExpression_constructor(vmt);
+  assert(is(instance, TStringLiteralExpression));
+  append(instance, value); // TStringLiteralExpression_value
+  return instance;
+}
+
+// class TIntegerLiteralExpression extends TExpression
+AnythingList TIntegerLiteralExpression = extend(TExpression, 'TIntegerLiteralExpression');
+Integer TIntegerLiteralExpression_value = TExpression_instanceSize;
+Integer TIntegerLiteralExpression_instanceSize = TIntegerLiteralExpression_value + 1;
+String TIntegerLiteralExpression_toStringIndent(AnythingList this, Integer indent) {
+  return concat(intToStr(cast(this[TIntegerLiteralExpression_value])), ' /* 0x', hex(cast(this[TIntegerLiteralExpression_value])), ' *\/');
+}
+TIntegerLiteralExpression[toStringIndent] = TIntegerLiteralExpression_toStringIndent;
+AnythingList TIntegerLiteralExpression_constructor(AnythingList vmt, Integer value) {
+  AnythingList instance = TExpression_constructor(vmt);
+  assert(is(instance, TIntegerLiteralExpression));
+  append(instance, value); // TIntegerLiteralExpression_value
+  return instance;
+}
+
+// class TListLiteralExpression extends TExpression
+AnythingList TListLiteralExpression = extend(TExpression, 'TListLiteralExpression');
+Integer TListLiteralExpression_values = TExpression_instanceSize;
+Integer TListLiteralExpression_instanceSize = TListLiteralExpression_values + 1;
+String TListLiteralExpression_toStringIndent(AnythingList this, Integer indent) {
+  AnythingListList values = cast(this[TListLiteralExpression_values]);
+  StringList valuesList = [];
+  Integer index = 0;
+  while (index < len(values)) {
+    if (index > 0) {
+      append(valuesList, ', ');
+    }
+    append(valuesList, method(values[index], toStringIndent)(values[index], indent));
+    index += 1;
+  }
+  return concat('[', joinList(valuesList), ']');
+}
+TListLiteralExpression[toStringIndent] = TListLiteralExpression_toStringIndent;
+AnythingList TListLiteralExpression_constructor(AnythingList vmt, AnythingListList values) {
+  AnythingList instance = TExpression_constructor(vmt);
+  assert(is(instance, TListLiteralExpression));
+  for (argument in values) {
+    assert(is(argument, TExpression));
+  }
+  append(instance, values); // TListLiteralExpression_values
+  return instance;
+}
+
+// class TVariableExpression extends TExpression
+AnythingList TVariableExpression = extend(TExpression, 'TVariableExpression');
+Integer TVariableExpression_name = TExpression_instanceSize;
+Integer TVariableExpression_instanceSize = TVariableExpression_name + 1;
+String TVariableExpression_toStringIndent(AnythingList this, Integer indent) {
+  return cast(this[TVariableExpression_name]);
+}
+TVariableExpression[toStringIndent] = TVariableExpression_toStringIndent;
+Boolean TVariableExpression_isLValue(AnythingList this) {
+  return true;
+}
+TVariableExpression[isLValue] = TVariableExpression_isLValue;
+AnythingList TVariableExpression_constructor(AnythingList vmt, String name) {
+  AnythingList instance = TExpression_constructor(vmt);
+  assert(is(instance, TVariableExpression));
+  append(instance, name); // TFunctionCallExpression_name
+  return instance;
+}
+
+// class TFunctionCallExpression extends TExpression
+AnythingList TFunctionCallExpression = extend(TExpression, 'TFunctionCallExpression');
+Integer TFunctionCallExpression_function = TExpression_instanceSize;
+Integer TFunctionCallExpression_arguments = TFunctionCallExpression_function + 1;
+Integer TFunctionCallExpression_instanceSize = TFunctionCallExpression_arguments + 1;
+String TFunctionCallExpression_toStringIndent(AnythingList this, Integer indent) {
+  AnythingList function = cast(this[TFunctionCallExpression_function]);
+  AnythingListList arguments = cast(this[TFunctionCallExpression_arguments]);
+  StringList argumentsList = [];
+  Integer index = 0;
+  while (index < len(arguments)) {
+    if (index > 0) {
+      append(argumentsList, ', ');
+    }
+    append(argumentsList, method(arguments[index], toStringIndent)(arguments[index], indent));
+    index += 1;
+  }
+  return concat(method(function, toStringIndent)(function, indent), '(', joinList(argumentsList), ')');
+}
+TFunctionCallExpression[toStringIndent] = TFunctionCallExpression_toStringIndent;
+AnythingList TFunctionCallExpression_constructor(AnythingList vmt, AnythingList function, AnythingListList arguments) {
+  AnythingList instance = TExpression_constructor(vmt);
+  assert(is(instance, TFunctionCallExpression));
+  assert(is(function, TExpression));
+  append(instance, function); // TFunctionCallExpression_function
+  for (argument in arguments) {
+    assert(is(argument, TExpression));
+  }
+  append(instance, arguments); // TFunctionCallExpression_arguments
+  return instance;
+}
+
+// class TSubscriptExpression extends TExpression
+AnythingList TSubscriptExpression = extend(TExpression, 'TSubscriptExpression');
+Integer TSubscriptExpression_list = TExpression_instanceSize;
+Integer TSubscriptExpression_argument = TSubscriptExpression_list + 1;
+Integer TSubscriptExpression_instanceSize = TSubscriptExpression_argument + 1;
+String TSubscriptExpression_toStringIndent(AnythingList this, Integer indent) {
+  AnythingList list = cast(this[TSubscriptExpression_list]);
+  AnythingList argument = cast(this[TSubscriptExpression_argument]);
+  return concat(method(list, toStringIndent)(list, indent), '[', method(argument, toStringIndent)(argument, indent), ']');
+}
+TSubscriptExpression[toStringIndent] = TSubscriptExpression_toStringIndent;
+Boolean TSubscriptExpression_isLValue(AnythingList this) {
+  return true;
+}
+TSubscriptExpression[isLValue] = TSubscriptExpression_isLValue;
+AnythingList TSubscriptExpression_constructor(AnythingList vmt, AnythingList list, AnythingList argument) {
+  AnythingList instance = TExpression_constructor(vmt);
+  assert(is(instance, TSubscriptExpression));
+  assert(is(list, TExpression));
+  assert(is(argument, TExpression));
+  append(instance, list); // TSubscriptExpression_list
+  append(instance, argument); // TSubscriptExpression_argument
+  return instance;
+}
+
+// class TUnaryExpression extends TExpression
+AnythingList TUnaryExpression = extend(TExpression, 'TUnaryExpression');
+Integer TUnaryExpression_rhs = TExpression_instanceSize;
+Integer TUnaryExpression_instanceSize = TUnaryExpression_rhs + 1;
+Integer describeUnaryOperator = len(TExpression);
+append(TUnaryExpression, null);
+String TUnaryExpression_toStringIndent(AnythingList this, Integer indent) {
+  AnythingList rhs = cast(this[TUnaryExpression_rhs]);
+  String operator = cast(method(this, describeUnaryOperator)(this));
+  return concat(
+    operator,
+    method(rhs, toStringIndent)(rhs, indent),
+  );
+}
+TUnaryExpression[toStringIndent] = TUnaryExpression_toStringIndent;
+AnythingList TUnaryExpression_constructor(AnythingList vmt, AnythingList rhs) {
+  assert(is(rhs, TExpression));
+  AnythingList instance = TExpression_constructor(vmt);
+  assert(is(instance, TUnaryExpression));
+  append(instance, rhs); // TUnaryExpression_rhs
+  return instance;
+}
+
+// class TIntegerNegationExpression extends TOperatorExpression
+AnythingList TIntegerNegationExpression = extend(TUnaryExpression, 'TIntegerNegationExpression');
+Integer TIntegerNegationExpression_instanceSize = TUnaryExpression_instanceSize;
+String TIntegerNegationExpression_describeUnaryOperator(AnythingList this) {
+  return '-';
+}
+TIntegerNegationExpression[describeUnaryOperator] = TIntegerNegationExpression_describeUnaryOperator;
+AnythingList TIntegerNegationExpression_constructor(AnythingList vmt, AnythingList rhs) {
+  AnythingList instance = TUnaryExpression_constructor(vmt, rhs);
+  assert(is(instance, TIntegerNegationExpression));
+  return instance;
+}
+
+// class TPlusExpression extends TOperatorExpression
+AnythingList TPlusExpression = extend(TUnaryExpression, 'TPlusExpression');
+Integer TPlusExpression_instanceSize = TUnaryExpression_instanceSize;
+String TPlusExpression_describeUnaryOperator(AnythingList this) {
+  return '+';
+}
+TPlusExpression[describeUnaryOperator] = TPlusExpression_describeUnaryOperator;
+AnythingList TPlusExpression_constructor(AnythingList vmt, AnythingList rhs) {
+  AnythingList instance = TUnaryExpression_constructor(vmt, rhs);
+  assert(is(instance, TPlusExpression));
+  return instance;
+}
+
+// class TBooleanNotExpression extends TOperatorExpression
+AnythingList TBooleanNotExpression = extend(TUnaryExpression, 'TBooleanNotExpression');
+Integer TBooleanNotExpression_instanceSize = TUnaryExpression_instanceSize;
+String TBooleanNotExpression_describeUnaryOperator(AnythingList this) {
+  return '!';
+}
+TBooleanNotExpression[describeUnaryOperator] = TBooleanNotExpression_describeUnaryOperator;
+AnythingList TBooleanNotExpression_constructor(AnythingList vmt, AnythingList rhs) {
+  AnythingList instance = TUnaryExpression_constructor(vmt, rhs);
+  assert(is(instance, TBooleanNotExpression));
+  return instance;
+}
+
+// class TBitwiseNotExpression extends TOperatorExpression
+AnythingList TBitwiseNotExpression = extend(TUnaryExpression, 'TBitwiseNotExpression');
+Integer TBitwiseNotExpression_instanceSize = TUnaryExpression_instanceSize;
+String TBitwiseNotExpression_describeUnaryOperator(AnythingList this) {
+  return '~';
+}
+TBitwiseNotExpression[describeUnaryOperator] = TBitwiseNotExpression_describeUnaryOperator;
+AnythingList TBitwiseNotExpression_constructor(AnythingList vmt, AnythingList rhs) {
+  AnythingList instance = TUnaryExpression_constructor(vmt, rhs);
+  assert(is(instance, TBitwiseNotExpression));
+  return instance;
+}
+
+// class TOperatorExpression extends TExpression
+AnythingList TOperatorExpression = extend(TExpression, 'TOperatorExpression');
+Integer TOperatorExpression_lhs = TExpression_instanceSize;
+Integer TOperatorExpression_rhs = TOperatorExpression_lhs + 1;
+Integer TOperatorExpression_instanceSize = TOperatorExpression_rhs + 1;
+Integer describeOperator = len(TExpression);
+append(TOperatorExpression, null);
+String TOperatorExpression_toStringIndent(AnythingList this, Integer indent) {
+  AnythingList lhs = cast(this[TOperatorExpression_lhs]);
+  AnythingList rhs = cast(this[TOperatorExpression_rhs]);
+  String operator = cast(method(this, describeOperator)(this));
+  return concat(
+    method(lhs, toStringIndent)(lhs, indent),
+    ' ',
+    operator,
+    ' ',
+    method(rhs, toStringIndent)(rhs, indent),
+  );
+}
+TOperatorExpression[toStringIndent] = TOperatorExpression_toStringIndent;
+AnythingList TOperatorExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  assert(is(lhs, TExpression));
+  assert(is(rhs, TExpression));
+  AnythingList instance = TExpression_constructor(vmt);
+  assert(is(instance, TOperatorExpression));
+  append(instance, lhs); // TOperatorExpression_lhs
+  append(instance, rhs); // TOperatorExpression_rhs
+  return instance;
+}
+
+// class TOperatorAdditionExpression extends TOperatorExpression
+AnythingList TOperatorAdditionExpression = extend(TOperatorExpression, 'TOperatorAdditionExpression');
+Integer TOperatorAdditionExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorAdditionExpression_describeOperator(AnythingList this) {
+  return '+';
+}
+TOperatorAdditionExpression[describeOperator] = TOperatorAdditionExpression_describeOperator;
+AnythingList TOperatorAdditionExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorAdditionExpression));
+  return instance;
+}
+
+// class TOperatorSubtractionExpression extends TOperatorExpression
+AnythingList TOperatorSubtractionExpression = extend(TOperatorExpression, 'TOperatorSubtractionExpression');
+Integer TOperatorSubtractionExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorSubtractionExpression_describeOperator(AnythingList this) {
+  return '-';
+}
+TOperatorSubtractionExpression[describeOperator] = TOperatorSubtractionExpression_describeOperator;
+AnythingList TOperatorSubtractionExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorSubtractionExpression));
+  return instance;
+}
+
+// class TOperatorMultiplicationExpression extends TOperatorExpression
+AnythingList TOperatorMultiplicationExpression = extend(TOperatorExpression, 'TOperatorMultiplicationExpression');
+Integer TOperatorMultiplicationExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorMultiplicationExpression_describeOperator(AnythingList this) {
+  return '*';
+}
+TOperatorMultiplicationExpression[describeOperator] = TOperatorMultiplicationExpression_describeOperator;
+AnythingList TOperatorMultiplicationExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorMultiplicationExpression));
+  return instance;
+}
+
+// class TOperatorDivisionExpression extends TOperatorExpression
+AnythingList TOperatorDivisionExpression = extend(TOperatorExpression, 'TOperatorDivisionExpression');
+Integer TOperatorDivisionExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorDivisionExpression_describeOperator(AnythingList this) {
+  return '/';
+}
+TOperatorDivisionExpression[describeOperator] = TOperatorDivisionExpression_describeOperator;
+AnythingList TOperatorDivisionExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorDivisionExpression));
+  return instance;
+}
+
+// class TOperatorModulusExpression extends TOperatorExpression
+AnythingList TOperatorModulusExpression = extend(TOperatorExpression, 'TOperatorModulusExpression');
+Integer TOperatorModulusExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorModulusExpression_describeOperator(AnythingList this) {
+  return '%';
+}
+TOperatorModulusExpression[describeOperator] = TOperatorModulusExpression_describeOperator;
+AnythingList TOperatorModulusExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorModulusExpression));
+  return instance;
+}
+
+// class TOperatorEqualsEqualsExpression extends TOperatorExpression
+AnythingList TOperatorEqualsEqualsExpression = extend(TOperatorExpression, 'TOperatorEqualsEqualsExpression');
+Integer TOperatorEqualsEqualsExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorEqualsEqualsExpression_describeOperator(AnythingList this) {
+  return '==';
+}
+TOperatorEqualsEqualsExpression[describeOperator] = TOperatorEqualsEqualsExpression_describeOperator;
+AnythingList TOperatorEqualsEqualsExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorEqualsEqualsExpression));
+  return instance;
+}
+
+// class TOperatorBangEqualsExpression extends TOperatorExpression
+AnythingList TOperatorBangEqualsExpression = extend(TOperatorExpression, 'TOperatorBangEqualsExpression');
+Integer TOperatorBangEqualsExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorBangEqualsExpression_describeOperator(AnythingList this) {
+  return '!=';
+}
+TOperatorBangEqualsExpression[describeOperator] = TOperatorBangEqualsExpression_describeOperator;
+AnythingList TOperatorBangEqualsExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorBangEqualsExpression));
+  return instance;
+}
+
+// class TOperatorLessThanExpression extends TOperatorExpression
+AnythingList TOperatorLessThanExpression = extend(TOperatorExpression, 'TOperatorLessThanExpression');
+Integer TOperatorLessThanExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorLessThanExpression_describeOperator(AnythingList this) {
+  return '<';
+}
+TOperatorLessThanExpression[describeOperator] = TOperatorLessThanExpression_describeOperator;
+AnythingList TOperatorLessThanExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorLessThanExpression));
+  return instance;
+}
+
+// class TOperatorLeftShiftExpression extends TOperatorExpression
+AnythingList TOperatorLeftShiftExpression = extend(TOperatorExpression, 'TOperatorLeftShiftExpression');
+Integer TOperatorLeftShiftExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorLeftShiftExpression_describeOperator(AnythingList this) {
+  return '<<';
+}
+TOperatorLeftShiftExpression[describeOperator] = TOperatorLeftShiftExpression_describeOperator;
+AnythingList TOperatorLeftShiftExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorLeftShiftExpression));
+  return instance;
+}
+
+// class TOperatorLessThanOrEqualsExpression extends TOperatorExpression
+AnythingList TOperatorLessThanOrEqualsExpression = extend(TOperatorExpression, 'TOperatorLessThanOrEqualsExpression');
+Integer TOperatorLessThanOrEqualsExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorLessThanOrEqualsExpression_describeOperator(AnythingList this) {
+  return '<=';
+}
+TOperatorLessThanOrEqualsExpression[describeOperator] = TOperatorLessThanOrEqualsExpression_describeOperator;
+AnythingList TOperatorLessThanOrEqualsExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorLessThanOrEqualsExpression));
+  return instance;
+}
+
+// class TOperatorGreaterThanExpression extends TOperatorExpression
+AnythingList TOperatorGreaterThanExpression = extend(TOperatorExpression, 'TOperatorGreaterThanExpression');
+Integer TOperatorGreaterThanExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorGreaterThanExpression_describeOperator(AnythingList this) {
+  return '>';
+}
+TOperatorGreaterThanExpression[describeOperator] = TOperatorGreaterThanExpression_describeOperator;
+AnythingList TOperatorGreaterThanExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorGreaterThanExpression));
+  return instance;
+}
+
+// class TOperatorRightShiftExpression extends TOperatorExpression
+AnythingList TOperatorRightShiftExpression = extend(TOperatorExpression, 'TOperatorRightShiftExpression');
+Integer TOperatorRightShiftExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorRightShiftExpression_describeOperator(AnythingList this) {
+  return '>>';
+}
+TOperatorRightShiftExpression[describeOperator] = TOperatorRightShiftExpression_describeOperator;
+AnythingList TOperatorRightShiftExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorRightShiftExpression));
+  return instance;
+}
+
+// class TOperatorGreaterThanOrEqualsExpression extends TOperatorExpression
+AnythingList TOperatorGreaterThanOrEqualsExpression = extend(TOperatorExpression, 'TOperatorGreaterThanOrEqualsExpression');
+Integer TOperatorGreaterThanOrEqualsExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorGreaterThanOrEqualsExpression_describeOperator(AnythingList this) {
+  return '>=';
+}
+TOperatorGreaterThanOrEqualsExpression[describeOperator] = TOperatorGreaterThanOrEqualsExpression_describeOperator;
+AnythingList TOperatorGreaterThanOrEqualsExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorGreaterThanOrEqualsExpression));
+  return instance;
+}
+
+// class TOperatorBitwiseAndExpression extends TOperatorExpression
+AnythingList TOperatorBitwiseAndExpression = extend(TOperatorExpression, 'TOperatorBitwiseAndExpression');
+Integer TOperatorBitwiseAndExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorBitwiseAndExpression_describeOperator(AnythingList this) {
+  return '&';
+}
+TOperatorBitwiseAndExpression[describeOperator] = TOperatorBitwiseAndExpression_describeOperator;
+AnythingList TOperatorBitwiseAndExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorBitwiseAndExpression));
+  return instance;
+}
+
+// class TOperatorLogicalAndExpression extends TOperatorExpression
+AnythingList TOperatorLogicalAndExpression = extend(TOperatorExpression, 'TOperatorLogicalAndExpression');
+Integer TOperatorLogicalAndExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorLogicalAndExpression_describeOperator(AnythingList this) {
+  return '&&';
+}
+TOperatorLogicalAndExpression[describeOperator] = TOperatorLogicalAndExpression_describeOperator;
+AnythingList TOperatorLogicalAndExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorLogicalAndExpression));
+  return instance;
+}
+
+// class TOperatorBitwiseOrExpression extends TOperatorExpression
+AnythingList TOperatorBitwiseOrExpression = extend(TOperatorExpression, 'TOperatorBitwiseOrExpression');
+Integer TOperatorBitwiseOrExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorBitwiseOrExpression_describeOperator(AnythingList this) {
+  return '|';
+}
+TOperatorBitwiseOrExpression[describeOperator] = TOperatorBitwiseOrExpression_describeOperator;
+AnythingList TOperatorBitwiseOrExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorBitwiseOrExpression));
+  return instance;
+}
+
+// class TOperatorLogicalOrExpression extends TOperatorExpression
+AnythingList TOperatorLogicalOrExpression = extend(TOperatorExpression, 'TOperatorLogicalOrExpression');
+Integer TOperatorLogicalOrExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorLogicalOrExpression_describeOperator(AnythingList this) {
+  return '||';
+}
+TOperatorLogicalOrExpression[describeOperator] = TOperatorLogicalOrExpression_describeOperator;
+AnythingList TOperatorLogicalOrExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorLogicalOrExpression));
+  return instance;
+}
+
+// class TOperatorBitwiseXorExpression extends TOperatorExpression
+AnythingList TOperatorBitwiseXorExpression = extend(TOperatorExpression, 'TOperatorBitwiseXorExpression');
+Integer TOperatorBitwiseXorExpression_instanceSize = TOperatorExpression_instanceSize;
+String TOperatorBitwiseXorExpression_describeOperator(AnythingList this) {
+  return '^';
+}
+TOperatorBitwiseXorExpression[describeOperator] = TOperatorBitwiseXorExpression_describeOperator;
+AnythingList TOperatorBitwiseXorExpression_constructor(AnythingList vmt, AnythingList lhs, AnythingList rhs) {
+  AnythingList instance = TOperatorExpression_constructor(vmt, lhs, rhs);
+  assert(is(instance, TOperatorBitwiseXorExpression));
+  return instance;
+}
+
+// class TStatement extends TAstNode
+AnythingList TStatement = extend(TAstNode, 'TStatement');
+Integer TStatement_instanceSize = TAstNode_instanceSize;
+AnythingList TStatement_constructor(AnythingList vmt) {
+  AnythingList instance = TAstNode_constructor(vmt);
+  assert(is(instance, TStatement));
+  return instance;
+}
+
+// class TStatementBlock extends TAstNode
+AnythingList TStatementBlock = extend(TAstNode, 'TStatementBlock');
+Integer TStatementBlock_children = TAstNode_instanceSize;
+Integer TStatementBlock_instanceSize = TStatementBlock_children + 1;
+String TStatementBlock_toStringIndent(AnythingList this, Integer indent) {
+  AnythingListList children = cast(this[TStatementBlock_children]);
+  StringList buffer = [];
+  for (statement in children) {
+    append(buffer, concat(stringTimes(' ', indent)));
+    append(buffer, method(statement, toStringIndent)(statement, indent));
+  }
+  return joinList(buffer);
+}
+TStatementBlock[toStringIndent] = TStatementBlock_toStringIndent;
+AnythingList TStatementBlock_constructor(AnythingList vmt, AnythingListList statements) {
+  AnythingList instance = TAstNode_constructor(vmt);
+  assert(is(instance, TStatementBlock));
+  append(instance, statements); // TStatementBlock_children
+  return instance;
+}
+
+// class TEnumDeclaration extends TStatement
+AnythingList TEnumDeclaration = extend(TStatement, 'TEnumDeclaration');
+Integer TEnumDeclaration_name = TStatement_instanceSize;
+Integer TEnumDeclaration_values = TEnumDeclaration_name + 1;
+Integer TEnumDeclaration_instanceSize = TEnumDeclaration_values + 1;
+String TEnumDeclaration_toStringIndent(AnythingList this, Integer indent) {
+  StringList buffer = ['enum ', cast(this[TEnumDeclaration_name]), ' { '];
+  StringList values = cast(this[TEnumDeclaration_values]);
+  Integer index = 0;
+  while (index < len(values)) {
+    if (index > 0) {
+      append(buffer, ' ');
+    }
+    append(buffer, values[index]);
+    index += 1;
+  }
+  append(buffer, ' }\n');
+  return joinList(buffer);
+}
+TEnumDeclaration[toStringIndent] = TEnumDeclaration_toStringIndent;
+AnythingList TEnumDeclaration_constructor(AnythingList vmt, String name, StringList values) {
+  AnythingList instance = TStatement_constructor(vmt);
+  assert(is(instance, TEnumDeclaration));
+  append(instance, name);
+  append(instance, values);
+  return instance;
+}
+
+// class TExpressionStatement extends TStatement
+AnythingList TExpressionStatement = extend(TStatement, 'TExpressionStatement');
+Integer TExpressionStatement_expression = TStatement_instanceSize;
+Integer TExpressionStatement_instanceSize = TExpressionStatement_expression + 1;
+String TExpressionStatement_toStringIndent(AnythingList this, Integer indent) {
+  AnythingList expression = cast(this[TExpressionStatement_expression]);
+  return concat(method(expression, toStringIndent)(expression, indent), ';\n');
+}
+TExpressionStatement[toStringIndent] = TExpressionStatement_toStringIndent;
+AnythingList TExpressionStatement_constructor(AnythingList vmt, AnythingList expression) {
+  AnythingList instance = TStatement_constructor(vmt);
+  assert(is(instance, TExpressionStatement));
+  append(instance, expression);
+  return instance;
+}
+
+// class TReturnStatement extends TStatement
+AnythingList TReturnStatement = extend(TStatement, 'TReturnStatement');
+Integer TReturnStatement_expression = TStatement_instanceSize;
+Integer TReturnStatement_instanceSize = TReturnStatement_expression + 1;
+String TReturnStatement_toStringIndent(AnythingList this, Integer indent) {
+  AnythingList expression = cast(this[TReturnStatement_expression]);
+  if (expression == null) {
+    return 'return;';
+  }
+  return concat('return ', method(expression, toStringIndent)(expression, indent), ';\n');
+}
+TReturnStatement[toStringIndent] = TReturnStatement_toStringIndent;
+AnythingList TReturnStatement_constructor(AnythingList vmt, AnythingList expression) {
+  AnythingList instance = TStatement_constructor(vmt);
+  assert(is(instance, TReturnStatement));
+  assert(expression == null || is(expression, TExpression));
+  append(instance, expression);
+  return instance;
+}
+
+// class TImportStatement extends TStatement
+AnythingList TImportStatement = extend(TStatement, 'TImportStatement');
+Integer TImportStatement_path = TStatement_instanceSize;
+Integer TImportStatement_instanceSize = TImportStatement_path + 1;
+String TImportStatement_toStringIndent(AnythingList this, Integer indent) {
+  String path = cast(this[TImportStatement_path]);
+  return concat('import "', path, '";\n');
+}
+TImportStatement[toStringIndent] = TImportStatement_toStringIndent;
+AnythingList TImportStatement_constructor(AnythingList vmt, String path) {
+  AnythingList instance = TStatement_constructor(vmt);
+  assert(is(instance, TImportStatement));
+  append(instance, path);
+  return instance;
+}
+
+// class TAssignmentStatement extends TStatement
+AnythingList TAssignmentStatement = extend(TStatement, 'TAssignmentStatement');
+Integer TAssignmentStatement_lValue = TStatement_instanceSize;
+Integer TAssignmentStatement_rValue = TAssignmentStatement_lValue + 1;
+Integer TAssignmentStatement_instanceSize = TAssignmentStatement_rValue + 1;
+Integer describeAssignmentOperator = len(TAssignmentStatement);
+append(TAssignmentStatement, null);
+String TAssignmentStatement_toStringIndent(AnythingList this, Integer indent) {
+  AnythingList lValue = cast(this[TAssignmentStatement_lValue]);
+  AnythingList rValue = cast(this[TAssignmentStatement_rValue]);
+  return concat(
+    method(lValue, toStringIndent)(lValue, indent),
+    ' ',
+    method(this, describeAssignmentOperator)(this),
+    ' ',
+    method(rValue, toStringIndent)(rValue, indent),
+    ';\n',
+  );
+}
+TAssignmentStatement[toStringIndent] = TAssignmentStatement_toStringIndent;
+AnythingList TAssignmentStatement_constructor(AnythingList vmt, AnythingList lValue, AnythingList rValue) {
+  assert(is(lValue, TExpression));
+  assert(cast(method(lValue, isLValue)(lValue)));
+  assert(is(rValue, TExpression));
+  AnythingList instance = TStatement_constructor(vmt);
+  assert(is(instance, TAssignmentStatement));
+  append(instance, lValue);
+  append(instance, rValue);
+  return instance;
+}
+
+// class TStraightAssignmentStatement extends TAssignmentStatement
+AnythingList TStraightAssignmentStatement = extend(TAssignmentStatement, 'TStraightAssignmentStatement');
+Integer TStraightAssignmentStatement_instanceSize = TAssignmentStatement_instanceSize;
+String TStraightAssignmentStatement_describeAssignmentOperator(AnythingList this) {
+  return '=';
+}
+TStraightAssignmentStatement[describeAssignmentOperator] = TStraightAssignmentStatement_describeAssignmentOperator;
+AnythingList TStraightAssignmentStatement_constructor(AnythingList vmt, AnythingList lValue, AnythingList rValue) {
+  assert(is(lValue, TExpression));
+  assert(cast(method(lValue, isLValue)(lValue)));
+  assert(is(rValue, TExpression));
+  AnythingList instance = TAssignmentStatement_constructor(vmt, lValue, rValue);
+  assert(is(instance, TStraightAssignmentStatement));
+  return instance;
+}
+
+// class TPlusAssignmentStatement extends TAssignmentStatement
+AnythingList TPlusAssignmentStatement = extend(TAssignmentStatement, 'TPlusAssignmentStatement');
+Integer TPlusAssignmentStatement_instanceSize = TAssignmentStatement_instanceSize;
+String TPlusAssignmentStatement_describeAssignmentOperator(AnythingList this) {
+  return '+=';
+}
+TPlusAssignmentStatement[describeAssignmentOperator] = TPlusAssignmentStatement_describeAssignmentOperator;
+AnythingList TPlusAssignmentStatement_constructor(AnythingList vmt, AnythingList lValue, AnythingList rValue) {
+  assert(is(lValue, TExpression));
+  assert(cast(method(lValue, isLValue)(lValue)));
+  assert(is(rValue, TExpression));
+  AnythingList instance = TAssignmentStatement_constructor(vmt, lValue, rValue);
+  assert(is(instance, TPlusAssignmentStatement));
+  return instance;
+}
+
+// class TMinusAssignmentStatement extends TAssignmentStatement
+AnythingList TMinusAssignmentStatement = extend(TAssignmentStatement, 'TMinusAssignmentStatement');
+Integer TMinusAssignmentStatement_instanceSize = TAssignmentStatement_instanceSize;
+String TMinusAssignmentStatement_describeAssignmentOperator(AnythingList this) {
+  return '-=';
+}
+TMinusAssignmentStatement[describeAssignmentOperator] = TMinusAssignmentStatement_describeAssignmentOperator;
+AnythingList TMinusAssignmentStatement_constructor(AnythingList vmt, AnythingList lValue, AnythingList rValue) {
+  assert(is(lValue, TExpression));
+  assert(cast(method(lValue, isLValue)(lValue)));
+  assert(is(rValue, TExpression));
+  AnythingList instance = TAssignmentStatement_constructor(vmt, lValue, rValue);
+  assert(is(instance, TMinusAssignmentStatement));
+  return instance;
+}
+
+// class TAsteriskAssignmentStatement extends TAssignmentStatement
+AnythingList TAsteriskAssignmentStatement = extend(TAssignmentStatement, 'TAsteriskAssignmentStatement');
+Integer TAsteriskAssignmentStatement_instanceSize = TAssignmentStatement_instanceSize;
+String TAsteriskAssignmentStatement_describeAssignmentOperator(AnythingList this) {
+  return '*=';
+}
+TAsteriskAssignmentStatement[describeAssignmentOperator] = TAsteriskAssignmentStatement_describeAssignmentOperator;
+AnythingList TAsteriskAssignmentStatement_constructor(AnythingList vmt, AnythingList lValue, AnythingList rValue) {
+  assert(is(lValue, TExpression));
+  assert(cast(method(lValue, isLValue)(lValue)));
+  assert(is(rValue, TExpression));
+  AnythingList instance = TAssignmentStatement_constructor(vmt, lValue, rValue);
+  assert(is(instance, TAsteriskAssignmentStatement));
+  return instance;
+}
+
+// class TSlashAssignmentStatement extends TAssignmentStatement
+AnythingList TSlashAssignmentStatement = extend(TAssignmentStatement, 'TSlashAssignmentStatement');
+Integer TSlashAssignmentStatement_instanceSize = TAssignmentStatement_instanceSize;
+String TSlashAssignmentStatement_describeAssignmentOperator(AnythingList this) {
+  return '/=';
+}
+TSlashAssignmentStatement[describeAssignmentOperator] = TSlashAssignmentStatement_describeAssignmentOperator;
+AnythingList TSlashAssignmentStatement_constructor(AnythingList vmt, AnythingList lValue, AnythingList rValue) {
+  assert(is(lValue, TExpression));
+  assert(cast(method(lValue, isLValue)(lValue)));
+  assert(is(rValue, TExpression));
+  AnythingList instance = TAssignmentStatement_constructor(vmt, lValue, rValue);
+  assert(is(instance, TSlashAssignmentStatement));
+  return instance;
+}
+
+// class TModulusAssignmentStatement extends TAssignmentStatement
+AnythingList TModulusAssignmentStatement = extend(TAssignmentStatement, 'TModulusAssignmentStatement');
+Integer TModulusAssignmentStatement_instanceSize = TAssignmentStatement_instanceSize;
+String TModulusAssignmentStatement_describeAssignmentOperator(AnythingList this) {
+  return '%=';
+}
+TModulusAssignmentStatement[describeAssignmentOperator] = TModulusAssignmentStatement_describeAssignmentOperator;
+AnythingList TModulusAssignmentStatement_constructor(AnythingList vmt, AnythingList lValue, AnythingList rValue) {
+  assert(is(lValue, TExpression));
+  assert(cast(method(lValue, isLValue)(lValue)));
+  assert(is(rValue, TExpression));
+  AnythingList instance = TAssignmentStatement_constructor(vmt, lValue, rValue);
+  assert(is(instance, TModulusAssignmentStatement));
+  return instance;
+}
+
+// class TBitwiseAndAssignmentStatement extends TAssignmentStatement
+AnythingList TBitwiseAndAssignmentStatement = extend(TAssignmentStatement, 'TBitwiseAndAssignmentStatement');
+Integer TBitwiseAndAssignmentStatement_instanceSize = TAssignmentStatement_instanceSize;
+String TBitwiseAndAssignmentStatement_describeAssignmentOperator(AnythingList this) {
+  return '&=';
+}
+TBitwiseAndAssignmentStatement[describeAssignmentOperator] = TBitwiseAndAssignmentStatement_describeAssignmentOperator;
+AnythingList TBitwiseAndAssignmentStatement_constructor(AnythingList vmt, AnythingList lValue, AnythingList rValue) {
+  assert(is(lValue, TExpression));
+  assert(cast(method(lValue, isLValue)(lValue)));
+  assert(is(rValue, TExpression));
+  AnythingList instance = TAssignmentStatement_constructor(vmt, lValue, rValue);
+  assert(is(instance, TBitwiseAndAssignmentStatement));
+  return instance;
+}
+
+// class TBitwiseXorAssignmentStatement extends TAssignmentStatement
+AnythingList TBitwiseXorAssignmentStatement = extend(TAssignmentStatement, 'TBitwiseXorAssignmentStatement');
+Integer TBitwiseXorAssignmentStatement_instanceSize = TAssignmentStatement_instanceSize;
+String TBitwiseXorAssignmentStatement_describeAssignmentOperator(AnythingList this) {
+  return '^=';
+}
+TBitwiseXorAssignmentStatement[describeAssignmentOperator] = TBitwiseXorAssignmentStatement_describeAssignmentOperator;
+AnythingList TBitwiseXorAssignmentStatement_constructor(AnythingList vmt, AnythingList lValue, AnythingList rValue) {
+  assert(is(lValue, TExpression));
+  assert(cast(method(lValue, isLValue)(lValue)));
+  assert(is(rValue, TExpression));
+  AnythingList instance = TAssignmentStatement_constructor(vmt, lValue, rValue);
+  assert(is(instance, TBitwiseXorAssignmentStatement));
+  return instance;
+}
+
+// class TBitwiseOrAssignmentStatement extends TAssignmentStatement
+AnythingList TBitwiseOrAssignmentStatement = extend(TAssignmentStatement, 'TBitwiseOrAssignmentStatement');
+Integer TBitwiseOrAssignmentStatement_instanceSize = TAssignmentStatement_instanceSize;
+String TBitwiseOrAssignmentStatement_describeAssignmentOperator(AnythingList this) {
+  return '|=';
+}
+TBitwiseOrAssignmentStatement[describeAssignmentOperator] = TBitwiseOrAssignmentStatement_describeAssignmentOperator;
+AnythingList TBitwiseOrAssignmentStatement_constructor(AnythingList vmt, AnythingList lValue, AnythingList rValue) {
+  assert(is(lValue, TExpression));
+  assert(cast(method(lValue, isLValue)(lValue)));
+  assert(is(rValue, TExpression));
+  AnythingList instance = TAssignmentStatement_constructor(vmt, lValue, rValue);
+  assert(is(instance, TBitwiseOrAssignmentStatement));
+  return instance;
+}
+
+// class TVariableDeclarationStatement extends TStatement
+AnythingList TVariableDeclarationStatement = extend(TStatement, 'TVariableDeclarationStatement');
+Integer TVariableDeclarationStatement_type = TStatement_instanceSize;
+Integer TVariableDeclarationStatement_identifier = TVariableDeclarationStatement_type + 1;
+Integer TVariableDeclarationStatement_rValue = TVariableDeclarationStatement_identifier + 1;
+Integer TVariableDeclarationStatement_instanceSize = TVariableDeclarationStatement_rValue + 1;
+String TVariableDeclarationStatement_toStringIndent(AnythingList this, Integer indent) {
+  AnythingList type = cast(this[TVariableDeclarationStatement_type]);
+  AnythingList identifier = cast(this[TVariableDeclarationStatement_identifier]);
+  AnythingList rValue = cast(this[TVariableDeclarationStatement_rValue]);
+  if (rValue == null) {
+    return concat(type, ' ', identifier, ';\n');
+  }
+  return concat(type, ' ', identifier, ' = ', method(rValue, toStringIndent)(rValue, indent), ';\n');
+}
+TVariableDeclarationStatement[toStringIndent] = TVariableDeclarationStatement_toStringIndent;
+AnythingList TVariableDeclarationStatement_constructor(AnythingList vmt, String type, String identifier, AnythingList rValue) {
+  assert(rValue == null || is(rValue, TExpression));
+  AnythingList instance = TStatement_constructor(vmt);
+  assert(is(instance, TVariableDeclarationStatement));
+  append(instance, type);
+  append(instance, identifier);
+  append(instance, rValue);
+  return instance;
+}
+
+// class TFunctionDeclarationStatement extends TStatement
+AnythingList TFunctionDeclarationStatement = extend(TStatement, 'TFunctionDeclarationStatement');
+Integer TFunctionDeclarationStatement_returnType = TStatement_instanceSize;
+Integer TFunctionDeclarationStatement_identifier = TFunctionDeclarationStatement_returnType + 1;
+Integer TFunctionDeclarationStatement_parameters = TFunctionDeclarationStatement_identifier + 1;
+Integer TFunctionDeclarationStatement_body = TFunctionDeclarationStatement_parameters + 1;
+Integer TFunctionDeclarationStatement_instanceSize = TFunctionDeclarationStatement_body + 1;
+String TFunctionDeclarationStatement_toStringIndent(AnythingList this, Integer indent) {
+  AnythingList returnType = cast(this[TFunctionDeclarationStatement_returnType]);
+  AnythingList identifier = cast(this[TFunctionDeclarationStatement_identifier]);
+  StringListList parameters = cast(this[TFunctionDeclarationStatement_parameters]);
+  AnythingList body = cast(this[TFunctionDeclarationStatement_body]);
+  StringList parametersList = [];
+  for (parameter in parameters) {
+    if (len(parametersList) > 0) {
+      append(parametersList, ', ');
+    }
+    append(parametersList, parameter[0]);
+    append(parametersList, ' ');
+    append(parametersList, parameter[1]);
+  }
+  String bodyString = cast(method(body, toStringIndent)(body, indent + 2));
+  return concat(returnType, ' ', identifier, '(', joinList(parametersList), ') {\n', bodyString, '}\n');
+}
+TFunctionDeclarationStatement[toStringIndent] = TFunctionDeclarationStatement_toStringIndent;
+AnythingList TFunctionDeclarationStatement_constructor(AnythingList vmt, String returnType, String identifier, StringListList parameters, AnythingList body) {
+  assert(is(body, TStatementBlock));
+  AnythingList instance = TStatement_constructor(vmt);
+  assert(is(instance, TFunctionDeclarationStatement));
+  append(instance, returnType);
+  append(instance, identifier);
+  append(instance, parameters);
+  append(instance, body);
+  return instance;
+}
+
+// class TElseClause extends TAstNode
+AnythingList TElseClause = extend(TAstNode, 'TElseClause');
+Integer TElseClause_instanceSize = TAstNode_instanceSize;
+AnythingList TElseClause_constructor(AnythingList vmt) {
+  AnythingList instance = TAstNode_constructor(vmt);
+  assert(is(instance, TElseClause));
+  return instance;
+}
+
+// class TIfStatement extends TStatement
+AnythingList TIfStatement = extend(TStatement, 'TIfStatement');
+Integer TIfStatement_expression = TStatement_instanceSize;
+Integer TIfStatement_block = TIfStatement_expression + 1;
+Integer TIfStatement_elseClause = TIfStatement_block + 1;
+Integer TIfStatement_instanceSize = TIfStatement_elseClause + 1;
+String TIfStatement_toStringIndent(AnythingList this, Integer indent) {
+  AnythingList expression = cast(this[TIfStatement_expression]);
+  AnythingList block = cast(this[TIfStatement_block]);
+  AnythingList elseClause = cast(this[TIfStatement_elseClause]);
+  String elseString;
+  if (elseClause != null) {
+    elseString = cast(method(elseClause, toStringIndent)(elseClause, indent));
+  } else {
+    elseString = '\n';
+  }
+  return concat(
+    'if (', method(expression, toStringIndent)(expression, indent), ') {\n',
+    method(block, toStringIndent)(block, indent + 2),
+    stringTimes(' ', indent), '}', elseString,
+  );
+}
+TIfStatement[toStringIndent] = TIfStatement_toStringIndent;
+AnythingList TIfStatement_constructor(AnythingList vmt, AnythingList expression, AnythingList block, AnythingList elseClause) {
+  assert(is(expression, TExpression));
+  assert(is(block, TStatementBlock));
+  assert(elseClause == null || is(elseClause, TElseClause));
+  AnythingList instance = TStatement_constructor(vmt);
+  assert(is(instance, TIfStatement));
+  append(instance, expression);
+  append(instance, block);
+  append(instance, elseClause);
+  return instance;
+}
+
+// class TDefaultElseClause extends TElseClause
+AnythingList TDefaultElseClause = extend(TElseClause, 'TDefaultElseClause');
+Integer TDefaultElseClause_block = TElseClause_instanceSize;
+Integer TDefaultElseClause_instanceSize = TDefaultElseClause_block + 1;
+String TDefaultElseClause_toStringIndent(AnythingList this, Integer indent) {
+  AnythingList block = cast(this[TDefaultElseClause_block]);
+  return concat(
+    ' else {\n',
+    method(block, toStringIndent)(block, indent + 2),
+    stringTimes(' ', indent), '}\n',
+  );
+}
+TDefaultElseClause[toStringIndent] = TDefaultElseClause_toStringIndent;
+AnythingList TDefaultElseClause_constructor(AnythingList vmt, AnythingList block) {
+  assert(is(block, TStatementBlock));
+  AnythingList instance = TElseClause_constructor(vmt);
+  assert(is(instance, TDefaultElseClause));
+  append(instance, block);
+  return instance;
+}
+
+// class TElseIfClause extends TElseClause
+AnythingList TElseIfClause = extend(TElseClause, 'TElseIfClause');
+Integer TElseIfClause_if = TElseClause_instanceSize;
+Integer TElseIfClause_instanceSize = TElseIfClause_if + 1;
+String TElseIfClause_toStringIndent(AnythingList this, Integer indent) {
+  AnythingList clause = cast(this[TElseIfClause_if]);
+  return concat(' else ', method(clause, toStringIndent)(clause, indent));
+}
+TElseIfClause[toStringIndent] = TElseIfClause_toStringIndent;
+AnythingList TElseIfClause_constructor(AnythingList vmt, AnythingList clause) {
+  assert(is(clause, TIfStatement));
+  AnythingList instance = TElseClause_constructor(vmt);
+  assert(is(instance, TElseIfClause));
+  append(instance, clause);
+  return instance;
+}
+
+// class TWhileStatement extends TStatement
+AnythingList TWhileStatement = extend(TStatement, 'TWhileStatement');
+Integer TWhileStatement_expression = TStatement_instanceSize;
+Integer TWhileStatement_block = TWhileStatement_expression + 1;
+Integer TWhileStatement_instanceSize = TWhileStatement_block + 1;
+String TWhileStatement_toStringIndent(AnythingList this, Integer indent) {
+  AnythingList expression = cast(this[TWhileStatement_expression]);
+  AnythingList block = cast(this[TWhileStatement_block]);
+  return concat(
+    'while (', method(expression, toStringIndent)(expression, indent), ') {\n',
+    method(block, toStringIndent)(block, indent + 2),
+    stringTimes(' ', indent), '}\n',
+  );
+}
+TWhileStatement[toStringIndent] = TWhileStatement_toStringIndent;
+AnythingList TWhileStatement_constructor(AnythingList vmt, AnythingList expression, AnythingList block) {
+  assert(is(expression, TExpression));
+  assert(is(block, TStatementBlock));
+  AnythingList instance = TStatement_constructor(vmt);
+  assert(is(instance, TWhileStatement));
+  append(instance, expression);
+  append(instance, block);
+  return instance;
+}
+
+// class TForStatement extends TStatement
+AnythingList TForStatement = extend(TStatement, 'TForStatement');
+Integer TForStatement_variable = TStatement_instanceSize;
+Integer TForStatement_iterable = TForStatement_variable + 1;
+Integer TForStatement_block = TForStatement_iterable + 1;
+Integer TForStatement_instanceSize = TForStatement_block + 1;
+String TForStatement_toStringIndent(AnythingList this, Integer indent) {
+  AnythingList variable = cast(this[TForStatement_variable]);
+  AnythingList iterable = cast(this[TForStatement_iterable]);
+  AnythingList block = cast(this[TForStatement_block]);
+  return concat(
+    'for (',
+    variable,
+    ' in ',
+    method(iterable, toStringIndent)(iterable, indent),
+    ') {\n',
+    method(block, toStringIndent)(block, indent + 2),
+    stringTimes(' ', indent), '}\n',
+  );
+}
+TForStatement[toStringIndent] = TForStatement_toStringIndent;
+AnythingList TForStatement_constructor(AnythingList vmt, String variable, AnythingList iterable, AnythingList block) {
+  assert(is(iterable, TExpression));
+  assert(is(block, TStatementBlock));
+  AnythingList instance = TStatement_constructor(vmt);
+  assert(is(instance, TForStatement));
+  append(instance, variable);
+  append(instance, iterable);
+  append(instance, block);
+  return instance;
+}
+
+// class TProgram extends TStatementBlock
+AnythingList TProgram = extend(TStatementBlock, 'TProgram');
+Integer TProgram_instanceSize = TStatementBlock_instanceSize;
+AnythingList TProgram_constructor(AnythingList vmt, AnythingList body) {
+  AnythingList instance = TStatementBlock_constructor(vmt, body);
+  assert(is(instance, TProgram));
+  return instance;
+}

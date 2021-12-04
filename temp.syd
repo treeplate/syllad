@@ -1,0 +1,182 @@
+import 'syd-tokenizer.syd';
+import 'syd-ast.syd';
+
+println('syllad self-hosting compiler');
+
+// syllad spec:
+// functions 'print', 'charsOf',
+// 'addLists', 'parseInt',
+// 'concat', 'len', 'input',
+// 'iterator', 'next', 'current',
+// 'append', 'stringTimes'
+// 'first', 'last', 'single'
+// 'copy', 'scalarValues',
+// 'assert', 'exit',
+// 'readFile', 'readFileBytes',
+// 'println', 'throw', 'hex',
+// 'chr', 'cast'
+// 'padLeft', 'joinList'
+// while loop
+// for-in loops
+// classical if-else
+// classical variables, but with no 'var' or 'final' or 'const'
+// enums (enum X {a b c}  ...  X state = Xa; ... state = Xb;   if(state == Xa) { ... })
+// values are functions or true or false or null or int literal or list literal (e.g. [1, 2]) or string literal ('' or "", newlines ok, single-character escapes)
+// types, or <t>, are:
+// Anything, Integer, String, Boolean, <t>List, <t>Iterable, <t>Iterator, Null, <t> (enums)
+// operators: [], <, >, +, -, /, *, &, &&, |, ^, ||, >=, <=, >>, <<
+
+// WISHLIST
+// P1 (blocking progress):
+//   performance
+//   some errors with line numbers are... inaccurate
+//   errors don't specify the file name
+// P2 (making things much harder):
+//   scary: Integer a = 0; Integer b; a = b; // sets an Integer variable to a non-Integer type (unsound type safety)
+//   scary: this should be true (but isn't): 2-3+4 == (2-3)+4
+//   not all errors say where the error happened (missing stack traces on asserts, e.g.)
+//   scary: this prints true!: enum a { aa } a x = aaa; enum aa { a } aa y = aaa; println(x == y);
+// P3 (nice-to-haves for which i've found workarounds):
+//   utf8 decoder (so that i can get scalarValues out of readFileBytes)
+//   imports create new instances (work more like includes than imports)
+//   language reference
+//   functions to have named arguments with default values
+//   a way to call function references: AnythingList f = [print, concat]; f[0](f[1](['hello', 'world']));
+//   some way to call syscalls / OS functions
+//   switch (especially if the compiler can report missing enum values)
+//   no way to catch exceptions
+//   try-finally
+//   typed empty list constructor
+//   constants
+//   scary: for declares the identifier in parent scope; for, if, while blocks do not introduce new scope
+//   scary: true and false can be reassigned
+//   IntegerList a = [1]; append(a, 'S'); // should fail
+//   compiler doesn't check function return types
+//   string interpolation
+//   structs
+
+
+// Concrete Types
+//  * Anything
+//  * Null (is Anything)
+//  * Integer (is Anything)
+//  * Boolean (is Anything)
+//  * String (is Anything)
+//  * <T>Iterable (is Anything)
+//  * <T>List (is a <T>Iterable)
+//  * <T>Iterator (is Anything)
+//  * <T> (defined using "enum" keyword) (is Anything)
+//  * functions, with signatures (is Anything)
+
+// lvalues:
+//  * Can be assigned.
+//  * Can have [] subscript applied
+//  <identifier> // if declared
+//  <lvalue:List> "[" <expression:Integer> "]" // returns the setter for that index in the list
+
+// statements
+//  enum <identifier> { <identifier>* } // declares a type and a bunch of values
+//  <Type:R> <identifier> (  ) { <statement>* } // returns must have R return type
+//  <Type:T> <identifier> [= <expression:T>];
+//  <lvalue:T> = <expression:T>;
+//  <expression>;
+//  while (<expression:Boolean>) { <statements>* }
+//  for (<identifier:T> in <expression:TIterable>) { <statement>* }      // declares the identifier in parent scope, does not introduce new scope
+//  if (<expression:Boolean) { <statement>* } [ else <if> ]* [ else { <statement>* } ]
+//  return [<expression:R>], break, continue
+
+// expression:T
+//  <identifier:T>
+//  <literal:T>
+//  <expression:T> <2-ary operator:T> <expression:T> // operators: <, >, +, -, /, *, &, &&, |, ^, ||, >=, <=, >>, << (precedence matches C++)
+//  <expression:function>( [ <expression> [ , <expression> ]* ] ) // expressions must match signature of function
+//  <unaryoperator:T> <expression:T>
+
+// literals
+//  <integer>, <String>, true, false, null
+//  "[" <expression> [ , <expressions> ]* "]"
+
+
+// Types
+
+// class TNullType
+AnythingList TNullType = extend(TObject, 'TNullType');
+Integer TNullType_instanceSize = TObject_instanceSize;
+AnythingList TNullType_constructor(AnythingList vmt) {
+  AnythingList instance = TObject_constructor(vmt);
+  assert(is(instance, TNullType));
+  return instance;
+}
+
+// class TIntegerType
+AnythingList TIntegerType = extend(TObject, 'TIntegerType');
+Integer TIntegerType_instanceSize = TObject_instanceSize;
+AnythingList TIntegerType_constructor(AnythingList vmt) {
+  AnythingList instance = TObject_constructor(vmt);
+  assert(is(instance, TIntegerType));
+  return instance;
+}
+
+// class TBooleanType
+AnythingList TBooleanType = extend(TObject, 'TBooleanType');
+Integer TTBooleanType_instanceSize = TObject_instanceSize;
+AnythingList TBooleanType_constructor(AnythingList vmt) {
+  AnythingList instance = TObject_constructor(vmt);
+  assert(is(instance, TBooleanType));
+  return instance;
+}
+
+// class TStringType
+AnythingList TStringType = extend(TObject, 'TStringType');
+Integer TStringType_instanceSize = TObject_instanceSize;
+AnythingList TStringType_constructor(AnythingList vmt) {
+  AnythingList instance = TObject_constructor(vmt);
+  assert(is(instance, TStringType));
+  return instance;
+}
+
+// class TEnumType
+AnythingList TEnumType = extend(TObject, 'TEnumType');
+Integer TEnumType_typeName = TObject_instanceSize;
+Integer TEnumType_values = TEnumType_typeName + 1;
+Integer TEnumType_instanceSize = TEnumType_values + 1;
+String TEnumType_toString(AnythingList this) {
+  return concat('<enum ', cast(this[TEnumType_typeName]), '>');
+}
+TEnumType[toString] = TEnumType_toString;
+AnythingList TEnumType_constructor(AnythingList vmt, String name, StringList values) {
+  AnythingList instance = TObject_constructor(vmt);
+  assert(is(instance, TEnumType));
+  append(instance, name); // TEnumType_typeName
+  append(instance, values); // TEnumType_values
+  return instance;
+}
+
+// XXX TODO more types:
+//  * <T>Iterable (is Anything)
+//  * <T>List (is a <T>Iterable)
+//  * <T>Iterator (is Anything)
+//  * <T> (defined using "enum" keyword) (is Anything)
+//  * functions, with signatures (is Anything)
+
+
+// Parser
+
+// forward declaration
+AnythingListFunction parseExpression;
+
+AnythingList parseExpressionLeaves(AnythingList source) {
+  if (cast(method(source, isNext)(source, ttIdentifier))) {
+    String identifier = cast(method(source, readIdentifier)(source));
+    return TVariableExpression_constructor(TVariableExpression, identifier);
+  }
+  if (cast(method(source, isNext)(source, ttString))) {
+    String value = cast(method(source, readString)(source));
+    return TStringLiteralExpression_constructor(TStringLiteralExpression, value);
+  }
+  if (cast(method(source, isNext)(source, ttInteger))) {
+    Integer value = cast(method(source, readInteger)(source));
+    return TIntegerLiteralExpression_constructor(TIntegerLiteralExpression, value);
+  }
+  throw(cast(method(source, expected)(source, 'expression')));
+}
