@@ -711,97 +711,83 @@ AnythingListList tokenize(IntegerIterable source, String filename) {
   return tokens;
 }
 
-// class TTokenConsumer
-AnythingList TTokenConsumer = extend(TObject, 'TTokenConsumer');
-Integer TTokenConsumer_tokens = TObject_instanceSize;
-Integer TTokenConsumer_index = TObject_instanceSize + 1;
-Integer TTokenConsumer_instanceSize = TTokenConsumer_index + 1;
-Integer isNext = len(TTokenConsumer);
-Integer isNext2 = len(TTokenConsumer) + 1;
-Integer isNextIdentifier = len(TTokenConsumer) + 2;
-Integer readIdentifier = len(TTokenConsumer) + 3;
-Integer readString = len(TTokenConsumer) + 4;
-Integer readInteger = len(TTokenConsumer) + 5;
-Integer expectIdentifier = len(TTokenConsumer) + 6;
-Integer expectPunctuation = len(TTokenConsumer) + 7;
-Integer expected = len(TTokenConsumer) + 8;
-Integer butFound = len(TTokenConsumer) + 9;
-Boolean TTokenConsumer_isNext(AnythingList this, tt tokenType) {
-  return cast(cast(this[TTokenConsumer_tokens])[cast(this[TTokenConsumer_index])])[0] == tokenType;
-}
-append(TTokenConsumer, TTokenConsumer_isNext);
-Boolean TTokenConsumer_isNext2(AnythingList this, tt tokenType1, tt tokenType2) {
-  return cast(this[TTokenConsumer_index]) + 1 < len(cast(this[TTokenConsumer_tokens]))
-      && cast(cast(this[TTokenConsumer_tokens])[cast(this[TTokenConsumer_index])    ])[0] == tokenType1
-      && cast(cast(this[TTokenConsumer_tokens])[cast(this[TTokenConsumer_index]) + 1])[0] == tokenType2;
-}
-append(TTokenConsumer, TTokenConsumer_isNext2);
-Boolean TTokenConsumer_isNextIdentifier(AnythingList this, String identifier) {
-  AnythingList token = cast(cast(this[TTokenConsumer_tokens])[cast(this[TTokenConsumer_index])]);
-  return token[0] == ttIdentifier && token[tkData] == identifier;
-}
-append(TTokenConsumer, TTokenConsumer_isNextIdentifier);
-String TTokenConsumer_readIdentifier(AnythingList this) {
-  if (!cast(method(this, isNext)(this, ttIdentifier))) {
-    throw(method(this, expected)(this, 'identifier'));
+class TokenConsumer {
+  AnythingListList tokens;
+  Integer index;
+
+  Boolean isNext(tt tokenType) {
+    return tokens[index][0] == tokenType;
   }
-  String result = cast(cast(cast(this[TTokenConsumer_tokens])[cast(this[TTokenConsumer_index])])[tkData]);
-  this[TTokenConsumer_index] = cast(this[TTokenConsumer_index]) + 1;
-  return result;
-}
-append(TTokenConsumer, TTokenConsumer_readIdentifier);
-String TTokenConsumer_readString(AnythingList this) {
-  if (!cast(method(this, isNext)(this, ttString))) {
-    throw(method(this, expected)(this, 'string literal'));
+  
+  Boolean isNext2(tt tokenType1, tt tokenType2) {
+    return index + 1 < len(tokens)
+        && tokens[index    ][0] == tokenType1
+        && tokens[index + 1][0] == tokenType2;
   }
-  String result = cast(cast(cast(this[TTokenConsumer_tokens])[cast(this[TTokenConsumer_index])])[tkData]);
-  this[TTokenConsumer_index] = cast(this[TTokenConsumer_index]) + 1;
-  return result;
-}
-append(TTokenConsumer, TTokenConsumer_readString);
-Integer TTokenConsumer_readInteger(AnythingList this) {
-  if (!cast(method(this, isNext)(this, ttInteger))) {
-    throw(method(this, expected)(this, 'integer literal'));
+  
+  Boolean isNextIdentifier(String identifier) {
+    AnythingList token = tokens[index];
+    return token[0] == ttIdentifier && token[tkData] == identifier;
   }
-  Integer result = cast(cast(cast(this[TTokenConsumer_tokens])[cast(this[TTokenConsumer_index])])[tkData]);
-  this[TTokenConsumer_index] = cast(this[TTokenConsumer_index]) + 1;
-  return result;
-}
-append(TTokenConsumer, TTokenConsumer_readInteger);
-Null TTokenConsumer_expectIdentifier(AnythingList this, String identifier) {
-  if (!cast(method(this, isNext)(this, ttIdentifier))) {
-    throw(method(this, expected)(this, concat('"', identifier, '"')));
+  
+  String butFound(String what, String description) {
+    AnythingList token = tokens[index];
+    Integer line = cast(token[tkLine]);
+    Integer column = cast(token[tkCol]);
+    String file = cast(token[tkFile]);
+    return concat('Expected ', what, ' but found ', description, ' at line ', line, ' column ', column, ' in ', file);
   }
-  if (!cast(method(this, isNextIdentifier)(this, identifier))) {
-    throw(method(this, expected)(this, concat('"', identifier, '"')));
+  
+  String expected(String what) {
+    return butFound(what, describeToken(tokens[index]));
   }
-  this[TTokenConsumer_index] = cast(this[TTokenConsumer_index]) + 1;
-}
-append(TTokenConsumer, TTokenConsumer_expectIdentifier);
-Null TTokenConsumer_expectPunctuation(AnythingList this, tt punctuation) {
-  if (!cast(method(this, isNext)(this, punctuation))) {
-    throw(method(this, expected)(this, describeToken([punctuation, -1, -1])));
+
+  String readIdentifier() {
+    if (!isNext(ttIdentifier)) {
+      throw(concat(expected('identifier')));
+    }
+    String result = cast(tokens[index][tkData]);
+    index = index + 1;
+    return result;
   }
-  this[TTokenConsumer_index] = cast(this[TTokenConsumer_index]) + 1;
-}
-append(TTokenConsumer, TTokenConsumer_expectPunctuation);
-String TTokenConsumer_expected(AnythingList this, String what) {
-  AnythingList token = cast(cast(this[TTokenConsumer_tokens])[cast(this[TTokenConsumer_index])]);
-  return cast(method(this, butFound)(this, what, describeToken(token)));
-}
-append(TTokenConsumer, TTokenConsumer_expected);
-String TTokenConsumer_butFound(AnythingList this, String what, String description) {
-  AnythingList token = cast(cast(this[TTokenConsumer_tokens])[cast(this[TTokenConsumer_index])]);
-  Integer line = cast(token[tkLine]);
-  Integer column = cast(token[tkCol]);
-  String file = cast(token[tkFile]);
-  return concat('Expected ', what, ' but found ', description, ' at line ', line, ' column ', column, ' in ', file);
-}
-append(TTokenConsumer, TTokenConsumer_butFound);
-AnythingList TTokenConsumer_constructor(AnythingList vmt, AnythingListList tokens) {
-  AnythingList instance = TObject_constructor(vmt);
-  assert(is(instance, TTokenConsumer));
-  append(instance, tokens);
-  append(instance, 0);
-  return instance;
+  
+  String readString() {
+    if (!isNext(ttString)) {
+      throw(concat(expected('string literal')));
+    }
+    String result = cast(tokens[index][tkData]);
+    index = index + 1;
+    return result;
+  }
+  
+  Integer readInteger() {
+    if (!isNext(ttInteger)) {
+      throw(concat(expected('integer literal')));
+    }
+    Integer result = cast(tokens[index][tkData]);
+    index = index + 1;
+    return result;
+  }
+  
+  Null expectIdentifier(String identifier) {
+    if (!isNext(ttIdentifier)) {
+      throw(concat(expected(concat('"', identifier, '"'))));
+    }
+    if (!isNextIdentifier(identifier)) {
+      throw(concat(expected(concat('"', identifier, '"'))));
+    }
+    index = index + 1;
+  }
+  
+  Null expectPunctuation(tt punctuation) {
+    if (!isNext(punctuation)) {
+      throw(concat(expected(describeToken([punctuation, -1, -1]))));
+    }
+    index = index + 1;
+  }
+  
+  Null constructor(AnythingListList tokensArg) {
+    tokens = tokensArg;
+    index = 0;
+  }
 }

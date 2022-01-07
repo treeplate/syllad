@@ -1,0 +1,266 @@
+import 'core.syd';
+
+class TypeRegistry {
+  AnythingList typesByCode = [];
+
+  Integer registerType(Anything type) {
+    Integer result = len(typesByCode);
+    append(typesByCode, type);
+    return result;
+  }
+
+  Null constructor() { }
+}
+
+// xxx Type knows how to do things like + - * / % () [] etc
+
+class Type extends Object {
+  Integer code;
+  String name;
+
+  Boolean isSubtypeOf(Type other) {
+    abstract();
+  }
+
+  Boolean literalValueIsAppropriate(Anything value) {
+    return false;
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg, String nameArg) {
+    code = typeRegistryArg.registerType(this);
+    name = nameArg;
+  }
+
+  String toString() {
+    return concat(name, '\'', code);
+  }
+}
+
+class NothingType extends Type {
+  Boolean isSubtypeOf(Type other) {
+    return false;
+  }
+
+  Boolean literalValueIsAppropriate(Anything value) {
+    return value == this;
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg) {
+    super.constructor(typeRegistryArg, '<nothing>');
+  }
+}
+
+class AnythingType extends Type {
+  Boolean isSubtypeOf(Type other) {
+    return other is AnythingType;
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg) {
+    super.constructor(typeRegistryArg, 'Anything');
+  }
+}
+
+class NullableType extends Type {
+  Type subtype;
+
+  Boolean isSubtypeOf(Type other) {
+    return other is AnythingType || (other is NullableType && subtype.isSubtypeOf(cast(cast(other).subtype)));
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg, Type subtypeArg) {
+    super.constructor(typeRegistryArg, concat(subtypeArg.name, 'Nullable'));
+    subtype = subtypeArg;
+  }
+}
+
+class NullType extends Type {
+  Boolean isSubtypeOf(Type other) {
+    return other is AnythingType || other is NullType || other is NullableType;
+  }
+
+  Boolean literalValueIsAppropriate(Anything value) {
+    return value == null;
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg) {
+    super.constructor(typeRegistryArg, 'Null');
+  }
+}
+
+class BooleanType extends Type {
+  Boolean isSubtypeOf(Type other) {
+    return other is AnythingType || other is BooleanType;
+  }
+
+  Boolean literalValueIsAppropriate(Anything value) {
+    return value == true || value == false;
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg) {
+    super.constructor(typeRegistryArg, 'Boolean');
+  }
+}
+
+class IntegerType extends Type {
+  Boolean isSubtypeOf(Type other) {
+    return other is AnythingType || other is IntegerType;
+  }
+
+  Boolean literalValueIsAppropriate(Anything value) {
+    return value is Integer;
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg) {
+    super.constructor(typeRegistryArg, 'Integer');
+  }
+}
+
+class StringType extends Type {
+  Boolean isSubtypeOf(Type other) {
+    return other is AnythingType || other is StringType;
+  }
+
+  Boolean literalValueIsAppropriate(Anything value) {
+    return value is String;
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg) {
+    super.constructor(typeRegistryArg, 'String');
+  }
+}
+
+class EnumValue extends Object {
+  Object type; // XXX Object should be EnumType
+  String name;
+  Integer index;
+
+  Null constructor(Object typeArg, String nameArg, Integer indexArg) {
+    super.constructor();
+    type = typeArg;
+    name = nameArg;
+    index = indexArg;
+  }
+}
+
+class EnumType extends Type {
+  Map values = Map();
+
+  Boolean isSubtypeOf(Type other) {
+    return other is AnythingType || other is StringType;
+  }
+
+  Boolean literalValueIsAppropriate(Anything value) {
+    return value is EnumValue && cast(value).type == this;
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg, String nameArg, StringList valuesArg) {
+    super.constructor(typeRegistryArg, nameArg);
+    Integer index = 0;
+    for (value in valuesArg) {
+      values.set(value, EnumValue(this, value, index));
+      index += 1;
+    }
+  }
+}
+
+class ClassType extends Type {
+  // xxx properties, methods, constructor...
+  Null constructor(TypeRegistry typeRegistryArg, String nameArg) {
+    super.constructor(typeRegistryArg, nameArg);
+  }
+}
+
+class AbstractSubroutineType extends Type {
+  Type returnType;
+
+  String createName() {
+    return concat(returnType.name, 'Function');
+  }
+
+  Boolean isSubtypeOf(Type other) {
+    return other is AnythingType || (other is AbstractSubroutineType && returnType.isSubtypeOf(cast(cast(other).returnType)));
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg, Type returnTypeArg) {
+    returnType = returnTypeArg;
+    super.constructor(typeRegistryArg, createName());
+  }
+}
+
+class SubroutineTypeWithAnyArguments extends AbstractSubroutineType {
+  Null constructor(TypeRegistry typeRegistryArg, Type returnTypeArg) {
+    super.constructor(typeRegistryArg, returnTypeArg);
+  }
+}
+
+class SubroutineTypeWithVarArgs extends AbstractSubroutineType {
+  Type argumentType;
+
+  String createName() {
+    return concat(super.createName(), '(', argumentType.name, '...)');
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg, Type returnTypeArg, Type argumentTypeArg) {
+    argumentType = argumentTypeArg;
+    super.constructor(typeRegistryArg, returnTypeArg);
+  }
+}
+
+class SubroutineTypeWithSpecificArguments extends AbstractSubroutineType {
+  TypeList argumentTypes;
+
+  String createName() {
+    String stringify(Type type) {
+      return type.name;
+    }
+    return concat(super.createName(), '(', join(cast(map(argumentTypes, stringify)), ', '), ')');
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg, Type returnTypeArg, TypeList argumentTypesArg) {
+    argumentTypes = argumentTypesArg;
+    super.constructor(typeRegistryArg, returnTypeArg);
+  }
+}
+
+// xxx ListLiteral
+
+class ListType extends Type {
+  Type elementType;
+
+  Boolean isSubtypeOf(Type other) {
+    return other is Anything || (other is ListType && elementType.isSubtypeOf(cast(cast(other).elementType)));
+  }
+
+  // xxx literals
+
+  Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
+    super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'List'));
+    elementType = elementTypeArg;
+  }
+}
+
+class IterableType extends Type {
+  Type elementType;
+
+  Boolean isSubtypeOf(Type other) {
+    return other is Anything || (other is IterableType && elementType.isSubtypeOf(cast(cast(other).elementType)));
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
+    super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'Iterable'));
+    elementType = elementTypeArg;
+  }
+}
+
+class IteratorType extends Type {
+  Type elementType;
+
+  Boolean isSubtypeOf(Type other) {
+    return other is Anything || (other is IteratorType && elementType.isSubtypeOf(cast(cast(other).elementType)));
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
+    super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'Iterator'));
+    elementType = elementTypeArg;
+  }
+}

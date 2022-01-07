@@ -1,10 +1,13 @@
+//class A { }
+//class A { Null constructor() { } } println(A());
+//class A { Null test() { this.test(); } }
+//Integer bar = 1; class Foo { Null constructor() { } } println(Foo().bar);
+
 import 'syd-tokenizer.syd';
 import 'syd-ast.syd';
+import 'syd-compiler.syd';
 
 println('syllad self-hosting compiler');
-Integer a = 0; Integer b; a = b;
-println(a);
-/*
 // syllad spec:
 // functions 'print', 'charsOf',
 // 'addLists', 'parseInt',
@@ -30,238 +33,177 @@ println(a);
 
 // WISHLIST
 // P1 (blocking progress):
-//   performance
-//   some errors with line numbers are... inaccurate
-//   errors don't specify the file name
+//   methods can't refer to themselves on child instances, e.g.:
+//     class Node {
+//       String label;
+//       NodeList children;
+//       Null walk() {
+//         println(label);
+//         for (child in children) {
+//           child.walk(); // compiler fails here, even though Node.walk is defined already
+//         }
+//       }
+//       Null constructor(String labelArg, NodeList childrenArg) {
+//         label = labelArg;
+//         children = childrenArg;
+//       }
+//     }
+//     Node('a', [Node('b', [])]).walk();
+//   simpler example with probably same cause: class A { Null test() { this.test(); } }
+//   no forward class declarations means you can't have classes that deal with their subclasses
+//   the language requires gc:
+//     - closures can leak out of their stack frame:
+//       AnythingFunction makeLoop() {
+//         AnythingFunction myself;
+//         Anything logic(AnythingFunction what) {
+//           myself = what;
+//           return myself == logic;
+//         }
+//         return logic;
+//       }
+//       AnythingFunction f = makeLoop();
+//       println(f(f));
+//     - objects can reference each other, but there's no way to dispose of an object
+//     - lists are reference types (not copy-on-write value types) and one can form reference loops, but there's no way to dispose of a list
+//   language changes that I think have been announced but not yet implemented:
+//     - imperative statements being allowed in class declarations (so classes are really functions) is
+//     - blocks don't actually introduce scopes for variables (e.g. "Integer y = 0; if (true) { String y = 'bad'; } println(y);" prints "bad")
+//     - type declarations leak out of blocks (e.g. "if (true) { enum X { a } } X a;" does not fail)
+//     - this should be true (but isn't): 2-3+4 == (2-3)+4
 // P2 (making things much harder):
-//   scary: Integer a = 0; Integer b; a = b; // sets an Integer variable to a non-Integer type (unsound type safety)
-//   scary: this should be true (but isn't): 2-3+4 == (2-3)+4
-//   not all errors say where the error happened (missing stack traces on asserts, e.g.)
-//   imports should only be at start of files
+//   some errors with line numbers are... inaccurate
+//   not all errors say where the error happened, e.g.:
+//     - stack traces from "assert" and "throw" don't give class/method names, line numbers, or file names, only call expressions (and are different from each other)
+//   this crashes compiler: class A { }
+//   this prints <String>: class A { Null constructor() { } } println(A());
+//   instance variables can be used to access variables in scope of class: Integer bar = 1; class Foo { Null constructor() { } } println(Foo().bar);
 // P3 (nice-to-haves for which i've found workarounds):
+//   performance
+//   soundness in type system -- a variable being of type X should be a guarantee that it will have a value of type X
+//     - returns are "not really type safe"
+//     - toString returning non-string isn't checked for either
+//     - currently not true with uninitialized variables (they start as an instance of Null instead)
+//     - covariant by default is not type safe:
+//       class A {
+//         Null foo(A z) { }
+//         Null constructor(){}
+//       }
+//       class B extends A {
+//         String test() { return 'test'; }
+//         Null foo(B x) {
+//           println(x.test());
+//         }
+//       }
+//       A b = B();
+//       b.foo(A());
+//   function types with signatures
+//   string interpolation
+//   new features in classes: "className"...
+//   new features in classes: abstract classes and methods
+//   new features in classes: constructor shouldn't be required, especially in abstract classes, or classes with no superclass
 //   utf8 decoder (so that i can get scalarValues out of readFileBytes)
-//   language reference
 //   functions to have named arguments with default values
-//   a way to call function references: AnythingList f = [print, concat]; f[0](f[1](['hello', 'world']));
 //   some way to call syscalls / OS functions
 //   switch (especially if the compiler can report missing enum values)
 //   no way to catch exceptions
 //   try-finally
 //   typed empty list constructor
 //   constants
-//   scary: for declares the identifier in parent scope; for, if, while blocks do not introduce new scope
-//   scary: true and false can be reassigned
-//   string interpolation
-//   structs
+//   detailed language reference
+// P4 (minor typos and such):
+//   "Expected Boolean, got ImportStatement while parsing expression (Instance of 'IsExpr') on line 595 column 34 file syd.syd"
+//   assigning to an undeclared variable says "Cannot reassign...".
+//   error messages are inconsistent in style, e.g. giving file/line/col in different ways:
+//     "You cannot return a Constant (<Constant>) from registerConstant, which is supposed to return a Variable! (syd-compiler.syd 226:19)"
 
-
-// Concrete Types
-//  * Anything
-//  * Null (is Anything)
-//  * Integer (is Anything)
-//  * Boolean (is Anything)
-//  * String (is Anything)
-//  * <T>Iterable (is Anything)
-//  * <T>List (is a <T>Iterable)
-//  * <T>Iterator (is Anything)
-//  * <T> (defined using "enum" keyword) (is Anything)
-//  * functions, with signatures (is Anything)
-
-// lvalues:
-//  * Can be assigned.
-//  * Can have [] subscript applied
-//  <identifier> // if declared
-//  <lvalue:List> "[" <expression:Integer> "]" // returns the setter for that index in the list
-
-// statements
-//  enum <identifier> { <identifier>* } // declares a type and a bunch of values
-//  <Type:R> <identifier> (  ) { <statement>* } // returns must have R return type
-//  <Type:T> <identifier> [= <expression:T>];
-//  <lvalue:T> = <expression:T>;
-//  <expression>;
-//  while (<expression:Boolean>) { <statements>* }
-//  for (<identifier:T> in <expression:TIterable>) { <statement>* }      // declares the identifier in parent scope, does not introduce new scope
-//  if (<expression:Boolean) { <statement>* } [ else <if> ]* [ else { <statement>* } ]
-//  return [<expression:R>], break, continue
-
-// expression:T
-//  <identifier:T>
-//  <literal:T>
-//  <expression:T> <2-ary operator:T> <expression:T> // operators: <, >, +, -, /, *, &, &&, |, ^, ||, >=, <=, >>, << (precedence matches C++)
-//  <expression:function>( [ <expression> [ , <expression> ]* ] ) // expressions must match signature of function
-//  <unaryoperator:T> <expression:T>
-
-// literals
-//  <integer>, <String>, true, false, null
-//  "[" <expression> [ , <expressions> ]* "]"
-
-
-// Types
-
-// class TNullType
-AnythingList TNullType = extend(TObject, 'TNullType');
-Integer TNullType_instanceSize = TObject_instanceSize;
-AnythingList TNullType_constructor(AnythingList vmt) {
-  AnythingList instance = TObject_constructor(vmt);
-  assert(is(instance, TNullType));
-  return instance;
-}
-
-// class TIntegerType
-AnythingList TIntegerType = extend(TObject, 'TIntegerType');
-Integer TIntegerType_instanceSize = TObject_instanceSize;
-AnythingList TIntegerType_constructor(AnythingList vmt) {
-  AnythingList instance = TObject_constructor(vmt);
-  assert(is(instance, TIntegerType));
-  return instance;
-}
-
-// class TBooleanType
-AnythingList TBooleanType = extend(TObject, 'TBooleanType');
-Integer TTBooleanType_instanceSize = TObject_instanceSize;
-AnythingList TBooleanType_constructor(AnythingList vmt) {
-  AnythingList instance = TObject_constructor(vmt);
-  assert(is(instance, TBooleanType));
-  return instance;
-}
-
-// class TStringType
-AnythingList TStringType = extend(TObject, 'TStringType');
-Integer TStringType_instanceSize = TObject_instanceSize;
-AnythingList TStringType_constructor(AnythingList vmt) {
-  AnythingList instance = TObject_constructor(vmt);
-  assert(is(instance, TStringType));
-  return instance;
-}
-
-// class TEnumType
-AnythingList TEnumType = extend(TObject, 'TEnumType');
-Integer TEnumType_typeName = TObject_instanceSize;
-Integer TEnumType_values = TEnumType_typeName + 1;
-Integer TEnumType_instanceSize = TEnumType_values + 1;
-String TEnumType_toString(AnythingList this) {
-  return concat('<enum ', cast(this[TEnumType_typeName]), '>');
-}
-TEnumType[toString] = TEnumType_toString;
-AnythingList TEnumType_constructor(AnythingList vmt, String name, StringList values) {
-  AnythingList instance = TObject_constructor(vmt);
-  assert(is(instance, TEnumType));
-  append(instance, name); // TEnumType_typeName
-  append(instance, values); // TEnumType_values
-  return instance;
-}
-
-// XXX TODO more types:
-//  * <T>Iterable (is Anything)
-//  * <T>List (is a <T>Iterable)
-//  * <T>Iterator (is Anything)
-//  * <T> (defined using "enum" keyword) (is Anything)
-//  * functions, with signatures (is Anything)
-
-
-// Parser
 
 // forward declaration
-AnythingListFunction parseExpression;
+ExpressionFunction parseExpression;
 
-AnythingList parseExpressionLeaves(AnythingList source) {
+Expression parseExpressionLeaves(TokenConsumer source) {
   // bool literals
-  if (cast(method(source, isNext)(source, ttIdentifier))) {
-    String identifier = cast(method(source, readIdentifier)(source));
-    return TVariableExpression_constructor(TVariableExpression, identifier);
+  if (source.isNext(ttIdentifier)) {
+    String identifier = source.readIdentifier();
+    return VariableExpression(identifier);
   }
-  if (cast(method(source, isNext)(source, ttString))) {
-    String value = cast(method(source, readString)(source));
-    return TStringLiteralExpression_constructor(TStringLiteralExpression, value);
+  if (source.isNext(ttString)) {
+    String value = source.readString();
+    return StringLiteralExpression(value);
   }
-  if (cast(method(source, isNext)(source, ttInteger))) {
-    Integer value = cast(method(source, readInteger)(source));
-    return TIntegerLiteralExpression_constructor(TIntegerLiteralExpression, value);
+  if (source.isNext(ttInteger)) {
+    Integer value = source.readInteger();
+    return IntegerLiteralExpression(value);
   }
-  if (cast(method(source, isNext)(source, ttOpenBracket))) {
-    method(source, expectPunctuation)(source, ttOpenBracket);
-    AnythingListList values = [];
-    while (!cast(method(source, isNext)(source, ttCloseBracket))) {
+  if (source.isNext(ttOpenBracket)) {
+    source.expectPunctuation(ttOpenBracket);
+    ExpressionList values = [];
+    while (!source.isNext(ttCloseBracket)) {
       append(values, parseExpression(source));
-      if (!cast(method(source, isNext)(source, ttCloseBracket))) {
-        method(source, expectPunctuation)(source, ttComma);
+      if (!source.isNext(ttCloseBracket)) {
+        source.expectPunctuation(ttComma);
       }
     }
-    method(source, expectPunctuation)(source, ttCloseBracket);
-    return TListLiteralExpression_constructor(TListLiteralExpression, values);
+    source.expectPunctuation(ttCloseBracket);
+    return ListLiteralExpression(values);
   }
-  if (cast(method(source, isNext)(source, ttOpenParen))) {
-    method(source, expectPunctuation)(source, ttOpenParen);
-    AnythingList expression = parseExpression(source);
-    method(source, expectPunctuation)(source, ttCloseParen);
+  if (source.isNext(ttOpenParen)) {
+    source.expectPunctuation(ttOpenParen);
+    Expression expression = parseExpression(source);
+    source.expectPunctuation(ttCloseParen);
     return expression;
   }
-  throw(cast(method(source, expected)(source, 'expression')));
+  throw(source.expected('expression'));
 }
 
-AnythingList parseUnaryExpression(AnythingList source) {
-  if (cast(method(source, isNext)(source, ttMinus))) {
-    method(source, expectPunctuation)(source, ttMinus);
-    return TIntegerNegationExpression_constructor(TIntegerNegationExpression, parseUnaryExpression(source));
+Expression parseUnaryExpression(TokenConsumer source) {
+  if (source.isNext(ttMinus)) {
+    source.expectPunctuation(ttMinus);
+    return IntegerNegationExpression(parseUnaryExpression(source));
   }
-  if (cast(method(source, isNext)(source, ttPlus))) {
-    method(source, expectPunctuation)(source, ttPlus);
-    return TPlusExpression_constructor(TPlusExpression, parseUnaryExpression(source));
+  if (source.isNext(ttPlus)) {
+    source.expectPunctuation(ttPlus);
+    return PlusExpression(parseUnaryExpression(source));
   }
-  if (cast(method(source, isNext)(source, ttBang))) {
-    method(source, expectPunctuation)(source, ttBang);
-    return TBooleanNotExpression_constructor(TBooleanNotExpression, parseUnaryExpression(source));
+  if (source.isNext(ttBang)) {
+    source.expectPunctuation(ttBang);
+    return BooleanNotExpression(parseUnaryExpression(source));
   }
-  if (cast(method(source, isNext)(source, ttTilde))) {
-    method(source, expectPunctuation)(source, ttTilde);
-    return TBitwiseNotExpression_constructor(TBitwiseNotExpression, parseUnaryExpression(source));
+  if (source.isNext(ttTilde)) {
+    source.expectPunctuation(ttTilde);
+    return BitwiseNotExpression(parseUnaryExpression(source));
   }
-  AnythingList result = parseExpressionLeaves(source);
+  Expression result = parseExpressionLeaves(source);
   while (true) {
-    if (cast(method(source, isNext)(source, ttOpenParen))) {
-      method(source, expectPunctuation)(source, ttOpenParen);
-      AnythingListList arguments = [];
-      while (!cast(method(source, isNext)(source, ttCloseParen))) {
+    if (source.isNext(ttOpenParen)) {
+      source.expectPunctuation(ttOpenParen);
+      ExpressionList arguments = [];
+      while (!source.isNext(ttCloseParen)) {
         append(arguments, parseExpression(source));
-        if (!cast(method(source, isNext)(source, ttCloseParen))) {
-          method(source, expectPunctuation)(source, ttComma);
+        if (!source.isNext(ttCloseParen)) {
+          source.expectPunctuation(ttComma);
         }
       }
-      method(source, expectPunctuation)(source, ttCloseParen);
-      result = TFunctionCallExpression_constructor(TFunctionCallExpression, result, arguments);
+      source.expectPunctuation(ttCloseParen);
+      result = SubroutineCallExpression(result, arguments);
       continue;
     }
-    if (cast(method(source, isNext)(source, ttOpenBracket))) {
-      method(source, expectPunctuation)(source, ttOpenBracket);
-      AnythingList argument = parseExpression(source);
-      method(source, expectPunctuation)(source, ttCloseBracket);
-      result = TSubscriptExpression_constructor(TSubscriptExpression, result, argument);
+    if (source.isNext(ttOpenBracket)) {
+      source.expectPunctuation(ttOpenBracket);
+      Expression argument = parseExpression(source);
+      source.expectPunctuation(ttCloseBracket);
+      result = SubscriptExpression(result, argument);
       continue;
     }
-    break;
-  }
-  return result;
-}
-
-AnythingList parseExpressionMultiplication(AnythingList source) {
-  AnythingList result = parseUnaryExpression(source);
-  while (true) {
-    if (cast(method(source, isNext)(source, ttAsterisk))) {
-      method(source, expectPunctuation)(source, ttAsterisk);
-      AnythingList rhs = parseUnaryExpression(source);
-      result = TOperatorMultiplicationExpression_constructor(TOperatorMultiplicationExpression, result, rhs);
+    if (source.isNext(ttPeriod)) {
+      source.expectPunctuation(ttPeriod);
+      String identifier = source.readIdentifier();
+      result = MemberAccessExpression(result, identifier);
       continue;
     }
-    if (cast(method(source, isNext)(source, ttSlash))) {
-      method(source, expectPunctuation)(source, ttSlash);
-      AnythingList rhs = parseUnaryExpression(source);
-      result = TOperatorDivisionExpression_constructor(TOperatorDivisionExpression, result, rhs);
-      continue;
-    }
-    if (cast(method(source, isNext)(source, ttModulus))) {
-      method(source, expectPunctuation)(source, ttModulus);
-      AnythingList rhs = parseUnaryExpression(source);
-      result = TOperatorModulusExpression_constructor(TOperatorModulusExpression, result, rhs);
+    if (source.isNextIdentifier('is')) {
+      source.expectIdentifier('is');
+      String typeName = source.readIdentifier();
+      result = IsOperatorExpression(result, typeName);
       continue;
     }
     break;
@@ -269,19 +211,25 @@ AnythingList parseExpressionMultiplication(AnythingList source) {
   return result;
 }
 
-AnythingList parseExpressionAddition(AnythingList source) {
-  AnythingList result = parseExpressionMultiplication(source);
+Expression parseExpressionMultiplication(TokenConsumer source) {
+  Expression result = parseUnaryExpression(source);
   while (true) {
-    if (cast(method(source, isNext)(source, ttPlus))) {
-      method(source, expectPunctuation)(source, ttPlus);
-      AnythingList rhs = parseExpressionMultiplication(source);
-      result = TOperatorAdditionExpression_constructor(TOperatorAdditionExpression, result, rhs);
+    if (source.isNext(ttAsterisk)) {
+      source.expectPunctuation(ttAsterisk);
+      Expression rhs = parseUnaryExpression(source);
+      result = OperatorMultiplicationExpression(result, rhs);
       continue;
     }
-    if (cast(method(source, isNext)(source, ttMinus))) {
-      method(source, expectPunctuation)(source, ttMinus);
-      AnythingList rhs = parseExpressionMultiplication(source);
-      result = TOperatorSubtractionExpression_constructor(TOperatorSubtractionExpression, result, rhs);
+    if (source.isNext(ttSlash)) {
+      source.expectPunctuation(ttSlash);
+      Expression rhs = parseUnaryExpression(source);
+      result = OperatorDivisionExpression(result, rhs);
+      continue;
+    }
+    if (source.isNext(ttModulus)) {
+      source.expectPunctuation(ttModulus);
+      Expression rhs = parseUnaryExpression(source);
+      result = OperatorModulusExpression(result, rhs);
       continue;
     }
     break;
@@ -289,19 +237,19 @@ AnythingList parseExpressionAddition(AnythingList source) {
   return result;
 }
 
-AnythingList parseExpressionShift(AnythingList source) {
-  AnythingList result = parseExpressionAddition(source);
+Expression parseExpressionAddition(TokenConsumer source) {
+  Expression result = parseExpressionMultiplication(source);
   while (true) {
-    if (cast(method(source, isNext)(source, ttLessThanLessThan))) {
-      method(source, expectPunctuation)(source, ttLessThanLessThan);
-      AnythingList rhs = parseExpressionAddition(source);
-      result = TOperatorLeftShiftExpression_constructor(TOperatorLeftShiftExpression, result, rhs);
+    if (source.isNext(ttPlus)) {
+      source.expectPunctuation(ttPlus);
+      Expression rhs = parseExpressionMultiplication(source);
+      result = OperatorAdditionExpression(result, rhs);
       continue;
     }
-    if (cast(method(source, isNext)(source, ttGreaterThanGreaterThan))) {
-      method(source, expectPunctuation)(source, ttGreaterThanGreaterThan);
-      AnythingList rhs = parseExpressionAddition(source);
-      result = TOperatorRightShiftExpression_constructor(TOperatorRightShiftExpression, result, rhs);
+    if (source.isNext(ttMinus)) {
+      source.expectPunctuation(ttMinus);
+      Expression rhs = parseExpressionMultiplication(source);
+      result = OperatorSubtractionExpression(result, rhs);
       continue;
     }
     break;
@@ -309,31 +257,19 @@ AnythingList parseExpressionShift(AnythingList source) {
   return result;
 }
 
-AnythingList parseExpressionRelational(AnythingList source) {
-  AnythingList result = parseExpressionShift(source);
+Expression parseExpressionShift(TokenConsumer source) {
+  Expression result = parseExpressionAddition(source);
   while (true) {
-    if (cast(method(source, isNext)(source, ttLessThan))) {
-      method(source, expectPunctuation)(source, ttLessThan);
-      AnythingList rhs = parseExpressionShift(source);
-      result = TOperatorLessThanExpression_constructor(TOperatorLessThanExpression, result, rhs);
+    if (source.isNext(ttLessThanLessThan)) {
+      source.expectPunctuation(ttLessThanLessThan);
+      Expression rhs = parseExpressionAddition(source);
+      result = OperatorLeftShiftExpression(result, rhs);
       continue;
     }
-    if (cast(method(source, isNext)(source, ttLessThanEquals))) {
-      method(source, expectPunctuation)(source, ttLessThanEquals);
-      AnythingList rhs = parseExpressionShift(source);
-      result = TOperatorLessThanOrEqualsExpression_constructor(TOperatorLessThanOrEqualsExpression, result, rhs);
-      continue;
-    }
-    if (cast(method(source, isNext)(source, ttGreaterThan))) {
-      method(source, expectPunctuation)(source, ttGreaterThan);
-      AnythingList rhs = parseExpressionAddition(source);
-      result = TOperatorGreaterThanExpression_constructor(TOperatorGreaterThanExpression, result, rhs);
-      continue;
-    }
-    if (cast(method(source, isNext)(source, ttGreaterThanEquals))) {
-      method(source, expectPunctuation)(source, ttGreaterThanEquals);
-      AnythingList rhs = parseExpressionAddition(source);
-      result = TOperatorGreaterThanOrEqualsExpression_constructor(TOperatorGreaterThanOrEqualsExpression, result, rhs);
+    if (source.isNext(ttGreaterThanGreaterThan)) {
+      source.expectPunctuation(ttGreaterThanGreaterThan);
+      Expression rhs = parseExpressionAddition(source);
+      result = OperatorRightShiftExpression(result, rhs);
       continue;
     }
     break;
@@ -341,47 +277,31 @@ AnythingList parseExpressionRelational(AnythingList source) {
   return result;
 }
 
-AnythingList parseExpressionLogicalEquality(AnythingList source) {
-  AnythingList result = parseExpressionRelational(source);
+Expression parseExpressionRelational(TokenConsumer source) {
+  Expression result = parseExpressionShift(source);
   while (true) {
-    if (cast(method(source, isNext)(source, ttEqualsEquals))) {
-      method(source, expectPunctuation)(source, ttEqualsEquals);
-      AnythingList rhs = parseExpressionRelational(source);
-      result = TOperatorEqualsEqualsExpression_constructor(TOperatorEqualsEqualsExpression, result, rhs);
+    if (source.isNext(ttLessThan)) {
+      source.expectPunctuation(ttLessThan);
+      Expression rhs = parseExpressionShift(source);
+      result = OperatorLessThanExpression(result, rhs);
       continue;
     }
-    if (cast(method(source, isNext)(source, ttBangEquals))) {
-      method(source, expectPunctuation)(source, ttBangEquals);
-      AnythingList rhs = parseExpressionRelational(source);
-      result = TOperatorBangEqualsExpression_constructor(TOperatorBangEqualsExpression, result, rhs);
+    if (source.isNext(ttLessThanEquals)) {
+      source.expectPunctuation(ttLessThanEquals);
+      Expression rhs = parseExpressionShift(source);
+      result = OperatorLessThanOrEqualsExpression(result, rhs);
       continue;
     }
-    break;
-  }
-  return result;
-}
-
-AnythingList parseExpressionBitwiseAnd(AnythingList source) {
-  AnythingList result = parseExpressionLogicalEquality(source);
-  while (true) {
-    if (cast(method(source, isNext)(source, ttAmpersand))) {
-      method(source, expectPunctuation)(source, ttAmpersand);
-      AnythingList rhs = parseExpressionLogicalEquality(source);
-      result = TOperatorBitwiseAndExpression_constructor(TOperatorBitwiseAndExpression, result, rhs);
+    if (source.isNext(ttGreaterThan)) {
+      source.expectPunctuation(ttGreaterThan);
+      Expression rhs = parseExpressionAddition(source);
+      result = OperatorGreaterThanExpression(result, rhs);
       continue;
     }
-    break;
-  }
-  return result;
-}
-
-AnythingList parseExpressionBitwiseXor(AnythingList source) {
-  AnythingList result = parseExpressionBitwiseAnd(source);
-  while (true) {
-    if (cast(method(source, isNext)(source, ttCaret))) {
-      method(source, expectPunctuation)(source, ttCaret);
-      AnythingList rhs = parseExpressionBitwiseAnd(source);
-      result = TOperatorBitwiseXorExpression_constructor(TOperatorBitwiseXorExpression, result, rhs);
+    if (source.isNext(ttGreaterThanEquals)) {
+      source.expectPunctuation(ttGreaterThanEquals);
+      Expression rhs = parseExpressionAddition(source);
+      result = OperatorGreaterThanOrEqualsExpression(result, rhs);
       continue;
     }
     break;
@@ -389,13 +309,19 @@ AnythingList parseExpressionBitwiseXor(AnythingList source) {
   return result;
 }
 
-AnythingList parseExpressionBitwiseOr(AnythingList source) {
-  AnythingList result = parseExpressionBitwiseXor(source);
+Expression parseExpressionLogicalEquality(TokenConsumer source) {
+  Expression result = parseExpressionRelational(source);
   while (true) {
-    if (cast(method(source, isNext)(source, ttVerticalBar))) {
-      method(source, expectPunctuation)(source, ttVerticalBar);
-      AnythingList rhs = parseExpressionBitwiseXor(source);
-      result = TOperatorBitwiseOrExpression_constructor(TOperatorBitwiseOrExpression, result, rhs);
+    if (source.isNext(ttEqualsEquals)) {
+      source.expectPunctuation(ttEqualsEquals);
+      Expression rhs = parseExpressionRelational(source);
+      result = OperatorEqualsEqualsExpression(result, rhs);
+      continue;
+    }
+    if (source.isNext(ttBangEquals)) {
+      source.expectPunctuation(ttBangEquals);
+      Expression rhs = parseExpressionRelational(source);
+      result = OperatorBangEqualsExpression(result, rhs);
       continue;
     }
     break;
@@ -403,13 +329,13 @@ AnythingList parseExpressionBitwiseOr(AnythingList source) {
   return result;
 }
 
-AnythingList parseExpressionLogicalAnd(AnythingList source) {
-  AnythingList result = parseExpressionBitwiseOr(source);
+Expression parseExpressionBitwiseAnd(TokenConsumer source) {
+  Expression result = parseExpressionLogicalEquality(source);
   while (true) {
-    if (cast(method(source, isNext)(source, ttAmpersandAmpersand))) {
-      method(source, expectPunctuation)(source, ttAmpersandAmpersand);
-      AnythingList rhs = parseExpressionBitwiseOr(source);
-      result = TOperatorLogicalAndExpression_constructor(TOperatorLogicalAndExpression, result, rhs);
+    if (source.isNext(ttAmpersand)) {
+      source.expectPunctuation(ttAmpersand);
+      Expression rhs = parseExpressionLogicalEquality(source);
+      result = OperatorBitwiseAndExpression(result, rhs);
       continue;
     }
     break;
@@ -417,13 +343,55 @@ AnythingList parseExpressionLogicalAnd(AnythingList source) {
   return result;
 }
 
-AnythingList _parseExpression(AnythingList source) {
-  AnythingList result = parseExpressionLogicalAnd(source);
+Expression parseExpressionBitwiseXor(TokenConsumer source) {
+  Expression result = parseExpressionBitwiseAnd(source);
   while (true) {
-    if (cast(method(source, isNext)(source, ttVerticalBarVerticalBar))) {
-      method(source, expectPunctuation)(source, ttVerticalBarVerticalBar);
-      AnythingList rhs = parseExpressionLogicalAnd(source);
-      result = TOperatorLogicalOrExpression_constructor(TOperatorLogicalOrExpression, result, rhs);
+    if (source.isNext(ttCaret)) {
+      source.expectPunctuation(ttCaret);
+      Expression rhs = parseExpressionBitwiseAnd(source);
+      result = OperatorBitwiseXorExpression(result, rhs);
+      continue;
+    }
+    break;
+  }
+  return result;
+}
+
+Expression parseExpressionBitwiseOr(TokenConsumer source) {
+  Expression result = parseExpressionBitwiseXor(source);
+  while (true) {
+    if (source.isNext(ttVerticalBar)) {
+      source.expectPunctuation(ttVerticalBar);
+      Expression rhs = parseExpressionBitwiseXor(source);
+      result = OperatorBitwiseOrExpression(result, rhs);
+      continue;
+    }
+    break;
+  }
+  return result;
+}
+
+Expression parseExpressionLogicalAnd(TokenConsumer source) {
+  Expression result = parseExpressionBitwiseOr(source);
+  while (true) {
+    if (source.isNext(ttAmpersandAmpersand)) {
+      source.expectPunctuation(ttAmpersandAmpersand);
+      Expression rhs = parseExpressionBitwiseOr(source);
+      result = OperatorLogicalAndExpression(result, rhs);
+      continue;
+    }
+    break;
+  }
+  return result;
+}
+
+Expression _parseExpression(TokenConsumer source) {
+  Expression result = parseExpressionLogicalAnd(source);
+  while (true) {
+    if (source.isNext(ttVerticalBarVerticalBar)) {
+      source.expectPunctuation(ttVerticalBarVerticalBar);
+      Expression rhs = parseExpressionLogicalAnd(source);
+      result = OperatorLogicalOrExpression(result, rhs);
       continue;
     }
     break;
@@ -433,229 +401,255 @@ AnythingList _parseExpression(AnythingList source) {
 parseExpression = _parseExpression;
 
 // forward declaration
-AnythingListFunction parseStatement;
+StatementFunction parseStatement;
 
-AnythingList parseBlock(AnythingList source) {
-  method(source, expectPunctuation)(source, ttOpenBrace);
-  AnythingListList statements = [];
-  while (!cast(method(source, isNext)(source, ttCloseBrace))) {
+StatementBlock parseBlock(TokenConsumer source) {
+  source.expectPunctuation(ttOpenBrace);
+  StatementList statements = [];
+  while (!source.isNext(ttCloseBrace)) {
     append(statements, parseStatement(source));
   }
-  method(source, expectPunctuation)(source, ttCloseBrace);
-  return TStatementBlock_constructor(TStatementBlock, statements);
+  source.expectPunctuation(ttCloseBrace);
+  return StatementBlock(statements);
 }
 
-AnythingList parseIfStatement(AnythingList source) {
-  method(source, readIdentifier)(source); // if
-  method(source, expectPunctuation)(source, ttOpenParen);
-  AnythingList expression = parseExpression(source);
-  method(source, expectPunctuation)(source, ttCloseParen);
-  AnythingList block = parseBlock(source);
-  AnythingList elseClause;
-  if (cast(method(source, isNextIdentifier)(source, 'else'))) {
-    method(source, readIdentifier)(source); // else
-    if (cast(method(source, isNextIdentifier)(source, 'if'))) {
-      elseClause = TElseIfClause_constructor(TElseIfClause, parseIfStatement(source));
+IfStatement parseIfStatement(TokenConsumer source) {
+  source.expectIdentifier('if');
+  source.expectPunctuation(ttOpenParen);
+  Expression expression = parseExpression(source);
+  source.expectPunctuation(ttCloseParen);
+  StatementBlock block = parseBlock(source);
+  ElseClauseNullable elseClause = null;
+  if (source.isNextIdentifier('else')) {
+    source.expectIdentifier('else');
+    if (source.isNextIdentifier('if')) {
+      elseClause = ElseIfClause(parseIfStatement(source));
     } else {
-      elseClause = TDefaultElseClause_constructor(TDefaultElseClause, parseBlock(source));
+      elseClause = DefaultElseClause(parseBlock(source));
     }
   }
-  return TIfStatement_constructor(TIfStatement, expression, block, elseClause);
+  return IfStatement(expression, block, elseClause);
 }
 
-AnythingList _parseStatement(AnythingList source) {
-  if (cast(method(source, isNextIdentifier)(source, 'enum'))) {
-    method(source, readIdentifier)(source); // enum
-    String name = cast(method(source, readIdentifier)(source));
-    method(source, expectPunctuation)(source, ttOpenBrace);
-    StringList values = [];
-    while (cast(method(source, isNext)(source, ttIdentifier))) {
-      append(values, cast(method(source, readIdentifier)(source)));
-    }
-    method(source, expectPunctuation)(source, ttCloseBrace);
-    return TEnumDeclaration_constructor(TEnumDeclaration, name, values);
+DeclarationStatement parseDeclaration(TokenConsumer source) {
+  String type = source.readIdentifier();
+  String identifier = source.readIdentifier();
+  if (source.isNext(ttEquals)) {
+    source.expectPunctuation(ttEquals);
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return VariableDeclarationStatement(type, identifier, initializer);
   }
-  if (cast(method(source, isNextIdentifier)(source, 'if'))) {
+  if (source.isNext(ttOpenParen)) {
+    source.expectPunctuation(ttOpenParen);
+    StringListList parameters = [];
+    while (!source.isNext(ttCloseParen)) {
+      if (len(parameters) > 0) {
+        source.expectPunctuation(ttComma);
+      }
+      append(parameters, [
+        source.readIdentifier(),
+        source.readIdentifier(),
+      ]);
+    }
+    source.expectPunctuation(ttCloseParen);
+    StatementBlock block = parseBlock(source);
+    Subroutine subroutine = Subroutine(type, identifier, parameters, block);
+    return SubroutineDeclarationStatement(subroutine);
+  }
+  if (source.isNext(ttSemicolon)) {
+    source.expectPunctuation(ttSemicolon);
+    Expression initialValue;
+    return VariableDeclarationStatement(type, identifier, null);
+  }
+  throw(source.expected('"=", "(", or ";"'));
+}
+
+Statement _parseStatement(TokenConsumer source) {
+  if (source.isNextIdentifier('enum')) {
+    source.expectIdentifier('enum');
+    String name = source.readIdentifier();
+    source.expectPunctuation(ttOpenBrace);
+    StringList values = [];
+    while (source.isNext(ttIdentifier)) {
+      append(values, source.readIdentifier());
+    }
+    source.expectPunctuation(ttCloseBrace);
+    return EnumDeclaration(name, values);
+  }
+  if (source.isNextIdentifier('class')) {
+    source.expectIdentifier('class');
+    String className = source.readIdentifier();
+    StringNullable superclassName = null;
+    if (source.isNextIdentifier('extends')) {
+      source.expectIdentifier('extends');
+      superclassName = source.readIdentifier();
+    }
+    source.expectPunctuation(ttOpenBrace);
+    DeclarationStatementList members = [];
+    while (!source.isNext(ttCloseBrace)) {
+      append(members, parseDeclaration(source));
+    }
+    source.expectPunctuation(ttCloseBrace);
+    return ClassDeclaration(className, superclassName, members);
+  }
+  if (source.isNextIdentifier('if')) {
     return parseIfStatement(source);
   }
-  if (cast(method(source, isNextIdentifier)(source, 'return'))) {
-    method(source, readIdentifier)(source); // return
-    AnythingList returnValue;
-    if (!cast(method(source, isNext)(source, ttSemicolon))) {
+  if (source.isNextIdentifier('return')) {
+    source.expectIdentifier('return');
+    ExpressionNullable returnValue = null;
+    if (!source.isNext(ttSemicolon)) {
       returnValue = parseExpression(source);
     }
-    method(source, expectPunctuation)(source, ttSemicolon);
-    return TReturnStatement_constructor(TReturnStatement, returnValue);
+    source.expectPunctuation(ttSemicolon);
+    return ReturnStatement(returnValue);
   }
-  if (cast(method(source, isNextIdentifier)(source, 'import'))) {
-    method(source, readIdentifier)(source); // import
-    String path = cast(method(source, readString)(source));
-    method(source, expectPunctuation)(source, ttSemicolon);
-    return TImportStatement_constructor(TImportStatement, path);
+  if (source.isNextIdentifier('import')) {
+    source.expectIdentifier('import');
+    String path = source.readString();
+    source.expectPunctuation(ttSemicolon);
+    return ImportStatement(path);
   }
-  if (cast(method(source, isNextIdentifier)(source, 'while'))) {
-    method(source, readIdentifier)(source); // while
-    method(source, expectPunctuation)(source, ttOpenParen);
-    AnythingList expression = parseExpression(source);
-    method(source, expectPunctuation)(source, ttCloseParen);
-    AnythingList block = parseBlock(source);
-    return TWhileStatement_constructor(TWhileStatement, expression, block);
+  if (source.isNextIdentifier('while')) {
+    source.expectIdentifier('while');
+    source.expectPunctuation(ttOpenParen);
+    Expression expression = parseExpression(source);
+    source.expectPunctuation(ttCloseParen);
+    StatementBlock block = parseBlock(source);
+    return WhileStatement(expression, block);
   }
-  if (cast(method(source, isNextIdentifier)(source, 'for'))) {
-    method(source, readIdentifier)(source); // for
-    method(source, expectPunctuation)(source, ttOpenParen);
-    String variable = cast(method(source, readIdentifier)(source));
-    method(source, expectIdentifier)(source, 'in');
-    AnythingList expression = parseExpression(source);
-    method(source, expectPunctuation)(source, ttCloseParen);
-    AnythingList block = parseBlock(source);
-    return TForStatement_constructor(TForStatement, variable, expression, block);
+  if (source.isNextIdentifier('for')) {
+    source.expectIdentifier('for');
+    source.expectPunctuation(ttOpenParen);
+    String variable = source.readIdentifier();
+    source.expectIdentifier('in');
+    Expression expression = parseExpression(source);
+    source.expectPunctuation(ttCloseParen);
+    StatementBlock block = parseBlock(source);
+    return ForStatement(variable, expression, block);
   }
-  // return ...
+  // TODO:
   // break
   // continue
-  // type identifier( ...
-  // type identifier;
-  // type identifier = ...
-  if (cast(method(source, isNext2)(source, ttIdentifier, ttIdentifier))) {
-    String type = cast(method(source, readIdentifier)(source));
-    String identifier = cast(method(source, readIdentifier)(source));
-    if (cast(method(source, isNext)(source, ttEquals))) {
-      method(source, expectPunctuation)(source, ttEquals);
-      AnythingList initializer = parseExpression(source);
-      method(source, expectPunctuation)(source, ttSemicolon);
-      return TVariableDeclarationStatement_constructor(TVariableDeclarationStatement, type, identifier, initializer);
-    }
-    if (cast(method(source, isNext)(source, ttOpenParen))) {
-      method(source, expectPunctuation)(source, ttOpenParen);
-      StringListList parameters = [];
-      while (!cast(method(source, isNext)(source, ttCloseParen))) {
-        if (len(parameters) > 0) {
-          method(source, expectPunctuation)(source, ttComma);
-        }
-        append(parameters, [
-          cast(method(source, readIdentifier)(source)),
-          cast(method(source, readIdentifier)(source)),
-        ]);
-      }
-      method(source, expectPunctuation)(source, ttCloseParen);
-      AnythingList block = parseBlock(source);
-      return TFunctionDeclarationStatement_constructor(TFunctionDeclarationStatement, type, identifier, parameters, block);
-    }
-    if (cast(method(source, isNext)(source, ttSemicolon))) {
-      method(source, expectPunctuation)(source, ttSemicolon);
-      return TVariableDeclarationStatement_constructor(TVariableDeclarationStatement, type, identifier, null);
-    }
-    throw(cast(method(source, expected)(source, '"=", "(", or ";"')));
+  if (source.isNext2(ttIdentifier, ttIdentifier)) {
+    return parseDeclaration(source);
   }
-  AnythingList expression = parseExpression(source);
-  if (cast(method(source, isNext)(source, ttSemicolon))) {
-    method(source, expectPunctuation)(source, ttSemicolon);
-    return TExpressionStatement_constructor(TExpressionStatement, expression);
+  Expression expression = parseExpression(source);
+  if (source.isNext(ttSemicolon)) {
+    source.expectPunctuation(ttSemicolon);
+    return ExpressionStatement(expression);
   }
   // Expression followed by some operator: must be assignment.
-  if (!cast(method(expression, isLValue)(expression))) {
-    throw(cast(method(source, butFound)(source, 'assignable lvalue expression', cast(method(expression, toString)(expression)))));
+  if (!expression.isLValue()) {
+    throw(source.butFound('assignable lvalue expression', expression.toString()));
   }
-  if (cast(method(source, isNext)(source, ttEquals))) {
-    method(source, expectPunctuation)(source, ttEquals);
-    AnythingList initializer = parseExpression(source);
-    method(source, expectPunctuation)(source, ttSemicolon);
-    return TStraightAssignmentStatement_constructor(TStraightAssignmentStatement, expression, initializer);
+  if (source.isNext(ttEquals)) {
+    source.expectPunctuation(ttEquals);
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return StraightAssignmentStatement(expression, initializer);
   }
-  if (cast(method(source, isNext)(source, ttPlusEquals))) {
-    method(source, expectPunctuation)(source, ttPlusEquals);
-    AnythingList initializer = parseExpression(source);
-    method(source, expectPunctuation)(source, ttSemicolon);
-    return TPlusAssignmentStatement_constructor(TPlusAssignmentStatement, expression, initializer);
+  if (source.isNext(ttPlusEquals)) {
+    source.expectPunctuation(ttPlusEquals);
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return PlusAssignmentStatement(expression, initializer);
   }
-  if (cast(method(source, isNext)(source, ttMinusEquals))) {
-    method(source, expectPunctuation)(source, ttMinusEquals);
-    AnythingList initializer = parseExpression(source);
-    method(source, expectPunctuation)(source, ttSemicolon);
-    return TMinusAssignmentStatement_constructor(TMinusAssignmentStatement, expression, initializer);
+  if (source.isNext(ttMinusEquals)) {
+    source.expectPunctuation(ttMinusEquals);
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return MinusAssignmentStatement(expression, initializer);
   }
-  if (cast(method(source, isNext)(source, ttAsteriskEquals))) {
-    method(source, expectPunctuation)(source, ttAsteriskEquals);
-    AnythingList initializer = parseExpression(source);
-    method(source, expectPunctuation)(source, ttSemicolon);
-    return TAsteriskAssignmentStatement_constructor(TAsteriskAssignmentStatement, expression, initializer);
+  if (source.isNext(ttAsteriskEquals)) {
+    source.expectPunctuation(ttAsteriskEquals);
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return AsteriskAssignmentStatement(expression, initializer);
   }
-  if (cast(method(source, isNext)(source, ttAsteriskEquals))) {
-    method(source, expectPunctuation)(source, ttAsteriskEquals);
-    AnythingList initializer = parseExpression(source);
-    method(source, expectPunctuation)(source, ttSemicolon);
-    return TAsteriskAssignmentStatement_constructor(TAsteriskAssignmentStatement, expression, initializer);
+  if (source.isNext(ttAsteriskEquals)) {
+    source.expectPunctuation(ttAsteriskEquals);
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return AsteriskAssignmentStatement(expression, initializer);
   }
-  if (cast(method(source, isNext)(source, ttSlashEquals))) {
-    method(source, expectPunctuation)(source, ttSlashEquals);
-    AnythingList initializer = parseExpression(source);
-    method(source, expectPunctuation)(source, ttSemicolon);
-    return TSlashAssignmentStatement_constructor(TSlashAssignmentStatement, expression, initializer);
+  if (source.isNext(ttSlashEquals)) {
+    source.expectPunctuation(ttSlashEquals);
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return SlashAssignmentStatement(expression, initializer);
   }
-  if (cast(method(source, isNext)(source, ttModulusEquals))) {
-    method(source, expectPunctuation)(source, ttModulusEquals);
-    AnythingList initializer = parseExpression(source);
-    method(source, expectPunctuation)(source, ttSemicolon);
-    return TModulusAssignmentStatement_constructor(TModulusAssignmentStatement, expression, initializer);
+  if (source.isNext(ttModulusEquals)) {
+    source.expectPunctuation(ttModulusEquals);
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return ModulusAssignmentStatement(expression, initializer);
   }
-  if (cast(method(source, isNext)(source, ttAmpersandEquals))) {
-    method(source, expectPunctuation)(source, ttAmpersandEquals);
-    AnythingList initializer = parseExpression(source);
-    method(source, expectPunctuation)(source, ttSemicolon);
-    return TBitwiseAndAssignmentStatement_constructor(TBitwiseAndAssignmentStatement, expression, initializer);
+  if (source.isNext(ttAmpersandEquals)) {
+    source.expectPunctuation(ttAmpersandEquals);
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return BitwiseAndAssignmentStatement(expression, initializer);
   }
-  if (cast(method(source, isNext)(source, ttCaretEquals))) {
-    method(source, expectPunctuation)(source, ttCaretEquals);
-    AnythingList initializer = parseExpression(source);
-    method(source, expectPunctuation)(source, ttSemicolon);
-    return TBitwiseXorAssignmentStatement_constructor(TBitwiseXorAssignmentStatement, expression, initializer);
+  if (source.isNext(ttCaretEquals)) {
+    source.expectPunctuation(ttCaretEquals);
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return BitwiseXorAssignmentStatement(expression, initializer);
   }
-  if (cast(method(source, isNext)(source, ttVerticalBarEquals))) {
-    method(source, expectPunctuation)(source, ttVerticalBarEquals);
-    AnythingList initializer = parseExpression(source);
-    method(source, expectPunctuation)(source, ttSemicolon);
-    return TBitwiseOrAssignmentStatement_constructor(TBitwiseOrAssignmentStatement, expression, initializer);
+  if (source.isNext(ttVerticalBarEquals)) {
+    source.expectPunctuation(ttVerticalBarEquals);
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return BitwiseOrAssignmentStatement(expression, initializer);
   }
-  throw(cast(method(source, expected)(source, 'assignment operator (e.g. "=")')));
+  throw(source.expected('assignment operator (e.g. "=")'));
 }
 parseStatement = _parseStatement;
 
-AnythingList parseTokens(AnythingList tokens) {
+Library parseTokens(AnythingListList tokens) {
   println('parsing...');
-  AnythingList source = TTokenConsumer_constructor(TTokenConsumer, tokens);
-  AnythingListList statements = [];
-  while (!cast(method(source, isNext)(source, ttEof))) {
+  TokenConsumer source = TokenConsumer(tokens);
+  StatementList statements = [];
+  while (!source.isNext(ttEof)) {
     append(statements, parseStatement(source));
   }
-  return TProgram_constructor(TProgram, statements);
+  return Library(statements);
 }
 
-AnythingList parseString(String data, String filename) {
-  return parseTokens(tokenize(data, filename));
+Library parseString(String data, String filename) {
+  return parseTokens(tokenize(scalarValues(data), filename));
 }
 
-AnythingList parseFile(String filename) {
+Library parseFile(String filename) {
   return parseTokens(tokenize(scalarValues(readFile(filename)), filename));
 }
 
-Null processFile(String filename, AnythingList files) {
-  assert(method(files, get)(files, filename) == null);
-  AnythingList ast = parseFile(filename);
-  method(files, set)(files, filename, ast);
-  AnythingListList children = cast(ast[TStatementBlock_children]);
-  for (child in children) {
-    if (is(child, TImportStatement)) {
-      if (method(files, get)(files, child[TImportStatement_path]) == null) {
-        processFile(cast(child[TImportStatement_path]), files);
+CompiledLibrary processFile(String filename, CompilationEnvironment compilationEnvironment) {
+  assert(compilationEnvironment.getLibraryState(filename) == lsUnknown, 'processFile has already processed this file');
+  Library ast = parseFile(filename);
+  compilationEnvironment.declareLibrary(filename);
+  for (child in ast.children) {
+    if (child is ImportStatement) {
+      ls childLibraryState = compilationEnvironment.getLibraryState(cast(cast(child).path));
+      if (childLibraryState == lsDeclared) {
+        throw('xxxx'); // import loop detected (but ast needs to track token positions)
+      } else if (childLibraryState == lsUnknown) {
+        String libraryPath = cast(cast(child).path); // TODO: handle relative paths correctly
+        compilationEnvironment.defineLibrary(libraryPath, processFile(libraryPath, compilationEnvironment));
       }
     } else {
       break;
     }
   }
+  println(concat('compiling "', filename, '"...'));
+  return ast.compileLibrary(compilationEnvironment);
 }
 
-
-AnythingList files = TMap_constructor(TMap);
-processFile('syd.syd', files);
-
+String mainProgramFileName = 'temp.syd';
+CompilationEnvironment compilationEnvironment = CompilationEnvironment();
+CompiledLibrary program = processFile(mainProgramFileName, compilationEnvironment);
+println('Compilation finished!');
+println(program);
+println(program.generateAssembler());

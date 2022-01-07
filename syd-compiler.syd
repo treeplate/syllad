@@ -1,0 +1,483 @@
+import 'core.syd';
+import 'syd-types.syd';
+
+class Value extends Object {
+  Type type;
+
+  Boolean isCompileTimeConstant() {
+    abstract();
+  }
+
+  Null constructor(Type typeArg) {
+    super.constructor();
+    type = typeArg;
+  }
+
+  String toString () {
+    return concat(type, ':...');
+  }
+}
+
+class SentinelValue extends Value {
+  Null constructor(Type typeArg) {
+    super.constructor(typeArg);
+  }
+
+  Boolean isCompileTimeConstant() {
+    return true;
+  }
+
+  String toString () {
+    return concat(type, ':uninitialized');
+  }
+}
+
+class LiteralValue extends Value {
+  Anything value;
+
+  Boolean isCompileTimeConstant() {
+    return true;
+  }
+
+  Null constructor(Type typeArg, Anything valueArg) {
+    super.constructor(typeArg);
+    assert(type.literalValueIsAppropriate(valueArg), 'inappropriate literal value');
+    value = valueArg;
+  }
+
+  String toString () {
+    return concat(type, ':', value);
+  }
+}
+
+class SnapshotValue extends Value {
+  Object sourceSlot; // XXX Object should be Slot
+  Integer sourceInstruction; // in sourceSlot.compiledScope, instruction at which snapshot is needed
+
+  Boolean isCompileTimeConstant() {
+    return false;
+  }
+
+  Null constructor(Object sourceSlotArg) { // XXX Object should be Slot
+    super.constructor(cast(cast(sourceSlotArg).type));
+    sourceSlot = sourceSlotArg;
+    sourceInstruction = cast(cast(cast(sourceSlot).currentInstructionOffset)());
+  }
+}
+
+enum reg { RAX }
+
+class RegisterValue extends Value {
+  reg register;
+
+  Boolean isCompileTimeConstant() {
+    return false;
+  }
+
+  Null constructor(Type typeArg, reg registerArg) {
+    super.constructor(typeArg);
+    register = registerArg;
+  }
+}
+
+class StaticSubroutineValue extends Value {
+  Object subroutine; // XXX Object should be CompiledScope
+
+  Boolean isCompileTimeConstant() {
+    return true;
+  }
+
+  Null constructor(Object subroutineArg) { // XXX Object should be CompiledScope
+    super.constructor(cast(cast(subroutineArg).type));
+    subroutine = subroutineArg;
+  }
+}
+
+class Slot extends Object {
+  Type type;
+  Object compiledScope; // XXX Object should be CompiledScope
+  Value initialValue;
+
+  SnapshotValueList reads = [];
+  Boolean accessedRemotely = false;
+
+  Integer currentInstructionOffset() {
+    return cast(cast(cast(compiledScope).instructionOffset)());
+  }
+
+  // whether initialValue is relevant and is a compile time constant
+  Boolean canBeTriviallyRead() {
+    return initialValue.isCompileTimeConstant();
+  }
+
+  Value read(Object currentScope) { // XXX Object should be CompiledScope
+    if (canBeTriviallyRead()) {
+      return initialValue;
+    }
+    accessedRemotely = accessedRemotely || (currentScope != compiledScope);
+    SnapshotValue result = SnapshotValue(this);
+    append(reads, result);
+    return result;
+  }
+
+  Null constructor(Type typeArg, Object compiledScopeArg, Value initialValueArg) { // XXX Object should be CompiledScope
+    super.constructor();
+    type = typeArg;
+    compiledScope = compiledScopeArg;
+    assert(initialValueArg.type.isSubtypeOf(type), concat('initial value ', initialValueArg, ' is inappropriate for type ', type));
+    initialValue = initialValueArg;
+  }
+}
+
+class NamedSlot extends Slot {
+  // xxx should probably track name, where it was defined
+
+  Null constructor(Type typeArg, Object compiledScopeArg, Value initialValueArg) { // XXX Object should be CompiledScope
+    super.constructor(typeArg, compiledScopeArg, initialValueArg);
+  }
+}
+
+class StaticSubroutineSlot extends NamedSlot {
+  Null constructor(Object compiledScopeArg, Object subroutineArg) { // XXX Object should be CompiledScope both times
+    StaticSubroutineValue value = StaticSubroutineValue(subroutineArg);
+    super.constructor(value.type, compiledScopeArg, value);
+  }
+}
+
+class ConstantSlot extends NamedSlot {
+  Null constructor(Type typeArg, Object compiledScopeArg, LiteralValue valueArg) { // XXX Object should be CompiledScope
+    super.constructor(typeArg, compiledScopeArg, valueArg);
+  }
+}
+
+class VariableSlot extends NamedSlot {
+  Boolean mutated = false;
+
+  Null recordWrite(Object currentScope) { // XXX Object should be CompiledScope
+    accessedRemotely = accessedRemotely || (currentScope != compiledScope);
+    mutated = true;
+  }
+
+  Boolean canBeTriviallyRead() {
+    return super.canBeTriviallyRead() && !mutated;
+  }
+
+  Null constructor(Type typeArg, Object compiledScopeArg, LiteralValue initialValueArg) { // XXX Object should be CompiledScope
+    super.constructor(typeArg, compiledScopeArg, initialValueArg);
+  }
+}
+
+class Instruction extends Object {
+  
+}
+
+class SubroutineCallInstruction extends Instruction {
+  Object target; // XXX Object should be CompiledScope
+  ValueList arguments;
+
+  // put arguments on stack, except the last four go in R9, R8, RDX, RCX
+
+  Null constructor(Object targetArg, ValueList argumentsArg) { // XXX Object should be CompiledScope
+    super.constructor();
+    target = targetArg;
+    arguments = argumentsArg;
+  }
+}
+
+// Value Source
+enum vs { RAX }
+
+class LabelValueInstruction extends Instruction {
+  Slot slot;
+  vs source;
+  Null constructor(Slot slotArg, vs sourceArg) {
+    super.constructor();
+    slot = slotArg;
+    source = sourceArg;
+  }
+}
+
+// Library State
+enum ls { Unknown Declared Defined }
+
+class CompilationEnvironment extends TypeRegistry {
+  Map libraries = Map(); // String -> false (actively being compiled) or CompiledLibrary
+  ObjectNullable runtimeLibrary = null; // XXX Object should be CompiledRuntimeLibraryNullable
+
+  Null declareLibrary(String filename) {
+    assert(libraries.get(filename) == null, 'tried to declare library that was already declared');
+    libraries.set(filename, false);
+  }
+
+  Null defineLibrary(String filename, Object library) { // XXX Object should be CompiledLibrary
+    assert(library.className == 'CompiledLibrary', 'library is not a CompiledLibrary');
+    assert(libraries.get(filename) == false, 'tried to define library that was not declared or was already defined');
+    libraries.set(filename, library);
+  }
+
+  ls getLibraryState(String filename) {
+    Anything library = libraries.get(filename);
+    if (library == null) {
+      return lsUnknown;
+    }
+    if (library == false) {
+      return lsDeclared;
+    }
+    assert(library is Object, 'library is not a CompiledLibrary, false, or null');
+    assert(cast(library).className == 'CompiledLibrary', 'library is not a CompiledLibrary, false, or null');
+    return lsDefined;
+  }
+
+  Object getLibrary(String filename) { // XXX Object should be CompiledLibrary
+    assert(getLibraryState(filename) == lsDefined, 'getLibrary called for undefined library');
+    return libraries.get(filename);
+  }
+
+  Null constructor() {
+    super.constructor();
+    runtimeLibrary = cast(cast(cast(this).CompiledRuntimeLibrary)(this));
+    println('created', runtimeLibrary);
+  }
+}
+
+class CompiledScope extends Object {
+  // parent scope, for lookups
+  CompiledScopeNullable parent;
+
+  CompiledScope globalScope() { // XXX CompiledScope should be CompiledLibrary
+    assert(parent != null, 'compiled scope chain failure');
+    return cast(cast(cast(parent).globalScope)());
+  }
+
+  CompilationEnvironment environment() {
+    assert(parent != null, 'compilation environment chain failure');
+    return cast(cast(parent).environment)();
+  }
+
+  // variables namespace
+  ValueList slots = [];
+  Map identifiers = Map(); // String -> VariableSlot (includes functions)
+  Boolean isIdentifierDeclaredInLocalScope(String name) {
+    return identifiers.get(name) != null;
+  }
+
+  InstructionList instructions = [];
+  Integer instructionOffset() {
+    return len(instructions);
+  }
+
+  Null emitLabelValue(vs source, Slot slot) {
+    assert(contains(slots, slot), 'tried to label non-local value');
+    append(instructions, LabelValueInstruction(slot, source));
+  }
+
+  Slot registerValue(Value value) {
+    Slot slot = Slot(value.type, this, value);
+    append(slots, slot);
+    return slot;
+  }
+
+  VariableSlot registerVariable(String name, Type type, LiteralValue initialValue) {
+    assert(!isIdentifierDeclaredInLocalScope(name), 'tried to redeclare an identifier within a scope');
+    VariableSlot variable = VariableSlot(type, this, initialValue);
+    append(slots, variable);
+    identifiers.set(name, variable);
+    return variable;
+  }
+
+  ConstantSlot registerConstant(String name, Type type, LiteralValue value) {
+    assert(!isIdentifierDeclaredInLocalScope(name), 'tried to redeclare an identifier within a scope');
+    ConstantSlot constant = ConstantSlot(type, this, value);
+    append(slots, constant);
+    identifiers.set(name, constant);
+    return constant;
+  }
+
+  StaticSubroutineSlot registerStaticSubroutine(String name, CompiledScope subroutine) { // XXX subroutine should be CompiledSubroutine
+    assert(!isIdentifierDeclaredInLocalScope(name), 'tried to redeclare an identifier within a scope');
+    StaticSubroutineSlot value = StaticSubroutineSlot(this, subroutine);
+    append(slots, value);
+    identifiers.set(name, value);
+    return value;
+  }
+
+  NamedSlotNullable lookupIdentifier(String name) {
+    NamedSlotNullable value = cast(identifiers.get(name));
+    if (value == null && parent != null) {
+      value = cast(cast(cast(parent!).lookupIdentifier)(name));
+    }
+    return value;
+  }
+
+  Slot emitDirectSubroutineCall(CompiledScope target, ValueList arguments) { // XXX target should be CompiledSubroutine
+    SubroutineCallInstruction call = SubroutineCallInstruction(target, arguments);
+    append(instructions, call);
+    AbstractSubroutineType subroutineType = cast(cast(target).type);
+    Slot returnValue = registerValue(RegisterValue(subroutineType.returnType, regRAX));
+  }
+
+  // XXX emitIndirectSubroutineCall
+
+  String generateAssembler() {
+    abstract();
+  }  
+
+  Null constructor(CompiledScopeNullable parentArg) {
+    super.constructor();
+    parent = parentArg;
+  }
+
+  String toStringIndent(Integer indent) {
+    StringList buffer = [];
+    append(buffer, concat(stringTimes(' ', indent), 'identifiers: ', identifiers));
+    if (len(instructions) > 0) {
+      append(buffer, concat(stringTimes(' ', indent), 'instructions:'));
+      for (instruction in instructions) {
+        append(buffer, concat(instruction));
+      }
+    } else {
+      append(buffer, concat(stringTimes(' ', indent), 'no instructions'));
+    }
+    return join(buffer, '\n');
+  }
+
+  String toString() {
+    return toStringIndent(0);
+  }
+}
+
+class CompiledStackFrameScope extends CompiledScope {
+  Null constructor(CompiledScopeNullable parentArg) {
+    super.constructor(parentArg);
+  }
+}
+
+class CompiledSubroutine extends CompiledStackFrameScope {
+  AbstractSubroutineType type;
+  String label;
+
+  Null constructor(CompiledScopeNullable parentArg, AbstractSubroutineType typeArg, String labelArg) {
+    super.constructor(parentArg);
+    type = typeArg;
+    label = labelArg;
+  }
+
+  String toStringIndent(Integer indent) {
+    StringList buffer = [];
+    append(buffer, super.toStringIndent(indent));
+    append(buffer, concat(stringTimes(' ', indent), 'type: ', type));
+    return join(buffer, '\n');
+  }
+}
+
+class BuiltInPrintlnSubroutine extends CompiledSubroutine {
+  Null constructor(CompiledScopeNullable parentArg) { // XXX parentArg should be CompiledRuntimeLibrary
+    super.constructor(
+      parentArg,
+      SubroutineTypeWithVarArgs(
+        cast(cast(cast(parentArg).environment)()),
+        cast(cast(parentArg).coreNullType),
+        cast(cast(parentArg).coreAnythingType),
+      ),
+      'println',
+    );
+  }
+}
+
+class CompiledLibrary extends CompiledStackFrameScope {
+  CompilationEnvironment compilationEnvironment;
+
+  CompiledLibrary globalScope() {
+    assert(parent == null, 'CompiledLibrary had a parent scope');
+    return this;
+  }
+
+  CompilationEnvironment environment() {
+    assert(compilationEnvironment != null, 'compilation envionment was not set');
+    return compilationEnvironment;
+  }
+
+  CompiledLibraryList libraries = [];
+
+  Null importLibrary(CompiledLibrary library) {
+    assert(!contains(libraries, library), 'tried to import library twice');
+    append(libraries, library);
+  }
+
+  NamedSlotNullable lookupIdentifier(String name) {
+    NamedSlotNullable result = super.lookupIdentifier(name);
+    if (result == null) {
+      for (library in libraries) {
+        result = library.lookupIdentifier(name);
+        if (result != null) {
+          break;
+        }
+      }
+    }
+    return result;
+  }
+
+  // types namespace
+  Map types = Map(); // String -> Type
+
+  Null declareType(Type type) {
+    assert(types.get(type.name) == null, 'tried to redefine a type name');
+    types.set(type.name, type);
+  }
+
+  Null constructor(CompilationEnvironment compilationEnvironmentArg) {
+    super.constructor(null);
+    compilationEnvironment = compilationEnvironmentArg;
+    CompiledLibraryNullable runtimeLibrary = cast(compilationEnvironment.runtimeLibrary); // XXX CompiledLibrary should be CompiledRuntimeLibrary
+    println(runtimeLibrary);
+    if (runtimeLibrary != null) {
+      importLibrary(runtimeLibrary!);
+    }
+  }
+
+  String toStringIndent(Integer indent) {
+    StringList buffer = [];
+    append(buffer, super.toStringIndent(indent));
+    append(buffer, concat(stringTimes(' ', indent), 'types: ', types));
+    if (len(libraries) > 0) {
+      append(buffer, concat(stringTimes(' ', indent), 'libraries:'));
+      for (library in libraries) {
+        append(buffer, concat(library.toStringIndent(indent + 2)));
+      }
+    } else {
+      append(buffer, concat(stringTimes(' ', indent), 'no libraries'));
+    }
+    return join(buffer, '\n');
+  }
+}
+
+class CompiledRuntimeLibrary extends CompiledLibrary {
+  Type coreNothingType;
+  LiteralValue nothing;
+
+  Type coreAnythingType;
+  Type coreNullType;
+  Type coreBooleanType;
+  Type coreIntegerType;
+  Type coreStringType;
+
+  Null constructor(CompilationEnvironment compilationEnvironmentArg) {
+    super.constructor(compilationEnvironmentArg);
+    coreNothingType = NothingType(compilationEnvironmentArg);
+    nothing = LiteralValue(coreNothingType, coreNothingType);
+    coreAnythingType = AnythingType(compilationEnvironmentArg);
+    declareType(coreAnythingType);
+    coreNullType = NullType(compilationEnvironmentArg);
+    declareType(coreNullType);
+    registerConstant('null', coreNullType, LiteralValue(coreNullType, null));
+    coreBooleanType = BooleanType(compilationEnvironmentArg);
+    declareType(coreBooleanType);
+    registerConstant('false', coreBooleanType, LiteralValue(coreBooleanType, false));
+    registerConstant('true', coreBooleanType, LiteralValue(coreBooleanType, true));
+    coreIntegerType = IntegerType(compilationEnvironmentArg);
+    declareType(coreIntegerType);
+    coreStringType = StringType(compilationEnvironmentArg);
+    declareType(coreStringType);
+    registerStaticSubroutine('println', BuiltInPrintlnSubroutine(this));
+  }
+}

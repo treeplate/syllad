@@ -6,9 +6,10 @@ String intToStr(Integer value) {
     return '0';
   }
   StringList buffer = [];
-  while (value > 0) {
-    Integer digit = value % 10;
-    value = value / 10;
+  Integer newValue = value; // parameters are final
+  while (newValue > 0) {
+    Integer digit = newValue % 10;
+    newValue = newValue / 10;
     append(buffer, chr(0x30 + digit));
   }
   Integer index = len(buffer);
@@ -20,10 +21,53 @@ String intToStr(Integer value) {
   return joinList(flippedBuffer);
 }
 
+String join(StringList items, String joiner) {
+  StringList result = [];
+  Integer index = 0;
+  while (index < len(items)) {
+    if (index > 0) {
+      append(result, joiner);
+    }
+    append(result, items[index]);
+    index += 1;
+  }
+  return joinList(result);
+}
+
+AnythingList map(AnythingList items, AnythingFunction callback) {
+  AnythingList result = [];
+  Integer index = 0;
+  while (index < len(items)) {
+    append(result, callback(items[index]));
+    index += 1;
+  }
+  return result;
+}
+
+Boolean contains(AnythingList list, Anything item) {
+  for (entry in list) {
+    if (entry == item) {
+      return true;
+    }
+  }
+  return false;
+}
 
 // OBJECTS
 
-// class TObject
+class Object {
+  Null abstract() {
+    throw(concat('called abstract method on ', className));
+  }
+
+  Null constructor() { }
+
+  String toString() {
+    return concat('<', className, '>');
+  }
+}
+
+/*
 Integer vmtSignature = 0;
 Integer vmtClassName = 1;
 Integer vmtParent = 2;
@@ -97,6 +141,7 @@ Boolean is(AnythingList object, AnythingList class) {
   }
   return false;
 }
+*/
 
 // COLLECTIONS
 
@@ -116,6 +161,124 @@ Integer hashAnything(Anything data) {
   return hashString(concat(data));
 }
 
+class Map {
+  AnythingListListList table = [];
+  Integer length = 0;
+
+  Null constructor() { }
+
+  // protected
+  Null nonGrowingSet(Anything key, Anything value) {
+    assert(len(table) > 0, 'Cannot set without growing in an empty Map.');
+    Integer hashCode = hashAnything(key);
+    Integer entryIndex = hashCode % len(table);
+    AnythingListListList table = table;
+    AnythingListList entry = table[entryIndex];
+    if (entry == null) {
+      table[entryIndex] = [[key, value]];
+      length += 1;
+      return;
+    }
+    for (record in entry) {
+      if (record[0] == key) {
+        record[1] = value;
+        return;
+      }
+    }
+    append(entry, [key, value]);
+    length += 1;
+  }
+
+  // protected
+  Null grow() {
+    AnythingListListList oldTable = table;
+    AnythingListListList newTable = [];
+    Integer oldSize = len(oldTable);
+    Integer newSize = oldSize * 2 + 1;
+    Integer index = 0;
+    while (index < newSize) {
+      append(newTable, null);
+      index += 1;
+    }
+    table = newTable;
+    for (entry in oldTable) {
+      if (entry != null) {
+        for (record in entry) {
+          nonGrowingSet(record[0], record[1]);
+        }
+      }
+    }
+  }
+
+  Null set(Anything key, Anything value) {
+    if (len(table) <= length /* *1.3 */) {
+      grow();
+    }
+    nonGrowingSet(key, value);
+  }
+
+  Anything get(Anything key) {
+    if (len(table) == 0) {
+      return null;
+    }
+    Integer hashCode = hashAnything(key);
+    AnythingListList entry = table[hashCode % len(table)];
+    if (entry == null) {
+      return null;
+    }
+    for (record in entry) {
+      if (record[0] == key) {
+        return record[1];
+      }
+    }
+    return null;
+  }
+
+  AnythingList keys() {
+    AnythingList result = [];
+    for (entry in table) {
+      if (entry != null) {
+        for (record in entry) {
+          append(result, record[0]);
+        }
+      }
+    }
+    return result;
+  }
+
+  AnythingList values() {
+    AnythingList result = [];
+    for (entry in table) {
+      if (entry != null) {
+        for (record in entry) {
+          append(result, record[1]);
+        }
+      }
+    }
+    return result;
+  }
+
+  String toString() {
+    StringList items = [];
+    for (entry in table) {
+      if (entry != null) {
+        for (record in entry) {
+          if (len(items) > 0) {
+            append(items, ', ');
+          }
+          append(items, concat(record[0], ', ', record[1]));
+        }
+      }
+    }
+    return concat(
+      '{',
+      joinList(items),
+      '}',
+    );
+  }
+}
+
+/*
 // class TMap
 AnythingList TMap = extend(TObject, 'TMap');
 Integer TMap_table = TObject_instanceSize;
@@ -125,8 +288,10 @@ Integer set = len(TMap);
 Integer get = len(TMap) + 1;
 Integer grow = len(TMap) + 2; // protected
 Integer nonGrowingSet = len(TMap) + 3; // protected
+Integer keys = len(TMap) + 4;
+Integer values = len(TMap) + 5;
 Null TMap_set(AnythingList this, Anything key, Anything value) {
-  if (len(cast(this[TMap_table])) <= cast(this[TMap_length]) /* *1.3 */) {
+  if (len(cast(this[TMap_table])) <= cast(this[TMap_length]) * 1.3) {
     method(this, grow)(this);
   }
   method(this, nonGrowingSet)(this, key, value);
@@ -190,6 +355,30 @@ Null TMap_nonGrowingSet(AnythingList this, Anything key, Anything value) {
   this[TMap_length] = cast(this[TMap_length]) + 1;
 }
 append(TMap, TMap_nonGrowingSet);
+AnythingList TMap_keys(AnythingList this) {
+  AnythingList result = [];
+  for (entry in cast(this[TMap_table])) {
+    if (entry != null) {
+      for (record in cast(entry)) {
+        append(result, cast(record)[0]);
+      }
+    }
+  }
+  return result;
+}
+TMap[keys] = TMap_keys;
+AnythingList TMap_values(AnythingList this) {
+  AnythingList result = [];
+  for (entry in cast(this[TMap_table])) {
+    if (entry != null) {
+      for (record in cast(entry)) {
+        append(result, cast(record)[1]);
+      }
+    }
+  }
+  return result;
+}
+TMap[values] = TMap_values;
 String TMap_toString(AnythingList this) {
   AnythingListListList table = cast(this[TMap_table]);
   StringList items = [];
@@ -217,3 +406,4 @@ AnythingList TMap_constructor(AnythingList vmt) {
   append(instance, 0);
   return instance;
 }
+*/
