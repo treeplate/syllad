@@ -3,10 +3,9 @@
 ; ML64 test.asm
 ; test
 
-_DRECTVE SEGMENT INFO ALIAS(".drectve")
+_drectve segment info alias(".drectve")
     db ' /ENTRY:main '
-_DRECTVE ENDS
-
+_drectve ends
 option casemap:none
 
 includelib kernel32.lib

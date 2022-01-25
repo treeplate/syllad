@@ -14,16 +14,18 @@ class AstNode extends Object {
     // no children
   }
 
-  Value compile(CompiledScope scope) {
-    abstract();
+  Null constructor() {
+    super.constructor();
   }
-
-  Null constructor() { }
 }
 
 class Statement extends AstNode {
   Null constructor() {
     super.constructor();
+  }
+
+  Null compile(CompiledScope scope) {
+    abstract();
   }
 }
 
@@ -45,12 +47,11 @@ class StatementBlock extends AstNode {
     }
   }
 
-  Value compile(CompiledScope scope) {
+  Null compile(CompiledScope scope) {
     Null compileChild(AstNode child, CompiledScope scope) {
       cast(cast(child).compile)(scope); // workaround because self-reference doesn't work in closures
     }
     walk(compileChild, scope);
-    return cast(cast(scope.environment()).runtimeLibrary).nothing;
   }
 
   Null constructor(StatementList statementsArg) {
@@ -64,8 +65,8 @@ class Expression extends AstNode {
     return false;
   }
 
-  // Expressions are expected to declare then return a Value
-  Value compile(CompiledScope scope) {
+  // Expressions are expected to declare a Slot then return a ValueHandle read from that Slot
+  ValueHandle compile(CompiledScope scope) {
     abstract();
   }
 
@@ -76,7 +77,28 @@ class Expression extends AstNode {
 
 class StringLiteralExpression extends Expression {
   String value;
-  
+  String label;
+
+  ValueHandle compile(CompiledScope scope) {
+    label = scope.environment().generateLabel('string');
+    scope.emitInstruction(DataInstruction(
+      label,
+      [
+        // ref count (-1 means permanently allocated, ignore ref count)
+        'dq -01h',
+        // length
+        // XXX this is wrong, we should be giving the byte length in whatever encoding we use (probably UTF-8? though windows, so maybe UTF-16?)
+        concat('dq ', len(scalarValues(value))),
+        concat('db ', stringLiteral(value)),
+      ],
+      Object(), // xxxxxx source arg
+    ));
+    Slot slot = scope.registerStaticValue(LabelValue((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreStringType, label), concat(this));
+    ValueHandle result = slot.read(scope);
+    scope.emitInstruction(SlotReadInstruction(slot, result));
+    return result;
+  }
+
   String toStringIndent(Integer indent) {
     // XXX TODO escape quotes and backslashes (and newlines)
     return concat('\'', value, '\'');
@@ -147,8 +169,8 @@ class Subroutine extends Expression {
     callback(body, context);
   }
 
-  Value compile(CompiledScope scope) {
-    super.compile(CompiledScope(scope));
+  ValueHandle compile(CompiledScope scope) {
+    body.compile(CompiledScope(scope, identifier));
     abstract();
   }
 
@@ -172,14 +194,14 @@ class VariableExpression extends Expression {
     return true;
   }
 
-  Value compile(CompiledScope scope) {
+  ValueHandle compile(CompiledScope scope) {
     NamedSlotNullable slot = scope.lookupIdentifier(name);
     if (slot == null) {
       throw('xxxx');
     }
-    Value value = slot!.read(scope);
-    scope.registerValue(value);
-    return value;
+    ValueHandle result = slot!.read(scope);
+    scope.emitInstruction(SlotReadInstruction(slot!, result));
+    return result;
   }
 
   Null constructor(String nameArg) {
@@ -212,24 +234,17 @@ class SubroutineCallExpression extends Expression {
     }
   }
 
-  Value compile(CompiledScope scope) {
-    Value subroutine = subroutineReference.compile(scope);
-    if (subroutine.type is AbstractSubroutineType) {
-      // evaluate each argument in reverse order
-      //   - if subroutineReference can be statically evaluated:
-      //       emit a call to the function
-      //   - if subroutineReference evaluates to function pointer:
-      //       emit a call to the dereferenced function pointer
-      //   - if subroutineReference evaluates to method pointer:
-      //       push the object as the last argument
-      //       emit a call to the dereferenced function pointer
-      //   - if subroutineReference evaluates to closure:
-      //       push the pointer to the captured variables object as the last argument
-      //       emit a call to the dereferenced function pointer
-      // emit stack cleanup code
+  ValueHandle compile(CompiledScope scope) {
+    ValueHandle subroutine = subroutineReference.compile(scope);
+    ValueHandleList argumentValues = [];
+    if ((subroutine.slot as Slot).staticType is AbstractSubroutineType) {
+      for (argument in arguments) {
+        append(argumentValues, argument.compile(scope));
+      }
+    } else {
+      throw('xxxx');
     }
-    throw('unimplemented');
-    return cast(cast(scope.environment()).runtimeLibrary).nothing;
+    return scope.emitSubroutineCall(subroutine, argumentValues);
   }
 
   Null constructor(Expression subroutineReferenceArg, ExpressionList argumentsArg) {
@@ -546,11 +561,10 @@ class EnumDeclaration extends Statement {
     return joinList(buffer);
   }
 
-  Value compile(CompiledScope scope) {
+  Null compile(CompiledScope scope) {
     assert(scope is CompiledLibrary, 'found enum in non-global scope');
-    CompiledLibrary globalScope = cast(scope);
+    CompiledLibrary globalScope = scope as CompiledLibrary;
     globalScope.declareType(EnumType(scope.environment(), name, values));
-    return cast(cast(scope.environment()).runtimeLibrary).nothing;
   }
 
   Null constructor(String nameArg, StringList valuesArg) {
@@ -600,8 +614,8 @@ class ExpressionStatement extends Statement {
     callback(expression, context);
   }
 
-  Value compile(CompiledScope scope) {
-    return expression.compile(scope);
+  Null compile(CompiledScope scope) {
+    expression.compile(scope); // return value is discarded
   }
 
   Null constructor(Expression expressionArg) {
@@ -637,11 +651,10 @@ class ImportStatement extends Statement {
     return concat('import "', path, '";\n');
   }
 
-  Value compile(CompiledScope scope) {
+  Null compile(CompiledScope scope) {
     assert(scope.environment().getLibraryState(path) == lsDefined, concat('tried to import library "', path, '" before it was compiled'));
     assert(scope is CompiledLibrary, 'found import outside global scope');
-    cast(cast(scope).import)(cast(scope.environment().getLibrary(path)));
-    return cast(cast(scope.environment()).runtimeLibrary).nothing;
+    (scope as CompiledLibrary).importLibrary(scope.environment().getLibrary(path) as CompiledLibrary);
   }
 
   Null constructor(String pathArg) {
@@ -864,13 +877,18 @@ class ForStatement extends Statement {
 }
 
 class Library extends StatementBlock {
-  Null constructor(StatementList childrenArg) {
+  String name;
+
+  Null constructor(StatementList childrenArg, String nameArg) {
     super.constructor(childrenArg);
+    name = nameArg;
   }
 
-  CompiledLibrary compileLibrary(CompilationEnvironment compilationEnvironmentArg) { 
-    CompiledLibrary result = CompiledLibrary(compilationEnvironmentArg);
+  CompiledLibrary compileLibrary(CompilationEnvironment compilationEnvironmentArg, Assembler assembler) { 
+    CompiledLibrary result = CompiledLibrary(compilationEnvironmentArg, name);
     compile(result);
+    result.populateValueHandles();
+    result.generateAssembler(assembler, assembler.mainBlockId);
     return result;
   }
 }

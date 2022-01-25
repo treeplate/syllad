@@ -1,3 +1,0 @@
-// syllad runtime library
-// this file is automatically imported into every .syd file
-

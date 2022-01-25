@@ -1,13 +1,17 @@
 import 'lexer.dart';
 import 'dart:io';
-import 'parser.dart';
+import 'runner.dart';
+import 'statement-parser.dart';
 
 void main() {
   try {
-    runProgram(
-        parse(lex(File('syd.syd').readAsStringSync()).toList(), 'syd.syd').key);
+    runProgram(parse(lex(File('compiler/syd.syd').readAsStringSync()).toList(),
+            'syd.syd')
+        .key);
   } on FileInvalid catch (e) {
     print("$e");
     exit(1);
+  } on StackOverflowError catch (e, st) {
+    print("$e\n$st");
   }
 }

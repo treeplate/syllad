@@ -1,0 +1,143 @@
+import 'core.syd';
+
+enum ot { Imm32 Imm64 Indirect Register }
+
+class Operand extends Object {
+  String operand;
+  String location;
+  ot kind;
+
+  Null constructor(String operandArg, ot kindArg) {
+    super.constructor();
+    if (kindArg == otIndirect) {
+      operand = concat('[', operandArg, ']');
+      location = operandArg;
+    } else {
+      operand = operandArg;
+    }
+    kind = kindArg;
+  }
+
+  String toString() {
+    return operand;
+  }
+}
+
+Operand r8 = Operand('r8', otRegister);
+Operand r9 = Operand('r9', otRegister);
+Operand r10 = Operand('r10', otRegister);
+Operand r11 = Operand('r11', otRegister);
+Operand rax = Operand('rax', otRegister);
+Operand rbx = Operand('rbx', otRegister);
+Operand rcx = Operand('rcx', otRegister);
+Operand rdx = Operand('rdx', otRegister);
+
+class Assembler extends Object {
+  StringList includelibs = [];
+  StringList externs = [];
+  StringList data = [];
+  StringList labels = [];
+  StringListList code = [];
+
+  Integer lineLength = 64;
+
+  Null addIncludeLib(String filename) {
+    append(includelibs, concat('includelib ', filename));
+  }
+
+  Null addExternProc(String procname) {
+    append(externs, concat('extern ', procname, ' : proc'));
+  }
+
+  Null addData(String label, StringList lines, StringNullable comment) {
+    assert(len(lines) > 0, 'addData got no data');
+    if (comment != null) {
+      append(data, concat('  ', padRight(concat(padRight(label, 12, ' '), ' ', lines[0]), lineLength, ' '), ' ; ', comment));
+    } else {
+      append(data, concat('  ', padRight(label, 12, ' '), ' ', lines[0]));
+    }
+    Integer index = 1;
+    while (index < len(lines)) {
+      append(data, concat(stringTimes(' ', 15), lines[index]));
+      index += 1;
+    }
+  }
+
+  Null addCode(Integer blockId, String line, String comment) {
+    append(code[blockId], concat('  ', padRight(line, lineLength, ' '), ' ; ', comment));
+  }
+
+  Null addMov(Integer blockId, Operand destination, Operand source, String comment) {
+    if (source.kind == otImm64) {
+      addCode(blockId, concat('mov r11, ', source.operand), comment);
+      addCode(blockId, concat('mov ', destination.operand, ', r11'), concat('(indirect via r11 because ', source.operand, ' could be a 64 bit value)'));
+    } else if (source.kind == otImm32) {
+      addCode(blockId, concat('mov dword ptr ', destination.operand, ', ', source.operand), comment);
+    } else {
+      addCode(blockId, concat('mov ', destination.operand, ', ', source.operand), comment);
+    }
+  }
+
+  Null addLea(Integer blockId, Operand destination, Operand source, String comment) {
+    assert(source.kind == otIndirect, 'can only lea from a memory location');
+    assert(destination.kind == otRegister, 'can only lea to a register');
+    addCode(blockId, concat('lea ', destination.operand, ', ', source.operand), comment);
+  }
+
+  Integer addLabel(String label, StringNullable comment) {
+    append(labels, label);
+    StringList subcode = [];
+    if (comment != null && comment != label) {
+      append(subcode, concat('; ', comment));
+    }
+    append(subcode, concat(label, ':'));
+    append(code, subcode);
+    assert(len(code) == len(labels), 'labels and code are out of sync');
+    return len(code) - 1;
+  }
+
+  Null addComment(Integer blockId, String message) {
+    append(code[blockId], concat('  ; ', message));
+  }
+
+  String serialize() {
+    StringList fullCode = [];
+    Integer index = 0;
+    while (index < len(code)) {
+      append(fullCode, concat(
+        join(code[index], '\n'),
+        '\n\n',
+      ));
+      index += 1;
+    }
+    return concat(
+      '_drectve segment info alias(".drectve")\n',
+      '  db \' /ENTRY:main \'\n',
+      '_drectve ends\n',
+      'option casemap:none\n',
+      '\n',
+      '; includes\n',
+      join(includelibs, '\n'),
+      '\n\n',
+      '; externs\n',
+      join(externs, '\n'),
+      '\n\n',
+      '.data\n',
+      join(data, '\n'),
+      '\n\n',
+      '.code\n',
+      '\n',
+      'public main\n',
+      joinList(fullCode),
+      '\n',
+      'end\n',
+    );
+  }
+
+  Integer mainBlockId;
+
+  Null constructor() {
+    super.constructor();
+    mainBlockId = addLabel('main', null);
+  }
+}

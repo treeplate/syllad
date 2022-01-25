@@ -1,0 +1,324 @@
+// Standard Library
+//stderr('Syllad core library 1.0 loaded.');
+
+Anything sentinel;
+
+String intToStr(Integer value) {
+  if (value == 0) {
+    return '0';
+  }
+  StringList buffer = [];
+  Integer newValue = value; // parameters are final
+  while (newValue > 0) {
+    Integer digit = newValue % 10;
+    newValue = newValue / 10;
+    append(buffer, chr(0x30 + digit));
+  }
+  Integer index = len(buffer);
+  StringList flippedBuffer = [];
+  while (index > 0) {
+    index -= 1;
+    append(flippedBuffer, buffer[index]);
+  }
+  return joinList(flippedBuffer);
+}
+
+String join(StringList items, String joiner) {
+  StringList result = [];
+  Integer index = 0;
+  while (index < len(items)) {
+    if (index > 0) {
+      append(result, joiner);
+    }
+    append(result, items[index]);
+    index += 1;
+  }
+  return joinList(result);
+}
+
+String padRight(String line, Integer length, String padding) {
+  return concat(line, stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))));
+}
+
+AnythingList map(AnythingList items, AnythingFunction callback) {
+  AnythingList result = [];
+  Integer index = 0;
+  while (index < len(items)) {
+    append(result, callback(items[index]));
+    index += 1;
+  }
+  return result;
+}
+
+Boolean contains(AnythingList list, Anything item) {
+  for (entry in list) {
+    if (entry == item) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// OBJECTS
+
+Integer lastObjectId = 0;
+
+class Object {
+  Null abstract() {
+    throw(concat('called abstract method on ', className));
+  }
+
+  Integer internalObjectId;
+
+  Null constructor() {
+    internalObjectId = lastObjectId;
+    lastObjectId += 1;
+  }
+
+  String toString() {
+    return concat('<', className, '@', internalObjectId, '>');
+  }
+}
+
+// COLLECTIONS
+
+// This is a port of the xor variant of djb2, from http://www.cse.yorku.ca/~oz/hash.html
+// The original assumed 8-bit characters; this version uses scalar values which are 21 bits,
+// whether this makes any sense or not is unclear.
+Integer hashString(String data) {
+  Integer result = 5381;
+  Integer c;
+  for (c in scalarValues(data)) {
+    result = ((result << 5) + result) ^ c;
+  }
+  return result;
+}
+
+Integer hashAnything(Anything data) {
+  return hashString(concat(data));
+}
+
+class Map {
+  AnythingListListList table = [];
+  Integer length = 0;
+
+  Null constructor() { }
+
+  // protected
+  Null nonGrowingSet(Anything key, Anything value) {
+    assert(len(table) > 0, 'Cannot set without growing in an empty Map.');
+    Integer hashCode = hashAnything(key);
+    Integer entryIndex = hashCode % len(table);
+    AnythingListListList table = table;
+    AnythingListList entry = table[entryIndex];
+    if (entry == null) {
+      table[entryIndex] = [[key, value]];
+      length += 1;
+      return;
+    }
+    for (record in entry) {
+      if (record[0] == key) {
+        record[1] = value;
+        return;
+      }
+    }
+    append(entry, [key, value]);
+    length += 1;
+  }
+
+  // protected
+  Null grow() {
+    AnythingListListList oldTable = table;
+    AnythingListListList newTable = [];
+    Integer oldSize = len(oldTable);
+    Integer newSize = oldSize * 2 + 1;
+    Integer index = 0;
+    while (index < newSize) {
+      append(newTable, null);
+      index += 1;
+    }
+    table = newTable;
+    for (entry in oldTable) {
+      if (entry != null) {
+        for (record in entry) {
+          nonGrowingSet(record[0], record[1]);
+        }
+      }
+    }
+  }
+
+  Null set(Anything key, Anything value) {
+    if (len(table) <= length /* *1.3 */) {
+      grow();
+    }
+    nonGrowingSet(key, value);
+  }
+
+  Anything get(Anything key) {
+    if (len(table) == 0) {
+      return null;
+    }
+    Integer hashCode = hashAnything(key);
+    AnythingListList entry = table[hashCode % len(table)];
+    if (entry == null) {
+      return null;
+    }
+    for (record in entry) {
+      if (record[0] == key) {
+        return record[1];
+      }
+    }
+    return null;
+  }
+
+  AnythingList keys() {
+    AnythingList result = [];
+    for (entry in table) {
+      if (entry != null) {
+        for (record in entry) {
+          append(result, record[0]);
+        }
+      }
+    }
+    return result;
+  }
+
+  AnythingList values() {
+    AnythingList result = [];
+    for (entry in table) {
+      if (entry != null) {
+        for (record in entry) {
+          append(result, record[1]);
+        }
+      }
+    }
+    return result;
+  }
+
+  String toString() {
+    StringList items = [];
+    for (entry in table) {
+      if (entry != null) {
+        for (record in entry) {
+          if (len(items) > 0) {
+            append(items, ', ');
+          }
+          append(items, concat(record[0], ': ', record[1]));
+        }
+      }
+    }
+    return concat(
+      '{',
+      joinList(items),
+      '}',
+    );
+  }
+}
+
+class Set {
+  AnythingListList table = [];
+  Integer length = 0;
+
+  Null constructor() { }
+
+  // protected
+  Null nonGrowingAdd(Anything key) {
+    assert(len(table) > 0, 'Cannot set without growing in an empty Set.');
+    Integer hashCode = hashAnything(key);
+    Integer entryIndex = hashCode % len(table);
+    AnythingListList table = table;
+    AnythingList entry = table[entryIndex];
+    if (entry == null) {
+      table[entryIndex] = [key];
+      length += 1;
+      return;
+    }
+    for (record in entry) {
+      if (record == key) {
+        return;
+      }
+    }
+    append(entry, key);
+    length += 1;
+  }
+
+  // protected
+  Null grow() {
+    AnythingListList oldTable = table;
+    AnythingListList newTable = [];
+    Integer oldSize = len(oldTable);
+    Integer newSize = oldSize * 2 + 1;
+    Integer index = 0;
+    while (index < newSize) {
+      append(newTable, null);
+      index += 1;
+    }
+    table = newTable;
+    for (entry in oldTable) {
+      if (entry != null) {
+        for (record in entry) {
+          nonGrowingAdd(record);
+        }
+      }
+    }
+  }
+
+  Boolean has(Anything key) {
+    if (len(table) == 0) {
+      return false;
+    }
+    Integer hashCode = hashAnything(key);
+    AnythingList entry = table[hashCode % len(table)];
+    if (entry == null) {
+      return false;
+    }
+    for (record in entry) {
+      if (record == key) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Null add(Anything key) {
+    if (has(key)) {
+      return;
+    }
+    if (len(table) <= length /* *1.3 */) {
+      grow();
+    }
+    nonGrowingAdd(key);
+    assert(has(key), 'add did not add');
+  }
+
+  AnythingList values() {
+    AnythingList result = [];
+    for (entry in table) {
+      if (entry != null) {
+        for (record in entry) {
+          append(result, record);
+        }
+      }
+    }
+    return result;
+  }
+
+  String toString() {
+    StringList items = [];
+    for (entry in table) {
+      if (entry != null) {
+        for (record in entry) {
+          if (len(items) > 0) {
+            append(items, ', ');
+          }
+          append(items, concat(record));
+        }
+      }
+    }
+    return concat(
+      '{',
+      joinList(items),
+      '}',
+    );
+  }
+}

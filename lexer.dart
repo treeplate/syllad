@@ -378,6 +378,8 @@ Iterable<Token> lex(String file) sync* {
       case _LexerState.stringDqBackslash:
         if (rune == 0x6e) {
           strVal.write("\n");
+        } else if (rune == 0x72) {
+          strVal.write("\r");
         } else {
           strVal.writeCharCode(rune);
         }
@@ -386,6 +388,8 @@ Iterable<Token> lex(String file) sync* {
       case _LexerState.stringSqBackslash:
         if (rune == 0x6e) {
           strVal.write("\n");
+        } else if (rune == 0x72) {
+          strVal.write("\r");
         } else {
           strVal.writeCharCode(rune);
         }
@@ -447,4 +451,79 @@ class FileInvalid implements Exception {
   FileInvalid(this.message);
   final String message;
   String toString() => message;
+}
+
+class TokenIterator extends Iterator<Token> {
+  TokenIterator(this.tokens, this.file);
+
+  final Iterator<Token> tokens;
+  bool doneImports = false;
+
+  final String file;
+
+  @override
+  Token get current => doingPrevious ? previous! : tokens.current;
+  String get currentIdent {
+    if (current is IdentToken) {
+      return (current as IdentToken).ident;
+    }
+    throw FileInvalid(
+        "Expected identifier, got $current on line ${current.line} column ${current.col} file $file");
+  }
+
+  TokenType get currentChar {
+    if (current is! CharToken) {
+      throw FileInvalid(
+          "Expected character, got $current on line ${current.line} column ${current.col} file $file");
+    }
+    return (current as CharToken).type;
+  }
+
+  int get integer {
+    if (current is IntToken) {
+      return (current as IntToken).integer;
+    }
+    throw FileInvalid(
+        "Expected integer, got $current on line ${current.line} column ${current.col} file $file");
+  }
+
+  String get string {
+    if (current is StringToken) {
+      return (current as StringToken).str;
+    }
+    throw FileInvalid(
+        "Expected string, got $current on line ${current.line} column ${current.col} file $file");
+  }
+
+  Token? previous = null;
+
+  bool movedNext = false;
+
+  @override
+  bool moveNext() {
+    if (doingPrevious) {
+      doingPrevious = false;
+      return true;
+    }
+    if (movedNext) previous = current;
+    movedNext = true;
+    return tokens.moveNext();
+  }
+
+  void expectChar(TokenType char) {
+    if (char != currentChar) {
+      throw FileInvalid(
+          "Expected $char, got $current on line ${current.line} column ${current.col} file $file");
+    }
+    moveNext();
+  }
+
+  bool doingPrevious = false;
+
+  void getPrevious() {
+    if (doingPrevious) {
+      throw UnimplementedError("saving 2 back");
+    }
+    doingPrevious = true;
+  }
 }

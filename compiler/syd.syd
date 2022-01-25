@@ -1,13 +1,32 @@
-//class A { }
-//class A { Null constructor() { } } println(A());
+
+/*
+StringListList a = [];
+append(a, 1);
+println(a);
+*/
+
+/*
+Null test(StringList a) {
+  for (x in a) {
+    println(charsOf(x));
+  }
+}
+
+AnythingList a = [];
+append(a, 123);
+test(a as StringList);
+*/
+
+
 //class A { Null test() { this.test(); } }
-//Integer bar = 1; class Foo { Null constructor() { } } println(Foo().bar);
+//Integer bar = 1; class Foo { Null constructor() { } } println(Foo().bar);/*
 
 import 'syd-tokenizer.syd';
 import 'syd-ast.syd';
 import 'syd-compiler.syd';
+import 'syd-assembler.syd';
 
-println('syllad self-hosting compiler');
+stderr('syllad self-hosting compiler');
 // syllad spec:
 // functions 'print', 'charsOf',
 // 'addLists', 'parseInt',
@@ -608,25 +627,25 @@ Statement _parseStatement(TokenConsumer source) {
 }
 parseStatement = _parseStatement;
 
-Library parseTokens(AnythingListList tokens) {
-  println('parsing...');
+Library parseTokens(AnythingListList tokens, String name) {
+  stderr('parsing...');
   TokenConsumer source = TokenConsumer(tokens);
   StatementList statements = [];
   while (!source.isNext(ttEof)) {
     append(statements, parseStatement(source));
   }
-  return Library(statements);
+  return Library(statements, name);
 }
 
 Library parseString(String data, String filename) {
-  return parseTokens(tokenize(scalarValues(data), filename));
+  return parseTokens(tokenize(scalarValues(data), filename), filename);
 }
 
 Library parseFile(String filename) {
-  return parseTokens(tokenize(scalarValues(readFile(filename)), filename));
+  return parseTokens(tokenize(scalarValues(readFile(filename)), filename), filename);
 }
 
-CompiledLibrary processFile(String filename, CompilationEnvironment compilationEnvironment) {
+CompiledLibrary processFile(String filename, CompilationEnvironment compilationEnvironment, Assembler assembler) {
   assert(compilationEnvironment.getLibraryState(filename) == lsUnknown, 'processFile has already processed this file');
   Library ast = parseFile(filename);
   compilationEnvironment.declareLibrary(filename);
@@ -637,19 +656,20 @@ CompiledLibrary processFile(String filename, CompilationEnvironment compilationE
         throw('xxxx'); // import loop detected (but ast needs to track token positions)
       } else if (childLibraryState == lsUnknown) {
         String libraryPath = cast(cast(child).path); // TODO: handle relative paths correctly
-        compilationEnvironment.defineLibrary(libraryPath, processFile(libraryPath, compilationEnvironment));
+        compilationEnvironment.defineLibrary(libraryPath, processFile(libraryPath, compilationEnvironment, assembler));
       }
     } else {
       break;
     }
   }
-  println(concat('compiling "', filename, '"...'));
-  return ast.compileLibrary(compilationEnvironment);
+  stderr(concat('compiling "', filename, '"...'));
+  return ast.compileLibrary(compilationEnvironment, assembler);
 }
 
 String mainProgramFileName = 'temp.syd';
-CompilationEnvironment compilationEnvironment = CompilationEnvironment();
-CompiledLibrary program = processFile(mainProgramFileName, compilationEnvironment);
-println('Compilation finished!');
-println(program);
-println(program.generateAssembler());
+Assembler assembler = Assembler();
+CompilationEnvironment compilationEnvironment = CompilationEnvironment(assembler);
+CompiledLibrary program = processFile(mainProgramFileName, compilationEnvironment, assembler);
+stderr('Compilation finished!');
+stderr('Result:');
+println(assembler.serialize());

@@ -184,7 +184,7 @@ String describeToken(AnythingList token) {
 }
 
 AnythingListList tokenize(IntegerIterable source, String filename) {
-  println(concat('tokenizing "', filename, '"...'));
+  stderr(concat('tokenizing "', filename, '"...'));
   Integer lineNo = 1;
   Integer colNo = 0;
   Integer lastInterestingLineNo = -1;
@@ -344,6 +344,10 @@ AnythingListList tokenize(IntegerIterable source, String filename) {
           append(cast(buffer), '\n');
           state = tsSingleQuoteString;
           break;
+        } else if (ch == 0x72) { // r
+          append(cast(buffer), '\r');
+          state = tsSingleQuoteString;
+          break;
         } else {
           append(cast(buffer), chr(ch));
           state = tsSingleQuoteString;
@@ -385,6 +389,10 @@ AnythingListList tokenize(IntegerIterable source, String filename) {
       } else if (state == tsDoubleQuoteStringEscape) {
         if (ch == 0x6e) { // n
           append(cast(buffer), '\n');
+          state = tsDoubleQuoteString;
+          break;
+        } else if (ch == 0x72) { // r
+          append(cast(buffer), '\r');
           state = tsDoubleQuoteString;
           break;
         } else {

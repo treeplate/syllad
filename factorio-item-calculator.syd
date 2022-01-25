@@ -1,0 +1,11 @@
+Integer inNum(String message) {
+  println(message);
+  return parseInt(input());
+}
+Integer totalItemsMade = inNum("Items / Production");
+Integer totalItemsPlaced = inNum("Buildings / Built");
+Integer totalItemsDeconstructed = inNum("Buildings / Deconstructed");
+Integer totalItemsDestroyed = inNum("Kills / Kills");
+Integer itemsCurrentlyPlaced = totalItemsPlaced - (totalItemsDestroyed + totalItemsDeconstructed);
+println("Total items currently as items:", totalItemsMade - (itemsCurrentlyPlaced + totalItemsDestroyed));
+println("Total items currently placed:", itemsCurrentlyPlaced);
