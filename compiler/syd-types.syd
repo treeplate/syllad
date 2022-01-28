@@ -2,15 +2,15 @@ import 'core.syd';
 import 'syd-assembler.syd';
 
 String hex8(Integer value) {
-  return concat(padLeft(hex(value), 2, '0'), 'h');
+  return concat('0', padLeft(hex(value), 2, '0'), 'h');
 }
 
 String hex32(Integer value) {
-  return concat(padLeft(hex(value), 8, '0'), 'h');
+  return concat('0', padLeft(hex(value), 8, '0'), 'h');
 }
 
 String hex64(Integer value) {
-  return concat(padLeft(hex(value), 16, '0'), 'h');
+  return concat('0', padLeft(hex(value), 16, '0'), 'h');
 }
 
 String stringLiteral(String value) {

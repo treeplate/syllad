@@ -7,9 +7,6 @@ ECHO RUNNING INTERPRETED COMPILER TO GENERATE COMPILER
 CD ..
 CALL "C:\dev\flutter\bin\dart.bat" main.dart > compiler\syd.asm
 CD compiler
-ECHO ======
-TYPE syd.asm
-ECHO ======
 ECHO ASSEMBLING AND LINKING COMPILER
 ML64 syd.asm
 ECHO RUNNING COMPILED COMPILER

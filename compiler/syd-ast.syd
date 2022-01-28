@@ -93,7 +93,7 @@ class StringLiteralExpression extends Expression {
       ],
       Object(), // xxxxxx source arg
     ));
-    Slot slot = scope.registerStaticValue(LabelValue((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreStringType, label), concat(this));
+    Slot slot = scope.registerStaticValue(LabelPointerValue((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreStringType, label), concat(this));
     ValueHandle result = slot.read(scope);
     scope.emitInstruction(SlotReadInstruction(slot, result));
     return result;
@@ -112,6 +112,13 @@ class StringLiteralExpression extends Expression {
 
 class IntegerLiteralExpression extends Expression {
   Integer value;
+
+  ValueHandle compile(CompiledScope scope) {
+    Slot slot = scope.registerStaticValue(LiteralIntegerValue((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreIntegerType, value), concat(this));
+    ValueHandle result = slot.read(scope);
+    scope.emitInstruction(SlotReadInstruction(slot, result));
+    return result;
+  }
   
   String toStringIndent(Integer indent) {
     return concat(intToStr(value), ' /* 0x', hex(value), ' *\/');

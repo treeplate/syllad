@@ -1,6 +1,6 @@
 import 'core.syd';
 
-enum ot { Imm32 Imm64 Indirect Register }
+enum ot { Imm32 Imm64 Indirect Label LabelOffset Register }
 
 class Operand extends Object {
   String operand;
@@ -12,8 +12,15 @@ class Operand extends Object {
     if (kindArg == otIndirect) {
       operand = concat('[', operandArg, ']');
       location = operandArg;
+    } else if (kindArg == otLabel) {
+      operand = operandArg;
+      location = concat('offset ', operandArg);
+    } else if (kindArg == otLabelOffset) {
+      operand = concat('offset ', operandArg);
+      // no location
     } else {
       operand = operandArg;
+      // no location
     }
     kind = kindArg;
   }
@@ -82,6 +89,15 @@ class Assembler extends Object {
     assert(source.kind == otIndirect, 'can only lea from a memory location');
     assert(destination.kind == otRegister, 'can only lea to a register');
     addCode(blockId, concat('lea ', destination.operand, ', ', source.operand), comment);
+  }
+
+  Null addPush(Integer blockId, Operand source, String comment) {
+    if (source.kind == otLabelOffset) {
+      addCode(blockId, concat('mov r11, ', source.operand), comment);
+      addCode(blockId, concat('push r11'), concat('(indirect via r11 because "', source.operand, '" cannot be used with push)'));
+    } else {
+      addCode(blockId, concat('push ', source.operand), comment);
+    }
   }
 
   Integer addLabel(String label, StringNullable comment) {

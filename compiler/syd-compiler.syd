@@ -67,7 +67,20 @@ class LabelValue extends StaticValue {
   String label;
 
   Operand valueAsOperand() {
-    return Operand(label, otImm64);
+    return Operand(label, otLabel);
+  }
+
+  Null constructor(Type typeArg, String labelArg) {
+    super.constructor(typeArg);
+    label = labelArg;
+  }
+}
+
+class LabelPointerValue extends StaticValue {
+  String label;
+
+  Operand valueAsOperand() {
+    return Operand(label, otLabelOffset);
   }
 
   Null constructor(Type typeArg, String labelArg) {
@@ -119,11 +132,11 @@ class StackAllocatedValue extends Value {
   Integer stackOffset;
 
   Operand valueAsOperand() {
-    return Operand(concat('rsp+', hex8(stackOffset)), otIndirect);
+    return Operand(concat('rbp+', hex8(stackOffset)), otIndirect);
   }
 
   Operand typeAsOperand() {
-    return Operand(concat('rsp+', hex8(stackOffset - 0x08)), otIndirect);
+    return Operand(concat('rbp+', hex8(stackOffset + 0x08)), otIndirect);
   }
 
   Null constructor(Type staticTypeArg, Integer stackOffsetArg) {
@@ -231,8 +244,8 @@ class SlotWriteInstruction extends SlotInstruction {
   Null generateAssembler(Assembler assembler, Integer blockId) {
     assert(handle.value != null, concat('tried to generate assembler for a SlotWriteInstruction (', this, ') before its handle (', handle, ') was populated'));
     if (cast(slot).location != sentinel) {
-      assembler.addMov(blockId, ((cast(cast(slot).location)) as Value).typeAsOperand(), handle.value!.typeAsOperand(), concat('type of ', cast(slot).debugName as String));
       assembler.addMov(blockId, ((cast(cast(slot).location)) as Value).valueAsOperand(), handle.value!.valueAsOperand(), concat('value of ', cast(slot).debugName as String));
+      assembler.addMov(blockId, ((cast(cast(slot).location)) as Value).typeAsOperand(), handle.value!.typeAsOperand(), concat('type of ', cast(slot).debugName as String));
     } else {
       cast(cast(slot).assignLocation)(handle.value);
     }
@@ -274,19 +287,20 @@ class SubroutineCallInstruction extends Instruction {
     assembler.addComment(blockId, concat('Calling ', target.value!.valueAsOperand(), ' with ', len(arguments), ' arguments'));
     Integer argumentIndex = len(arguments) - 1;
     while (argumentIndex >= 0) {
-      assembler.addCode(blockId, concat('push ', arguments[argumentIndex].value!.typeAsOperand().operand), concat('type of argument #', argumentIndex + 1));
-      assembler.addCode(blockId, concat('push ', arguments[argumentIndex].value!.valueAsOperand().operand), concat('value of argument #', argumentIndex + 1));
+      assembler.addPush(blockId, arguments[argumentIndex].value!.valueAsOperand(), concat('value of argument #', argumentIndex + 1));
+      assembler.addPush(blockId, arguments[argumentIndex].value!.typeAsOperand(), concat('type of argument #', argumentIndex + 1));
       argumentIndex -= 1;
     }
-    assembler.addLea(blockId, r11, returnValue.value!.valueAsOperand(), 'pointer to return value');
-    assembler.addCode(blockId, 'push r11', '(that pointer is the last value pushed to the stack)');
+    // XXX why do we do addlea/addpush via r11 instead of just addpush?
+    assembler.addLea(blockId, r11, returnValue.value!.valueAsOperand(), 'pointer to return value (and type, 8 bytes later)');
+    assembler.addPush(blockId, r11, '(that pointer is the last value pushed to the stack)');
     assembler.addLea(blockId, r9, thisPointer.value!.valueAsOperand(), 'pointer to this');
     assembler.addMov(blockId, r8, thisPointer.value!.typeAsOperand(), 'type of this');
     assembler.addLea(blockId, rdx, closurePointer.value!.valueAsOperand(), 'pointer to closure');
     assembler.addCode(blockId, concat('mov rcx, ', len(arguments)), 'number of arguments');
-    assembler.addCode(blockId, 'sub rsp, 32', 'allocate shadow space');
+    assembler.addCode(blockId, 'sub rsp, 20h', 'allocate shadow space');
     assembler.addCode(blockId, concat('call ', target.value!.valueAsOperand()), 'jump to subroutine');
-    assembler.addCode(blockId, concat('add rsp, ', 32 + 8 * 2 * len(arguments) + 8), 'release shadow space and arguments');
+    assembler.addCode(blockId, concat('add rsp, ', hex8(32 + 8 * 2 * len(arguments) + 8)), 'release shadow space and arguments');
   }  
 
   Null constructor(ValueHandle targetArg, ValueHandleList argumentsArg, ValueHandle thisPointerArg, ValueHandle closurePointerArg, ValueHandle returnValueArg) {
@@ -718,25 +732,55 @@ class BuiltInPrintlnSubroutineInstructions extends Instruction {
     assembler.addIncludeLib('kernel32.lib');
     assembler.addExternProc('GetStdHandle');
     assembler.addExternProc('WriteConsoleA');
-    // At this point the stack contains:
-    // 
     assembler.addComment(blockId, 'Prolog');
     assembler.addCode(blockId, 'push rbp', 'save volatile register');
-    assembler.addCode(blockId, 'sub rsp, 8', 'space for lpNumberOfCharsWritten, out param of WriteConsoleA');
+    assembler.addCode(blockId, 'sub rsp, 08h', 'space for lpNumberOfCharsWritten, out param of WriteConsoleA');
+    assembler.addCode(blockId, 'mov rbp, rsp', 'set up frame pointer');
+    /* This is what the stack looks like at this point (relative to rbp/rsp):
+     * FFFF :
+     * +70  :                                                  : code pointer
+     * +70  :                                                  : zeroes
+     * +70  :                                                  : zeroes
+     * +70  :                                                  : zeroes
+     * +70  :                                                  : zeroes
+     * +70  :                                                  : zeroes
+     * +70  :                                                  : code pointer
+     * +70  :                                                  : zeroes
+     * +70  :                                                  : 02h
+     * +70  :                                                  : zeroes
+     * +68  : value of this                                    : 01h
+     * +60  : type of this                                     : zeroes
+     * +58  : value of closure                                 : zeroes ??
+     * +50  : type of closure                                  : zeroes ??
+     * +48  : value of arg 1 (pointer to string structure)     : FFs ???
+     * +40  : type of arg 1                                    : 07h
+     * +38  : pointer to return value                          : stack pointer
+     * +30  : shadow                                           : zeroes or uninit
+     * +28  : shadow                                           : zeroes or uninit
+     * +20  : shadow                                           : zeroes or uninit
+     * +18  : shadow                                           : zeroes or uninit
+     * +10  : return address                                   : return address
+     *  +8  : saved volatile register rbp                      : stack pointer
+     *  +0  : lpNumberOfCharsWritten                           : zeroes or uninit
+     *  -8  : 
+     * -10  : 
+     * -18  :
+     * 0000 :
+     */
     assembler.addComment(blockId, 'Calling GetStdHandle');
     assembler.addCode(blockId, 'mov rcx, -11', 'argument #1: STD_OUTPUT_HANDLE');
     assembler.addCode(blockId, 'call GetStdHandle', 'handle returned in rax');
     assembler.addComment(blockId, 'Calling WriteConsoleA');
     assembler.addCode(blockId, 'push 0', 'argument #5: Reserved, must be NULL (lpReserved)');
     assembler.addCode(blockId, 'lea r9, [rbp]', 'argument #4: Number of characters written (lpNumberOfCharsWritten)');
-    assembler.addCode(blockId, 'mov r10, [rsp-38h]', 'get address of string structure');
+    assembler.addCode(blockId, 'mov r10, [rbp+48h]', 'get address of string structure');
     assembler.addCode(blockId, 'mov r8, [r10+08h]', 'argument #3: Length of buffer (nNumberOfCharsToWrite), from string structure');
     assembler.addCode(blockId, 'lea rdx, [r10+10h]', 'argument #2: Pointer to buffer to write (*lpBuffer)');
     assembler.addCode(blockId, 'mov rcx, rax', 'argument #1: Handle from GetStdHandle (hConsoleOutput)');
-    assembler.addCode(blockId, 'sub rsp, 32', 'allocate shadow space');
+    assembler.addCode(blockId, 'sub rsp, 20h', 'allocate shadow space');
     assembler.addCode(blockId, 'call WriteConsoleA', 'returns boolean representing success in rax');
     assembler.addComment(blockId, 'Epilog');
-    assembler.addCode(blockId, 'add rsp, 40', 'release shadow space and arguments');
+    assembler.addCode(blockId, 'add rsp, 30h', 'release shadow space, arguments, and local variables');
     assembler.addCode(blockId, 'pop rbp', 'restore volatile registers');
     assembler.addCode(blockId, 'ret', 'return from subroutine');
   }
