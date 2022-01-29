@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'lexer.dart';
 import 'parser-core.dart';
 import 'expressions.dart';

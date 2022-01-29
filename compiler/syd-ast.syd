@@ -1,7 +1,8 @@
 import 'core.syd';
+import 'syd-tokenizer.syd';
 import 'syd-compiler.syd';
 
-class AstNode extends Object {
+class AstNode extends SourceCode {
   String toStringIndent(Integer indent) {
     abstract();
   }
@@ -13,17 +14,30 @@ class AstNode extends Object {
   Null walk(NullFunction callback, Anything context) {
     // no children
   }
+}
 
-  Null constructor() {
-    super.constructor();
+class TypeIdentifier extends AstNode {
+  String name;
+  
+  String toStringIndent(Integer indent) {
+    return name;
+  }
+
+  Type compile(CompiledScope scope) {
+    TypeNullable result = (scope.globalScope() as CompiledLibrary).lookupType(name);
+    if (result == null) {
+      throw(concat('Type "', name, '" not known at ', sourceLocation));
+    }
+    return result;
+  }
+
+  Null constructor(String nameArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
+    name = nameArg;
   }
 }
 
 class Statement extends AstNode {
-  Null constructor() {
-    super.constructor();
-  }
-
   Null compile(CompiledScope scope) {
     abstract();
   }
@@ -49,13 +63,14 @@ class StatementBlock extends AstNode {
 
   Null compile(CompiledScope scope) {
     Null compileChild(AstNode child, CompiledScope scope) {
+      scope.emitInstruction(SourceLocationInstruction(child));
       cast(cast(child).compile)(scope); // workaround because self-reference doesn't work in closures
     }
     walk(compileChild, scope);
   }
 
-  Null constructor(StatementList statementsArg) {
-    super.constructor();
+  Null constructor(StatementList statementsArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     children = statementsArg;
   }
 }
@@ -69,10 +84,6 @@ class Expression extends AstNode {
   ValueHandle compile(CompiledScope scope) {
     abstract();
   }
-
-  Null constructor() {
-    super.constructor();
-  }
 }
 
 class StringLiteralExpression extends Expression {
@@ -81,17 +92,10 @@ class StringLiteralExpression extends Expression {
 
   ValueHandle compile(CompiledScope scope) {
     label = scope.environment().generateLabel('string');
-    scope.emitInstruction(DataInstruction(
+    scope.emitInstruction(StringConstantDataInstruction(
       label,
-      [
-        // ref count (-1 means permanently allocated, ignore ref count)
-        'dq -01h',
-        // length
-        // XXX this is wrong, we should be giving the byte length in whatever encoding we use (probably UTF-8? though windows, so maybe UTF-16?)
-        concat('dq ', len(scalarValues(value))),
-        concat('db ', stringLiteral(value)),
-      ],
-      Object(), // xxxxxx source arg
+      value,
+      sourceLocation,
     ));
     Slot slot = scope.registerStaticValue(LabelPointerValue((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreStringType, label), concat(this));
     ValueHandle result = slot.read(scope);
@@ -100,12 +104,11 @@ class StringLiteralExpression extends Expression {
   }
 
   String toStringIndent(Integer indent) {
-    // XXX TODO escape quotes and backslashes (and newlines)
-    return concat('\'', value, '\'');
+    return concat('\'', escapeString(value), '\'');
   }
 
-  Null constructor(String valueArg) {
-    super.constructor();
+  Null constructor(String valueArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     value = valueArg;
   }
 }
@@ -124,8 +127,8 @@ class IntegerLiteralExpression extends Expression {
     return concat(intToStr(value), ' /* 0x', hex(value), ' *\/');
   }
 
-  Null constructor(Integer valueArg) {
-    super.constructor();
+  Null constructor(Integer valueArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     value = valueArg;
   }
 }
@@ -146,47 +149,9 @@ class ListLiteralExpression extends Expression {
     }
   }
 
-  Null constructor(ExpressionList valuesArg) {
-    super.constructor();
+  Null constructor(ExpressionList valuesArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     values = valuesArg;
-  }
-}
-
-class Subroutine extends Expression {
-  String returnType;
-  String identifier;
-  StringListList parameters; // pairs of type and identifier
-  StatementBlock body;
-  
-  String toStringIndent(Integer indent) {
-    StringList parametersList = [];
-    for (parameter in parameters) {
-      if (len(parametersList) > 0) {
-        append(parametersList, ', ');
-      }
-      append(parametersList, parameter[0]);
-      append(parametersList, ' ');
-      append(parametersList, parameter[1]);
-    }
-    String bodyString = body.toStringIndent(indent + 2);
-    return concat(returnType, ' ', identifier, '(', joinList(parametersList), ') {\n', bodyString, '}\n');
-  }
-
-  Null walk(NullFunction callback, Anything context) {
-    callback(body, context);
-  }
-
-  ValueHandle compile(CompiledScope scope) {
-    body.compile(CompiledScope(scope, identifier));
-    abstract();
-  }
-
-  Null constructor(String returnTypeArg, String identifierArg, StringListList parametersArg, StatementBlock bodyArg) {
-    super.constructor();
-    returnType = returnTypeArg;
-    identifier = identifierArg;
-    parameters = parametersArg;
-    body = bodyArg;
   }
 }
 
@@ -204,15 +169,15 @@ class VariableExpression extends Expression {
   ValueHandle compile(CompiledScope scope) {
     NamedSlotNullable slot = scope.lookupIdentifier(name);
     if (slot == null) {
-      throw('xxxx');
+      throw(concat('Identifier "', name, '" not known at ', sourceLocation));
     }
     ValueHandle result = slot!.read(scope);
     scope.emitInstruction(SlotReadInstruction(slot!, result));
     return result;
   }
 
-  Null constructor(String nameArg) {
-    super.constructor();
+  Null constructor(String nameArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     name = nameArg;
   }
 }
@@ -249,13 +214,13 @@ class SubroutineCallExpression extends Expression {
         append(argumentValues, argument.compile(scope));
       }
     } else {
-      throw('xxxx');
+      throw(concat('"', subroutineReference, '" is not a subroutine at ', sourceLocation));
     }
     return scope.emitSubroutineCall(subroutine, argumentValues);
   }
 
-  Null constructor(Expression subroutineReferenceArg, ExpressionList argumentsArg) {
-    super.constructor();
+  Null constructor(Expression subroutineReferenceArg, ExpressionList argumentsArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     subroutineReference = subroutineReferenceArg;
     arguments = argumentsArg;
   }
@@ -278,7 +243,8 @@ class SubscriptExpression extends Expression {
     callback(argument, context);
   }
 
-  Null constructor(Expression listArg, Expression argumentArg) {
+  Null constructor(Expression listArg, Expression argumentArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     list = listArg;
     argument = argumentArg;
   }
@@ -300,7 +266,8 @@ class MemberAccessExpression extends Expression {
     callback(object, context);
   }
 
-  Null constructor(Expression objectArg, String memberArg) {
+  Null constructor(Expression objectArg, String memberArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     object = objectArg;
     member = memberArg;
   }
@@ -318,7 +285,8 @@ class IsOperatorExpression extends Expression {
     callback(expression, context);
   }
 
-  Null constructor(Expression expressionArg, String typeNameArg) {
+  Null constructor(Expression expressionArg, String typeNameArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     expression = expressionArg;
     typeName = typeNameArg;
   }
@@ -340,8 +308,8 @@ class UnaryExpression extends Expression {
     callback(rhs, context);
   }
 
-  Null constructor(Expression rhsArg) {
-    super.constructor();
+  Null constructor(Expression rhsArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     rhs = rhsArg;
   }
 }
@@ -391,8 +359,8 @@ class OperatorExpression extends Expression {
     callback(rhs, context);
   }
 
-  Null constructor(Expression lhsArg, Expression rhsArg) {
-    super.constructor();
+  Null constructor(Expression lhsArg, Expression rhsArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     lhs = lhsArg;
     rhs = rhsArg;
   }
@@ -516,37 +484,75 @@ class DeclarationStatement extends Statement {
     }
   }
 
-  Null constructor(String identifierArg, ExpressionNullable rValueArg) {
-    super.constructor();
+  Null constructor(String identifierArg, ExpressionNullable rValueArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     identifier = identifierArg;
     rValue = rValueArg;
   }
 }
 
 class VariableDeclarationStatement extends DeclarationStatement {
-  String type;
+  TypeIdentifier type;
   
   String toStringIndent(Integer indent) {
     if (rValue == null) {
-      return concat(type, ' ', identifier, ';\n');
+      return concat(type.toStringIndent(indent), ' ', identifier, ';\n');
     }
-    return concat(type, ' ', identifier, ' = ', rValue!.toStringIndent(indent), ';\n');
+    return concat(type.toStringIndent(indent), ' ', identifier, ' = ', rValue!.toStringIndent(indent), ';\n');
   }
 
-  Null constructor(String typeArg, String identifierArg, ExpressionNullable rValueArg) {
-    super.constructor(identifierArg, rValueArg);
+  Null constructor(TypeIdentifier typeArg, String identifierArg, ExpressionNullable rValueArg, SourceLocation sourceLocationArg) {
+    super.constructor(identifierArg, rValueArg, sourceLocationArg);
     type = typeArg;
   }
 }
 
-class SubroutineDeclarationStatement extends DeclarationStatement {
-  String toStringIndent(Integer indent) {
-    assert(rValue != null, 'Internal error: SubroutineDeclarationStatement has null subroutine');
-    return rValue!.toStringIndent(indent);
+class SubroutineDeclarationStatement extends Statement {
+  TypeIdentifier returnType;
+  String identifier;
+  AnythingListList parameters; // pairs of type (TypeIdentifier) and identifier (String)
+  StatementBlock body;
+
+  Null walk(NullFunction callback, Anything context) {
+    callback(body, context);
   }
 
-  Null constructor(Subroutine subroutine) {
-    super.constructor(subroutine.identifier, subroutine);
+  Null compile(CompiledScope scope) {
+    Type compiledReturnType = returnType.compile(scope);
+    TypeList compiledParameterTypes = [];
+    for (entry in parameters) {
+      append(compiledParameterTypes, (entry[0] as TypeIdentifier).compile(scope));
+    }
+    SubroutineTypeWithSpecificParameters subroutineType = createOrFindSubroutineType(
+      scope.environment(),
+      compiledReturnType,
+      compiledParameterTypes,
+    );
+    CompiledSubroutine subroutine = CompiledSubroutine(scope, subroutineType, identifier);
+    scope.registerSubroutine(subroutine);
+    body.compile(subroutine);
+  }
+
+  String toStringIndent(Integer indent) {
+    StringList parametersList = [];
+    for (parameter in parameters) {
+      if (len(parametersList) > 0) {
+        append(parametersList, ', ');
+      }
+      append(parametersList, (parameter[0] as TypeIdentifier).toStringIndent(indent));
+      append(parametersList, ' ');
+      append(parametersList, parameter[1]);
+    }
+    String bodyString = body.toStringIndent(indent + 2);
+    return concat(returnType.toStringIndent(indent), ' ', identifier, '(', joinList(parametersList), ') {\n', bodyString, '}\n');
+  }
+
+  Null constructor(TypeIdentifier returnTypeArg, String identifierArg, AnythingListList parametersArg, StatementBlock bodyArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
+    returnType = returnTypeArg;
+    identifier = identifierArg;
+    parameters = parametersArg;
+    body = bodyArg;
   }
 }  
 
@@ -574,8 +580,8 @@ class EnumDeclaration extends Statement {
     globalScope.declareType(EnumType(scope.environment(), name, values));
   }
 
-  Null constructor(String nameArg, StringList valuesArg) {
-    super.constructor();
+  Null constructor(String nameArg, StringList valuesArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     name = nameArg;
     values = valuesArg;
   }
@@ -602,8 +608,8 @@ class ClassDeclaration extends Statement {
     return joinList(buffer);
   }
 
-  Null constructor(String classNameArg, StringNullable superclassNameArg, DeclarationStatementList membersArg) {
-    super.constructor();
+  Null constructor(String classNameArg, StringNullable superclassNameArg, DeclarationStatementList membersArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     className = classNameArg;
     superclassName = superclassNameArg;
     members = membersArg;
@@ -625,8 +631,8 @@ class ExpressionStatement extends Statement {
     expression.compile(scope); // return value is discarded
   }
 
-  Null constructor(Expression expressionArg) {
-    super.constructor();
+  Null constructor(Expression expressionArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     expression = expressionArg;
   }
 }
@@ -645,8 +651,8 @@ class ReturnStatement extends Statement {
     callback(expression, context);
   }
 
-  Null constructor(ExpressionNullable expressionArg) {
-    super.constructor();
+  Null constructor(ExpressionNullable expressionArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     expression = expressionArg;
   }
 }
@@ -664,8 +670,8 @@ class ImportStatement extends Statement {
     (scope as CompiledLibrary).importLibrary(scope.environment().getLibrary(path) as CompiledLibrary);
   }
 
-  Null constructor(String pathArg) {
-    super.constructor();
+  Null constructor(String pathArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     path = pathArg;
   }
 }
@@ -692,8 +698,8 @@ class AssignmentStatement extends Statement {
     callback(rValue, context);
   }
 
-  Null constructor(Expression lValueArg, Expression rValueArg) {
-    super.constructor();
+  Null constructor(Expression lValueArg, Expression rValueArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     assert(lValueArg.isLValue(), 'lvalue is not assignable');
     lValue = lValueArg;
     rValue = rValueArg;
@@ -783,8 +789,8 @@ class IfStatement extends Statement {
     }
   }
 
-  Null constructor(Expression expressionArg, StatementBlock blockArg, ElseClauseNullable elseClauseArg) {
-    super.constructor();
+  Null constructor(Expression expressionArg, StatementBlock blockArg, ElseClauseNullable elseClauseArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     expression = expressionArg;
     block = blockArg;
     elseClause = elseClauseArg;
@@ -806,8 +812,8 @@ class DefaultElseClause extends ElseClause {
     callback(block, context);
   }
 
-  Null constructor(StatementBlock blockArg) {
-    super.constructor();
+  Null constructor(StatementBlock blockArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     block = blockArg;
   }
 }
@@ -823,8 +829,8 @@ class ElseIfClause extends ElseClause {
     callback(ifClause, context);
   }
 
-  Null constructor(IfStatement clauseArg) {
-    super.constructor();
+  Null constructor(IfStatement clauseArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     ifClause = clauseArg;
   }
 }
@@ -846,8 +852,8 @@ class WhileStatement extends Statement {
     callback(block, context);
   }
 
-  Null constructor(Expression expressionArg, StatementBlock blockArg) {
-    super.constructor();
+  Null constructor(Expression expressionArg, StatementBlock blockArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     expression = expressionArg;
     block = blockArg;
   }
@@ -875,8 +881,8 @@ class ForStatement extends Statement {
     callback(block, context);
   }
 
-  Null constructor(String variableArg, Expression iterableArg, StatementBlock blockArg) {
-    super.constructor();
+  Null constructor(String variableArg, Expression iterableArg, StatementBlock blockArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
     variable = variableArg;
     iterable = iterableArg;
     block = blockArg;
@@ -886,8 +892,8 @@ class ForStatement extends Statement {
 class Library extends StatementBlock {
   String name;
 
-  Null constructor(StatementList childrenArg, String nameArg) {
-    super.constructor(childrenArg);
+  Null constructor(StatementList childrenArg, String nameArg, SourceLocation sourceLocationArg) {
+    super.constructor(childrenArg, sourceLocationArg);
     name = nameArg;
   }
 

@@ -1,1 +1,5 @@
-println('Hello\r\n');
+Null foo() {
+  println('Hello\r\n');
+}
+
+foo();

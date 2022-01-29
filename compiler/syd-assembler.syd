@@ -1,5 +1,49 @@
 import 'core.syd';
 
+String hex8(Integer value) {
+  return concat('0', padLeft(hex(value), 2, '0'), 'h');
+}
+
+String hex32(Integer value) {
+  return concat('0', padLeft(hex(value), 8, '0'), 'h');
+}
+
+String hex64(Integer value) {
+  return concat('0', padLeft(hex(value), 16, '0'), 'h');
+}
+
+String stringLiteral(String value) {
+  StringList buffer = [];
+  Boolean quoted = false;
+  for (char in scalarValues(value)) {
+    if (char == 0x22 && quoted) {
+      append(buffer, '""');
+    } else if (char < 0x20 || char > 0x7e || char == 0x22) {
+      if (quoted) {
+        append(buffer, '"');
+        quoted = false;
+      }
+      if (len(buffer) > 0) {
+        append(buffer, ', ');
+      }
+      append(buffer, concat(padLeft(hex(char), 2, '0'), 'h'));
+    } else {
+      if (!quoted) {
+        if (len(buffer) > 0) {
+          append(buffer, ', ');
+        }
+        append(buffer, '"');
+        quoted = true;
+      }
+      append(buffer, chr(char));
+    }
+  }
+  if (quoted) {
+    append(buffer, '"');
+  }
+  return joinList(buffer);
+}
+
 enum ot { Imm32 Imm64 Indirect Label LabelOffset Register }
 
 class Operand extends Object {
@@ -56,17 +100,20 @@ class Assembler extends Object {
     append(externs, concat('extern ', procname, ' : proc'));
   }
 
-  Null addData(String label, StringList lines, StringNullable comment) {
+  Null addData(String label, StringList lines, StringNullableList comments) {
     assert(len(lines) > 0, 'addData got no data');
-    if (comment != null) {
-      append(data, concat('  ', padRight(concat(padRight(label, 12, ' '), ' ', lines[0]), lineLength, ' '), ' ; ', comment));
-    } else {
-      append(data, concat('  ', padRight(label, 12, ' '), ' ', lines[0]));
-    }
-    Integer index = 1;
+    Integer index = 0;
+    String prefix = label;
     while (index < len(lines)) {
-      append(data, concat(stringTimes(' ', 15), lines[index]));
+      String line = lines[index];
+      StringNullable comment = comments[index];
+      if (comment != null) {
+        append(data, concat('  ', padRight(concat(padRight(prefix, 12, ' '), ' ', line), lineLength, ' '), ' ; ', comment));
+      } else {
+        append(data, concat('  ', padRight(label, 12, ' '), ' ', line));
+      }
       index += 1;
+      prefix = '';
     }
   }
 
@@ -114,6 +161,12 @@ class Assembler extends Object {
 
   Null addComment(Integer blockId, String message) {
     append(code[blockId], concat('  ; ', message));
+  }
+
+  Null addBlankLine(Integer blockId) {
+    if (len(code[blockId]) > 1) {
+      append(code[blockId], '');
+    }
   }
 
   String serialize() {

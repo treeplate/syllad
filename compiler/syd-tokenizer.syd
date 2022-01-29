@@ -1,5 +1,22 @@
 import 'core.syd';
 
+class SourceLocation extends Object {
+  Integer lineNo;
+  Integer colNo;
+  String filename;
+
+  Null constructor(Integer lineNoArg, Integer colNoArg, String filenameArg) {
+    super.constructor();
+    lineNo = lineNoArg;
+    colNo = colNoArg;
+    filename = filenameArg;
+  }
+
+  String toString() {
+    return concat('line ', lineNo, ' column ', colNo, ' in file ', filename);
+  }
+}
+
 // Tokenizer
 
 enum ts {
@@ -83,107 +100,159 @@ enum tt {
   Eof
 }
 
-Integer tkLine = 1;
-Integer tkCol = 2;
-Integer tkFile = 3;
-Integer tkData = 4;
+Integer tkType = 0;
+Integer tkSourceLocation = 1;
+Integer tkData = 2;
 
-String describeToken(AnythingList token) {
-  String description;
-  if (token[0] == ttIdentifier) {
-    description = concat('identifier "', token[tkData], '"');
-  } else if (token[0] == ttString) {
-    description = concat('string literal');
-  } else if (token[0] == ttInteger) {
-    description = concat('integer literal "', token[tkData], '"');
-  } else if (token[0] == ttOpenBrace) {
-    description = '"{"';
-  } else if (token[0] == ttCloseBrace) {
-    description = '"}"';
-  } else if (token[0] == ttOpenBracket) {
-    description = '"["';
-  } else if (token[0] == ttCloseBracket) {
-    description = '"]"';
-  } else if (token[0] == ttOpenParen) {
-    description = '"("';
-  } else if (token[0] == ttCloseParen) {
-    description = '")"';
-  } else if (token[0] == ttPeriod) {
-    description = '"."';
-  } else if (token[0] == ttComma) {
-    description = '","';
-  } else if (token[0] == ttSemicolon) {
-    description = '";"';
+class Token extends Object {
+  tt type;
+  SourceLocation sourceLocation;
+  AnythingNullable data;
 
-  } else if (token[0] == ttPlus) {
-    description = '"+"';
-  } else if (token[0] == ttPlusEquals) {
-    description = '"+="';
-  } else if (token[0] == ttMinus) {
-    description = '"-"';
-  } else if (token[0] == ttMinusEquals) {
-    description = '"-="';
-  } else if (token[0] == ttAsterisk) {
-    description = '"*"';
-  } else if (token[0] == ttAsteriskEquals) {
-    description = '"*="';
-  } else if (token[0] == ttSlash) {
-    description = '"/"';
-  } else if (token[0] == ttSlashEquals) {
-    description = '"/="';
-  } else if (token[0] == ttModulus) {
-    description = '"%"';
-  } else if (token[0] == ttModulusEquals) {
-    description = '"%="';
-  } else if (token[0] == ttEquals) {
-    description = '"="';
-  } else if (token[0] == ttEqualsEquals) {
-    description = '"=="';
-  } else if (token[0] == ttBang) {
-    description = '"!"';
-  } else if (token[0] == ttBangEquals) {
-    description = '"!="';
-  } else if (token[0] == ttLessThan) {
-    description = '"<"';
-  } else if (token[0] == ttLessThanLessThan) {
-    description = '"<<"';
-  } else if (token[0] == ttLessThanEquals) {
-    description = '"<="';
-  } else if (token[0] == ttGreaterThan) {
-    description = '">"';
-  } else if (token[0] == ttGreaterThanGreaterThan) {
-    description = '">>"';
-  } else if (token[0] == ttGreaterThanEquals) {
-    description = '">="';
-  } else if (token[0] == ttAmpersand) {
-    description = '"&"';
-  } else if (token[0] == ttAmpersandEquals) {
-    description = '"&="';
-  } else if (token[0] == ttAmpersandAmpersand) {
-    description = '"&&"';
-  } else if (token[0] == ttCaret) {
-    description = '"^"';
-  } else if (token[0] == ttCaretEquals) {
-    description = '"^="';
-  } else if (token[0] == ttVerticalBar) {
-    description = '"|"';
-  } else if (token[0] == ttVerticalBarEquals) {
-    description = '"|="';
-  } else if (token[0] == ttVerticalBarVerticalBar) {
-    description = '"||"';
-  } else if (token[0] == ttTilde) {
-    description = '"~"';
-
-  } else if (token[0] == ttEof) {
-    description = 'end of file';
-  } else {
-    assert(false, concat('don\t know how to describe ', token));
-    description = concat(token);
+  Null constructor(tt typeArg, SourceLocation sourceLocationArg, AnythingNullable dataArg) {
+    super.constructor();
+    type = typeArg;
+    sourceLocation = sourceLocationArg;
+    data = dataArg;
   }
-  return description;
+
+  String toString() {
+    if (type == ttIdentifier) {
+      return concat('identifier "', data, '"');
+    }
+    if (type == ttString) {
+      return concat('string literal');
+    }
+    if (type == ttInteger) {
+      return concat('integer literal "', data, '"');
+    }
+
+    if (type == ttOpenBrace) {
+      return '"{"';
+    }
+    if (type == ttCloseBrace) {
+      return '"}"';
+    }
+    if (type == ttOpenBracket) {
+      return '"["';
+    }
+    if (type == ttCloseBracket) {
+      return '"]"';
+    }
+    if (type == ttOpenParen) {
+      return '"("';
+    }
+    if (type == ttCloseParen) {
+      return '")"';
+    }
+    if (type == ttPeriod) {
+      return '"."';
+    }
+    if (type == ttComma) {
+      return '","';
+    }
+    if (type == ttSemicolon) {
+      return '";"';
+    }
+
+    if (type == ttPlus) {
+      return '"+"';
+    }
+    if (type == ttPlusEquals) {
+      return '"+="';
+    }
+    if (type == ttMinus) {
+      return '"-"';
+    }
+    if (type == ttMinusEquals) {
+      return '"-="';
+    }
+    if (type == ttAsterisk) {
+      return '"*"';
+    }
+    if (type == ttAsteriskEquals) {
+      return '"*="';
+    }
+    if (type == ttSlash) {
+      return '"/"';
+    }
+    if (type == ttSlashEquals) {
+      return '"/="';
+    }
+    if (type == ttModulus) {
+      return '"%"';
+    }
+    if (type == ttModulusEquals) {
+      return '"%="';
+    }
+    if (type == ttEquals) {
+      return '"="';
+    }
+    if (type == ttEqualsEquals) {
+      return '"=="';
+    }
+    if (type == ttBang) {
+      return '"!"';
+    }
+    if (type == ttBangEquals) {
+      return '"!="';
+    }
+    if (type == ttLessThan) {
+      return '"<"';
+    }
+    if (type == ttLessThanLessThan) {
+      return '"<<"';
+    }
+    if (type == ttLessThanEquals) {
+      return '"<="';
+    }
+    if (type == ttGreaterThan) {
+      return '">"';
+    }
+    if (type == ttGreaterThanGreaterThan) {
+      return '">>"';
+    }
+    if (type == ttGreaterThanEquals) {
+      return '">="';
+    }
+    if (type == ttAmpersand) {
+      return '"&"';
+    }
+    if (type == ttAmpersandEquals) {
+      return '"&="';
+    }
+    if (type == ttAmpersandAmpersand) {
+      return '"&&"';
+    }
+    if (type == ttCaret) {
+      return '"^"';
+    }
+    if (type == ttCaretEquals) {
+      return '"^="';
+    }
+    if (type == ttVerticalBar) {
+      return '"|"';
+    }
+    if (type == ttVerticalBarEquals) {
+      return '"|="';
+    }
+    if (type == ttVerticalBarVerticalBar) {
+      return '"||"';
+    }
+    if (type == ttTilde) {
+      return '"~"';
+    }
+
+    if (type == ttEof) {
+      return 'end of file';
+    }
+
+    assert(false, concat('don\t know how to describe token with type ', type));
+    return concat(type);
+  }
 }
 
-AnythingListList tokenize(IntegerIterable source, String filename) {
+TokenList tokenize(IntegerIterable source, String filename) {
   stderr(concat('tokenizing "', filename, '"...'));
   Integer lineNo = 1;
   Integer colNo = 0;
@@ -191,7 +260,7 @@ AnythingListList tokenize(IntegerIterable source, String filename) {
   Integer lastInterestingColNo = -1;
   ts state = tsTop;
   Anything buffer;
-  AnythingListList tokens = [];
+  TokenList tokens = [];
   for (ch in source) {
     colNo += 1;
     while (true) {
@@ -227,10 +296,10 @@ AnythingListList tokenize(IntegerIterable source, String filename) {
           lastInterestingColNo = colNo;
           break;
         } else if (ch == 0x28) { // (
-          append(tokens, [ttOpenParen, lineNo, colNo, filename]);
+          append(tokens, Token(ttOpenParen, SourceLocation(lineNo, colNo, filename), null));
           break;
         } else if (ch == 0x29) { // )
-          append(tokens, [ttCloseParen, lineNo, colNo, filename]);
+          append(tokens, Token(ttCloseParen, SourceLocation(lineNo, colNo, filename), null));
           break;
         } else if (ch == 0x2a) { // *
           state = tsAsterisk;
@@ -239,13 +308,13 @@ AnythingListList tokenize(IntegerIterable source, String filename) {
           state = tsPlus;
           break;
         } else if (ch == 0x2c) { // ,
-          append(tokens, [ttComma, lineNo, colNo, filename]);
+          append(tokens, Token(ttComma, SourceLocation(lineNo, colNo, filename), null));
           break;
         } else if (ch == 0x2d) { // -
           state = tsMinus;
           break;
         } else if (ch == 0x2e) { // .
-          append(tokens, [ttPeriod, lineNo, colNo, filename]);
+          append(tokens, Token(ttPeriod, SourceLocation(lineNo, colNo, filename), null));
           break;
         } else if (ch == 0x2f) { // /
           state = tsSlash;
@@ -258,7 +327,7 @@ AnythingListList tokenize(IntegerIterable source, String filename) {
           buffer = ch - 0x30;
           break;
         } else if (ch == 0x3b) { // ;
-          append(tokens, [ttSemicolon, lineNo, colNo, filename]);
+          append(tokens, Token(ttSemicolon, SourceLocation(lineNo, colNo, filename), null));
           break;
         } else if (ch == 0x3c) { // <
           state = tsLessThan;
@@ -276,28 +345,28 @@ AnythingListList tokenize(IntegerIterable source, String filename) {
           buffer = [chr(ch)];
           break;
         } else if (ch == 0x5b) { // [
-          append(tokens, [ttOpenBracket, lineNo, colNo, filename]);
+          append(tokens, Token(ttOpenBracket, SourceLocation(lineNo, colNo, filename), null));
           break;
         } else if (ch == 0x5d) { // ]
-          append(tokens, [ttCloseBracket, lineNo, colNo, filename]);
+          append(tokens, Token(ttCloseBracket, SourceLocation(lineNo, colNo, filename), null));
           break;
         } else if (ch == 0x5e) { // ^
           state = tsCaret;
           break;
         } else if (ch == 0x7b) { // {
-          append(tokens, [ttOpenBrace, lineNo, colNo, filename]);
+          append(tokens, Token(ttOpenBrace, SourceLocation(lineNo, colNo, filename), null));
           break;
         } else if (ch == 0x7c) { // |
           state = tsVerticalBar;
           break;
         } else if (ch == 0x7d) { // }
-          append(tokens, [ttCloseBrace, lineNo, colNo, filename]);
+          append(tokens, Token(ttCloseBrace, SourceLocation(lineNo, colNo, filename), null));
           break;
         } else if (ch == 0x7e) { // ~
-          append(tokens, [ttTilde, lineNo, colNo, filename]);
+          append(tokens, Token(ttTilde, SourceLocation(lineNo, colNo, filename), null));
           break;
         } else {
-          throw(concat('unexpected character U+', padLeft(hex(ch), 4, "0"), ' at line ', lineNo, ' column ', colNo, ' in ', filename, ': ', chr(ch)));
+          throw(concat('unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', SourceLocation(lineNo, colNo, filename), ': ', chr(ch)));
           break;
         }
       } else if (state == tsIdentifier) {
@@ -308,13 +377,13 @@ AnythingListList tokenize(IntegerIterable source, String filename) {
           append(cast(buffer), chr(ch));
           break;
         } else {
-          append(tokens, [ttIdentifier, lineNo, colNo - 1, filename, joinList(cast(buffer))]);
+          append(tokens, Token(ttIdentifier, SourceLocation(lineNo, colNo - 1, filename), joinList(cast(buffer))));
           state = tsTop;
           // no break, reprocess in tsTop
         }
       } else if (state == tsSingleQuoteString) {
         if (ch == 0x27) { // '
-          append(tokens, [ttString, lineNo, colNo, filename, joinList(cast(buffer))]);
+          append(tokens, Token(ttString, SourceLocation(lineNo, colNo, filename), joinList(cast(buffer))));
           state = tsTop; 
           lastInterestingLineNo = -1;
           lastInterestingColNo = -1;
@@ -361,7 +430,7 @@ AnythingListList tokenize(IntegerIterable source, String filename) {
         }
       } else if (state == tsDoubleQuoteString) {
         if (ch == 0x22) { // "
-          append(tokens, [ttString, lineNo, colNo, filename, joinList(cast(buffer))]);
+          append(tokens, Token(ttString, SourceLocation(lineNo, colNo, filename), joinList(cast(buffer))));
           state = tsTop;
           lastInterestingLineNo = -1;
           lastInterestingColNo = -1;
@@ -415,7 +484,7 @@ AnythingListList tokenize(IntegerIterable source, String filename) {
           state = tsHexStart;
           break;
         } else {
-          append(tokens, [ttInteger, lineNo, colNo - 1, filename, 0]);
+          append(tokens, Token(ttInteger, SourceLocation(lineNo, colNo - 1, filename), 0));
           state = tsTop;
           // no break, reprocess in tsTop
         }
@@ -424,7 +493,7 @@ AnythingListList tokenize(IntegerIterable source, String filename) {
           buffer = cast(buffer) * 10 + ch - 0x30;
           break;
         } else {
-          append(tokens, [ttInteger, lineNo, colNo - 1, filename, buffer]);
+          append(tokens, Token(ttInteger, SourceLocation(lineNo, colNo - 1, filename), buffer));
           state = tsTop;
           // no break, reprocess in tsTop
         }
@@ -436,7 +505,7 @@ AnythingListList tokenize(IntegerIterable source, String filename) {
           buffer = 0;
           // no break, reprocess in tsHex
         } else {
-          throw(concat('unexpected character ', padLeft(hex(ch), 4, "0"), ' in hex literal at line ', lineNo, ' column ', colNo, ' in ', filename, ': ', chr(ch)));
+          throw(concat('unexpected character ', padLeft(hex(ch), 4, "0"), ' in hex literal at ', SourceLocation(lineNo, colNo, filename), ': ', chr(ch)));
         }
       } else if (state == tsHex) {
         if (ch >= 0x30 && ch <= 0x39) { // 0-9
@@ -449,38 +518,38 @@ AnythingListList tokenize(IntegerIterable source, String filename) {
           buffer = (cast(buffer) * 0x10 + ch - 0x61) + 10;
           break;
         } else {
-          append(tokens, [ttInteger, lineNo, colNo - 1, filename, buffer]);
+          append(tokens, Token(ttInteger, SourceLocation(lineNo, colNo - 1, filename), buffer));
           state = tsTop;
           // no break, reprocess in tsTop
         }
 
       } else if (state == tsPlus) {
         if (ch == 0x3d) { // =
-          append(tokens, [ttPlusEquals, lineNo, colNo, filename]);
+          append(tokens, Token(ttPlusEquals, SourceLocation(lineNo, colNo, filename), null));
           state = tsTop;
           break;
         } else {
-          append(tokens, [ttPlus, lineNo, colNo - 1, filename]);
+          append(tokens, Token(ttPlus, SourceLocation(lineNo, colNo - 1, filename), null));
           state = tsTop;
           // no break, reprocess in tsTop
         }
       } else if (state == tsMinus) {
         if (ch == 0x3d) { // =
-          append(tokens, [ttMinusEquals, lineNo, colNo, filename]);
+          append(tokens, Token(ttMinusEquals, SourceLocation(lineNo, colNo, filename), null));
           state = tsTop;
           break;
         } else {
-          append(tokens, [ttMinus, lineNo, colNo - 1, filename]);
+          append(tokens, Token(ttMinus, SourceLocation(lineNo, colNo - 1, filename), null));
           state = tsTop;
           // no break, reprocess in tsTop
         }
       } else if (state == tsAsterisk) {
         if (ch == 0x3d) { // =
-          append(tokens, [ttAsteriskEquals, lineNo, colNo, filename]);
+          append(tokens, Token(ttAsteriskEquals, SourceLocation(lineNo, colNo, filename), null));
           state = tsTop;
           break;
         } else {
-          append(tokens, [ttAsterisk, lineNo, colNo - 1, filename]);
+          append(tokens, Token(ttAsterisk, SourceLocation(lineNo, colNo - 1, filename), null));
           state = tsTop;
           // no break, reprocess in tsTop
         }
@@ -494,107 +563,107 @@ AnythingListList tokenize(IntegerIterable source, String filename) {
           state = tsLineComment;
           break;
         } else if (ch == 0x3d) { // =
-          append(tokens, [ttSlashEquals, lineNo, colNo, filename]);
+          append(tokens, Token(ttSlashEquals, SourceLocation(lineNo, colNo, filename), null));
           state = tsTop;
           break;
         } else {
-          append(tokens, [ttSlash, lineNo, colNo - 1, filename]);
+          append(tokens, Token(ttSlash, SourceLocation(lineNo, colNo - 1, filename), null));
           state = tsTop;
           // no break, reprocess in tsTop
         }
       } else if (state == tsModulus) {
         if (ch == 0x3d) { // =
-          append(tokens, [ttModulusEquals, lineNo, colNo, filename]);
+          append(tokens, Token(ttModulusEquals, SourceLocation(lineNo, colNo, filename), null));
           state = tsTop;
           break;
         } else {
-          append(tokens, [ttModulus, lineNo, colNo - 1, filename]);
+          append(tokens, Token(ttModulus, SourceLocation(lineNo, colNo - 1, filename), null));
           state = tsTop;
           // no break, reprocess in tsTop
         }
       } else if (state == tsEquals) {
         if (ch == 0x3d) { // =
-          append(tokens, [ttEqualsEquals, lineNo, colNo, filename]);
+          append(tokens, Token(ttEqualsEquals, SourceLocation(lineNo, colNo, filename), null));
           state = tsTop;
           break;
         } else {
-          append(tokens, [ttEquals, lineNo, colNo - 1, filename]);
+          append(tokens, Token(ttEquals, SourceLocation(lineNo, colNo - 1, filename), null));
           state = tsTop;
           // no break, reprocess in tsTop
         }
       } else if (state == tsBang) {
         if (ch == 0x3d) { // =
-          append(tokens, [ttBangEquals, lineNo, colNo, filename]);
+          append(tokens, Token(ttBangEquals, SourceLocation(lineNo, colNo, filename), null));
           state = tsTop;
           break;
         } else {
-          append(tokens, [ttBang, lineNo, colNo - 1, filename]);
+          append(tokens, Token(ttBang, SourceLocation(lineNo, colNo - 1, filename), null));
           state = tsTop;
           // no break, reprocess in tsTop
         }
       } else if (state == tsLessThan) {
         if (ch == 0x3c) { // <
-          append(tokens, [ttLessThanLessThan, lineNo, colNo, filename]);
+          append(tokens, Token(ttLessThanLessThan, SourceLocation(lineNo, colNo, filename), null));
           state = tsTop;
           break;
         } else if (ch == 0x3d) { // =
-          append(tokens, [ttLessThanEquals, lineNo, colNo, filename]);
+          append(tokens, Token(ttLessThanEquals, SourceLocation(lineNo, colNo, filename), null));
           state = tsTop;
           break;
         } else {
-          append(tokens, [ttLessThan, lineNo, colNo - 1, filename]);
+          append(tokens, Token(ttLessThan, SourceLocation(lineNo, colNo - 1, filename), null));
           state = tsTop;
           // no break, reprocess in tsTop
         }
       } else if (state == tsGreaterThan) {
         if (ch == 0x3d) { // =
-          append(tokens, [ttGreaterThanEquals, lineNo, colNo, filename]);
+          append(tokens, Token(ttGreaterThanEquals, SourceLocation(lineNo, colNo, filename), null));
           state = tsTop;
           break;
         } else if (ch == 0x3e) { // >
-          append(tokens, [ttGreaterThanGreaterThan, lineNo, colNo, filename]);
+          append(tokens, Token(ttGreaterThanGreaterThan, SourceLocation(lineNo, colNo, filename), null));
           state = tsTop;
           break;
         } else {
-          append(tokens, [ttGreaterThan, lineNo, colNo - 1, filename]);
+          append(tokens, Token(ttGreaterThan, SourceLocation(lineNo, colNo - 1, filename), null));
           state = tsTop;
           // no break, reprocess in tsTop
         }
       } else if (state == tsAmpersand) {
         if (ch == 0x26) { // &
-          append(tokens, [ttAmpersandAmpersand, lineNo, colNo, filename]);
+          append(tokens, Token(ttAmpersandAmpersand, SourceLocation(lineNo, colNo, filename), null));
           state = tsTop;
           break;
         } else if (ch == 0x3d) { // =
-          append(tokens, [ttAmpersandEquals, lineNo, colNo, filename]);
+          append(tokens, Token(ttAmpersandEquals, SourceLocation(lineNo, colNo, filename), null));
           state = tsTop;
           break;
         } else {
-          append(tokens, [ttAmpersand, lineNo, colNo - 1, filename]);
+          append(tokens, Token(ttAmpersand, SourceLocation(lineNo, colNo - 1, filename), null));
           state = tsTop;
           // no break, reprocess in tsTop
         }
       } else if (state == tsCaret) {
         if (ch == 0x3d) { // =
-          append(tokens, [ttCaretEquals, lineNo, colNo, filename]);
+          append(tokens, Token(ttCaretEquals, SourceLocation(lineNo, colNo, filename), null));
           state = tsTop;
           break;
         } else {
-          append(tokens, [ttCaret, lineNo, colNo - 1, filename]);
+          append(tokens, Token(ttCaret, SourceLocation(lineNo, colNo - 1, filename), null));
           state = tsTop;
           // no break, reprocess in tsTop
         }
       } else if (state == tsVerticalBar) {
         if (ch == 0x7c) { // |
-          append(tokens, [ttVerticalBarVerticalBar, lineNo, colNo, filename]);
+          append(tokens, Token(ttVerticalBarVerticalBar, SourceLocation(lineNo, colNo, filename), null));
           state = tsTop;
           break;
         } else if (ch == 0x3d) { // =
-          append(tokens, [ttVerticalBarEquals, lineNo, colNo, filename]);
+          append(tokens, Token(ttVerticalBarEquals, SourceLocation(lineNo, colNo, filename), null));
           state = tsTop;
           break;
         } else {
-          append(tokens, [ttVerticalBar, lineNo, colNo - 1, filename]);
+          append(tokens, Token(ttVerticalBar, SourceLocation(lineNo, colNo - 1, filename), null));
           state = tsTop;
           // no break, reprocess in tsTop
         }
@@ -655,106 +724,106 @@ AnythingListList tokenize(IntegerIterable source, String filename) {
   if (state == tsTop) {
     // no effect
   } else if (state == tsIdentifier) {
-    append(tokens, [ttIdentifier, joinList(cast(buffer))]);
+    append(tokens, Token(ttIdentifier, SourceLocation(lineNo, colNo, filename), joinList(cast(buffer))));
   } else if (state == tsSingleQuoteString) {
-    throw(concat('unterminated string at end of file started on line ', lastInterestingLineNo, ' column ', lastInterestingColNo, ' in ', filename));
+    throw(concat('unterminated string at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
   } else if (state == tsSingleQuoteStringCR) {
-    throw(concat('unterminated string at end of file started on line ', lastInterestingLineNo, ' column ', lastInterestingColNo, ' in ', filename));
+    throw(concat('unterminated string at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
   } else if (state == tsSingleQuoteStringEscape) {
-    throw(concat('unterminated string at end of file started on line ', lastInterestingLineNo, ' column ', lastInterestingColNo, ' in ', filename));
+    throw(concat('unterminated string at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
   } else if (state == tsDoubleQuoteString) {
-    throw(concat('unterminated string at end of file started on line ', lastInterestingLineNo, ' column ', lastInterestingColNo, ' in ', filename));
+    throw(concat('unterminated string at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
   } else if (state == tsDoubleQuoteStringCR) {
-    throw(concat('unterminated string at end of file started on line ', lastInterestingLineNo, ' column ', lastInterestingColNo, ' in ', filename));
+    throw(concat('unterminated string at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
   } else if (state == tsDoubleQuoteStringEscape) {
-    throw(concat('unterminated string at end of file started on line ', lastInterestingLineNo, ' column ', lastInterestingColNo, ' in ', filename));
+    throw(concat('unterminated string at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
   } else if (state == tsZero) {
-    append(tokens, [ttInteger, lineNo, colNo, filename, 0]);
+    append(tokens, Token(ttInteger, SourceLocation(lineNo, colNo, filename), 0));
   } else if (state == tsInteger) {
-    append(tokens, [ttInteger, lineNo, colNo, filename, buffer]);
+    append(tokens, Token(ttInteger, SourceLocation(lineNo, colNo, filename), buffer));
   } else if (state == tsHexStart) {
     throw(concat('incomplete hex literal at end of ', filename));
   } else if (state == tsHex) {
-    append(tokens, [ttInteger, lineNo, colNo, filename, buffer]);
+    append(tokens, Token(ttInteger, SourceLocation(lineNo, colNo, filename), buffer));
 
   } else if (state == tsPlus) {
-    append(tokens, [ttPlus, lineNo, colNo, filename]);
+    append(tokens, Token(ttPlus, SourceLocation(lineNo, colNo, filename), null));
   } else if (state == tsMinus) {
-    append(tokens, [ttMinus, lineNo, colNo, filename]);
+    append(tokens, Token(ttMinus, SourceLocation(lineNo, colNo, filename), null));
   } else if (state == tsAsterisk) {
-    append(tokens, [ttAsterisk, lineNo, colNo, filename]);
+    append(tokens, Token(ttAsterisk, SourceLocation(lineNo, colNo, filename), null));
   } else if (state == tsSlash) {
-    append(tokens, [ttSlash, lineNo, colNo, filename]);
+    append(tokens, Token(ttSlash, SourceLocation(lineNo, colNo, filename), null));
   } else if (state == tsModulus) {
-    append(tokens, [ttModulus, lineNo, colNo, filename]);
+    append(tokens, Token(ttModulus, SourceLocation(lineNo, colNo, filename), null));
   } else if (state == tsEquals) {
-    append(tokens, [ttEquals, lineNo, colNo, filename]);
+    append(tokens, Token(ttEquals, SourceLocation(lineNo, colNo, filename), null));
   } else if (state == tsBang) {
-    append(tokens, [ttBang, lineNo, colNo, filename]);
+    append(tokens, Token(ttBang, SourceLocation(lineNo, colNo, filename), null));
   } else if (state == tsLessThan) {
-    append(tokens, [ttLessThan, lineNo, colNo, filename]);
+    append(tokens, Token(ttLessThan, SourceLocation(lineNo, colNo, filename), null));
   } else if (state == tsGreaterThan) {
-    append(tokens, [ttGreaterThan, lineNo, colNo, filename]);
+    append(tokens, Token(ttGreaterThan, SourceLocation(lineNo, colNo, filename), null));
   } else if (state == tsAmpersand) {
-    append(tokens, [ttAmpersand, lineNo, colNo, filename]);
+    append(tokens, Token(ttAmpersand, SourceLocation(lineNo, colNo, filename), null));
   } else if (state == tsCaret) {
-    append(tokens, [ttCaret, lineNo, colNo, filename]);
+    append(tokens, Token(ttCaret, SourceLocation(lineNo, colNo, filename), null));
   } else if (state == tsVerticalBar) {
-    append(tokens, [ttVerticalBar, lineNo, colNo, filename]);
+    append(tokens, Token(ttVerticalBar, SourceLocation(lineNo, colNo, filename), null));
 
   } else if (state == tsLineComment) {
     // file terminated with line comment
   } else if (state == tsBlockComment) {
-    throw(concat('unterminated block comment at end of file started on line ', lastInterestingLineNo, ' column ', lastInterestingColNo, ' in ', filename));
+    throw(concat('unterminated block comment at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
   } else if (state == tsBlockCommentCR) {
-    throw(concat('unterminated block comment at end of file started on line ', lastInterestingLineNo, ' column ', lastInterestingColNo, ' in ', filename));
+    throw(concat('unterminated block comment at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
   } else if (state == tsBlockCommentAsterisk) {
-    throw(concat('unterminated block comment at end of file started on line ', lastInterestingLineNo, ' column ', lastInterestingColNo, ' in ', filename));
+    throw(concat('unterminated block comment at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
   } else if (state == tsCR) {
     // file terminated with newline
   } else {
     throw(concat('unknown state ', state));
   }
-  append(tokens, [ttEof, lineNo, colNo, filename]);
+  append(tokens, Token(ttEof, SourceLocation(lineNo, colNo, filename), null));
   return tokens;
 }
 
 class TokenConsumer {
-  AnythingListList tokens;
+  TokenList tokens;
   Integer index;
 
+  SourceLocation lastLocation() {
+    return tokens[index - 1].sourceLocation;
+  }
+
   Boolean isNext(tt tokenType) {
-    return tokens[index][0] == tokenType;
+    return tokens[index].type == tokenType;
   }
   
   Boolean isNext2(tt tokenType1, tt tokenType2) {
     return index + 1 < len(tokens)
-        && tokens[index    ][0] == tokenType1
-        && tokens[index + 1][0] == tokenType2;
+        && tokens[index    ].type == tokenType1
+        && tokens[index + 1].type == tokenType2;
   }
   
   Boolean isNextIdentifier(String identifier) {
-    AnythingList token = tokens[index];
-    return token[0] == ttIdentifier && token[tkData] == identifier;
+    Token token = tokens[index];
+    return token.type == ttIdentifier && token.data == identifier;
   }
   
   String butFound(String what, String description) {
-    AnythingList token = tokens[index];
-    Integer line = cast(token[tkLine]);
-    Integer column = cast(token[tkCol]);
-    String file = cast(token[tkFile]);
-    return concat('Expected ', what, ' but found ', description, ' at line ', line, ' column ', column, ' in ', file);
+    return concat('Expected ', what, ' but found ', description, ' at ', tokens[index].sourceLocation);
   }
   
   String expected(String what) {
-    return butFound(what, describeToken(tokens[index]));
+    return butFound(what, concat(tokens[index]));
   }
 
   String readIdentifier() {
     if (!isNext(ttIdentifier)) {
       throw(concat(expected('identifier')));
     }
-    String result = cast(tokens[index][tkData]);
+    String result = cast(tokens[index].data);
     index = index + 1;
     return result;
   }
@@ -763,7 +832,7 @@ class TokenConsumer {
     if (!isNext(ttString)) {
       throw(concat(expected('string literal')));
     }
-    String result = cast(tokens[index][tkData]);
+    String result = cast(tokens[index].data);
     index = index + 1;
     return result;
   }
@@ -772,7 +841,7 @@ class TokenConsumer {
     if (!isNext(ttInteger)) {
       throw(concat(expected('integer literal')));
     }
-    Integer result = cast(tokens[index][tkData]);
+    Integer result = cast(tokens[index].data);
     index = index + 1;
     return result;
   }
@@ -789,12 +858,12 @@ class TokenConsumer {
   
   Null expectPunctuation(tt punctuation) {
     if (!isNext(punctuation)) {
-      throw(concat(expected(describeToken([punctuation, -1, -1]))));
+      throw(concat(expected(concat(Token(punctuation, SourceLocation(-1, -1, ''), null)))));
     }
     index = index + 1;
   }
   
-  Null constructor(AnythingListList tokensArg) {
+  Null constructor(TokenList tokensArg) {
     tokens = tokensArg;
     index = 0;
   }
