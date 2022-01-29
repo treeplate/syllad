@@ -905,3 +905,15 @@ class Library extends StatementBlock {
     return result;
   }
 }
+
+class Program extends Library {
+  Null compile(CompiledScope scope) {
+    super.compile(scope);
+    Slot slot = scope.registerStaticValue(LiteralIntegerValue((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreIntegerType, 0), 'default exit code');
+    ValueHandle exitCode = slot.read(scope);
+    scope.emitInstruction(SlotReadInstruction(slot, exitCode));
+    ValueHandle exit = (scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreExit.read(scope);
+    scope.emitInstruction(SlotReadInstruction((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreExit, exit));
+    scope.emitSubroutineCall(exit, [exitCode]);
+  }
+}

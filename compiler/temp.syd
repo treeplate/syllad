@@ -1,5 +1,5 @@
-Null foo() {
-  println('Hello\r\n');
+String test() {
+  return "Hello World";
 }
 
-foo();
+print(test());

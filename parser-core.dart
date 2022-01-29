@@ -43,20 +43,18 @@ class TypeValidator {
     'hex': FunctionValueType(stringType, [integerType]),
     'chr': FunctionValueType(stringType, [integerType]),
     'exit': FunctionValueType(
-        ValueType(sharedSupertype, "Cat", 0, 0, 'internl'), [integerType]),
+        ValueType(sharedSupertype, "Null", 0, 0, 'internal'), [integerType]),
     'readFile': FunctionValueType(stringType, [stringType]),
     'readFileBytes':
         FunctionValueType(ListValueType(integerType), [stringType]),
     'println':
         FunctionValueType(integerType, InfiniteIterable(sharedSupertype)),
     'throw': FunctionValueType(
-        ValueType(sharedSupertype, "Cat", 0, 0, 'intrnal'), [stringType]),
+        ValueType(sharedSupertype, "Null", 0, 0, 'intrnal'), [stringType]),
     'cast': FunctionValueType(
         ValueType(null, "Whatever", 0, 0, 'internalinternal'),
         [sharedSupertype]),
     'joinList': FunctionValueType(stringType, [ListValueType(sharedSupertype)]),
-    'gv': FunctionValueType(
-        ValueType(sharedSupertype, "Cat", 0, 0, 'internal'), [stringType]),
     'className': stringType,
   };
 
@@ -450,7 +448,6 @@ ValueType basicTypes(
     String name, ValueType? parent, int line, int col, String file) {
   switch (name) {
     case 'Null':
-    case 'Cat':
     case 'Dog':
     case 'Whatever':
     case '~class_methods':

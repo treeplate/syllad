@@ -244,6 +244,19 @@ class SourceLocationInstruction extends Instruction {
   }
 }
 
+class ReturnInstruction extends Instruction {
+  String comment;
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addCode(blockId, 'ret', comment);
+  }
+
+  Null constructor(String commentArg) {
+    super.constructor();
+    comment = commentArg;
+  }
+}
+
 class StringConstantDataInstruction extends Instruction {
   String label;
   String value;
@@ -662,7 +675,7 @@ class CompiledScope extends Object {
   ConstantSlot registerConstant(String name, StaticValue value) {
     assert(!isIdentifierDeclaredInLocalScope(name), 'tried to redeclare an identifier within a scope');
     ConstantSlot slot = ConstantSlot(value.staticType, this, value);
-    globalScope().registerSlot(slot); // XXX?
+    globalScope().registerSlot(slot);
     identifiers.set(name, slot);
     return slot;
   }
@@ -674,7 +687,7 @@ class CompiledScope extends Object {
       this,
       LabelValue(cast(subroutine).type as AbstractSubroutineType, cast(subroutine).label as String),
     );
-    registerSlot(slot); // XXX?
+    registerSlot(slot);
     identifiers.set(cast(subroutine).name, slot);
     emitInstruction(CodeInstruction(subroutine));
     return slot;
@@ -833,7 +846,7 @@ class BuiltInSubroutine extends CompiledSubroutine {
   }
 }
 
-class BuiltInPrintlnSubroutineInstructions extends Instruction {
+class BuiltInPrintSubroutineInstructions extends Instruction {
   ValueHandle lpNumberOfCharsWritten;
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
@@ -875,6 +888,7 @@ class BuiltInPrintlnSubroutineInstructions extends Instruction {
      * -18  :
      * 0000 :
      */
+    assembler.addComment(blockId, 'TODO: check type of argument'); // TODO: check type of argument
     assembler.addComment(blockId, 'Calling GetStdHandle');
     assembler.addCode(blockId, 'mov rcx, -11', 'argument #1: STD_OUTPUT_HANDLE');
     assembler.addCode(blockId, 'call GetStdHandle', 'handle returned in rax');
@@ -896,7 +910,7 @@ class BuiltInPrintlnSubroutineInstructions extends Instruction {
   }
 }
 
-class BuiltInPrintlnSubroutine extends BuiltInSubroutine {
+class BuiltInPrintSubroutine extends BuiltInSubroutine {
   Null constructor(CompiledScopeNullable parentArg) { // XXX parentArg should be CompiledRuntimeLibrary
     super.constructor(
       parentArg,
@@ -905,12 +919,39 @@ class BuiltInPrintlnSubroutine extends BuiltInSubroutine {
         cast(cast(parentArg).coreNullType),
         cast(cast(parentArg).coreAnythingType),
       ),
-      'println',
+      'print',
     );
     Slot lpNumberOfCharsWritten = registerDynamicValue(cast(parentArg!).coreSystemType as Type, 'lpNumberOfCharsWritten, out param of WriteConsoleA');
     ValueHandle lpNumberOfCharsWrittenPointer = lpNumberOfCharsWritten.readReference(this);
     append(instructions, SlotReadInstruction(lpNumberOfCharsWritten, lpNumberOfCharsWrittenPointer));
-    emitInstruction(BuiltInPrintlnSubroutineInstructions(lpNumberOfCharsWrittenPointer));
+    emitInstruction(BuiltInPrintSubroutineInstructions(lpNumberOfCharsWrittenPointer));
+  }
+}
+
+class BuiltInExitSubroutineInstructions extends Instruction {
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addIncludeLib('kernel32.lib');
+    assembler.addExternProc('ExitProcess');
+    assembler.addComment(blockId, 'Calling ExitProcess');
+    assembler.addCode(blockId, 'mov rcx, [rbp+40h]', 'exit code');
+    assembler.addCode(blockId, 'sub rsp, 20h', 'allocate shadow space');
+    assembler.addCode(blockId, 'call ExitProcess', 'process should terminate at this point');
+    assembler.addCode(blockId, 'add rsp, 20h', 'release shadow space');
+  }
+}
+
+class BuiltInExitSubroutine extends BuiltInSubroutine {
+  Null constructor(CompiledScopeNullable parentArg) { // XXX parentArg should be CompiledRuntimeLibrary
+    super.constructor(
+      parentArg,
+      createOrFindSubroutineType(
+        cast(cast(cast(parentArg).environment)()),
+        cast(cast(parentArg).coreNullType),
+        [ cast(cast(parentArg).coreIntegerType) ],
+      ),
+      'exit',
+    );
+    emitInstruction(BuiltInExitSubroutineInstructions());
   }
 }
 
@@ -1010,6 +1051,9 @@ class CompiledRuntimeLibrary extends CompiledLibrary {
   ClosureType coreClosureType;
   SystemType coreSystemType;
 
+  Slot corePrint;
+  Slot coreExit;
+
   Null constructor(CompilationEnvironment compilationEnvironmentArg, String nameArg) {
     super.constructor(compilationEnvironmentArg, nameArg);
     // internal types
@@ -1031,6 +1075,7 @@ class CompiledRuntimeLibrary extends CompiledLibrary {
     coreStringType = StringType(compilationEnvironmentArg);
     declareType(coreStringType);
     // built-in functions
-    registerSubroutine(BuiltInPrintlnSubroutine(this));
+    corePrint = registerSubroutine(BuiltInPrintSubroutine(this));
+    coreExit = registerSubroutine(BuiltInExitSubroutine(this));
   }
 }

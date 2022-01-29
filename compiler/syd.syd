@@ -16,7 +16,6 @@ append(a, 123);
 test(a as StringList);
 */
 
-
 //class A { Null test() { this.test(); } }
 //Integer bar = 1; class Foo { Null constructor() { } } println(Foo().bar);/*
 
@@ -101,19 +100,20 @@ stderr('syllad self-hosting compiler');
 //     - returns are "not really type safe"
 //     - toString returning non-string isn't checked for either
 //     - currently not true with uninitialized variables (they start as an instance of Null instead)
-//     - covariant by default is not type safe:
+//     - weird error messages when doing covariance:
 //       class A {
 //         Null foo(A z) { }
 //         Null constructor(){}
 //       }
 //       class B extends A {
 //         String test() { return 'test'; }
-//         Null foo(B x) {
+//         Null foo(B x) { // expected this to be the line with the error message
 //           println(x.test());
 //         }
 //       }
 //       A b = B();
 //       b.foo(A());
+//     - shadow rules are weird: class A { } class B extends A { Null println() { } }
 //   function types with signatures
 //   string interpolation
 //   new features in classes: "className"...
@@ -666,29 +666,22 @@ Statement _parseStatement(TokenConsumer source) {
 }
 parseStatement = _parseStatement;
 
-Library parseTokens(TokenList tokens, String name) {
+Library parseTokens(TokenList tokens, String name, Boolean isProgram) {
   stderr('parsing...');
   TokenConsumer source = TokenConsumer(tokens);
   StatementList statements = [];
   while (!source.isNext(ttEof)) {
     append(statements, parseStatement(source));
   }
-  // TODO: create a Program for the root library
-  // (Program extends Library, but emits "exit" at end)
+  if (isProgram) {
+    return Program(statements, name, SourceLocation(0, 0, name));
+  }
   return Library(statements, name, SourceLocation(0, 0, name));
 }
 
-Library parseString(String data, String filename) {
-  return parseTokens(tokenize(scalarValues(data), filename), filename);
-}
-
-Library parseFile(String filename) {
-  return parseTokens(tokenize(scalarValues(readFile(filename)), filename), filename);
-}
-
-CompiledLibrary processFile(String filename, CompilationEnvironment compilationEnvironment, Assembler assembler) {
+CompiledLibrary processFile(String filename, CompilationEnvironment compilationEnvironment, Assembler assembler, Boolean isProgram) {
   assert(compilationEnvironment.getLibraryState(filename) == lsUnknown, 'processFile has already processed this file');
-  Library ast = parseFile(filename);
+  Library ast = parseTokens(tokenize(scalarValues(readFile(filename)), filename), filename, isProgram);
   compilationEnvironment.declareLibrary(filename);
   for (child in ast.children) {
     if (child is ImportStatement) {
@@ -697,7 +690,7 @@ CompiledLibrary processFile(String filename, CompilationEnvironment compilationE
         throw(concat('Import loop at ', child.sourceLocation));
       } else if (childLibraryState == lsUnknown) {
         String libraryPath = cast(cast(child).path); // TODO: handle relative paths correctly
-        compilationEnvironment.defineLibrary(libraryPath, processFile(libraryPath, compilationEnvironment, assembler));
+        compilationEnvironment.defineLibrary(libraryPath, processFile(libraryPath, compilationEnvironment, assembler, false));
       }
     } else {
       break;
@@ -707,10 +700,11 @@ CompiledLibrary processFile(String filename, CompilationEnvironment compilationE
   return ast.compileLibrary(compilationEnvironment, assembler);
 }
 
-String mainProgramFileName = 'syd.syd';
+String mainProgramFileName = 'temp.syd';
 Assembler assembler = Assembler();
 CompilationEnvironment compilationEnvironment = CompilationEnvironment(assembler);
-CompiledLibrary program = processFile(mainProgramFileName, compilationEnvironment, assembler);
+CompiledLibrary program = processFile(mainProgramFileName, compilationEnvironment, assembler, true);
+assembler.addCode(assembler.mainBlockId, 'ret', 'exit application');
 stderr('Compilation finished!');
 stderr('Result:');
 println(assembler.serialize());
