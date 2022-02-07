@@ -8,53 +8,59 @@ class TypeValidator {
   Map<String, ValueType> types = {
     "true": booleanType,
     "false": booleanType,
-    "null": ValueType(sharedSupertype, 'Null', 0, 0, 'internalintrnl'),
-    "print": FunctionValueType(integerType, InfiniteIterable(sharedSupertype)),
-    "stderr": FunctionValueType(integerType, InfiniteIterable(sharedSupertype)),
-    "concat": FunctionValueType(stringType, InfiniteIterable(sharedSupertype)),
-    "parseInt": FunctionValueType(integerType, [stringType]),
-    'addLists': FunctionValueType(ListValueType(sharedSupertype),
-        InfiniteIterable(ListValueType(sharedSupertype))),
-    'charsOf': FunctionValueType(IterableValueType(stringType), [stringType]),
-    'scalarValues':
-        FunctionValueType(IterableValueType(integerType), [stringType]),
-    'len': FunctionValueType(integerType, [ListValueType(sharedSupertype)]),
-    'input': FunctionValueType(stringType, []),
-    'append': FunctionValueType(
-        sharedSupertype, [ListValueType(sharedSupertype), sharedSupertype]),
-    'iterator': FunctionValueType(IteratorValueType(sharedSupertype),
-        [IterableValueType(sharedSupertype)]),
-    'next':
-        FunctionValueType(booleanType, [IteratorValueType(sharedSupertype)]),
+    "null": ValueType(sharedSupertype, 'Null', 0, 0, 'rtl'),
+    "print": FunctionValueType(
+        integerType, InfiniteIterable(sharedSupertype), 'rtl'),
+    "stderr": FunctionValueType(
+        integerType, InfiniteIterable(sharedSupertype), 'rtl'),
+    "concat":
+        FunctionValueType(stringType, InfiniteIterable(sharedSupertype), 'rtl'),
+    "parseInt": FunctionValueType(integerType, [stringType], 'rtl'),
+    'addLists': FunctionValueType(ListValueType(sharedSupertype, 'rtl'),
+        InfiniteIterable(ListValueType(sharedSupertype, 'rtl')), 'rtl'),
+    'charsOf': FunctionValueType(
+        IterableValueType(stringType, 'rtl'), [stringType], 'rtl'),
+    'scalarValues': FunctionValueType(
+        IterableValueType(integerType, 'rtl'), [stringType], 'rtl'),
+    'len': FunctionValueType(
+        integerType, [ListValueType(sharedSupertype, 'rtl')], 'rtl'),
+    'input': FunctionValueType(stringType, [], 'rtl'),
+    'append': FunctionValueType(sharedSupertype,
+        [ListValueType(sharedSupertype, 'rtl'), sharedSupertype], 'rtl'),
+    'iterator': FunctionValueType(IteratorValueType(sharedSupertype, 'rtl'),
+        [IterableValueType(sharedSupertype, 'rtl')], 'rtl'),
+    'next': FunctionValueType(
+        booleanType, [IteratorValueType(sharedSupertype, 'rtl')], 'rtl'),
     'current': FunctionValueType(
-        sharedSupertype, [IteratorValueType(sharedSupertype)]),
-    'stringTimes': FunctionValueType(stringType, [stringType, integerType]),
-    'copy': FunctionValueType(
-        ListValueType(sharedSupertype), [IterableValueType(sharedSupertype)]),
+        sharedSupertype, [IteratorValueType(sharedSupertype, 'rtl')], 'rtl'),
+    'stringTimes':
+        FunctionValueType(stringType, [stringType, integerType], 'rtl'),
+    'copy': FunctionValueType(ListValueType(sharedSupertype, 'rtl'),
+        [IterableValueType(sharedSupertype, 'rtl')], 'rtl'),
     'first': FunctionValueType(
-        sharedSupertype, [IterableValueType(sharedSupertype)]),
+        sharedSupertype, [IterableValueType(sharedSupertype, 'rtl')], 'rtl'),
     'last': FunctionValueType(
-        sharedSupertype, [IterableValueType(sharedSupertype)]),
+        sharedSupertype, [IterableValueType(sharedSupertype, 'rtl')], 'rtl'),
     'single': FunctionValueType(
-        sharedSupertype, [IterableValueType(sharedSupertype)]),
-    'assert': FunctionValueType(booleanType, [booleanType, stringType]),
-    'padLeft':
-        FunctionValueType(stringType, [stringType, integerType, stringType]),
-    'hex': FunctionValueType(stringType, [integerType]),
-    'chr': FunctionValueType(stringType, [integerType]),
+        sharedSupertype, [IterableValueType(sharedSupertype, 'rtl')], 'rtl'),
+    'assert': FunctionValueType(booleanType, [booleanType, stringType], 'rtl'),
+    'padLeft': FunctionValueType(
+        stringType, [stringType, integerType, stringType], 'rtl'),
+    'hex': FunctionValueType(stringType, [integerType], 'rtl'),
+    'chr': FunctionValueType(stringType, [integerType], 'rtl'),
     'exit': FunctionValueType(
-        ValueType(sharedSupertype, "Null", 0, 0, 'internal'), [integerType]),
-    'readFile': FunctionValueType(stringType, [stringType]),
-    'readFileBytes':
-        FunctionValueType(ListValueType(integerType), [stringType]),
-    'println':
-        FunctionValueType(integerType, InfiniteIterable(sharedSupertype)),
+        ValueType(sharedSupertype, "Null", 0, 0, 'rtl'), [integerType], 'rtl'),
+    'readFile': FunctionValueType(stringType, [stringType], 'rtl'),
+    'readFileBytes': FunctionValueType(
+        ListValueType(integerType, 'rtl'), [stringType], 'rtl'),
+    'println': FunctionValueType(
+        integerType, InfiniteIterable(sharedSupertype), 'rtl'),
     'throw': FunctionValueType(
-        ValueType(sharedSupertype, "Null", 0, 0, 'intrnal'), [stringType]),
+        ValueType(sharedSupertype, "Null", 0, 0, 'rtl'), [stringType], 'rtl'),
     'cast': FunctionValueType(
-        ValueType(null, "Whatever", 0, 0, 'internalinternal'),
-        [sharedSupertype]),
-    'joinList': FunctionValueType(stringType, [ListValueType(sharedSupertype)]),
+        ValueType(null, "Whatever", 0, 0, 'rtl'), [sharedSupertype], 'rtl'),
+    'joinList': FunctionValueType(
+        stringType, [ListValueType(sharedSupertype, 'rtl')], 'rtl'),
     'className': stringType,
   };
 
@@ -134,6 +140,8 @@ class ValueWrapper {
       value is Function ? "<function ($debugCreationDescription)>" : "$value";
 }
 
+Map<String, int> fileTypes = {};
+
 class ValueType {
   final ValueType? parent;
   final String name;
@@ -142,11 +150,12 @@ class ValueType {
   bool operator ==(x) =>
       x is ValueType && this.isSubtypeOf(x) && x.isSubtypeOf(this);
 
-  ValueType.internal(this.parent, this.name) {
+  ValueType.internal(this.parent, this.name, String file) {
     if (types[name] != null) {
       throw FileInvalid("Repeated creation of $name");
     }
     types[name] = this;
+    fileTypes[file] = (fileTypes[file] ?? 0) + 1;
   }
   static final Map<String, ValueType> types = {};
   factory ValueType(
@@ -161,6 +170,7 @@ class ValueType {
                   col,
                   file,
                 ),
+                file,
               )
             : name.endsWith("Iterator")
                 ? IteratorValueType(
@@ -171,6 +181,7 @@ class ValueType {
                       col,
                       file,
                     ),
+                    file,
                   )
                 : name.endsWith("List")
                     ? ListValueType(
@@ -181,6 +192,7 @@ class ValueType {
                           col,
                           file,
                         ),
+                        file,
                       )
                     : name.endsWith("Function")
                         ? GenericFunctionValueType(
@@ -191,6 +203,7 @@ class ValueType {
                               col,
                               file,
                             ),
+                            file,
                           )
                         : name.endsWith("Nullable")
                             ? NullableValueType(
@@ -202,7 +215,7 @@ class ValueType {
                                   col,
                                   file,
                                 ),
-                              )
+                                file)
                             : basicTypes(name, parent, line, col, file));
   }
   bool isSubtypeOf(ValueType possibleParent) {
@@ -220,8 +233,8 @@ class ValueType {
 class NullableValueType extends ValueType {
   final ValueType genericParam;
 
-  NullableValueType(String name, this.genericParam)
-      : super.internal(sharedSupertype, name + 'Nullable');
+  NullableValueType(String name, this.genericParam, String file)
+      : super.internal(sharedSupertype, name + 'Nullable', file);
 
   bool isSubtypeOf(ValueType other) {
     return super.isSubtypeOf(other) ||
@@ -231,8 +244,8 @@ class NullableValueType extends ValueType {
 }
 
 class ClassValueType extends ValueType {
-  ClassValueType(String name, this.supertype, this.properties)
-      : super.internal(supertype ?? sharedSupertype, "$name");
+  ClassValueType(String name, this.supertype, this.properties, String file)
+      : super.internal(supertype ?? sharedSupertype, "$name", file);
   final TypeValidator properties;
   final ClassValueType? supertype;
   ValueType? recursiveLookup(String v) {
@@ -241,30 +254,30 @@ class ClassValueType extends ValueType {
 }
 
 class GenericFunctionValueType extends ValueType {
-  GenericFunctionValueType.internal(this.returnType)
-      : super.internal(sharedSupertype, "${returnType}Function");
+  GenericFunctionValueType.internal(this.returnType, String file)
+      : super.internal(sharedSupertype, "${returnType}Function", file);
   final ValueType returnType;
-  factory GenericFunctionValueType(ValueType returnType) {
+  factory GenericFunctionValueType(ValueType returnType, String file) {
     return (ValueType.types["${returnType}Function"] ??=
-            GenericFunctionValueType.internal(returnType))
+            GenericFunctionValueType.internal(returnType, file))
         as GenericFunctionValueType;
   }
   @override
   bool isSubtypeOf(final ValueType possibleParent) {
-    if (possibleParent is GenericFunctionValueType) {}
     return super.isSubtypeOf(possibleParent) ||
-        ((possibleParent is GenericFunctionValueType) &&
+        ((possibleParent is! FunctionValueType &&
+                possibleParent is GenericFunctionValueType) &&
             returnType.isSubtypeOf(possibleParent.returnType));
   }
 }
 
 class IterableValueType extends ValueType {
-  IterableValueType.internal(this.genericParameter)
-      : super.internal(sharedSupertype, "${genericParameter}Iterable");
-  factory IterableValueType(ValueType genericParameter) {
+  IterableValueType.internal(this.genericParameter, String file)
+      : super.internal(sharedSupertype, "${genericParameter}Iterable", file);
+  factory IterableValueType(ValueType genericParameter, String file) {
     return ValueType.types["${genericParameter}Iterable"]
             as IterableValueType? ??
-        IterableValueType.internal(genericParameter);
+        IterableValueType.internal(genericParameter, file);
   }
   final ValueType genericParameter;
   @override
@@ -276,12 +289,12 @@ class IterableValueType extends ValueType {
 }
 
 class IteratorValueType extends ValueType {
-  IteratorValueType.internal(this.genericParameter)
-      : super.internal(sharedSupertype, "${genericParameter}Iterator");
-  factory IteratorValueType(ValueType genericParameter) {
+  IteratorValueType.internal(this.genericParameter, String file)
+      : super.internal(sharedSupertype, "${genericParameter}Iterator", file);
+  factory IteratorValueType(ValueType genericParameter, String file) {
     return ValueType.types["${genericParameter}Iterator"]
             as IteratorValueType? ??
-        IteratorValueType.internal(genericParameter);
+        IteratorValueType.internal(genericParameter, file);
   }
   final ValueType genericParameter;
   @override
@@ -293,12 +306,12 @@ class IteratorValueType extends ValueType {
 }
 
 class ListValueType extends IterableValueType {
-  ListValueType.internal(this.genericParameter)
-      : super.internal(IterableValueType(genericParameter));
+  ListValueType.internal(this.genericParameter, String file)
+      : super.internal(IterableValueType(genericParameter, file), file);
   String get name => "${genericParameter}List";
-  factory ListValueType(ValueType genericParameter) {
+  factory ListValueType(ValueType genericParameter, String file) {
     return ValueType.types["${genericParameter}List"] as ListValueType? ??
-        ListValueType.internal(genericParameter);
+        ListValueType.internal(genericParameter, file);
   }
   final ValueType genericParameter;
   @override
@@ -319,7 +332,13 @@ class Parameter {
   Parameter(this.type, this.name);
 }
 
-enum StatementResultType { nothing, breakWhile, continueWhile, returnFunction }
+enum StatementResultType {
+  nothing,
+  breakWhile,
+  continueWhile,
+  returnFunction,
+  unwindAndThrow,
+}
 
 class StatementResult {
   final StatementResultType type;
@@ -328,8 +347,14 @@ class StatementResult {
   StatementResult(this.type, [this.value]);
 }
 
-Object startingValueOfVar = Object();
-Object notInScope = Object();
+class StrWrapper {
+  String toString() => x;
+  final String x;
+
+  StrWrapper(this.x);
+}
+
+StrWrapper startingValueOfVar = StrWrapper("<uninitialized>");
 
 class Scope {
   Scope({this.parent, required this.stack, this.declaringClass});
@@ -396,53 +421,51 @@ class FunctionValueType extends GenericFunctionValueType {
   late final String name =
       "${returnType}Function(${stringParams.substring(1, stringParams.length - 1)})";
 
-  FunctionValueType.internal(this.returnType, this.parameters)
-      : super.internal(returnType);
+  FunctionValueType.internal(this.returnType, this.parameters, String file)
+      : super.internal(returnType, file);
 
   factory FunctionValueType(
-      ValueType returnType, Iterable<ValueType> parameters) {
+      ValueType returnType, Iterable<ValueType> parameters, String file) {
     String str = parameters.toString();
     return ValueType.types[
             "${returnType}Function(${str.substring(1, str.length - 1)})"] =
         ValueType.types[
                     "${returnType}Function(${str.substring(1, str.length - 1)})"]
                 as FunctionValueType? ??
-            FunctionValueType.internal(returnType, parameters);
+            FunctionValueType.internal(returnType, parameters, file);
   }
   @override
   bool isSubtypeOf(ValueType possibleParent) {
+    if (super.isSubtypeOf(possibleParent)) {
+      return true;
+    }
+    if (possibleParent is! FunctionValueType) {
+      return false;
+    }
+    if (!returnType.isSubtypeOf(possibleParent.returnType)) {
+      return false;
+    }
+    if (possibleParent.parameters is InfiniteIterable ||
+        parameters is InfiniteIterable) {
+      return false; //TODO
+    }
+    if (parameters.length != possibleParent.parameters.length) {
+      return false;
+    }
     int i = 0;
-    bool parentOk = super.isSubtypeOf(possibleParent);
-    if (!parentOk) {}
-    return possibleParent == parent ||
-        parentOk &&
-            (possibleParent is! FunctionValueType ||
-                (possibleParent.parameters is InfiniteIterable
-                    ? parameters is InfiniteIterable &&
-                        parameters.first == possibleParent.parameters.first
-                    : (parameters.length == possibleParent.parameters.length ||
-                            parameters is InfiniteIterable) &&
-                        (possibleParent.parameters.every((element) =>
-                            parameters.elementAt(i++).isSubtypeOf(element)))));
+    return possibleParent.parameters.every(
+      (element) => element.isSubtypeOf(parameters.elementAt(i++)),
+    );
   }
 }
 
-final ValueType sharedSupertype = ValueType.internal(
-  null,
-  'Anything',
-);
-final ValueType integerType = ValueType.internal(
-  sharedSupertype,
-  'Integer',
-);
-final ValueType stringType = ValueType.internal(
-  sharedSupertype,
-  'String',
-);
-final ValueType booleanType = ValueType.internal(
-  sharedSupertype,
-  'Boolean',
-);
+final ValueType sharedSupertype = ValueType.internal(null, 'Anything', 'rtl');
+final ValueType integerType =
+    ValueType.internal(sharedSupertype, 'Integer', 'rtl');
+final ValueType stringType =
+    ValueType.internal(sharedSupertype, 'String', 'rtl');
+final ValueType booleanType =
+    ValueType.internal(sharedSupertype, 'Boolean', 'rtl');
 
 ValueType basicTypes(
     String name, ValueType? parent, int line, int col, String file) {
@@ -452,7 +475,7 @@ ValueType basicTypes(
     case 'Whatever':
     case '~class_methods':
     case 'unassigned':
-      return ValueType.internal(parent, name);
+      return ValueType.internal(parent, name, file);
     default:
       throw FileInvalid(
           "'$name' type doesn't exist (line $line col $col file $file)");

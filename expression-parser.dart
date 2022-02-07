@@ -12,6 +12,15 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         tokens.moveNext();
         tokens.expectChar(TokenType.period);
         String member = tokens.currentIdent;
+        ValueType? superclass = scope.currentClass.parent;
+        if (superclass is! ClassValueType) {
+          throw FileInvalid(
+              '${scope.currentClass.name} has no superclass; attempted \'super.$member\' ${tokens.current.line}, ${tokens.current.col}, ${tokens.file}');
+        }
+        if (!superclass.properties.types.containsKey(member)) {
+          throw FileInvalid(
+              '${scope.currentClass.name}\'s superclass (${superclass.name}) has no member $member; attempted \'super.$member\' ${tokens.current.line}, ${tokens.current.col}, ${tokens.file}');
+        }
         return SuperExpression(
           member,
           scope,
@@ -19,6 +28,15 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           tokens.current.col,
           tokens.file,
         );
+      } else if (tokens.currentIdent == '__LINE__') {
+        return IntLiteralExpression(tokens.current.line, tokens.current.line,
+            tokens.current.col, tokens.file);
+      } else if (tokens.currentIdent == '__COL__') {
+        return IntLiteralExpression(tokens.current.col, tokens.current.line,
+            tokens.current.col, tokens.file);
+      } else if (tokens.currentIdent == '__FILE__') {
+        return StringLiteralExpression(
+            tokens.file, tokens.current.line, tokens.current.col, tokens.file);
       }
       scope.getVar(
         tokens.currentIdent,
@@ -151,7 +169,8 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
           tokens.moveNext();
           Expression operandB = parseExpression(tokens, scope, integerType);
           tokens.expectChar(TokenType.closeSquare);
-          if (!result.type.isSubtypeOf(ListValueType(sharedSupertype))) {
+          if (!result.type
+              .isSubtypeOf(ListValueType(sharedSupertype, tokens.file))) {
             throw FileInvalid(
                 "tried to subscript ${result.type} ($result) on line ${tokens.current.line} column ${tokens.current.col} file ${tokens.file}");
           }
@@ -190,8 +209,8 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
           result = UnwrapExpression(
               result, tokens.current.line, tokens.current.col, tokens.file);
         } else {
-          if (!result.type
-              .isSubtypeOf(GenericFunctionValueType(sharedSupertype))) {
+          if (!result.type.isSubtypeOf(
+              GenericFunctionValueType(sharedSupertype, tokens.file))) {
             throw FileInvalid(
                 "tried to call ${result.type} ($result) on line ${tokens.current.line} column ${tokens.current.col} file ${tokens.file}");
           }

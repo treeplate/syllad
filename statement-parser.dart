@@ -50,11 +50,8 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
         ..nonconst.addAll(List.of(scope.classes[superclass]!.nonconst))
         ..types.addAll(scope.types)
         ..nonconst.addAll(scope.nonconst));
-  ClassValueType type = ClassValueType(
-    name,
-    supertype as ClassValueType?,
-    newScope,
-  );
+  ClassValueType type =
+      ClassValueType(name, supertype as ClassValueType?, newScope, tokens.file);
   newScope.newVar(
     'this',
     type,
@@ -81,20 +78,15 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
         type,
         (type.recursiveLookup('constructor') as FunctionValueType?)
                 ?.parameters ??
-            []),
+            [],
+        tokens.file),
     tokens.current.line,
     tokens.current.col,
     tokens.file,
   );
   tokens.expectChar(TokenType.closeBrace);
-  return ClassStatement(
-    name,
-    superclass,
-    block,
-    type,
-    tokens.current.line,
-    tokens.current.col,
-  );
+  return ClassStatement(name, superclass, block, type, tokens.current.line,
+      tokens.current.col, tokens.file);
 }
 
 Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
@@ -326,14 +318,16 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
             ..types[ident2] = FunctionValueType(
                 ValueType(null, ident1, tokens.current.line, tokens.current.col,
                     tokens.file),
-                params.map((e) => e.type)));
+                params.map((e) => e.type),
+                tokens.file));
       tokens.expectChar(TokenType.closeBrace);
       scope.newVar(
         ident2,
         FunctionValueType(
             ValueType(null, ident1, tokens.current.line, tokens.current.col,
                 tokens.file),
-            params.map((e) => e.type)),
+            params.map((e) => e.type),
+            tokens.file),
         tokens.current.line,
         tokens.current.col,
         tokens.file,
@@ -456,8 +450,8 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope) {
   }
   int __itn = _itn++;
   tokens.moveNext();
-  Expression iterable =
-      parseExpression(tokens, scope, IterableValueType(sharedSupertype));
+  Expression iterable = parseExpression(
+      tokens, scope, IterableValueType(sharedSupertype, tokens.file));
   TypeValidator innerScope = TypeValidator()
     ..types.addAll(scope.types)
     ..nonconst.addAll(scope.nonconst);
@@ -501,7 +495,7 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope) {
           tokens.file,
         ),
         <Statement>[
-              SetStatement(
+              NewVarStatement(
                 currentName,
                 FunctionCallExpr(
                     GetExpr('current', innerScope, -1, -1, tokens.file),
@@ -510,7 +504,6 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope) {
                     -1,
                     -1,
                     '_int'),
-                [],
                 -1,
                 -1,
               ),
@@ -539,7 +532,7 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
   String name = tokens.currentIdent;
   tokens.moveNext();
   List<Statement> body = [];
-  ValueType.internal(sharedSupertype, name);
+  ValueType.internal(sharedSupertype, name, tokens.file); //declaring type
   tokens.expectChar(TokenType.openBrace);
   while (tokens.current is! CharToken ||
       tokens.currentChar != TokenType.closeBrace) {

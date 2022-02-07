@@ -1,0 +1,18 @@
+import 'core.syd';
+
+class SourceLocation extends Object {
+  Integer lineNo;
+  Integer colNo;
+  String filename;
+
+  Null constructor(Integer lineNoArg, Integer colNoArg, String filenameArg) {
+    super.constructor();
+    lineNo = lineNoArg;
+    colNo = colNoArg;
+    filename = filenameArg;
+  }
+
+  String toString() {
+    return concat('line ', lineNo, ' column ', colNo, ' in file ', filename);
+  }
+}

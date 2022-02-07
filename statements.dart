@@ -84,18 +84,24 @@ class FunctionStatement extends Statement {
   final List<Statement> body;
   @override
   StatementResult run(Scope scope) {
-    scope.values[name] =
-        ValueWrapper(FunctionValueType(returnType, params.map((e) => e.type)),
-            (List<ValueWrapper> a, List<String> stack,
-                [Scope? thisScope, ValueType? thisType]) {
+    scope.values[name] = ValueWrapper(
+        FunctionValueType(returnType, params.map((e) => e.type), file),
+        (List<ValueWrapper> a, List<String> stack,
+            [Scope? thisScope, ValueType? thisType]) {
       int i = 0;
       if (a.length != params.length) {
         throw FileInvalid(
             "Wrong number of arguments to $name: args $a, params $params\n${stack.reversed.join('\n')}");
       }
+      String fromClass;
+      if (thisScope == null) {
+        fromClass = '';
+      } else {
+        fromClass = '${scope.declaringClass!.name}.';
+      }
       Scope funscope = Scope(
           parent: thisScope ?? scope,
-          stack: stack + ["$name"],
+          stack: stack + ["$fromClass$name"],
           declaringClass: scope.declaringClass);
       if (thisScope != null) {
         funscope.values['this'] =
@@ -109,10 +115,16 @@ class FunctionStatement extends Statement {
         switch (value.type) {
           case StatementResultType.nothing:
             break;
-          default:
+          case StatementResultType.returnFunction:
             if (value.value!.type.isSubtypeOf(returnType)) return value;
             throw FileInvalid(
                 "You cannot return a ${value.value!.type} (${value.value!.value}) from $name, which is supposed to return a $returnType! ($file $line:$col)");
+          case StatementResultType.breakWhile:
+            throw FileInvalid("Break outside while");
+          case StatementResultType.continueWhile:
+            throw FileInvalid("Continue outside while");
+          case StatementResultType.unwindAndThrow:
+            return value;
         }
       }
       if (!ValueType(null, 'Null', 0, 0, 'intrenal').isSubtypeOf(returnType)) {
@@ -155,6 +167,7 @@ class WhileStatement extends Statement {
             if (statementResult.value!.value || catchReturns) break block;
             return statementResult;
           case StatementResultType.returnFunction:
+          case StatementResultType.unwindAndThrow:
             return statementResult;
         }
       }
@@ -254,9 +267,9 @@ class ClassStatement extends Statement {
   final String name;
   final ClassValueType type;
   final String? superclass;
-
-  ClassStatement(
-      this.name, this.superclass, this.block, this.type, int line, int col)
+  final String file;
+  ClassStatement(this.name, this.superclass, this.block, this.type, int line,
+      int col, this.file)
       : super(line, col);
 
   @override
@@ -283,10 +296,7 @@ class ClassStatement extends Statement {
           'constructor',
           [],
           ValueWrapper(
-              FunctionValueType(
-                type,
-                [],
-              ),
+              FunctionValueType(type, [], file),
               (List<ValueWrapper> args, List<String> stack, Scope thisScope,
                   ValueType thisType) {},
               'default constructor'),
@@ -305,10 +315,7 @@ class ClassStatement extends Statement {
       '~$name',
       [],
       ValueWrapper(
-        FunctionValueType(
-          type,
-          [],
-        ),
+        FunctionValueType(type, [], file),
         (List<ValueWrapper> args, List<String> stack, Scope thisScope,
             ValueType thisType) {
           if (superclass != null) {
@@ -327,7 +334,17 @@ class ClassStatement extends Statement {
           }
           for (Statement s in block) {
             if (s is NewVarStatement) {
-              s.run(thisScope);
+              StatementResult sr = s.run(thisScope);
+              switch (sr.type) {
+                case StatementResultType.nothing:
+                  break;
+                case StatementResultType.breakWhile:
+                case StatementResultType.continueWhile:
+                case StatementResultType.returnFunction:
+                  throw FileInvalid('Internal error');
+                case StatementResultType.unwindAndThrow:
+                  return sr;
+              }
             }
           }
         },
@@ -341,22 +358,22 @@ class ClassStatement extends Statement {
       [],
       ValueWrapper(
         FunctionValueType(
-          type,
-          hasConstructor
-              ? block
-                  .whereType<FunctionStatement>()
-                  .firstWhere((element) => element.name == 'constructor')
-                  .params
-                  .map((e) => e.type)
-              : superclass == null
-                  ? []
-                  : scope
-                      .internal_getVar('~$superclass~methods')!
-                      .value
-                      .internal_getVar('constructor')
-                      .type
-                      .parameters,
-        ),
+            type,
+            hasConstructor
+                ? block
+                    .whereType<FunctionStatement>()
+                    .firstWhere((element) => element.name == 'constructor')
+                    .params
+                    .map((e) => e.type)
+                : superclass == null
+                    ? []
+                    : scope
+                        .internal_getVar('~$superclass~methods')!
+                        .value
+                        .internal_getVar('constructor')
+                        .type
+                        .parameters,
+            file),
         (List<ValueWrapper> args, List<String> stack) {
           Scope thisScope =
               Scope(parent: scope, stack: stack + ['$name-instance']);

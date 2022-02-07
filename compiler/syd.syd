@@ -2,7 +2,7 @@
 StringListList a = [];
 append(a, 1);
 println(a);
-*/
+//*/
 
 /*
 Null test(StringList a) {
@@ -14,7 +14,7 @@ Null test(StringList a) {
 AnythingList a = [];
 append(a, 123);
 test(a as StringList);
-*/
+//*/
 
 //class A { Null test() { this.test(); } }
 //Integer bar = 1; class Foo { Null constructor() { } } println(Foo().bar);/*
@@ -116,9 +116,7 @@ stderr('syllad self-hosting compiler');
 //     - shadow rules are weird: class A { } class B extends A { Null println() { } }
 //   function types with signatures
 //   string interpolation
-//   new features in classes: "className"...
 //   new features in classes: abstract classes and methods
-//   new features in classes: constructor shouldn't be required, especially in abstract classes, or classes with no superclass
 //   utf8 decoder (so that i can get scalarValues out of readFileBytes)
 //   functions to have named arguments with default values
 //   some way to call syscalls / OS functions
@@ -133,6 +131,7 @@ stderr('syllad self-hosting compiler');
 //   assigning to an undeclared variable says "Cannot reassign...".
 //   error messages are inconsistent in style, e.g. giving file/line/col in different ways:
 //     "You cannot return a Constant (<Constant>) from registerConstant, which is supposed to return a Variable! (syd-compiler.syd 226:19)"
+//     "CompiledScope's superclass (Object) has no member prepareInstructions; attempted 'super.prepareInstructions' 814, 31, syd-compiler.syd"
 
 
 // forward declaration
@@ -679,7 +678,7 @@ Library parseTokens(TokenList tokens, String name, Boolean isProgram) {
   return Library(statements, name, SourceLocation(0, 0, name));
 }
 
-CompiledLibrary processFile(String filename, CompilationEnvironment compilationEnvironment, Assembler assembler, Boolean isProgram) {
+CompiledLibrary processFile(String filename, CompilationEnvironment compilationEnvironment, Boolean isProgram) {
   assert(compilationEnvironment.getLibraryState(filename) == lsUnknown, 'processFile has already processed this file');
   Library ast = parseTokens(tokenize(scalarValues(readFile(filename)), filename), filename, isProgram);
   compilationEnvironment.declareLibrary(filename);
@@ -690,20 +689,22 @@ CompiledLibrary processFile(String filename, CompilationEnvironment compilationE
         throw(concat('Import loop at ', child.sourceLocation));
       } else if (childLibraryState == lsUnknown) {
         String libraryPath = cast(cast(child).path); // TODO: handle relative paths correctly
-        compilationEnvironment.defineLibrary(libraryPath, processFile(libraryPath, compilationEnvironment, assembler, false));
+        compilationEnvironment.defineLibrary(libraryPath, processFile(libraryPath, compilationEnvironment, false));
       }
     } else {
       break;
     }
   }
   stderr(concat('compiling "', filename, '"...'));
-  return ast.compileLibrary(compilationEnvironment, assembler);
+  return ast.generateScopes(compilationEnvironment);
 }
 
 String mainProgramFileName = 'temp.syd';
 Assembler assembler = Assembler();
 CompilationEnvironment compilationEnvironment = CompilationEnvironment(assembler);
-CompiledLibrary program = processFile(mainProgramFileName, compilationEnvironment, assembler, true);
+CompiledLibrary program = processFile(mainProgramFileName, compilationEnvironment, true);
+compilationEnvironment.defineLibrary(mainProgramFileName, program);
+compilationEnvironment.compile(assembler);
 assembler.addCode(assembler.mainBlockId, 'ret', 'exit application');
 stderr('Compilation finished!');
 stderr('Result:');

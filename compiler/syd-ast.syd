@@ -23,7 +23,7 @@ class TypeIdentifier extends AstNode {
     return name;
   }
 
-  Type compile(CompiledScope scope) {
+  Type generateInstructions(CompiledScope scope) {
     TypeNullable result = (scope.globalScope() as CompiledLibrary).lookupType(name);
     if (result == null) {
       throw(concat('Type "', name, '" not known at ', sourceLocation));
@@ -38,7 +38,7 @@ class TypeIdentifier extends AstNode {
 }
 
 class Statement extends AstNode {
-  Null compile(CompiledScope scope) {
+  Null generateInstructions(CompiledScope scope) {
     abstract();
   }
 }
@@ -61,10 +61,10 @@ class StatementBlock extends AstNode {
     }
   }
 
-  Null compile(CompiledScope scope) {
+  Null generateInstructions(CompiledScope scope) {
     Null compileChild(AstNode child, CompiledScope scope) {
       scope.emitInstruction(SourceLocationInstruction(child));
-      cast(cast(child).compile)(scope); // workaround because self-reference doesn't work in closures
+      cast(cast(child).generateInstructions)(scope); // workaround because self-reference doesn't work in closures
     }
     walk(compileChild, scope);
   }
@@ -81,7 +81,7 @@ class Expression extends AstNode {
   }
 
   // Expressions are expected to declare a Slot then return a ValueHandle read from that Slot
-  ValueHandle compile(CompiledScope scope) {
+  ValueHandle generateInstructions(CompiledScope scope) {
     abstract();
   }
 }
@@ -90,17 +90,14 @@ class StringLiteralExpression extends Expression {
   String value;
   String label;
 
-  ValueHandle compile(CompiledScope scope) {
+  ValueHandle generateInstructions(CompiledScope scope) {
     label = scope.environment().generateLabel('string');
     scope.emitInstruction(StringConstantDataInstruction(
       label,
       value,
       sourceLocation,
     ));
-    Slot slot = scope.registerStaticValue(LabelPointerValue((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreStringType, label), concat(this));
-    ValueHandle result = slot.read(scope);
-    scope.emitInstruction(SlotReadInstruction(slot, result));
-    return result;
+    return scope.registerStaticValue(LabelPointerValue((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreStringType, label), concat(this)).read(scope);
   }
 
   String toStringIndent(Integer indent) {
@@ -116,11 +113,9 @@ class StringLiteralExpression extends Expression {
 class IntegerLiteralExpression extends Expression {
   Integer value;
 
-  ValueHandle compile(CompiledScope scope) {
+  ValueHandle generateInstructions(CompiledScope scope) {
     Slot slot = scope.registerStaticValue(LiteralIntegerValue((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreIntegerType, value), concat(this));
-    ValueHandle result = slot.read(scope);
-    scope.emitInstruction(SlotReadInstruction(slot, result));
-    return result;
+    return slot.read(scope);
   }
   
   String toStringIndent(Integer indent) {
@@ -166,14 +161,12 @@ class VariableExpression extends Expression {
     return true;
   }
 
-  ValueHandle compile(CompiledScope scope) {
+  ValueHandle generateInstructions(CompiledScope scope) {
     NamedSlotNullable slot = scope.lookupIdentifier(name);
     if (slot == null) {
       throw(concat('Identifier "', name, '" not known at ', sourceLocation));
     }
-    ValueHandle result = slot!.read(scope);
-    scope.emitInstruction(SlotReadInstruction(slot!, result));
-    return result;
+    return slot!.read(scope);
   }
 
   Null constructor(String nameArg, SourceLocation sourceLocationArg) {
@@ -206,12 +199,12 @@ class SubroutineCallExpression extends Expression {
     }
   }
 
-  ValueHandle compile(CompiledScope scope) {
-    ValueHandle subroutine = subroutineReference.compile(scope);
+  ValueHandle generateInstructions(CompiledScope scope) {
+    ValueHandle subroutine = subroutineReference.generateInstructions(scope);
     ValueHandleList argumentValues = [];
-    if ((subroutine.slot as Slot).staticType is AbstractSubroutineType) {
+    if (subroutine.source.staticType is AbstractSubroutineType) {
       for (argument in arguments) {
-        append(argumentValues, argument.compile(scope));
+        append(argumentValues, argument.generateInstructions(scope));
       }
     } else {
       throw(concat('"', subroutineReference, '" is not a subroutine at ', sourceLocation));
@@ -517,11 +510,11 @@ class SubroutineDeclarationStatement extends Statement {
     callback(body, context);
   }
 
-  Null compile(CompiledScope scope) {
-    Type compiledReturnType = returnType.compile(scope);
+  Null generateInstructions(CompiledScope scope) {
+    Type compiledReturnType = returnType.generateInstructions(scope);
     TypeList compiledParameterTypes = [];
     for (entry in parameters) {
-      append(compiledParameterTypes, (entry[0] as TypeIdentifier).compile(scope));
+      append(compiledParameterTypes, (entry[0] as TypeIdentifier).generateInstructions(scope));
     }
     SubroutineTypeWithSpecificParameters subroutineType = createOrFindSubroutineType(
       scope.environment(),
@@ -530,7 +523,17 @@ class SubroutineDeclarationStatement extends Statement {
     );
     CompiledSubroutine subroutine = CompiledSubroutine(scope, subroutineType, identifier);
     scope.registerSubroutine(subroutine);
-    body.compile(subroutine);
+    SlotList parameterSlots = [];
+    Integer index = 0;
+    for (parameter in parameters) {
+      String name = parameter[1] as String;
+      Type type = compiledParameterTypes[index];
+      append(parameterSlots, subroutine.registerParameter(name, type, index));
+      index += 1;
+    }
+    subroutine.emitParameterChecks(parameterSlots);
+    // TODO: declare slot for "this" and "closure"
+    body.generateInstructions(subroutine);
   }
 
   String toStringIndent(Integer indent) {
@@ -574,7 +577,7 @@ class EnumDeclaration extends Statement {
     return joinList(buffer);
   }
 
-  Null compile(CompiledScope scope) {
+  Null generateInstructions(CompiledScope scope) {
     assert(scope is CompiledLibrary, 'found enum in non-global scope');
     CompiledLibrary globalScope = scope as CompiledLibrary;
     globalScope.declareType(EnumType(scope.environment(), name, values));
@@ -627,8 +630,8 @@ class ExpressionStatement extends Statement {
     callback(expression, context);
   }
 
-  Null compile(CompiledScope scope) {
-    expression.compile(scope); // return value is discarded
+  Null generateInstructions(CompiledScope scope) {
+    expression.generateInstructions(scope); // return value is discarded
   }
 
   Null constructor(Expression expressionArg, SourceLocation sourceLocationArg) {
@@ -664,7 +667,7 @@ class ImportStatement extends Statement {
     return concat('import "', path, '";\n');
   }
 
-  Null compile(CompiledScope scope) {
+  Null generateInstructions(CompiledScope scope) {
     assert(scope.environment().getLibraryState(path) == lsDefined, concat('tried to import library "', path, '" before it was compiled'));
     assert(scope is CompiledLibrary, 'found import outside global scope');
     (scope as CompiledLibrary).importLibrary(scope.environment().getLibrary(path) as CompiledLibrary);
@@ -897,23 +900,19 @@ class Library extends StatementBlock {
     name = nameArg;
   }
 
-  CompiledLibrary compileLibrary(CompilationEnvironment compilationEnvironmentArg, Assembler assembler) { 
+  CompiledLibrary generateScopes(CompilationEnvironment compilationEnvironmentArg) { 
     CompiledLibrary result = CompiledLibrary(compilationEnvironmentArg, name);
-    compile(result);
-    result.populateValueHandles();
-    result.generateAssembler(assembler, assembler.mainBlockId);
+    generateInstructions(result);
     return result;
   }
 }
 
 class Program extends Library {
-  Null compile(CompiledScope scope) {
-    super.compile(scope);
+  Null generateInstructions(CompiledScope scope) {
+    super.generateInstructions(scope);
     Slot slot = scope.registerStaticValue(LiteralIntegerValue((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreIntegerType, 0), 'default exit code');
     ValueHandle exitCode = slot.read(scope);
-    scope.emitInstruction(SlotReadInstruction(slot, exitCode));
     ValueHandle exit = (scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreExit.read(scope);
-    scope.emitInstruction(SlotReadInstruction((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreExit, exit));
     scope.emitSubroutineCall(exit, [exitCode]);
   }
 }

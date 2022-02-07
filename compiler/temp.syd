@@ -1,5 +1,8 @@
-String test() {
-  return "Hello World";
+Null test(String message) {
+  print(message);
 }
+test('Hello World\r\n');
 
-print(test());
+test('Too', 'Many');
+
+print('ERROR! THIS SHOULD NOT PRINT\r\n');

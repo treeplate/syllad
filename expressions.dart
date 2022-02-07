@@ -132,7 +132,7 @@ class MemberAccessExpression extends Expression {
     ValueWrapper thisScopeWrapper = a.eval(scope);
     if (thisScopeWrapper.type is! ClassValueType) {
       throw FileInvalid(
-          "$thisScopeWrapper ($a) is not an instance of a class, it's a ${thisScopeWrapper.type} line $line col $col file $file");
+          "$thisScopeWrapper ($a) is not an instance of a class, it's a ${thisScopeWrapper.type} line $line col $col file $file\n${scope.stack.reversed.join('\n')}");
     }
     Scope thisScope = thisScopeWrapper.value;
     return thisScope.getVar(b, line, col, file);
@@ -416,9 +416,17 @@ class FunctionCallExpr extends Expression {
     List<String> newStack = scope.stack.toList();
     newStack[newStack.length - 1] += " $file:$line:$col";
     dynamic result = (a.eval(scope).value as Function)(args, newStack);
-    if (result is StatementResult &&
-        result.type == StatementResultType.returnFunction) {
-      return result.value!;
+    if (result is StatementResult) {
+      switch (result.type) {
+        case StatementResultType.nothing:
+        case StatementResultType.breakWhile:
+        case StatementResultType.continueWhile:
+          throw "Internal error with functions";
+        case StatementResultType.returnFunction:
+          return result.value!;
+        case StatementResultType.unwindAndThrow:
+          throw FileInvalid('${result.value}');
+      }
     } else if (result is ValueWrapper) {
       return result;
     } else {
@@ -432,10 +440,10 @@ class ListLiteralExpression extends Expression {
       : super(line, col, file);
   final List<Expression> n;
   final ValueType genParam;
-  ValueType get type => ListValueType(genParam);
+  ValueType get type => ListValueType(genParam, file);
   String toString() => "<$type>$n";
-  ValueWrapper eval(Scope scope) => ValueWrapper(
-      ListValueType(genParam), n.map((e) => e.eval(scope)).toList(), 'literal');
+  ValueWrapper eval(Scope scope) => ValueWrapper(ListValueType(genParam, file),
+      n.map((e) => e.eval(scope)).toList(), 'literal');
 }
 
 class ShiftRightExpression extends Expression {

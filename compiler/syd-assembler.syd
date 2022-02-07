@@ -117,8 +117,12 @@ class Assembler extends Object {
     }
   }
 
-  Null addCode(Integer blockId, String line, String comment) {
-    append(code[blockId], concat('  ', padRight(line, lineLength, ' '), ' ; ', comment));
+  Null addCode(Integer blockId, String line, StringNullable comment) {
+    if (comment != null) {
+      append(code[blockId], concat('  ', padRight(line, lineLength, ' '), ' ; ', comment));
+    } else {
+      append(code[blockId], concat('  ', line));
+    }
   }
 
   Null addMov(Integer blockId, Operand destination, Operand source, String comment) {
@@ -133,7 +137,7 @@ class Assembler extends Object {
   }
 
   Null addLea(Integer blockId, Operand destination, Operand source, String comment) {
-    assert(source.kind == otIndirect, 'can only lea from a memory location');
+    assert(source.kind == otIndirect, concat('can only lea from a memory location, not a ', source.kind, ', when trying to add "lea ', destination, ', ', source, '"'));
     assert(destination.kind == otRegister, 'can only lea to a register');
     addCode(blockId, concat('lea ', destination.operand, ', ', source.operand), comment);
   }

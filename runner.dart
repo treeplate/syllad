@@ -23,7 +23,7 @@ Scope runProgram(List<Statement> ast) {
         return ValueWrapper(stringType, l.join(''), 'concat rtv');
       },
       "addLists": (List<ValueWrapper> l, List<String> s) {
-        return ValueWrapper(ListValueType(sharedSupertype),
+        return ValueWrapper(ListValueType(sharedSupertype, 'rtl'),
             l.expand((element) => element.value).toList(), 'addLists rtv');
       },
       "parseInt": (List<ValueWrapper> l, List<String> s) {
@@ -35,7 +35,7 @@ Scope runProgram(List<Statement> ast) {
       },
       "charsOf": (List<ValueWrapper> l, List<String> s) {
         return ValueWrapper(
-          IterableValueType(stringType),
+          IterableValueType(stringType, 'rtl'),
           (l.single.value as String)
               .characters
               .map((e) => ValueWrapper(stringType, e, 'charsOf char')),
@@ -44,7 +44,7 @@ Scope runProgram(List<Statement> ast) {
       },
       "scalarValues": (List<ValueWrapper> l, List<String> s) {
         return ValueWrapper(
-          IterableValueType(integerType),
+          IterableValueType(integerType, 'rtl'),
           l.single.value.runes
               .map((e) => ValueWrapper(integerType, e, 'scalarValues char')),
           'scalarValues rtv',
@@ -66,7 +66,7 @@ Scope runProgram(List<Statement> ast) {
         return l.last;
       },
       "iterator": (List<ValueWrapper> l, List<String> s) {
-        return ValueWrapper(IteratorValueType(sharedSupertype),
+        return ValueWrapper(IteratorValueType(sharedSupertype, 'rtl'),
             l.single.value.iterator, 'iterator rtv');
       },
       "next": (List<ValueWrapper> l, List<String> s) {
@@ -84,7 +84,7 @@ Scope runProgram(List<Statement> ast) {
       },
       "copy": (List<ValueWrapper> l, List<String> s) {
         return ValueWrapper(
-          ListValueType(sharedSupertype),
+          ListValueType(sharedSupertype, 'rtl'),
           l.single.value.toList(),
           'copy rtv',
         );
@@ -102,7 +102,7 @@ Scope runProgram(List<Statement> ast) {
         return l.first.value
             ? ValueWrapper(booleanType, true, 'assert rtv')
             : throw FileInvalid(
-                "Assertion failed: ${l.last.value}. (stack: ${s.join(" > ")}})");
+                "Assertion failed: ${l.last.value}. stack: \n${s.reversed.join('\n')}}");
       },
       "padLeft": (List<ValueWrapper> l, List<String> s) {
         return ValueWrapper(stringType,
@@ -153,7 +153,20 @@ Scope runProgram(List<Statement> ast) {
         key, ValueWrapper(Scope.tv_types[key]!, value, '$key from rtl')));
   ;
   for (Statement statement in ast) {
-    statement.run(scope);
+    StatementResult sr = statement.run(scope);
+    switch (sr.type) {
+      case StatementResultType.nothing:
+        break;
+      case StatementResultType.breakWhile:
+        throw FileInvalid("Break outside while");
+      case StatementResultType.continueWhile:
+        throw FileInvalid("Continue outside while");
+      case StatementResultType.returnFunction:
+        throw FileInvalid("Returned ${sr.value} outside function");
+      case StatementResultType.unwindAndThrow:
+        print(sr.value);
+        exit(1);
+    }
   }
   return scope;
 }
