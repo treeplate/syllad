@@ -5,8 +5,10 @@ import 'expressions.dart';
 Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
   switch (tokens.current.runtimeType) {
     case IntToken:
+      int i = tokens.integer;
+      tokens.moveNext();
       return IntLiteralExpression(
-          tokens.integer, tokens.current.line, tokens.current.col, tokens.file);
+          i, tokens.current.line, tokens.current.col, tokens.file);
     case IdentToken:
       if (tokens.currentIdent == 'super') {
         tokens.moveNext();
@@ -21,6 +23,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           throw FileInvalid(
               '${scope.currentClass.name}\'s superclass (${superclass.name}) has no member $member; attempted \'super.$member\' ${tokens.current.line}, ${tokens.current.col}, ${tokens.file}');
         }
+        tokens.moveNext();
         return SuperExpression(
           member,
           scope,
@@ -29,12 +32,15 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           tokens.file,
         );
       } else if (tokens.currentIdent == '__LINE__') {
+        tokens.moveNext();
         return IntLiteralExpression(tokens.current.line, tokens.current.line,
             tokens.current.col, tokens.file);
       } else if (tokens.currentIdent == '__COL__') {
+        tokens.moveNext();
         return IntLiteralExpression(tokens.current.col, tokens.current.line,
             tokens.current.col, tokens.file);
       } else if (tokens.currentIdent == '__FILE__') {
+        tokens.moveNext();
         return StringLiteralExpression(
             tokens.file, tokens.current.line, tokens.current.col, tokens.file);
       }
@@ -46,15 +52,19 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         tokens.current.col,
         tokens.file,
       );
-      return GetExpr(tokens.currentIdent, scope, tokens.current.line,
-          tokens.current.col, tokens.file);
+      String i = tokens.currentIdent;
+      tokens.moveNext();
+      return GetExpr(
+          i, scope, tokens.current.line, tokens.current.col, tokens.file);
     case StringToken:
+      String s = tokens.string;
+      tokens.moveNext();
       return StringLiteralExpression(
-          tokens.string, tokens.current.line, tokens.current.col, tokens.file);
+          s, tokens.current.line, tokens.current.col, tokens.file);
     case CharToken:
       if (tokens.currentChar == TokenType.openSquare) {
         tokens.moveNext();
-        List<Expression> arguments = [];
+        List<Expression> elements = [];
         ValueType type = ValueType(
             null, "Dog", tokens.current.line, tokens.current.col, tokens.file);
         while (tokens.current is! CharToken ||
@@ -63,14 +73,12 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           if (tokens.currentChar != TokenType.closeSquare) {
             tokens.expectChar(TokenType.comma);
           }
-          arguments.add(expr);
+          elements.add(expr);
           if (type ==
               ValueType(null, "Dog", tokens.current.line, tokens.current.col,
                   tokens.file)) {
             type = expr.type;
-          } else if (expr.type ==
-              ValueType(null, "Whatever", tokens.current.line,
-                  tokens.current.col, tokens.file)) {
+          } else if (expr.type.name == "Whatever") {
             // has been cast()-ed
           } else if (type != expr.type) {
             type = sharedSupertype;
@@ -79,11 +87,22 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         if (type ==
             ValueType(null, "Dog", tokens.current.line, tokens.current.col,
                 tokens.file)) {
-          type = ValueType(sharedSupertype, "Whatever", tokens.current.line,
-              tokens.current.col, tokens.file);
+          type = sharedSupertype;
+        }
+        tokens.moveNext();
+        if (tokens.current is CharToken &&
+            tokens.currentChar == TokenType.colon) {
+          tokens.moveNext();
+          ValueType t = ValueType(null, tokens.currentIdent,
+              tokens.current.line, tokens.current.col, tokens.file);
+          if (!type.isSubtypeOf(t) && elements.isNotEmpty)
+            throw FileInvalid(
+                'Invalid explicit list type (inferred type $type, provided type $t) line ${tokens.current.line} col umn ${tokens.current.col} file ${tokens.file}');
+          type = t;
+          tokens.moveNext();
         }
         return ListLiteralExpression(
-          arguments,
+          elements,
           type,
           tokens.current.line,
           tokens.current.col,
@@ -92,7 +111,9 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
       }
       if (tokens.currentChar == TokenType.openParen) {
         tokens.moveNext();
-        return parseExpression(tokens, scope, sharedSupertype);
+        Expression r = parseExpression(tokens, scope, sharedSupertype);
+        tokens.moveNext();
+        return r;
       }
       throw FileInvalid(
         "Unexpected token ${tokens.current} on line ${tokens.current.line} column ${tokens.current.col} file ${tokens.file}",
@@ -153,7 +174,6 @@ Expression parseAnd(TokenIterator tokens, TypeValidator scope) {
 
 Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
   Expression operandA = parseLiterals(tokens, scope);
-  tokens.moveNext();
   if (tokens.current is CharToken) {
     if (tokens.currentChar == TokenType.openSquare ||
         tokens.currentChar == TokenType.openParen ||
