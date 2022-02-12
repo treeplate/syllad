@@ -1,0 +1,62 @@
+import 'core.syd';
+
+String escapeString(String value) {
+  StringList buffer = []:String;
+  for (char in scalarValues(value)) {
+    if (char == 0x0a) {
+      append(buffer, '\\n');
+    } else if (char == 0x0d) {
+      append(buffer, '\\r');
+    } else if (char == 0x27) {
+      append(buffer, '\\\'');
+    } else if (char < 0x20 || char > 0x7e) {
+      append(buffer, '.');
+    } else {
+      append(buffer, chr(char));
+    }
+  }
+  return joinList(buffer);
+}
+
+String truncateString(String value, Integer maxLength) {
+  StringList buffer = []:String;
+  Boolean terminated = false;
+  for (char in scalarValues(value)) {
+    if (char == 0x0a || char == 0x0d) {
+      terminated = true;
+    } else {
+      append(buffer, chr(char));
+      if (terminated || len(buffer) >= maxLength) {
+        append(buffer, '...');
+        break;
+      }
+    }
+  }
+  return joinList(buffer);
+}
+
+class SourceLocation extends Object {
+  Integer lineNo;
+  Integer colNo;
+  String filename;
+
+  Null constructor(Integer lineNoArg, Integer colNoArg, String filenameArg) {
+    super.constructor();
+    lineNo = lineNoArg;
+    colNo = colNoArg;
+    filename = filenameArg;
+  }
+
+  String toString() {
+    return concat('line ', lineNo, ' column ', colNo, ' in file ', filename);
+  }
+}
+
+class SourceCode extends Object {
+  SourceLocation sourceLocation;
+
+  Null constructor(SourceLocation sourceLocationArg) {
+    super.constructor();
+    sourceLocation = sourceLocationArg;
+  }
+}

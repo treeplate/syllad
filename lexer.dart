@@ -37,6 +37,7 @@ enum TokenType {
   rightShift, // >>
 
   set, // =
+  colon,
 }
 
 abstract class Token {
@@ -165,6 +166,9 @@ Iterable<Token> lex(String file) sync* {
         state = _LexerState.slash;
         break;
       // 0-9 are done later
+      case 0x3a:
+        yield CharToken(TokenType.colon, line, col);
+        break;
       case 0x3b:
         yield CharToken(TokenType.endOfStatement, line, col);
         break;
@@ -212,7 +216,7 @@ Iterable<Token> lex(String file) sync* {
         } else {
           throw FileInvalid(
             //print(
-            "Unrecognized ${String.fromCharCode(rune)} at line $line column $col (0x${rune.toRadixString(16)} in Unicode)",
+            "Unrecognized ${String.fromCharCode(rune)} at line $line column $col (U+${rune.toRadixString(16)} in Unicode)",
             //);
           );
         }

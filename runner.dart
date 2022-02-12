@@ -20,7 +20,8 @@ Scope runProgram(List<Statement> ast) {
         return ValueWrapper(integerType, 0, 'stderr rtv');
       },
       "concat": (List<ValueWrapper> l, List<String> s) {
-        return ValueWrapper(stringType, l.join(''), 'concat rtv');
+        return ValueWrapper(stringType,
+            l.map((x) => toStringWithStack(x, s)).join(''), 'concat rtv');
       },
       "addLists": (List<ValueWrapper> l, List<String> s) {
         return ValueWrapper(ListValueType(sharedSupertype, 'rtl'),
@@ -60,7 +61,7 @@ Scope runProgram(List<Statement> ast) {
         if (!l.last.type
             .isSubtypeOf((l.first.type as ListValueType).genericParameter)) {
           throw FileInvalid(
-              "You cannot append a ${l.last.type} to a ${l.first.type}!");
+              "You cannot append a ${l.last.type} to a ${l.first.type}!\n${s.reversed.join('\n')}");
         }
         l.first.value.add(l.last);
         return l.last;
@@ -169,4 +170,12 @@ Scope runProgram(List<Statement> ast) {
     }
   }
   return scope;
+}
+
+String toStringWithStack(ValueWrapper x, List<String> s) {
+  if (x.type is ClassValueType) {
+    return x.value.toStringWithStack(s);
+  } else {
+    return x.value.toString();
+  }
 }

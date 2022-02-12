@@ -1,5 +1,5 @@
 import 'core.syd';
-import 'syd-basic-types.syd';
+import 'syd-utils.syd';
 
 // Tokenizer
 
@@ -244,7 +244,7 @@ TokenList tokenize(IntegerIterable source, String filename) {
   Integer lastInterestingColNo = -1;
   ts state = tsTop;
   Anything buffer;
-  TokenList tokens = [];
+  TokenList tokens = []:Token;
   for (ch in source) {
     colNo += 1;
     while (true) {
@@ -263,7 +263,7 @@ TokenList tokenize(IntegerIterable source, String filename) {
           break;
         } else if (ch == 0x22) { // "
           state = tsDoubleQuoteString;
-          buffer = [];
+          buffer = []:String;
           lastInterestingLineNo = lineNo;
           lastInterestingColNo = colNo;
           break;
@@ -275,7 +275,7 @@ TokenList tokenize(IntegerIterable source, String filename) {
           break;
         } else if (ch == 0x27) { // '
           state = tsSingleQuoteString;
-          buffer = [];
+          buffer = []:String;
           lastInterestingLineNo = lineNo;
           lastInterestingColNo = colNo;
           break;

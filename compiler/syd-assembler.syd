@@ -13,7 +13,7 @@ String hex64(Integer value) {
 }
 
 String stringLiteral(String value) {
-  StringList buffer = [];
+  StringList buffer = []:String;
   Boolean quoted = false;
   for (char in scalarValues(value)) {
     if (char == 0x22 && quoted) {
@@ -84,11 +84,11 @@ Operand rcx = Operand('rcx', otRegister);
 Operand rdx = Operand('rdx', otRegister);
 
 class Assembler extends Object {
-  StringList includelibs = [];
-  StringList externs = [];
-  StringList data = [];
-  StringList labels = [];
-  StringListList code = [];
+  StringList includelibs = []:String;
+  StringList externs = []:String;
+  StringList data = []:String;
+  StringList labels = []:String;
+  StringListList code = []:StringList;
 
   Integer lineLength = 64;
 
@@ -153,7 +153,7 @@ class Assembler extends Object {
 
   Integer addLabel(String label, StringNullable comment) {
     append(labels, label);
-    StringList subcode = [];
+    StringList subcode = []:String;
     if (comment != null && comment != label) {
       append(subcode, concat('; ', comment));
     }
@@ -174,7 +174,7 @@ class Assembler extends Object {
   }
 
   String serialize() {
-    StringList fullCode = [];
+    StringList fullCode = []:String;
     Integer index = 0;
     while (index < len(code)) {
       append(fullCode, concat(

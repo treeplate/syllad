@@ -1,5 +1,6 @@
 import 'core.syd';
 import 'syd-tokenizer.syd';
+import 'syd-utils.syd';
 import 'syd-compiler.syd';
 
 class AstNode extends SourceCode {
@@ -47,7 +48,7 @@ class StatementBlock extends AstNode {
   StatementList children;
   
   String toStringIndent(Integer indent) {
-    StringList buffer = [];
+    StringList buffer = []:String;
     for (statement in children) {
       append(buffer, stringTimes(' ', indent));
       append(buffer, statement.toStringIndent(indent));
@@ -97,7 +98,8 @@ class StringLiteralExpression extends Expression {
       value,
       sourceLocation,
     ));
-    return scope.registerStaticValue(LabelPointerValue((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreStringType, label), concat(this)).read(scope);
+    Type type = (scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreStringType;
+    return scope.registerStaticValue(LabelPointerVot(type, label), concat(this)).read(scope);
   }
 
   String toStringIndent(Integer indent) {
@@ -114,7 +116,7 @@ class IntegerLiteralExpression extends Expression {
   Integer value;
 
   ValueHandle generateInstructions(CompiledScope scope) {
-    Slot slot = scope.registerStaticValue(LiteralIntegerValue((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreIntegerType, value), concat(this));
+    Slot slot = scope.registerStaticValue(LiteralIntegerVot((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreIntegerType, value), concat(this));
     return slot.read(scope);
   }
   
@@ -162,7 +164,7 @@ class VariableExpression extends Expression {
   }
 
   ValueHandle generateInstructions(CompiledScope scope) {
-    NamedSlotNullable slot = scope.lookupIdentifier(name);
+    SlotNullable slot = scope.lookupIdentifier(name);
     if (slot == null) {
       throw(concat('Identifier "', name, '" not known at ', sourceLocation));
     }
@@ -180,7 +182,7 @@ class SubroutineCallExpression extends Expression {
   ExpressionList arguments;
 
   String toStringIndent(Integer indent) {
-    StringList argumentsList = [];
+    StringList argumentsList = []:String;
     Integer index = 0;
     while (index < len(arguments)) {
       if (index > 0) {
@@ -201,7 +203,7 @@ class SubroutineCallExpression extends Expression {
 
   ValueHandle generateInstructions(CompiledScope scope) {
     ValueHandle subroutine = subroutineReference.generateInstructions(scope);
-    ValueHandleList argumentValues = [];
+    ValueHandleList argumentValues = []:ValueHandle;
     if (subroutine.source.staticType is AbstractSubroutineType) {
       for (argument in arguments) {
         append(argumentValues, argument.generateInstructions(scope));
@@ -512,7 +514,7 @@ class SubroutineDeclarationStatement extends Statement {
 
   Null generateInstructions(CompiledScope scope) {
     Type compiledReturnType = returnType.generateInstructions(scope);
-    TypeList compiledParameterTypes = [];
+    TypeList compiledParameterTypes = []:Type;
     for (entry in parameters) {
       append(compiledParameterTypes, (entry[0] as TypeIdentifier).generateInstructions(scope));
     }
@@ -523,7 +525,7 @@ class SubroutineDeclarationStatement extends Statement {
     );
     CompiledSubroutine subroutine = CompiledSubroutine(scope, subroutineType, identifier);
     scope.registerSubroutine(subroutine);
-    SlotList parameterSlots = [];
+    SlotList parameterSlots = []:Slot;
     Integer index = 0;
     for (parameter in parameters) {
       String name = parameter[1] as String;
@@ -537,7 +539,7 @@ class SubroutineDeclarationStatement extends Statement {
   }
 
   String toStringIndent(Integer indent) {
-    StringList parametersList = [];
+    StringList parametersList = []:String;
     for (parameter in parameters) {
       if (len(parametersList) > 0) {
         append(parametersList, ', ');
@@ -910,7 +912,7 @@ class Library extends StatementBlock {
 class Program extends Library {
   Null generateInstructions(CompiledScope scope) {
     super.generateInstructions(scope);
-    Slot slot = scope.registerStaticValue(LiteralIntegerValue((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreIntegerType, 0), 'default exit code');
+    Slot slot = scope.registerStaticValue(LiteralIntegerVot((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreIntegerType, 0), 'default exit code');
     ValueHandle exitCode = slot.read(scope);
     ValueHandle exit = (scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreExit.read(scope);
     scope.emitSubroutineCall(exit, [exitCode]);

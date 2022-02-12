@@ -382,6 +382,7 @@ WhileStatement parseWhile(TokenIterator tokens, TypeValidator scope) {
 }
 
 Map<String, MapEntry<List<Statement>, TypeValidator>> filesLoaded = {};
+List<String> filesStartedLoading = [];
 ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
   if (tokens.doneImports) {
     throw FileInvalid(
@@ -389,6 +390,14 @@ ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
   }
   tokens.moveNext();
   String str = tokens.string;
+  if (filesStartedLoading.contains(str)) {
+    throw FileInvalid(
+        "Import loop detected at line ${tokens.current.line}, column ${tokens.current.col}, file ${tokens.file}");
+  }
+  filesStartedLoading.add(str);
+  if (!File('compiler/$str').existsSync()) {
+    throw FileInvalid("Attempted import of nonexistent file $str");
+  }
   tokens.moveNext();
   tokens.expectChar(TokenType.endOfStatement);
 
@@ -397,6 +406,7 @@ ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
         lex(File('compiler/$str').readAsStringSync()),
         str,
       ));
+  filesStartedLoading.remove(str);
   scope.types.addAll(result.value.types);
   scope.classes.addAll(result.value.classes);
   return ImportStatement(result.key, str);

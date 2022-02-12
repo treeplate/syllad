@@ -173,6 +173,18 @@ class AsExpr extends Expression {
   ValueWrapper eval(Scope scope) {
     ValueWrapper op = operand.eval(scope);
     ValueType possibleChildType = op.type;
+    if (possibleChildType is IterableValueType &&
+        isType is IterableValueType &&
+        !possibleChildType.isSubtypeOf(isType)) {
+      for (ValueWrapper x in op.value) {
+        if (!x.type
+            .isSubtypeOf((isType as IterableValueType).genericParameter)) {
+          throw FileInvalid(
+              "${operand.type} as ${isType} had invalid element type; expected ${(isType as IterableValueType).genericParameter} got $x (a ${x.type}) $line:$col file $file");
+        }
+      }
+      return ValueWrapper(isType, op.value, 'as (list.cast style)');
+    }
     if (!possibleChildType.isSubtypeOf(isType)) {
       throw FileInvalid(
           "as failed; expected $isType got $op (a $possibleChildType) $line:$col file $file");
@@ -441,7 +453,7 @@ class ListLiteralExpression extends Expression {
   final List<Expression> n;
   final ValueType genParam;
   ValueType get type => ListValueType(genParam, file);
-  String toString() => "<$type>$n";
+  String toString() => "$n:$genParam";
   ValueWrapper eval(Scope scope) => ValueWrapper(ListValueType(genParam, file),
       n.map((e) => e.eval(scope)).toList(), 'literal');
 }

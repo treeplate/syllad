@@ -118,7 +118,7 @@ class FunctionStatement extends Statement {
           case StatementResultType.returnFunction:
             if (value.value!.type.isSubtypeOf(returnType)) return value;
             throw FileInvalid(
-                "You cannot return a ${value.value!.type} (${value.value!.value}) from $name, which is supposed to return a $returnType! ($file $line:$col)");
+                "You cannot return a ${value.value!.type} (${value.value!.value}) from $fromClass$name, which is supposed to return a $returnType!     $file:$line:$col\n${funscope.stack.reversed.join('\n')} ");
           case StatementResultType.breakWhile:
             throw FileInvalid("Break outside while");
           case StatementResultType.continueWhile:

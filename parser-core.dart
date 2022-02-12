@@ -87,6 +87,8 @@ class TypeValidator {
       subscripts--;
     }
     if (!value.isSubtypeOf(type)) {
+      print(value);
+      print(type);
       throw FileInvalid(
           "Expected $type, got $value while setting $name${"[...]" * oldSubs} to $value on line $line column $col file $file");
     }
@@ -319,7 +321,9 @@ class ListValueType extends IterableValueType {
     return name == possibleParent.name ||
         (parent != null && parent!.isSubtypeOf(possibleParent)) ||
         (possibleParent is IterableValueType &&
-            genericParameter.isSubtypeOf(possibleParent.genericParameter));
+            genericParameter.isSubtypeOf(possibleParent.genericParameter)) ||
+        (possibleParent is NullableValueType &&
+            isSubtypeOf(possibleParent.genericParam));
   }
 }
 
@@ -372,9 +376,16 @@ class Scope {
     return node.declaringClass!;
   }
 
-  String toString() => values.containsKey('toString')
-      ? values['toString']!.value(<ValueWrapper>[], ["toString"]).value.value
-      : "<${values['className']?.value ?? 'instance of class'}>";
+  String toString() => toStringWithStack(['internal error']);
+
+  String toStringWithStack(List<String> stack) {
+    return values.containsKey('toString')
+        ? values['toString']!
+            .value(<ValueWrapper>[], stack + ["implicit toString"])
+            .value
+            .value
+        : "<${values['className']?.value ?? 'instance of class'}>";
+  }
 
   Map<String, ValueWrapper> values = {};
   static final Map<String, ValueType> tv_types = TypeValidator().types;

@@ -1,23 +1,6 @@
-/*
-StringListList a = [];
-append(a, 1);
-println(a);
-//*/
-
-/*
-Null test(StringList a) {
-  for (x in a) {
-    println(charsOf(x));
-  }
-}
-
-AnythingList a = [];
-append(a, 123);
-test(a as StringList);
-//*/
 
 //class A { Null test() { this.test(); } }
-//Integer bar = 1; class Foo { Null constructor() { } } println(Foo().bar);/*
+//Integer bar = 1; class Foo { Null constructor() { } } println(Foo().bar);
 
 import 'syd-tokenizer.syd';
 import 'syd-ast.syd';
@@ -96,6 +79,8 @@ stderr('syllad self-hosting compiler');
 //   instance variables can be used to access variables in scope of class: Integer bar = 1; class Foo { Null constructor() { } } println(Foo().bar);
 // P3 (nice-to-haves for which i've found workarounds):
 //   performance
+//   import loops crash the compiler with a stack overflow
+//   imports of missing files crash the compiler
 //   soundness in type system -- a variable being of type X should be a guarantee that it will have a value of type X
 //     - returns are "not really type safe"
 //     - toString returning non-string isn't checked for either
@@ -126,6 +111,7 @@ stderr('syllad self-hosting compiler');
 //   typed empty list constructor
 //   constants
 //   detailed language reference
+//   [] could have its type inferred from context
 // P4 (minor typos and such):
 //   "Expected Boolean, got ImportStatement while parsing expression (Instance of 'IsExpr') on line 595 column 34 file syd.syd"
 //   assigning to an undeclared variable says "Cannot reassign...".
@@ -153,7 +139,7 @@ Expression parseExpressionLeaves(TokenConsumer source) {
   }
   if (source.isNext(ttOpenBracket)) {
     source.expectPunctuation(ttOpenBracket);
-    ExpressionList values = [];
+    ExpressionList values = []:Expression;
     while (!source.isNext(ttCloseBracket)) {
       append(values, parseExpression(source));
       if (!source.isNext(ttCloseBracket)) {
@@ -197,7 +183,7 @@ Expression parseUnaryExpression(TokenConsumer source) {
   while (true) {
     if (source.isNext(ttOpenParen)) {
       source.expectPunctuation(ttOpenParen);
-      ExpressionList arguments = [];
+      ExpressionList arguments = []:Expression;
       while (!source.isNext(ttCloseParen)) {
         append(arguments, parseExpression(source));
         if (!source.isNext(ttCloseParen)) {
@@ -444,7 +430,7 @@ StatementFunction parseStatement;
 
 StatementBlock parseBlock(TokenConsumer source) {
   source.expectPunctuation(ttOpenBrace);
-  StatementList statements = [];
+  StatementList statements = []:Statement;
   while (!source.isNext(ttCloseBrace)) {
     append(statements, parseStatement(source));
   }
@@ -486,7 +472,7 @@ Statement parseDeclaration(TokenConsumer source) {
   if (source.isNext(ttOpenParen)) {
     SourceLocation location = source.lastLocation();
     source.expectPunctuation(ttOpenParen);
-    StringListList parameters = [];
+    AnythingListList parameters = []:AnythingList;
     while (!source.isNext(ttCloseParen)) {
       if (len(parameters) > 0) {
         source.expectPunctuation(ttComma);
@@ -514,7 +500,7 @@ Statement _parseStatement(TokenConsumer source) {
     source.expectIdentifier('enum');
     String name = source.readIdentifier();
     source.expectPunctuation(ttOpenBrace);
-    StringList values = [];
+    StringList values = []:String;
     while (source.isNext(ttIdentifier)) {
       append(values, source.readIdentifier());
     }
@@ -531,7 +517,7 @@ Statement _parseStatement(TokenConsumer source) {
       superclassName = source.readIdentifier();
     }
     source.expectPunctuation(ttOpenBrace);
-    DeclarationStatementList members = [];
+    DeclarationStatementList members = []:DeclarationStatement;
     while (!source.isNext(ttCloseBrace)) {
       append(members, parseDeclaration(source));
     }
@@ -668,7 +654,7 @@ parseStatement = _parseStatement;
 Library parseTokens(TokenList tokens, String name, Boolean isProgram) {
   stderr('parsing...');
   TokenConsumer source = TokenConsumer(tokens);
-  StatementList statements = [];
+  StatementList statements = []:Statement;
   while (!source.isNext(ttEof)) {
     append(statements, parseStatement(source));
   }

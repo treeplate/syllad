@@ -1,0 +1,222 @@
+import 'core.syd';
+import 'syd-types.syd';
+import 'syd-assembler.syd';
+
+class VotSource extends Object {
+  Type staticType;
+
+  Null forceAllocation() {
+    throw(concat('Cannot force allocation of ', this));
+  }
+
+  Null constructor(Type staticTypeArg) {
+    super.constructor();
+    staticType = staticTypeArg;
+  }
+}
+
+// A Vot is a means to get an operand that represents a value or a type.
+class Vot extends Object {
+  Operand asOperand() {
+    abstract();
+  }
+
+  String toString() {
+    return concat('[', className, ']');
+  }
+}
+
+
+// TYPE VOTS
+
+class TypeVot extends Vot {
+  // this class exists mainly to allow APIs to signal that they
+  // really expect a type vot, not a value vot
+}
+
+class StaticTypeVot extends TypeVot {
+  Type staticType;
+
+  Operand asOperand() {
+    return staticType.asOperand();
+  }
+
+  Null constructor(Type staticTypeArg) {
+    super.constructor();
+    staticType = staticTypeArg;
+  }
+}
+
+class OperandTypeVot extends TypeVot {
+  Operand operand;
+
+  Operand asOperand() {
+    return operand;
+  }
+
+  Null constructor(Operand operandArg) {
+    super.constructor();
+    operand = operandArg;
+  }
+
+  String toString() {
+    return concat("[", className, ":", operand, "@", internalObjectId, "]");
+  }
+}
+
+
+// VALUE VOTS
+
+class ValueVot extends Vot {
+  Type staticType;
+
+  Operand asOperand() {
+    abstract();
+  }
+
+  TypeVot dynamicType() {
+    return StaticTypeVot(staticType);
+  }
+
+  Null constructor(Type staticTypeArg) {
+    super.constructor();
+    staticType = staticTypeArg;
+  }
+}
+
+class SentinelVot extends ValueVot {
+  Operand asOperand() {
+    return Operand('0h', otImm32);
+  }
+}
+
+class LiteralIntegerVot extends ValueVot {
+  Integer value;
+
+  Operand asOperand() {
+    if (value <= 0xFFFFFFFF) {
+      return Operand(hex32(value), otImm32);
+    }
+    return Operand(hex64(value), otImm64);
+  }
+
+  Null constructor(NumericType typeArg, Integer valueArg) {
+    super.constructor(typeArg);
+    value = valueArg;
+  }
+
+  String toString() {
+    return concat("[", className, ":", value, "@", internalObjectId, "]");
+  }
+}
+
+class LabelVot extends ValueVot {
+  String label;
+
+  Operand asOperand() {
+    return Operand(label, otLabel);
+  }
+
+  Null constructor(Type typeArg, String labelArg) {
+    super.constructor(typeArg);
+    label = labelArg;
+  }
+
+  String toString() {
+    return concat("[", className, ":", label, "@", internalObjectId, "]");
+  }
+}
+
+class LabelPointerVot extends ValueVot {
+  String label;
+
+  Operand asOperand() {
+    return Operand(label, otLabelOffset);
+  }
+
+  Null constructor(Type typeArg, String labelArg) {
+    super.constructor(typeArg);
+    label = labelArg;
+  }
+
+  String toString() {
+    return concat("[", className, ":", label, "@", internalObjectId, "]");
+  }
+}
+
+class OperandVot extends ValueVot {
+  Operand operand;
+
+  Operand asOperand() {
+    return operand;
+  }
+
+  Null constructor(Type typeArg, Operand operandArg) {
+    super.constructor(typeArg);
+    operand = operandArg;
+  }
+
+  String toString() {
+    return concat("[", className, ":", operand, "@", internalObjectId, "]");
+  }
+}
+
+class OperandPairVot extends ValueVot {
+  Operand typeOperand;
+  Operand valueOperand;
+
+  Operand asOperand() {
+    return valueOperand;
+  }
+
+  TypeVot dynamicType() {
+    return OperandTypeVot(typeOperand);
+  }
+
+  Null constructor(Type staticTypeArg, Operand typeOperandArg, Operand valueOperandArg) {
+    super.constructor(staticTypeArg);
+    typeOperand = typeOperandArg;
+    valueOperand = valueOperandArg;
+  }
+
+  String toString() {
+    return concat("[", className, ":", typeOperand, "/", valueOperand, "@", internalObjectId, "]");
+  }
+}
+
+class StackAllocatedVot extends ValueVot {
+  Integer stackOffset;
+
+  Operand asOperand() {
+    return Operand(concat('rbp-', hex8(stackOffset + 0x08)), otIndirect);
+  }
+
+  TypeVot dynamicType() {
+    if (staticType.hasDynamicType()) {
+      return OperandTypeVot(Operand(concat('rbp-', hex8(stackOffset + 0x10)), otIndirect));
+    }
+    return super.dynamicType(); // uses the static type by default
+  }
+
+  Null constructor(Type staticTypeArg, Integer stackOffsetArg) {
+    super.constructor(staticTypeArg);
+    stackOffset = stackOffsetArg;
+  }
+}
+
+class ParameterVot extends ValueVot {
+  Integer parameterNumber;
+
+  Operand asOperand() {
+    return Operand(concat('rbp+', hex8(parameterNumber * 0x10 + 0x40)), otIndirect);
+  }
+
+  TypeVot dynamicType() {
+    return OperandTypeVot(Operand(concat('rbp+', hex8(parameterNumber * 0x10 + 0x40 - 0x08)), otIndirect));
+  }
+
+  Null constructor(Type staticTypeArg, Integer parameterNumberArg) {
+    super.constructor(staticTypeArg);
+    parameterNumber = parameterNumberArg;
+  }
+}

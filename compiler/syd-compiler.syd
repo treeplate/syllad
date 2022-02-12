@@ -1,6 +1,7 @@
 import 'core.syd';
-import 'syd-basic-types.syd';
+import 'syd-utils.syd';
 import 'syd-types.syd';
+import 'syd-vots.syd';
 import 'syd-assembler.syd';
 
 // TODO
@@ -8,248 +9,45 @@ import 'syd-assembler.syd';
 // https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64?view=msvc-170
 
 // ============================================================================
-// SOURCE CODE
+// VOT HANDLES
 // ============================================================================
 
-class SourceCode extends Object {
-  SourceLocation sourceLocation;
+class TypeHandle extends Object {
+  TypeVotNullable type = null;
 
-  Null constructor(SourceLocation sourceLocationArg) {
-    super.constructor();
-    sourceLocation = sourceLocationArg;
+  Null assign(TypeVot typeArg) {
+    assert(type == null, 'cannot assign a type handle twice');
+    type = typeArg;
   }
-}
 
-String escapeString(String value) {
-  StringList buffer = [];
-  for (char in scalarValues(value)) {
-    if (char == 0x0a) {
-      append(buffer, '\\n');
-    } else if (char == 0x0d) {
-      append(buffer, '\\r');
-    } else if (char == 0x27) {
-      append(buffer, '\\\'');
-    } else if (char < 0x20 || char > 0x7e) {
-      append(buffer, '.');
-    } else {
-      append(buffer, chr(char));
+  Null constructor(TypeVotNullable typeArg) {
+    super.constructor();
+    if (typeArg != null) {
+      assign(typeArg!);
     }
   }
-  return joinList(buffer);
 }
-
-String truncateString(String value, Integer maxLength) {
-  StringList buffer = [];
-  Boolean terminated = false;
-  for (char in scalarValues(value)) {
-    if (char == 0x0a || char == 0x0d) {
-      terminated = true;
-    } else {
-      append(buffer, chr(char));
-      if (terminated || len(buffer) >= maxLength) {
-        append(buffer, '...');
-        break;
-      }
-    }
-  }
-  return joinList(buffer);
-}
-
-
-// ============================================================================
-// VALUES
-// ============================================================================
-
-class ValueSource extends Object {
-  Type staticType;
-
-  Null forceAllocation() {
-    throw(concat('Cannot force allocation of ', this));
-  }
-
-  Null constructor(Type staticTypeArg) {
-    super.constructor();
-    staticType = staticTypeArg;
-  }
-}
-
-class Value extends Object {
-  Type staticType;
-
-  Operand valueAsOperand() {
-    abstract();
-  }
-
-  Operand typeAsOperand() {
-    abstract();
-  }
-
-  Null constructor(Type staticTypeArg) {
-    super.constructor();
-    staticType = staticTypeArg;
-  }
-
-  String toString() {
-    return concat('[', className, ']');
-  }
-}
-
-class StaticValue extends Value {
-  Operand typeAsOperand() {
-    return staticType.asOperand();
-  }
-
-  Null constructor(Type typeArg) {
-    super.constructor(typeArg);
-  }
-}
-
-class SentinelValue extends StaticValue {
-  Operand valueAsOperand() {
-    return Operand('0h', otImm32);
-  }
-
-  Null constructor(Type typeArg) {
-    super.constructor(typeArg);
-  }
-}
-
-class LiteralIntegerValue extends StaticValue {
-  Integer value;
-
-  Operand valueAsOperand() {
-    if (value <= 0xFFFFFFFF) {
-      return Operand(hex32(value), otImm32);
-    }
-    return Operand(hex64(value), otImm64);
-  }
-
-  String toString() {
-    return concat("[LiteralIntegerValue type ", staticType, " value ", value, "@", internalObjectId, "]");
-  }
-
-  Null constructor(NumericType typeArg, Integer valueArg) {
-    super.constructor(typeArg);
-    value = valueArg;
-  }
-}
-
-class LabelValue extends StaticValue {
-  String label;
-
-  Operand valueAsOperand() {
-    return Operand(label, otLabel);
-  }
-
-  Null constructor(Type typeArg, String labelArg) {
-    super.constructor(typeArg);
-    label = labelArg;
-  }
-}
-
-class LabelPointerValue extends StaticValue {
-  String label;
-
-  Operand valueAsOperand() {
-    return Operand(label, otLabelOffset);
-  }
-
-  Null constructor(Type typeArg, String labelArg) {
-    super.constructor(typeArg);
-    label = labelArg;
-  }
-}
-
-class StaticTypeRegisterValue extends StaticValue {
-  Operand register;
-
-  Operand valueAsOperand() {
-    return register;
-  }
-
-  Null constructor(Type typeArg, Operand registerArg) {
-    super.constructor(typeArg);
-    assert(registerArg.kind == otRegister, 'StaticTypeRegisterValue given non-register operand');
-    register = registerArg;
-  }
-}
-
-class RegisterPairValue extends Value {
-  Operand typeRegister;
-  Operand valueRegister;
-
-  Operand valueAsOperand() {
-    return valueRegister;
-  }
-
-  Operand typeAsOperand() {
-    return typeRegister;
-  }
-
-  Null constructor(Type staticTypeArg, Operand typeRegisterArg, Operand valueRegisterArg) {
-    super.constructor(staticTypeArg);
-    assert(typeRegister.kind == otRegister, 'RegisterPairValue given non-register type operand');
-    typeRegister = typeRegisterArg;
-    assert(valueRegister.kind == otRegister, 'RegisterPairValue given non-register value operand');
-    valueRegister = valueRegisterArg;
-  }
-}
-
-class StackAllocatedValue extends Value {
-  Integer stackOffset;
-
-  Operand valueAsOperand() {
-    return Operand(concat('rbp-', hex8(stackOffset + 0x08)), otIndirect);
-  }
-
-  Operand typeAsOperand() {
-    assert(staticType.size() >= 0x10, concat(staticType, ' does not have a dynamic type'));
-    return Operand(concat('rbp-', hex8(stackOffset + 0x10)), otIndirect);
-  }
-
-  Null constructor(Type staticTypeArg, Integer stackOffsetArg) {
-    super.constructor(staticTypeArg);
-    stackOffset = stackOffsetArg;
-  }
-}
-
-class ParameterValue extends StaticValue {
-  Integer parameterNumber;
-
-  Operand valueAsOperand() {
-    return Operand(concat('rbp+', hex8(parameterNumber * 0x10 + 0x40)), otIndirect);
-  }
-
-  Operand typeAsOperand() {
-    return Operand(concat('rbp+', hex8(parameterNumber * 0x10 + 0x40 - 0x08)), otIndirect);
-  }
-
-  Null constructor(Type staticTypeArg, Integer parameterNumberArg) {
-    super.constructor(staticTypeArg);
-    parameterNumber = parameterNumberArg;
-  }
-}
-
-// ============================================================================
-// VALUE HANDLES
-// ============================================================================
 
 class ValueHandle extends Object {
-  ValueSource source;
-  ValueNullable value = null;
+  VotSource source;
+  ValueVotNullable value = null;
+  TypeHandle type;
 
   Null forceAllocation() {
     source.forceAllocation();
   }
 
-  Null assign(Value valueArg) {
+  Null assign(ValueVot valueArg) {
+    assert(value == null, 'cannot assign a value handle twice');
     assert(valueArg.staticType.isSubtypeOf(source.staticType), concat('cannot assign ', valueArg.staticType, ' to ', source.staticType));
     value = valueArg;
+    type.assign(valueArg.dynamicType());
   }
 
-  Null constructor(ValueSource sourceArg, ValueNullable valueArg) {
+  Null constructor(VotSource sourceArg, ValueVotNullable valueArg) {
     super.constructor();
     source = sourceArg;
+    type = TypeHandle(null);
     if (valueArg != null) {
       assign(valueArg!);
     }
@@ -304,7 +102,7 @@ class DoIfNotEqualInstruction extends Instruction {
   }
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    assembler.addCode(blockId, concat('cmp ', a.value!.valueAsOperand().operand, ', ', b.value!.valueAsOperand().operand), comment);
+    assembler.addCode(blockId, concat('cmp ', a.value!.asOperand().operand, ', ', b.value!.asOperand().operand), comment);
     assembler.addCode(blockId, concat('je ', continueLabel), 'skip next block if they are equal');
     (cast(block).generateAssembler as NullFunction)(assembler, blockId);
     assembler.addCode(blockId, concat(continueLabel, ':'), null);
@@ -314,6 +112,39 @@ class DoIfNotEqualInstruction extends Instruction {
     super.constructor();
     a = aArg;
     b = bArg;
+    continueLabel = continueLabelArg;
+    block = blockArg;
+    comment = commentArg;
+  }
+}
+
+class DoIfTypeMismatchInstruction extends Instruction {
+  Type staticType;
+  TypeHandle dynamicType;
+  String continueLabel;
+  Object block; // XXX should be CompiledScope
+  String comment;
+
+  Null prepareInstructions() {
+    super.prepareInstructions();
+    staticType.markUsedInTypeCheck();
+    (cast(block).prepareInstructions as NullFunction)();
+  }
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    // xxxxx
+    String byte = '00h';
+    String bitInByte = '0';
+    assembler.addCode(blockId, concat('bt ', byte, ', ', bitInByte), comment);
+    assembler.addCode(blockId, concat('jc ', continueLabel), 'skip next block if the selected bit is set');
+    (cast(block).generateAssembler as NullFunction)(assembler, blockId);
+    assembler.addCode(blockId, concat(continueLabel, ':'), null);
+  }
+
+  Null constructor(Type staticTypeArg, TypeHandle dynamicTypeArg, String continueLabelArg, Object blockArg, String commentArg) { // XXX Object should be CompiledScope
+    super.constructor();
+    staticType = staticTypeArg;
+    dynamicType = dynamicTypeArg;
     continueLabel = continueLabelArg;
     block = blockArg;
     comment = commentArg;
@@ -372,7 +203,7 @@ class ReadSlotInstruction extends SlotInstruction {
   Null generateAssembler(Assembler assembler, Integer blockId) {
     assert(handle.value == null, concat('tried to generate assembler for a ReadSlotInstruction (', this, ') after its handle (', handle, ') was already populated'));
     assert(cast(slot).location != sentinel, concat('tried to generate assembler for a ReadSlotInstruction (', this, ') before the slot\'s location was populated'));
-    handle.assign(cast(slot).location as Value);
+    handle.assign(cast(slot).location as ValueVot);
   }
 
   Null constructor(Object slotArg, ValueHandle handleArg) {
@@ -382,25 +213,29 @@ class ReadSlotInstruction extends SlotInstruction {
 }
 
 class WriteSlotInstruction extends SlotInstruction {
-  Value value;
+  ValueVot value;
+
+  Null prepareInstructions() {
+    super.prepareInstructions();
+    value.staticType.markConstructed();
+  }
 
   // XXX when assembling, defer to slot.type
   // e.g. for ref counting management of Strings, GC of lists and objects
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
     if (cast(slot).location != sentinel) {
-      assert((cast(slot).staticType as Type).size() >= 0x08, 'cannot write to slots with less than 64 bits of space');
-      assembler.addMov(blockId, ((cast(cast(slot).location)) as Value).valueAsOperand(), value.valueAsOperand(), concat('value of ', cast(slot).debugName as String));
-      if ((cast(slot).staticType as Type).size() > 0x08) {
-        assembler.addMov(blockId, ((cast(cast(slot).location)) as Value).typeAsOperand(), value.typeAsOperand(), concat('type of ', cast(slot).debugName as String));
-        // TODO what if it's bigger?
+      assembler.addMov(blockId, ((cast(cast(slot).location)) as ValueVot).asOperand(), value.asOperand(), concat('value of ', cast(slot).debugName as String));
+      if ((cast(slot).staticType as Type).hasDynamicType()) {
+        assert(value.staticType.hasDynamicType(), concat('unexpectedly tried to map value of normal type ', cast(slot).staticType as Type, ' to non-dynamic-supporting type ', value.staticType));
+        assembler.addMov(blockId, ((cast(cast(slot).location)) as ValueVot).dynamicType().asOperand(), value.dynamicType().asOperand(), concat('type of ', cast(slot).debugName as String));
       }
     } else {
       cast(cast(slot).assignLocation)(value);
     }
   }
 
-  Null constructor(Object slotArg, Value valueArg) {
+  Null constructor(Object slotArg, ValueVot valueArg) {
     super.constructor(slotArg);
     value = valueArg;
   }
@@ -421,22 +256,22 @@ class SubroutineCallInstruction extends Instruction {
   }
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    assembler.addComment(blockId, concat('Calling ', target.value!.valueAsOperand(), ' with ', len(arguments), ' arguments'));
+    assembler.addComment(blockId, concat('Calling ', target.value!.asOperand(), ' with ', len(arguments), ' arguments'));
     Integer argumentIndex = len(arguments) - 1;
     while (argumentIndex >= 0) {
-      assembler.addPush(blockId, arguments[argumentIndex].value!.valueAsOperand(), concat('value of argument #', argumentIndex + 1));
-      assembler.addPush(blockId, arguments[argumentIndex].value!.typeAsOperand(), concat('type of argument #', argumentIndex + 1));
+      assembler.addPush(blockId, arguments[argumentIndex].value!.asOperand(), concat('value of argument #', argumentIndex + 1));
+      assembler.addPush(blockId, arguments[argumentIndex].value!.dynamicType().asOperand(), concat('type of argument #', argumentIndex + 1));
       argumentIndex -= 1;
     }
     // XXX why do we do addlea/addpush via r11 instead of just addpush?
-    assembler.addLea(blockId, r11, returnValue.value!.valueAsOperand(), 'pointer to return value (and type, 8 bytes later)');
+    assembler.addLea(blockId, r11, returnValue.value!.asOperand(), 'pointer to return value (and type, 8 bytes later)');
     assembler.addPush(blockId, r11, '(that pointer is the last value pushed to the stack)');
-    assembler.addLea(blockId, r9, thisPointer.value!.valueAsOperand(), 'pointer to this');
-    assembler.addMov(blockId, r8, thisPointer.value!.typeAsOperand(), 'type of this');
-    assembler.addLea(blockId, rdx, closurePointer.value!.valueAsOperand(), 'pointer to closure');
+    assembler.addLea(blockId, r9, thisPointer.value!.asOperand(), 'pointer to this');
+    assembler.addMov(blockId, r8, thisPointer.value!.dynamicType().asOperand(), 'type of this');
+    assembler.addLea(blockId, rdx, closurePointer.value!.asOperand(), 'pointer to closure');
     assembler.addCode(blockId, concat('mov rcx, ', len(arguments)), 'number of arguments');
     assembler.addCode(blockId, 'sub rsp, 20h', 'allocate shadow space');
-    assembler.addCode(blockId, concat('call ', target.value!.valueAsOperand()), 'jump to subroutine');
+    assembler.addCode(blockId, concat('call ', target.value!.asOperand()), 'jump to subroutine');
     assembler.addCode(blockId, concat('add rsp, ', hex8(32 + 8 * 2 * len(arguments) + 8)), 'release shadow space and arguments');
   }  
 
@@ -454,7 +289,11 @@ class SubroutineCallInstruction extends Instruction {
 // SLOTS
 // ============================================================================
 
-class Slot extends ValueSource {
+class Slot extends VotSource {
+  String debugName;
+  Boolean isAnonymous;
+  Boolean isStatic;
+
   Object homeScope; // XXX Object should be CompiledScope
   Set referencingStackFrames = Set(); // of CompiledStackFrameScope
   Boolean needsAllocation = false;
@@ -468,28 +307,13 @@ class Slot extends ValueSource {
     return result;
   }
 
-  Null forceAllocation() {
-    needsAllocation = true;
-  }
-
-  // newValue is one of:
-  //  - StaticTypeRegisterValue or RegisterPairValue, when we know where the
-  //    value will be coming from (e.g. return value of a system call is
-  //    always in RAX) -- XXX probably never RegisterPairValue?
-  //  - StaticValue, e.g. when we have a constant in the code
-  //  - null, when we'll use whatever register/memory location is going to be
-  //    assigned to us later.
-  Null write(Object currentScope, Value newValue) { // XXX Object should be CompiledScope
-    assert((newValue is StaticTypeRegisterValue) || (newValue is RegisterPairValue) || (newValue is StaticValue) || (newValue == null), concat('write value (', newValue, ') is invalid'));
+  Null write(Object currentScope, ValueVot newValue) { // XXX Object should be CompiledScope
     referencingStackFrames.add(cast(cast(currentScope).stackFrame)());
-    if (!(newValue is StaticValue)) {
-      needsAllocation = true;
-    }
     (cast(currentScope).emitInstruction as NullFunction)(WriteSlotInstruction(this, newValue));
   }
 
-  Boolean isAnonymous() {
-    abstract();
+  Null forceAllocation() {
+    needsAllocation = true;
   }
 
   Boolean canBeStackAllocated() {
@@ -497,7 +321,7 @@ class Slot extends ValueSource {
     Boolean result = needsAllocation
         && (len(stackFrames) == 1)
         && (stackFrames[0] == cast(cast(homeScope).stackFrame)())
-        && (isAnonymous() || (homeScope.className != 'CompiledLibrary'));
+        && (isAnonymous || (homeScope.className != 'CompiledLibrary'));
     if (!result) {
       println(concat('cannot allocate: ', this, '\n', 'stackFrames: ', stackFrames, '\nhomeScope: ', homeScope, '\nisAnon: ', isAnonymous));
     }
@@ -508,16 +332,18 @@ class Slot extends ValueSource {
     return needsAllocation && !canBeStackAllocated();
   }
 
-  Value location;
+  ValueVot location;
 
-  Null assignLocation(Value locationArg) {
-    assert(location == sentinel, concat('slots do not yet support varying locations; slot ', this, ' already had a location (', location, '), when an attempt was made to assign it ', locationArg));
+  Null assignLocation(ValueVot locationArg) {
     location = locationArg;
   }
 
-  Null constructor(Type staticTypeArg, Object homeScopeArg) { // XXX Object should be CompiledScope
+  Null constructor(Type staticTypeArg, Object homeScopeArg, String debugNameArg, Boolean isAnonymousArg, Boolean isStaticArg) { // XXX Object should be CompiledScope
     super.constructor(staticTypeArg);
     homeScope = homeScopeArg;
+    debugName = debugNameArg;
+    isAnonymous = isAnonymousArg;
+    isStatic = isStaticArg;
   }
 
   String toString() {
@@ -525,30 +351,6 @@ class Slot extends ValueSource {
   }
 }
 
-class AnonymousSlot extends Slot {
-  String debugName;
-
-  Boolean isAnonymous() {
-    return true;
-  }
-
-  Null constructor(Type staticTypeArg, Object homeScopeArg, String debugNameArg) { // XXX Object should be CompiledScope
-    super.constructor(staticTypeArg, homeScopeArg);
-    debugName = debugNameArg;
-  }
-
-  String toString() {
-    return concat("<AnonymousSlot ", debugName, ", of ", homeScope, " (a ", staticType, " at ", location, ")@", internalObjectId, ">");
-  }
-}
-
-class NamedSlot extends Slot {
-  // xxx should probably track name, where it was defined
-
-  Boolean isAnonymous() {
-    return false;
-  }
-}
 
 // ============================================================================
 // COMPILATION ENVIRONMENT
@@ -575,7 +377,7 @@ class CompilationEnvironment extends TypeRegistry {
   }
 
   Map libraries = Map(); // String -> false (actively being compiled) or CompiledLibrary
-  StringList libraryNames = [];
+  StringList libraryNames = []:String;
   ObjectNullable runtimeLibrary = null; // XXX Object should be CompiledRuntimeLibraryNullable
 
   Null declareLibrary(String filename) {
@@ -608,7 +410,7 @@ class CompilationEnvironment extends TypeRegistry {
     return libraries.get(filename);
   }
 
-  ObjectList subroutines = []; // XXX Object should be CompiledSubroutine
+  ObjectList subroutines = []:Object; // XXX Object should be CompiledSubroutine
 
   Null addSubroutine(Object subroutine) { // XXX Object should be CompiledSubroutine
     append(subroutines, subroutine);
@@ -650,22 +452,65 @@ class CompilationEnvironment extends TypeRegistry {
     }
   }
 
-  Null compile(Assembler assembler) {
-    prepareInstructions();
-    prepareSlots();
-    generateAssemblerBlocks(assembler);
+  Null generateTypeTable(Assembler assembler, String label) {
+    IntegerList bytes = []:Integer;
+    Integer byte = 0;
+    Integer bits = 0;
+    for (type in sortedTypes) {
+      for (supertype in sortedTypes) {
+        if (supertype.isUsedInTypeCheck) {
+          if (type.isSubtypeOf(supertype)) {
+            byte += 1;
+          }
+          bits += 1;
+          if (bits < 8) {
+            byte = byte << 1;
+          } else {
+            append(bytes, byte);
+            byte = 0;
+            bits = 0;
+          }
+        }
+      }
+      append(bytes, byte);
+      byte = 0;
+      bits = 0;
+    }
+    assembler.addData(
+      label,
+      [
+        concat('db ', join(map(bytes, hex8) as StringList, ', ')),
+      ],
+      [
+        'Type table',
+      ],
+    );
   }
 
-  ValueSource integers;
+  VotSource integers;
 
   ValueHandle integer(Integer value) {
-    return ValueHandle(integers, LiteralIntegerValue(integers.staticType as NumericType, value));
+    integers.staticType.markConstructed();
+    return ValueHandle(integers, LiteralIntegerVot(integers.staticType as NumericType, value));
+  }
+
+  String typeTableLabel;
+  ValueHandle typeTableOffset;
+
+  Null compile(Assembler assembler) {
+    typeTableLabel = generateLabel('typeTable');
+    typeTableOffset = ValueHandle(integers, null);
+    prepareInstructions();
+    typeTableOffset.assign(LiteralIntegerVot(integers.staticType as NumericType, assignTypeCodes()));
+    generateTypeTable(assembler, typeTableLabel);
+    prepareSlots();
+    generateAssemblerBlocks(assembler);
   }
 
   Null constructor(Assembler assembler) {
     super.constructor();
     runtimeLibrary = cast(cast(cast(this).CompiledRuntimeLibrary)(this, 'rtl'));
-    integers = ValueSource(cast(runtimeLibrary).coreIntegerType as Type);
+    integers = VotSource(cast(runtimeLibrary).coreIntegerType as Type);
    }
 }
 
@@ -695,20 +540,20 @@ class CompiledScope extends Object {
   }
 
   // variables namespace
-  Map identifiers = Map(); // String -> NamedSlot (includes functions)
+  Map identifiers = Map(); // String -> Slot (includes functions)
   Boolean isIdentifierDeclaredInLocalScope(String name) {
     return identifiers.get(name) != null;
   }
 
-  NamedSlotNullable lookupIdentifier(String name) {
-    NamedSlotNullable value = cast(identifiers.get(name));
+  SlotNullable lookupIdentifier(String name) {
+    SlotNullable value = cast(identifiers.get(name));
     if (value == null && parent != null) {
       value = cast(cast(cast(parent!).lookupIdentifier)(name));
     }
     return value;
   }
 
-  InstructionList instructions = [];
+  InstructionList instructions = []:Instruction;
 
   Null emitInstruction(Instruction instruction) {
     append(instructions, instruction);
@@ -718,53 +563,52 @@ class CompiledScope extends Object {
     cast(cast(stackFrame()).registerSlot)(slot);
   }
 
-  AnonymousSlot registerDynamicValue(Type type, String debugName) {
-    AnonymousSlot slot = AnonymousSlot(type, this, debugName);
+  Slot registerDynamicValue(Type type, String debugName) {
+    Slot slot = Slot(type, this, debugName, true, false);
     registerSlot(slot);
     return slot;
   }
 
-  AnonymousSlot registerStaticValue(StaticValue value, String debugName) {
-    AnonymousSlot slot = AnonymousSlot(value.staticType, this, debugName);
+  Slot registerStaticValue(ValueVot value, String debugName) {
+    Slot slot = Slot(value.staticType, this, debugName, true, true);
     registerSlot(slot);
     slot.write(this, value);
     return slot;
   }
 
-  NamedSlot registerVariable(String name, Type type, StaticValue initialValue) {
+  Slot registerVariable(String name, Type type, ValueVot initialValue) {
     assert(!isIdentifierDeclaredInLocalScope(name), 'tried to redeclare an identifier within a scope');
-    NamedSlot slot = NamedSlot(type, this);
+    Slot slot = Slot(type, this, name, false, false);
     registerSlot(slot);
     identifiers.set(name, slot);
     slot.write(this, initialValue);
     return slot;
   }
 
-  NamedSlot registerParameter(String name, Type type, Integer position) {
+  Slot registerParameter(String name, Type type, Integer position) {
     assert(!isIdentifierDeclaredInLocalScope(name), 'duplicate parameter names');
-    NamedSlot slot = NamedSlot(type, this);
+    Slot slot = Slot(type, this, name, false, true);
     registerSlot(slot);
     identifiers.set(name, slot);
-    slot.write(this, ParameterValue(type, position));
+    slot.write(this, ParameterVot(type, position));
     return slot;
   }
 
-  // XXX prevent future writes to this
-  NamedSlot registerConstant(String name, StaticValue value) {
+  Slot registerConstant(String name, ValueVot value) {
     assert(!isIdentifierDeclaredInLocalScope(name), 'tried to redeclare an identifier within a scope');
-    NamedSlot slot = NamedSlot(value.staticType, this);
+    Slot slot = Slot(value.staticType, this, name, false, true);
     globalScope().registerSlot(slot);
     identifiers.set(name, slot);
     slot.write(this, value);
     return slot;
   }
 
-  NamedSlot registerSubroutine(CompiledScope subroutine) { // XXX CompiledScope should be CompiledSubroutine
+  Slot registerSubroutine(CompiledScope subroutine) { // XXX CompiledScope should be CompiledSubroutine
     assert(!isIdentifierDeclaredInLocalScope(cast(subroutine).name as String), 'tried to redeclare an identifier within a scope');
-    NamedSlot slot = NamedSlot(cast(subroutine).type as Type, this);
+    Slot slot = Slot(cast(subroutine).type as Type, this, cast(subroutine).name as String, false, true);
     registerSlot(slot);
     identifiers.set(cast(subroutine).name, slot);
-    slot.write(this, LabelValue(cast(subroutine).type as AbstractSubroutineType, cast(subroutine).label as String));
+    slot.write(this, LabelVot(cast(subroutine).type as AbstractSubroutineType, cast(subroutine).label as String));
     environment().addSubroutine(subroutine);
     return slot;
   }
@@ -772,10 +616,10 @@ class CompiledScope extends Object {
   ValueHandle emitSubroutineCall(ValueHandle target, ValueHandleList arguments) {
     Slot thisPointer = registerDynamicValue(cast(cast(environment().runtimeLibrary!).coreClassType), 'this pointer');
     Slot closurePointer = registerDynamicValue(cast(cast(environment().runtimeLibrary!).coreClosureType), 'closure pointer');
-    thisPointer.write(this, SentinelValue(cast(environment().runtimeLibrary!).coreClassType as Type));
-    closurePointer.write(this, SentinelValue(cast(environment().runtimeLibrary!).coreClosureType as Type));
+    thisPointer.write(this, SentinelVot(cast(environment().runtimeLibrary!).coreClassType as Type));
+    closurePointer.write(this, SentinelVot(cast(environment().runtimeLibrary!).coreClosureType as Type));
     Type returnType;
-    ValueSource targetSlot = target.source;
+    VotSource targetSlot = target.source;
     if (targetSlot.staticType.isSubroutineType()) {
       AbstractSubroutineType subroutineType = targetSlot.staticType as AbstractSubroutineType;
       returnType = subroutineType.returnType;
@@ -800,10 +644,9 @@ class CompiledScope extends Object {
   Null emitParameterChecks(SlotList parameters) {
     // check for parameter count
     String label = environment().generateLabel(concat('func$', name, '$paramCountGood'));
-    Slot paramCount = registerStaticValue(StaticTypeRegisterValue(cast(environment().runtimeLibrary).coreIntegerType as Type, rcx), 'parameter count');
+    Slot paramCount = registerStaticValue(OperandVot(cast(environment().runtimeLibrary).coreIntegerType as Type, rcx), 'parameter count');
     ValueHandle paramCountValue = paramCount.read(this);
-    Slot expectedParamCount = registerStaticValue(LiteralIntegerValue(cast(environment().runtimeLibrary).coreIntegerType as NumericType, len(parameters)), 'expected parameter count');
-    ValueHandle expectedParamCountValue = expectedParamCount.read(this);
+    ValueHandle expectedParamCountValue = environment().integer(len(parameters));
     CompiledScope block = makeCompiledScope(this, label) as CompiledScope;
     ValueHandle printHandle = (cast(environment().runtimeLibrary!).corePrint as Slot).read(block);
     ValueHandle messageHandle = (cast(environment().runtimeLibrary!).parameterCountCheckFailureMessage as Slot).read(block);
@@ -821,7 +664,7 @@ class CompiledScope extends Object {
     Integer index = 0;
     for (parameter in parameters) {
       index += 1;
-/*      String label = environment().generateLabel(concat('func$', name, '$param', index, '$TypeGood'));
+      String label = environment().generateLabel(concat('func$', name, '$param', index, '$TypeGood'));
       CompiledScope block = makeCompiledScope(this, label) as CompiledScope;
       ValueHandle printHandle = (cast(environment().runtimeLibrary!).corePrint as Slot).read(block);
       ValueHandle messageHandle = (cast(environment().runtimeLibrary!).parameterTypeCheckFailureMessage as Slot).read(block);
@@ -829,14 +672,14 @@ class CompiledScope extends Object {
       ValueHandle exitHandle = (cast(environment().runtimeLibrary!).coreExit as Slot).read(block);
       ValueHandle failureExitCode = environment().integer(0x01);
       block.emitSubroutineCall(exitHandle, [ failureExitCode ]);
-      append(instructions, DoIfNotEqualInstruction(
-        parameter.staticType,
-        parameter.readType(this),
-        label,
-        block,
-        concat('check type of parameter ', index, ' is as expected'),
-      ));
-      */
+      // xxxxxxxxx
+      //append(instructions, DoIfTypeMismatchInstruction(
+      //  parameter.staticType,
+      //  parameter.readType(this),
+      //  label,
+      //  block,
+      //  concat('check type of parameter ', index, ' is as expected'),
+      //));
     }
   }
 
@@ -859,7 +702,7 @@ class CompiledScope extends Object {
   }
 
   String toStringIndent(Integer indent) {
-    StringList buffer = [];
+    StringList buffer = []:String;
     append(buffer, concat(stringTimes(' ', indent), 'identifiers: ', identifiers));
     if (len(instructions) > 0) {
       append(buffer, concat(stringTimes(' ', indent), 'instructions:'));
@@ -883,7 +726,7 @@ class CompiledStackFrameScope extends CompiledScope {
     return this;
   }
 
-  SlotList slots = [];
+  SlotList slots = []:Slot;
 
   Null registerSlot(Slot slot) {
     append(slots, slot);
@@ -895,8 +738,12 @@ class CompiledStackFrameScope extends CompiledScope {
     for (slot in slots) {
       if (slot.isRead && slot.needsAllocation && slot.canBeStackAllocated()) {
         // TODO emit a comment giving the stack layout for this stack frame
-        slot.assignLocation(StackAllocatedValue(slot.staticType, stackSize));
-        stackSize += slot.staticType.size();
+        slot.assignLocation(StackAllocatedVot(slot.staticType, stackSize));
+        if (slot.staticType.hasDynamicType()) {
+          stackSize += 0x10;
+        } else {
+          stackSize += 0x08;
+        }
       }
     }
   }
@@ -942,7 +789,7 @@ class CompiledSubroutine extends CompiledStackFrameScope {
   }
 
   String toStringIndent(Integer indent) {
-    StringList buffer = [];
+    StringList buffer = []:String;
     append(buffer, super.toStringIndent(indent));
     append(buffer, concat(stringTimes(' ', indent), 'type: ', type));
     return join(buffer, '\n');
@@ -995,8 +842,8 @@ class BuiltInPrintSubroutineInstructions extends Instruction {
     assembler.addCode(blockId, 'call GetStdHandle', 'handle returned in rax');
     assembler.addComment(blockId, 'Calling WriteConsoleA');
     assembler.addCode(blockId, 'push 0', 'argument #5: Reserved, must be NULL (lpReserved)');
-    assembler.addLea(blockId, r9, lpNumberOfCharsWritten.value!.valueAsOperand(), 'argument #4: Number of characters written (lpNumberOfCharsWritten)');
-    assembler.addMov(blockId, r10, parameter.value!.valueAsOperand(), 'get address of string structure');
+    assembler.addLea(blockId, r9, lpNumberOfCharsWritten.value!.asOperand(), 'argument #4: Number of characters written (lpNumberOfCharsWritten)');
+    assembler.addMov(blockId, r10, parameter.value!.asOperand(), 'get address of string structure');
     assembler.addCode(blockId, 'mov r8, [r10+08h]', 'argument #3: Length of buffer (nNumberOfCharsToWrite), from string structure');
     assembler.addCode(blockId, 'lea rdx, [r10+10h]', 'argument #2: Pointer to buffer to write (*lpBuffer)');
     assembler.addCode(blockId, 'mov rcx, rax', 'argument #1: Handle from GetStdHandle (hConsoleOutput)');
@@ -1016,7 +863,7 @@ class BuiltInPrintSubroutine extends BuiltInSubroutine {
   Null prepareInstructions() {
     Slot lpNumberOfCharsWritten = registerDynamicValue(cast(parent!).coreSystemType as Type, 'lpNumberOfCharsWritten, out param of WriteConsoleA');
     ValueHandle lpNumberOfCharsWrittenPointer = lpNumberOfCharsWritten.read(this);
-    Slot parameter = registerStaticValue(ParameterValue(cast(parent!).coreStringType as Type, 0), 'message to print to console');
+    Slot parameter = registerStaticValue(ParameterVot(cast(parent!).coreStringType as Type, 0), 'message to print to console'); // (unnamed parameter)
     emitParameterChecks([parameter]);
     ValueHandle parameterValue = parameter.read(this);
     emitInstruction(BuiltInPrintSubroutineInstructions(lpNumberOfCharsWrittenPointer, parameterValue));
@@ -1043,7 +890,7 @@ class BuiltInExitSubroutineInstructions extends Instruction {
     assembler.addIncludeLib('kernel32.lib');
     assembler.addExternProc('ExitProcess');
     assembler.addComment(blockId, 'Calling ExitProcess');
-    assembler.addMov(blockId, rcx, exitCode.value!.valueAsOperand(), 'exit code');
+    assembler.addMov(blockId, rcx, exitCode.value!.asOperand(), 'exit code');
     assembler.addCode(blockId, 'sub rsp, 20h', 'allocate shadow space');
     assembler.addCode(blockId, 'call ExitProcess', 'process should terminate at this point');
     assembler.addCode(blockId, 'add rsp, 20h', 'release shadow space');
@@ -1057,7 +904,7 @@ class BuiltInExitSubroutineInstructions extends Instruction {
 
 class BuiltInExitSubroutine extends BuiltInSubroutine {
   Null prepareInstructions() {
-    Slot exitCode = registerStaticValue(ParameterValue(cast(parent!).coreIntegerType as Type, 0), 'exit code parameter');
+    Slot exitCode = registerStaticValue(ParameterVot(cast(parent!).coreIntegerType as Type, 0), 'exit code parameter'); // (unnamed parameter)
     emitParameterChecks([exitCode]);
     ValueHandle exitCodeValue = exitCode.read(this);
     emitInstruction(BuiltInExitSubroutineInstructions(exitCodeValue));
@@ -1070,7 +917,7 @@ class BuiltInExitSubroutine extends BuiltInSubroutine {
       createOrFindSubroutineType(
         cast(cast(cast(parentArg).environment)()),
         cast(cast(parentArg).coreNullType),
-        [ cast(cast(parentArg).coreIntegerType) ],
+        [ cast(parentArg).coreIntegerType as Type ]:Type,
       ),
       'exit',
     );
@@ -1090,15 +937,15 @@ class CompiledLibrary extends CompiledStackFrameScope {
     return compilationEnvironment;
   }
 
-  CompiledLibraryList libraries = [];
+  CompiledLibraryList libraries = []:CompiledLibrary;
 
   Null importLibrary(CompiledLibrary library) {
     assert(!contains(libraries, library), 'tried to import library twice');
     append(libraries, library);
   }
 
-  NamedSlotNullable lookupIdentifier(String name) {
-    NamedSlotNullable result = super.lookupIdentifier(name);
+  SlotNullable lookupIdentifier(String name) {
+    SlotNullable result = super.lookupIdentifier(name);
     if (result == null) {
       for (library in libraries) {
         result = library.lookupIdentifier(name);
@@ -1153,7 +1000,7 @@ class CompiledLibrary extends CompiledStackFrameScope {
   }
 
   String toStringIndent(Integer indent) {
-    StringList buffer = [];
+    StringList buffer = []:String;
     append(buffer, super.toStringIndent(indent));
     append(buffer, concat(stringTimes(' ', indent), 'types: ', types));
     if (len(libraries) > 0) {
@@ -1181,6 +1028,17 @@ class CompiledRuntimeLibrary extends CompiledLibrary {
   Slot coreExit;
 
   Slot parameterCountCheckFailureMessage;
+  Slot parameterTypeCheckFailureMessage;
+
+  Slot registerStringConstant(String labelBase, String value, Integer line, Integer col, String file) {
+    String label = compilationEnvironment.generateLabel(labelBase);
+    emitInstruction(StringConstantDataInstruction(
+      label,
+      value,
+      SourceLocation(line, col, file),
+    ));
+    return registerStaticValue(LabelPointerVot(coreStringType, label), labelBase);
+  }
 
   Null constructor(CompilationEnvironment compilationEnvironmentArg, String nameArg) {
     super.constructor(compilationEnvironmentArg, nameArg);
@@ -1193,11 +1051,11 @@ class CompiledRuntimeLibrary extends CompiledLibrary {
     declareType(coreAnythingType);
     coreNullType = NullType(compilationEnvironmentArg);
     declareType(coreNullType);
-    registerConstant('null', LiteralIntegerValue(coreNullType, 0x00));
+    registerConstant('null', LiteralIntegerVot(coreNullType, 0x00));
     coreBooleanType = BooleanType(compilationEnvironmentArg);
     declareType(coreBooleanType);
-    registerConstant('false', LiteralIntegerValue(coreBooleanType, 0x00));
-    registerConstant('true', LiteralIntegerValue(coreBooleanType, 0x01));
+    registerConstant('false', LiteralIntegerVot(coreBooleanType, 0x00));
+    registerConstant('true', LiteralIntegerVot(coreBooleanType, 0x01));
     coreIntegerType = IntegerType(compilationEnvironmentArg);
     declareType(coreIntegerType);
     coreStringType = StringType(compilationEnvironmentArg);
@@ -1206,12 +1064,15 @@ class CompiledRuntimeLibrary extends CompiledLibrary {
     corePrint = registerSubroutine(BuiltInPrintSubroutine(this));
     coreExit = registerSubroutine(BuiltInExitSubroutine(this));
     // messages
-    String parameterCheckFailureMessageLabel = compilationEnvironmentArg.generateLabel('parameterCountCheckFailureMessage');
-    emitInstruction(StringConstantDataInstruction(
-      parameterCheckFailureMessageLabel,
+    parameterCountCheckFailureMessage = registerStringConstant(
+      'parameterCountCheckFailureMessage',
       'error: function call received the wrong number of parameters (expected %d, received %d)\n',
-      SourceLocation(__LINE__, __COL__, __FILE__),
-    ));
-    parameterCountCheckFailureMessage = registerStaticValue(LabelPointerValue(coreStringType, parameterCheckFailureMessageLabel), 'parameterCountCheckFailureMessage');
+      __LINE__, __COL__, __FILE__,
+    );
+    parameterTypeCheckFailureMessage = registerStringConstant(
+      'parameterTypeCheckFailureMessage',
+      'error: type mismatch for function %s parameter %d, expected %s, got %s\n',
+      __LINE__, __COL__, __FILE__,
+    );
   }
 }

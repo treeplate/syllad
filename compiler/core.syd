@@ -7,7 +7,7 @@ String intToStr(Integer value) {
   if (value == 0) {
     return '0';
   }
-  StringList buffer = [];
+  StringList buffer = []:String;
   Integer newValue = value; // parameters are final
   while (newValue > 0) {
     Integer digit = newValue % 10;
@@ -15,7 +15,7 @@ String intToStr(Integer value) {
     append(buffer, chr(0x30 + digit));
   }
   Integer index = len(buffer);
-  StringList flippedBuffer = [];
+  StringList flippedBuffer = []:String;
   while (index > 0) {
     index -= 1;
     append(flippedBuffer, buffer[index]);
@@ -24,7 +24,7 @@ String intToStr(Integer value) {
 }
 
 String join(StringList items, String joiner) {
-  StringList result = [];
+  StringList result = []:String;
   Integer index = 0;
   while (index < len(items)) {
     if (index > 0) {
@@ -99,7 +99,11 @@ Integer hashAnything(Anything data) {
 }
 
 class Map {
-  AnythingListListList table = [];
+  // outer list is indexed by hash mod length
+  // it is a sparse list (hence nullable)
+  // each entry is a list of the things at that that hash code
+  // each thing in that list is a key/value pair
+  AnythingListListNullableList table = []:AnythingListListNullable;
   Integer length = 0;
 
   Null constructor() { }
@@ -109,27 +113,27 @@ class Map {
     assert(len(table) > 0, 'Cannot set without growing in an empty Map.');
     Integer hashCode = hashAnything(key);
     Integer entryIndex = hashCode % len(table);
-    AnythingListListList table = table;
-    AnythingListList entry = table[entryIndex];
+    AnythingListListNullableList table = table;
+    AnythingListListNullable entry = table[entryIndex];
     if (entry == null) {
       table[entryIndex] = [[key, value]];
       length += 1;
       return;
     }
-    for (record in entry) {
+    for (record in entry!) {
       if (record[0] == key) {
         record[1] = value;
         return;
       }
     }
-    append(entry, [key, value]);
+    append(entry!, [key, value]);
     length += 1;
   }
 
   // protected
   Null grow() {
-    AnythingListListList oldTable = table;
-    AnythingListListList newTable = [];
+    AnythingListListNullableList oldTable = table;
+    AnythingListListNullableList newTable = []:AnythingListListNullable;
     Integer oldSize = len(oldTable);
     Integer newSize = oldSize * 2 + 1;
     Integer index = 0;
@@ -140,7 +144,7 @@ class Map {
     table = newTable;
     for (entry in oldTable) {
       if (entry != null) {
-        for (record in entry) {
+        for (record in entry!) {
           nonGrowingSet(record[0], record[1]);
         }
       }
@@ -159,11 +163,11 @@ class Map {
       return null;
     }
     Integer hashCode = hashAnything(key);
-    AnythingListList entry = table[hashCode % len(table)];
+    AnythingListListNullable entry = table[hashCode % len(table)];
     if (entry == null) {
       return null;
     }
-    for (record in entry) {
+    for (record in entry!) {
       if (record[0] == key) {
         return record[1];
       }
@@ -175,7 +179,7 @@ class Map {
     AnythingList result = [];
     for (entry in table) {
       if (entry != null) {
-        for (record in entry) {
+        for (record in entry!) {
           append(result, record[0]);
         }
       }
@@ -187,7 +191,7 @@ class Map {
     AnythingList result = [];
     for (entry in table) {
       if (entry != null) {
-        for (record in entry) {
+        for (record in entry!) {
           append(result, record[1]);
         }
       }
@@ -196,10 +200,10 @@ class Map {
   }
 
   String toString() {
-    StringList items = [];
+    StringList items = []:String;
     for (entry in table) {
       if (entry != null) {
-        for (record in entry) {
+        for (record in entry!) {
           if (len(items) > 0) {
             append(items, ', ');
           }
@@ -216,7 +220,7 @@ class Map {
 }
 
 class Set {
-  AnythingListList table = [];
+  AnythingListNullableList table = []:AnythingListNullable;
   Integer length = 0;
 
   Null constructor() { }
@@ -226,26 +230,26 @@ class Set {
     assert(len(table) > 0, 'Cannot set without growing in an empty Set.');
     Integer hashCode = hashAnything(key);
     Integer entryIndex = hashCode % len(table);
-    AnythingListList table = table;
-    AnythingList entry = table[entryIndex];
+    AnythingListNullableList table = table;
+    AnythingListNullable entry = table[entryIndex];
     if (entry == null) {
       table[entryIndex] = [key];
       length += 1;
       return;
     }
-    for (record in entry) {
+    for (record in entry!) {
       if (record == key) {
         return;
       }
     }
-    append(entry, key);
+    append(entry!, key);
     length += 1;
   }
 
   // protected
   Null grow() {
-    AnythingListList oldTable = table;
-    AnythingListList newTable = [];
+    AnythingListNullableList oldTable = table;
+    AnythingListNullableList newTable = []:AnythingListNullable;
     Integer oldSize = len(oldTable);
     Integer newSize = oldSize * 2 + 1;
     Integer index = 0;
@@ -256,7 +260,7 @@ class Set {
     table = newTable;
     for (entry in oldTable) {
       if (entry != null) {
-        for (record in entry) {
+        for (record in entry!) {
           nonGrowingAdd(record);
         }
       }
@@ -268,11 +272,11 @@ class Set {
       return false;
     }
     Integer hashCode = hashAnything(key);
-    AnythingList entry = table[hashCode % len(table)];
+    AnythingListNullable entry = table[hashCode % len(table)];
     if (entry == null) {
       return false;
     }
-    for (record in entry) {
+    for (record in entry!) {
       if (record == key) {
         return true;
       }
@@ -295,7 +299,7 @@ class Set {
     AnythingList result = [];
     for (entry in table) {
       if (entry != null) {
-        for (record in entry) {
+        for (record in entry!) {
           append(result, record);
         }
       }
@@ -304,10 +308,10 @@ class Set {
   }
 
   String toString() {
-    StringList items = [];
+    StringList items = []:String;
     for (entry in table) {
       if (entry != null) {
-        for (record in entry) {
+        for (record in entry!) {
           if (len(items) > 0) {
             append(items, ', ');
           }

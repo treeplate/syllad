@@ -3,6 +3,6 @@ Null test(String message) {
 }
 test('Hello World\r\n');
 
-test('Too', 'Many');
+exit(false);
 
 print('ERROR! THIS SHOULD NOT PRINT\r\n');
