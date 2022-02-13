@@ -15,6 +15,7 @@ IF EXIST "syd.exe" (
     ECHO RUNNING COMPILED COMPILER
     syd.exe
     ECHO exit code: !ERRORLEVEL!
+    IF !ERRORLEVEL! == -1073741571 ECHO 0xC00000FD: Stack overflow
     ECHO DONE
 ) ELSE (
     ECHO == FAILED ==

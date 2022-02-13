@@ -13,13 +13,24 @@ extern WriteConsoleA : proc
 extern ExitProcess : proc
 
 .data
-  typeTable    db 000h, 000h, 000h, 000h, 000h, 000h, 000h, 004h, 002h ; Type table
+  typeTable    db 000h, 000h, 000h, 000h, 000h, 000h, 000h, 001h, 002h ; Type table
+   ; Columns: Integer'7 String'8
+   ; 0 0   <object>'0
+   ; 0 0   <closure>'1
+   ; 0 0   Null'2
+   ; 0 0   Boolean'3
+   ; 0 0   NullFunction(Anything...)'4
+   ; 0 0   NullFunction(Integer)'5
+   ; 0 0   NullFunction(String)'6
+   ; 1 0   Integer'7
+   ; 0 1   String'8
+
   parameterCountCheckFailureMessage dq -01h                        ; String constant (reference count)
                dq 88                                               ; Length
-               db "error: function call received the wrong number of parameters (expected %d, received %d)", 0ah ; line 1105 column 25 in file syd-compiler.syd
+               db "error: function call received the wrong number of parameters (expected %d, received %d)", 0ah ; line 1126 column 25 in file syd-compiler.syd
   parameterTypeCheckFailureMessage dq -01h                         ; String constant (reference count)
                dq 71                                               ; Length
-               db "error: type mismatch for function %s parameter %d, expected %s, got %s", 0ah ; line 1110 column 25 in file syd-compiler.syd
+               db "error: type mismatch for function %s parameter %d, expected %s, got %s", 0ah ; line 1131 column 25 in file syd-compiler.syd
   string       dq -01h                                             ; String constant (reference count)
                dq 13                                               ; Length
                db "Hello World", 0dh, 0ah                          ; line 4 column 22 in file temp.syd
@@ -49,13 +60,11 @@ main:
   sub rsp, 0f0h                                                    ; allocate space for stack
   lea rbp, [rsp+0f0h]                                              ; set up frame pointer
   ; Line 1: Null test(String message) { ...
-  ; Line 4: test('Hello World\r\n', 0 /* 0x0 */);
+  ; Line 4: test('Hello World\r\n');
   mov dword ptr [rbp-008h], 0h                                     ; value of this pointer
   mov dword ptr [rbp-010h], 000000000h                             ; type of this pointer
   mov dword ptr [rbp-018h], 0h                                     ; value of closure pointer
-  ; Calling func$test with 2 arguments
-  push 000000000h                                                  ; value of argument #2
-  push 000000007h                                                  ; type of argument #2
+  ; Calling func$test with 1 arguments
   mov r11, offset string                                           ; value of argument #1
   push r11                                                         ; (indirect via r11 because "offset string" cannot be used with push)
   push 000000008h                                                  ; type of argument #1
@@ -64,10 +73,10 @@ main:
   lea r9, [rbp-008h]                                               ; pointer to this
   mov r8, [rbp-010h]                                               ; type of this
   lea rdx, [rbp-018h]                                              ; pointer to closure
-  mov rcx, 2                                                       ; number of arguments
+  mov rcx, 1                                                       ; number of arguments
   sub rsp, 20h                                                     ; allocate shadow space
   call func$test                                                   ; jump to subroutine
-  add rsp, 048h                                                    ; release shadow space and arguments
+  add rsp, 038h                                                    ; release shadow space and arguments
   ; Line 5: test(3 /* 0x3 */);
   mov dword ptr [rbp-030h], 0h                                     ; value of this pointer
   mov dword ptr [rbp-038h], 000000000h                             ; type of this pointer
@@ -195,11 +204,11 @@ func$print:
     call func$exit                                                 ; jump to subroutine
     add rsp, 038h                                                  ; release shadow space and arguments
   func$print$paramCountGood:
-  ; Check parameter types
+  ; Check type of parameter 0, message to print to console (expecting String)
   mov rax, [rbp+038h]                                              ; load the dynamic type of message to print to console into rax
   lea r10, typeTable                                               ; move type table offset into r10
   add rax, r10                                                     ; adjust rax to point to the type table
-  bt dword ptr [rax], 7                                            ; check that message to print to console is a String'8
+  bt dword ptr [rax], 1                                            ; check that message to print to console is String'8
   jc func$print$param1$TypeGood                                    ; skip next block if the type matches
     mov dword ptr [rbp-060h], 0h                                   ; value of this pointer
     mov dword ptr [rbp-068h], 000000000h                           ; type of this pointer
@@ -292,11 +301,11 @@ func$exit:
     call func$exit                                                 ; jump to subroutine
     add rsp, 038h                                                  ; release shadow space and arguments
   func$exit$paramCountGood:
-  ; Check parameter types
+  ; Check type of parameter 0, exit code parameter (expecting Integer)
   mov rax, [rbp+038h]                                              ; load the dynamic type of exit code parameter into rax
   lea r10, typeTable                                               ; move type table offset into r10
   add rax, r10                                                     ; adjust rax to point to the type table
-  bt dword ptr [rax], 6                                            ; check that exit code parameter is a Integer'7
+  bt dword ptr [rax], 0                                            ; check that exit code parameter is Integer'7
   jc func$exit$param1$TypeGood                                     ; skip next block if the type matches
     mov dword ptr [rbp-058h], 0h                                   ; value of this pointer
     mov dword ptr [rbp-060h], 000000000h                           ; type of this pointer
@@ -381,11 +390,11 @@ func$test:
     call func$exit                                                 ; jump to subroutine
     add rsp, 038h                                                  ; release shadow space and arguments
   func$test$paramCountGood:
-  ; Check parameter types
+  ; Check type of parameter 0, message (expecting String)
   mov rax, [rbp+038h]                                              ; load the dynamic type of message into rax
   lea r10, typeTable                                               ; move type table offset into r10
   add rax, r10                                                     ; adjust rax to point to the type table
-  bt dword ptr [rax], 7                                            ; check that message is a String'8
+  bt dword ptr [rax], 1                                            ; check that message is String'8
   jc func$test$param1$TypeGood                                     ; skip next block if the type matches
     mov dword ptr [rbp-058h], 0h                                   ; value of this pointer
     mov dword ptr [rbp-060h], 000000000h                           ; type of this pointer

@@ -1,7 +1,7 @@
 Null test(String message) {
   print(message);
 }
-test('Hello World\r\n', 0);
+test('Hello World\r\n');
 test(3);
 test('\r\n');
 exit(3);

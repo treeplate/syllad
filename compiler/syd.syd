@@ -687,6 +687,7 @@ CompiledLibrary processFile(String filename, CompilationEnvironment compilationE
 
 String mainProgramFileName = 'temp.syd';
 Assembler assembler = Assembler();
+//assembler.addCode(assembler.mainBlockId, 'int 3', 'debugger');
 CompilationEnvironment compilationEnvironment = CompilationEnvironment(assembler);
 CompiledLibrary program = processFile(mainProgramFileName, compilationEnvironment, true);
 compilationEnvironment.defineLibrary(mainProgramFileName, program);
