@@ -656,6 +656,14 @@ class ReturnStatement extends Statement {
     callback(expression, context);
   }
 
+  Null generateInstructions(CompiledScope scope) {
+    if (expression != null) {
+      scope.emitReturn(expression!.generateInstructions(scope));
+    } else {
+      scope.emitReturn((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreNull.read(scope));
+    }
+  }
+
   Null constructor(ExpressionNullable expressionArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     expression = expressionArg;

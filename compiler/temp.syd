@@ -1,9 +1,5 @@
-Null test(String message) {
-  print(message);
+Integer three() {
+  return 3;
 }
-test('Hello World\r\n');
-test(3);
-test('\r\n');
-exit(3);
 
-print('ERROR! THIS SHOULD NOT PRINT\r\n');
+exit(three());

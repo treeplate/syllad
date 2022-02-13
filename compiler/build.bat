@@ -16,6 +16,7 @@ IF EXIST "syd.exe" (
     syd.exe
     ECHO exit code: !ERRORLEVEL!
     IF !ERRORLEVEL! == -1073741571 ECHO 0xC00000FD: Stack overflow
+    IF !ERRORLEVEL! == -1073741819 ECHO 0xC0000005: Access Violation
     ECHO DONE
 ) ELSE (
     ECHO == FAILED ==

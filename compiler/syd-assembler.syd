@@ -78,6 +78,10 @@ Operand r8 = Operand('r8', otRegister);
 Operand r9 = Operand('r9', otRegister);
 Operand r10 = Operand('r10', otRegister);
 Operand r11 = Operand('r11', otRegister);
+Operand r12 = Operand('r12', otRegister);
+Operand r13 = Operand('r13', otRegister);
+Operand r14 = Operand('r14', otRegister);
+Operand r15 = Operand('r15', otRegister);
 Operand rax = Operand('rax', otRegister);
 Operand rbx = Operand('rbx', otRegister);
 Operand rcx = Operand('rcx', otRegister);
@@ -138,7 +142,7 @@ class Assembler extends Object {
       addCode(blockId, concat('mov r11, ', source.operand), comment);
       addCode(blockId, concat('mov ', destination.operand, ', r11'), concat('(indirect via r11 because ', source.operand, ' could be a 64 bit value)'));
     } else if (source.kind == otImm32) {
-      addCode(blockId, concat('mov dword ptr ', destination.operand, ', ', source.operand), comment);
+      addCode(blockId, concat('mov qword ptr ', destination.operand, ', ', source.operand), comment);
     } else {
       addCode(blockId, concat('mov ', destination.operand, ', ', source.operand), comment);
     }

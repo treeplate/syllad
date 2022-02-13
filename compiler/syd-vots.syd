@@ -205,18 +205,22 @@ class StackAllocatedVot extends ValueVot {
 }
 
 class ParameterVot extends ValueVot {
-  Integer parameterNumber;
+  Integer offset;
 
   Operand asOperand() {
-    return Operand(concat('rbp+', hex8(parameterNumber * 0x10 + 0x40)), otIndirect);
+    return Operand(concat('rbp+', hex8(offset)), otIndirect);
   }
 
   TypeVot dynamicType() {
-    return OperandTypeVot(Operand(concat('rbp+', hex8(parameterNumber * 0x10 + 0x40 - 0x08)), otIndirect));
+    return OperandTypeVot(Operand(concat('rbp+', hex8(offset - 0x08)), otIndirect));
   }
 
-  Null constructor(Type staticTypeArg, Integer parameterNumberArg) {
+  Null constructor(Type staticTypeArg, Integer savedRegisterCount, Integer parameterNumber) {
     super.constructor(staticTypeArg);
-    parameterNumber = parameterNumberArg;
+    offset = parameterNumber * 0x10 + 0x08
+           + 0x08 /* return value pointer */
+           + 0x20 /* shadow space */
+           + 0x08 /* return address */
+           + 0x08 * savedRegisterCount;
   }
 }

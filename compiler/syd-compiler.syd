@@ -8,6 +8,26 @@ import 'syd-assembler.syd';
 // exceptions should be done using this:
 // https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64?view=msvc-170
 
+    /* This is what the stack looks like after a prolog:
+     *     FFFF :    FFFF :
+     *      ... :     ... :
+     *  rsp+58h : rbp+48h : (local variable from previous stack frame)
+     *  rsp+50h : rbp+40h : value of arg 1 (e.g. pointer to string structure)     
+     *  rsp+48h : rbp+38h : type of arg 1                                    
+     *  rsp+40h : rbp+30h : pointer to return value (and type), to be filled in
+     *  rsp+38h : rbp+28h : shadow                                           
+     *  rsp+30h : rbp+20h : shadow                                           
+     *  rsp+28h : rbp+18h : shadow                                           
+     *  rsp+20h : rbp+10h : shadow                                           
+     *  rsp+18h : rbp +8h : return address                                   
+                            (maybe other saved registers here)
+     *  rsp+10h : rbp     : saved volatile register rbp                      
+     *  rsp +8h : rbp -8h : first local variable
+     *  rsp     : rbp-10h : second local variable (or type of first local variable)
+     *      ... :     ... :
+     *     0000 :    0000 :
+     */
+
 // ============================================================================
 // VOT HANDLES
 // ============================================================================
@@ -90,14 +110,16 @@ class CommentInstruction extends Instruction {
 }
 
 class ReturnInstruction extends Instruction {
+  Object stackFrame; // XXX Object should be CompiledSubroutine
   String comment;
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    assembler.addCode(blockId, 'ret', comment);
+    assembler.addCode(blockId, concat('jmp ', cast(stackFrame).epilogLabel), comment);
   }
 
-  Null constructor(String commentArg) {
+  Null constructor(Object stackFrameArg, String commentArg) { // XXX Object should be CompiledSubroutine
     super.constructor();
+    stackFrame = stackFrameArg;
     comment = commentArg;
   }
 }
@@ -161,7 +183,7 @@ class DoIfTypeMismatchInstruction extends Instruction {
     }
     assembler.addCode(blockId, concat('lea r10, ', environment.typeTableLabel), 'move type table offset into r10');
     assembler.addCode(blockId, 'add rax, r10', 'adjust rax to point to the type table');
-    assembler.addCode(blockId, concat('bt dword ptr [rax], ', bitInByte), concat('check that ', what, ' is ', staticType));
+    assembler.addCode(blockId, concat('bt qword ptr [rax], ', bitInByte), concat('check that ', what, ' is ', staticType));
     assembler.addCode(blockId, concat('jc ', continueLabel), 'skip next block if the type matches');
     (cast(block).generateAssembler as NullFunction)(assembler, blockId);
     assembler.addCode(blockId, concat(continueLabel, ':'), null);
@@ -238,7 +260,7 @@ class ReadSlotInstruction extends SlotInstruction {
   }
 }
 
-class WriteSlotInstruction extends SlotInstruction {
+class WriteStaticSlotInstruction extends SlotInstruction {
   ValueVot value;
 
   Null prepareInstructions() {
@@ -267,6 +289,29 @@ class WriteSlotInstruction extends SlotInstruction {
   }
 }
 
+class WriteDynamicSlotInstruction extends SlotInstruction {
+  ValueHandle value;
+
+  // XXX when assembling, defer to slot.type
+  // e.g. for ref counting management of Strings, GC of lists and objects
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    if (cast(slot).location != sentinel) {
+      assembler.addMov(blockId, ((cast(cast(slot).location)) as ValueVot).asOperand(), value.value!.asOperand(), concat('value of ', cast(slot).debugName as String));
+      if ((cast(slot).staticType as Type).hasDynamicType()) {
+        assembler.addMov(blockId, ((cast(cast(slot).location)) as ValueVot).dynamicType().asOperand(), value.type.type!.asOperand(), concat('type of ', cast(slot).debugName as String));
+      }
+    } else {
+      cast(cast(slot).assignLocation)(value.value!);
+    }
+  }
+
+  Null constructor(Object slotArg, ValueHandle valueArg) {
+    super.constructor(slotArg);
+    value = valueArg;
+  }
+}
+
 class SubroutineCallInstruction extends Instruction {
   ValueHandle target; // points to a CompiledSubroutine
   ValueHandleList arguments;
@@ -290,7 +335,7 @@ class SubroutineCallInstruction extends Instruction {
       argumentIndex -= 1;
     }
     // XXX why do we do addlea/addpush via r11 instead of just addpush?
-    assembler.addLea(blockId, r11, returnValue.value!.asOperand(), 'pointer to return value (and type, 8 bytes later)');
+    assembler.addLea(blockId, r11, returnValue.value!.asOperand(), 'pointer to return value (and type, 8 bytes earlier)');
     assembler.addPush(blockId, r11, '(that pointer is the last value pushed to the stack)');
     assembler.addLea(blockId, r9, thisPointer.value!.asOperand(), 'pointer to this');
     assembler.addMov(blockId, r8, thisPointer.value!.dynamicType().asOperand(), 'type of this');
@@ -333,9 +378,14 @@ class Slot extends VotSource {
     return result;
   }
 
-  Null write(Object currentScope, ValueVot newValue) { // XXX Object should be CompiledScope
+  Null writeStatic(Object currentScope, ValueVot newValue) { // XXX Object should be CompiledScope
     referencingStackFrames.add(cast(cast(currentScope).stackFrame)());
-    (cast(currentScope).emitInstruction as NullFunction)(WriteSlotInstruction(this, newValue));
+    (cast(currentScope).emitInstruction as NullFunction)(WriteStaticSlotInstruction(this, newValue));
+  }
+
+  Null write(Object currentScope, ValueHandle newValue) { // XXX Object should be CompiledScope
+    referencingStackFrames.add(cast(cast(currentScope).stackFrame)());
+    (cast(currentScope).emitInstruction as NullFunction)(WriteDynamicSlotInstruction(this, newValue));
   }
 
   Null forceAllocation() {
@@ -625,7 +675,7 @@ class CompiledScope extends Object {
   Slot registerStaticValue(ValueVot value, String debugName) {
     Slot slot = Slot(value.staticType, this, debugName, true, true);
     registerSlot(slot);
-    slot.write(this, value);
+    slot.writeStatic(this, value);
     return slot;
   }
 
@@ -634,16 +684,7 @@ class CompiledScope extends Object {
     Slot slot = Slot(type, this, name, false, false);
     registerSlot(slot);
     identifiers.set(name, slot);
-    slot.write(this, initialValue);
-    return slot;
-  }
-
-  Slot registerParameter(String name, Type type, Integer position) {
-    assert(!isIdentifierDeclaredInLocalScope(name), 'duplicate parameter names');
-    Slot slot = Slot(type, this, name, false, true);
-    registerSlot(slot);
-    identifiers.set(name, slot);
-    slot.write(this, ParameterVot(type, position));
+    slot.writeStatic(this, initialValue);
     return slot;
   }
 
@@ -652,7 +693,7 @@ class CompiledScope extends Object {
     Slot slot = Slot(value.staticType, this, name, false, true);
     globalScope().registerSlot(slot);
     identifiers.set(name, slot);
-    slot.write(this, value);
+    slot.writeStatic(this, value);
     return slot;
   }
 
@@ -661,7 +702,7 @@ class CompiledScope extends Object {
     Slot slot = Slot(cast(subroutine).type as Type, this, cast(subroutine).name as String, false, true);
     registerSlot(slot);
     identifiers.set(cast(subroutine).name, slot);
-    slot.write(this, LabelVot(cast(subroutine).type as AbstractSubroutineType, cast(subroutine).label as String));
+    slot.writeStatic(this, LabelVot(cast(subroutine).type as AbstractSubroutineType, cast(subroutine).label as String));
     environment().addSubroutine(subroutine);
     return slot;
   }
@@ -669,8 +710,8 @@ class CompiledScope extends Object {
   ValueHandle emitSubroutineCall(ValueHandle target, ValueHandleList arguments) {
     Slot thisPointer = registerDynamicValue(cast(cast(environment().runtimeLibrary!).coreClassType), 'this pointer');
     Slot closurePointer = registerDynamicValue(cast(cast(environment().runtimeLibrary!).coreClosureType), 'closure pointer');
-    thisPointer.write(this, SentinelVot(cast(environment().runtimeLibrary!).coreClassType as Type));
-    closurePointer.write(this, SentinelVot(cast(environment().runtimeLibrary!).coreClosureType as Type));
+    thisPointer.writeStatic(this, SentinelVot(cast(environment().runtimeLibrary!).coreClassType as Type));
+    closurePointer.writeStatic(this, SentinelVot(cast(environment().runtimeLibrary!).coreClosureType as Type));
     Type returnType;
     VotSource targetSlot = target.source;
     if (targetSlot.staticType.isSubroutineType()) {
@@ -694,7 +735,16 @@ class CompiledScope extends Object {
     return returnValue.read(this);
   }
 
+  Null emitReturn(ValueHandle value) {
+    // xxxx verify the type statically
+    CompiledScope subroutine = stackFrame();
+    assert(subroutine.className == 'CompiledSubroutine', 'cannot return from global scope');
+    (cast(subroutine).returnValue as Slot).write(this, value);
+    append(instructions, ReturnInstruction(subroutine, 'return'));
+  }
+
   Null emitParameterChecks(SlotList parameters) {
+    // xxxx verify the types statically
     // check for parameter count
     append(instructions, CommentInstruction('Check parameter count'));
     String label = environment().generateLabel(concat('func$', name, '$paramCountGood'));
@@ -803,9 +853,21 @@ class CompiledStackFrameScope extends CompiledScope {
     }
   }
 
-  Null generateAssembler(Assembler assembler, Integer blockId) {
+  // Returns (a new copy of) the list of the registers to save/restore in the prolog/epilog.
+  // These are the non-volatile registers that are modified in this scope.
+  // The list may be modified by the caller.
+  // The rbp register must come first.
+  StringList nonvolatileRegistersUsed() {
+    return ['rbp'];
+  }
+
+  Null generatePrologAssembler(Assembler assembler, Integer blockId) {
     assembler.addComment(blockId, 'Prolog');
-    assembler.addCode(blockId, 'push rbp', 'save volatile registers');
+    StringList registers = nonvolatileRegistersUsed();
+    assert(registers[0] == 'rbp', 'nonvolatileRegistersUsed() did not return rbp first');
+    for (register in registers) {
+      assembler.addCode(blockId, concat('push ', register), 'save volatile registers');
+    }
     if (stackSize > 0) {
       // TODO: should list what variables we're allocating space for here
       // TODO: if stackSize > 8KB (0x2000), call __chkstk__
@@ -813,12 +875,25 @@ class CompiledStackFrameScope extends CompiledScope {
       assembler.addCode(blockId, concat('sub rsp, ', hex8(stackSize)), 'allocate space for stack');
     }
     assembler.addCode(blockId, concat('lea rbp, [rsp+', hex8(stackSize), ']'), 'set up frame pointer');
-    super.generateAssembler(assembler, blockId);
+  }
+
+  Null generateEpilogAssembler(Assembler assembler, Integer blockId) {
     assembler.addComment(blockId, 'Epilog');
     if (stackSize > 0) {
       assembler.addCode(blockId, concat('add rsp, ', hex8(stackSize)), 'free space for stack');
     }
-    assembler.addCode(blockId, 'pop rbp', 'restore volatile registers');
+    StringList registers = nonvolatileRegistersUsed();
+    Integer index = len(registers);
+    while (index > 0) {
+      index -= 1;
+      assembler.addCode(blockId, concat('pop ', registers[index]), 'restore volatile registers');
+    }
+  }
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    generatePrologAssembler(assembler, blockId);
+    super.generateAssembler(assembler, blockId);
+    generateEpilogAssembler(assembler, blockId);
   }
 
   Null constructor(CompiledScopeNullable parentArg, String nameArg) {
@@ -829,11 +904,39 @@ class CompiledStackFrameScope extends CompiledScope {
 class CompiledSubroutine extends CompiledStackFrameScope {
   AbstractSubroutineType type;
   String label;
+  String epilogLabel;
 
-  Null generateAssembler(Assembler assembler, Integer blockId) {
-    super.generateAssembler(assembler, blockId);
+  Slot returnValue;
+
+  StringList nonvolatileRegistersUsed() {
+    StringList result = super.nonvolatileRegistersUsed();
+    append(result, 'r15');
+    return result;
+  }
+
+  Slot registerParameter(String name, Type type, Integer position) {
+    assert(!isIdentifierDeclaredInLocalScope(name), 'duplicate parameter names');
+    Slot slot = Slot(type, this, name, false, true);
+    registerSlot(slot);
+    identifiers.set(name, slot);
+    slot.writeStatic(this, ParameterVot(type, len(nonvolatileRegistersUsed()), position));
+    return slot;
+  }
+
+  Null generatePrologAssembler(Assembler assembler, Integer blockId) {
+    super.generatePrologAssembler(assembler, blockId);
+    Integer savedRegisterCount = len(nonvolatileRegistersUsed());
+    Integer offset = 0x08 /* return address */ + 0x20 /* shadow space */ + 0x08 * savedRegisterCount;
+    assembler.addMov(blockId, r15, Operand(concat('rbp+', hex8(offset)), otIndirect), 'prepare return value');
+  }
+
+  Null generateEpilogAssembler(Assembler assembler, Integer blockId) {
+    // xxxx set default return value, fail if there's no explicit return value in method that can't return null
+    assembler.addCode(blockId, concat(epilogLabel, ':'), null);
+    assembler.addMov(blockId, rax, r15, 'report address of return value');
+    super.generateEpilogAssembler(assembler, blockId);
     assembler.addCode(blockId, 'ret', 'return from subroutine');
-  }  
+  }
 
   Null generateAssemblerBlock(Assembler assembler) {
     generateAssembler(assembler, assembler.addLabel(label, name));
@@ -843,6 +946,9 @@ class CompiledSubroutine extends CompiledStackFrameScope {
     super.constructor(parentArg, nameArg);
     type = typeArg;
     label = environment().generateLabel(concat('func$', name));
+    epilogLabel = environment().generateLabel(concat('func$', name, '$epilog'));
+    returnValue = registerDynamicValue(type.returnType, 'return value');
+    returnValue.writeStatic(this, OperandPairVot(type.returnType, Operand('r15-08h', otIndirect), Operand('r15', otIndirect)));
   }
 
   String toStringIndent(Integer indent) {
@@ -872,27 +978,6 @@ class BuiltInPrintSubroutineInstructions extends Instruction {
     assembler.addIncludeLib('kernel32.lib');
     assembler.addExternProc('GetStdHandle');
     assembler.addExternProc('WriteConsoleA');
-    /* This is what the stack looks like at this point:
-     
-     *     FFFF :    FFFF :
-     *      ... :     ... :
-     *  rsp+68h : rbp+60h : value of this                                    
-     *  rsp+60h : rbp+58h : type of this                                     
-     *  rsp+58h : rbp+50h : value of closure                                 
-     *  rsp+50h : rbp+48h : type of closure                                  
-     *  rsp+48h : rbp+40h : value of arg 1 (pointer to string structure)     
-     *  rsp+40h : rbp+38h : type of arg 1                                    
-     *  rsp+38h : rbp+30h : pointer to return value                          
-     *  rsp+30h : rbp+28h : shadow                                           
-     *  rsp+28h : rbp+20h : shadow                                           
-     *  rsp+20h : rbp+18h : shadow                                           
-     *  rsp+18h : rbp+10h : shadow                                           
-     *  rsp+10h : rbp +8h : return address                                   
-     *  rsp +8h : rbp     : saved volatile register rbp                      
-     *  rsp     : rbp -8h : lpNumberOfCharsWritten                           
-     *      ... :     ... :
-     *     0000 :    0000 :
-     */
     assembler.addComment(blockId, 'Calling GetStdHandle');
     assembler.addCode(blockId, 'mov rcx, -11', 'argument #1: STD_OUTPUT_HANDLE');
     assembler.addCode(blockId, 'call GetStdHandle', 'handle returned in rax');
@@ -919,7 +1004,7 @@ class BuiltInPrintSubroutine extends BuiltInSubroutine {
   Null prepareInstructions() {
     Slot lpNumberOfCharsWritten = registerDynamicValue(cast(parent!).coreSystemType as Type, 'lpNumberOfCharsWritten, out param of WriteConsoleA');
     ValueHandle lpNumberOfCharsWrittenPointer = lpNumberOfCharsWritten.read(this);
-    Slot parameter = registerStaticValue(ParameterVot(cast(parent!).coreStringType as Type, 0), 'message to print to console'); // (unnamed parameter)
+    Slot parameter = registerStaticValue(ParameterVot(cast(parent!).coreStringType as Type, len(nonvolatileRegistersUsed()), 0), 'message to print to console'); // (unnamed parameter)
     emitParameterChecks([parameter]);
     ValueHandle parameterValue = parameter.read(this);
     emitInstruction(BuiltInPrintSubroutineInstructions(lpNumberOfCharsWrittenPointer, parameterValue));
@@ -960,7 +1045,7 @@ class BuiltInExitSubroutineInstructions extends Instruction {
 
 class BuiltInExitSubroutine extends BuiltInSubroutine {
   Null prepareInstructions() {
-    Slot exitCode = registerStaticValue(ParameterVot(cast(parent!).coreIntegerType as Type, 0), 'exit code parameter'); // (unnamed parameter)
+    Slot exitCode = registerStaticValue(ParameterVot(cast(parent!).coreIntegerType as Type, len(nonvolatileRegistersUsed()), 0), 'exit code parameter'); // (unnamed parameter)
     emitParameterChecks([exitCode]);
     ValueHandle exitCodeValue = exitCode.read(this);
     emitInstruction(BuiltInExitSubroutineInstructions(exitCodeValue));
@@ -1080,6 +1165,10 @@ class CompiledRuntimeLibrary extends CompiledLibrary {
   ClosureType coreClosureType;
   SystemType coreSystemType;
 
+  Slot coreNull;
+  Slot coreTrue;
+  Slot coreFalse;
+
   Slot corePrint;
   Slot coreExit;
 
@@ -1107,11 +1196,11 @@ class CompiledRuntimeLibrary extends CompiledLibrary {
     declareType(coreAnythingType);
     coreNullType = NullType(compilationEnvironmentArg);
     declareType(coreNullType);
-    registerConstant('null', LiteralIntegerVot(coreNullType, 0x00));
+    coreNull = registerConstant('null', LiteralIntegerVot(coreNullType, 0x00));
     coreBooleanType = BooleanType(compilationEnvironmentArg);
     declareType(coreBooleanType);
-    registerConstant('false', LiteralIntegerVot(coreBooleanType, 0x00));
-    registerConstant('true', LiteralIntegerVot(coreBooleanType, 0x01));
+    coreTrue = registerConstant('false', LiteralIntegerVot(coreBooleanType, 0x00));
+    coreFalse = registerConstant('true', LiteralIntegerVot(coreBooleanType, 0x01));
     coreIntegerType = IntegerType(compilationEnvironmentArg);
     declareType(coreIntegerType);
     coreStringType = StringType(compilationEnvironmentArg);
