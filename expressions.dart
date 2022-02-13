@@ -242,8 +242,14 @@ class DivideExpression extends Expression {
       : super(line, col, file);
   @override
   ValueWrapper eval(Scope scope) {
-    return ValueWrapper(integerType, a.eval(scope).value ~/ b.eval(scope).value,
-        '$this result');
+    ValueWrapper av = a.eval(scope);
+    ValueWrapper bv = b.eval(scope);
+    if (!(av.type.isSubtypeOf(integerType) &&
+        bv.type.isSubtypeOf(integerType))) {
+      throw FileInvalid(
+          "$av ($a) or $bv ($b) is not an integer; attempted $a/$b line $line col $col file $file\n ${scope.stack.reversed.join('\n')}");
+    }
+    return ValueWrapper(integerType, av.value ~/ bv.value, '$this result');
   }
 
   ValueType get type => integerType;
@@ -257,13 +263,18 @@ class RemainderExpression extends Expression {
       : super(line, col, file);
   @override
   ValueWrapper eval(Scope scope) {
-    ValueWrapper bVal = b.eval(scope);
-    ValueWrapper aVal = a.eval(scope);
-    if (bVal.value == 0) {
+    ValueWrapper av = a.eval(scope);
+    ValueWrapper bv = b.eval(scope);
+    if (!(av.type.isSubtypeOf(integerType) &&
+        bv.type.isSubtypeOf(integerType))) {
       throw FileInvalid(
-          "$a (${aVal.value}) % $b (0) attempted line $line col $col stack ${scope.stack.join('\n')}");
+          "$av ($a) or $bv ($b) is not an integer; attempted $a%$b line $line col $col file $file\n ${scope.stack.reversed.join('\n')}");
     }
-    return ValueWrapper(integerType, aVal.value % bVal.value, '$this result');
+    if (bv.value == 0) {
+      throw FileInvalid(
+          "$a (${av.value}) % $b (0) attempted line $line col $col stack ${scope.stack.join('\n')}");
+    }
+    return ValueWrapper(integerType, av.value % bv.value, '$this result');
   }
 
   ValueType get type => integerType;
@@ -277,8 +288,14 @@ class SubtractExpression extends Expression {
       : super(line, col, file);
   @override
   ValueWrapper eval(Scope scope) {
-    return ValueWrapper(
-        integerType, a.eval(scope).value - b.eval(scope).value, '$this result');
+    ValueWrapper av = a.eval(scope);
+    ValueWrapper bv = b.eval(scope);
+    if (!(av.type.isSubtypeOf(integerType) &&
+        bv.type.isSubtypeOf(integerType))) {
+      throw FileInvalid(
+          "$av ($a) or $bv ($b) is not an integer; attempted $a-$b line $line col $col file $file\n ${scope.stack.reversed.join('\n')}");
+    }
+    return ValueWrapper(integerType, av.value - bv.value, '$this result');
   }
 
   String toString() => "($a) - ($b)";
@@ -295,8 +312,13 @@ class AddExpression extends Expression {
   @override
   ValueWrapper eval(Scope scope) {
     ValueWrapper av = a.eval(scope);
-    return ValueWrapper(
-        av.type, av.value + b.eval(scope).value, '$this result');
+    ValueWrapper bv = b.eval(scope);
+    if (!(av.type.isSubtypeOf(integerType) &&
+        bv.type.isSubtypeOf(integerType))) {
+      throw FileInvalid(
+          "$av ($a) or $bv ($b) is not an integer; attempted $a+$b line $line col $col file $file\n ${scope.stack.reversed.join('\n')}");
+    }
+    return ValueWrapper(integerType, av.value + bv.value, '$this result');
   }
 
   String toString() => "$a + $b";
@@ -496,8 +518,14 @@ class GreaterExpression extends Expression {
       : super(line, col, file);
   @override
   ValueWrapper eval(Scope scope) {
-    return ValueWrapper(
-        booleanType, a.eval(scope).value > b.eval(scope).value, '$this result');
+    ValueWrapper av = a.eval(scope);
+    ValueWrapper bv = b.eval(scope);
+    if (!(av.type.isSubtypeOf(integerType) &&
+        bv.type.isSubtypeOf(integerType))) {
+      throw FileInvalid(
+          "$av ($a) or $bv ($b) is not an integer; attempted $a>$b line $line col $col file $file\n ${scope.stack.reversed.join('\n')}");
+    }
+    return ValueWrapper(booleanType, av.value > bv.value, '$this result');
   }
 
   String toString() => "$a > $b";

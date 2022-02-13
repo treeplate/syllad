@@ -1,8 +1,9 @@
 Null test(String message) {
   print(message);
 }
-test('Hello World\r\n');
-
-exit(false);
+test('Hello World\r\n', 0);
+test(3);
+test('\r\n');
+exit(3);
 
 print('ERROR! THIS SHOULD NOT PRINT\r\n');

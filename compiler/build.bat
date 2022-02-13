@@ -1,4 +1,5 @@
 @ECHO OFF
+SETLOCAL EnableDelayedExpansion
 IF NOT "%WindowsSdkDir%"=="" GOTO RUN
 ECHO CONFIGURING ENVIRONMENT
 CALL "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
@@ -13,6 +14,7 @@ ML64 syd.asm
 IF EXIST "syd.exe" (
     ECHO RUNNING COMPILED COMPILER
     syd.exe
+    ECHO exit code: !ERRORLEVEL!
     ECHO DONE
 ) ELSE (
     ECHO == FAILED ==

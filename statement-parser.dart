@@ -119,8 +119,8 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
             return SetStatement(
               ident1,
               AddExpression(
-                GetExpr(ident1, scope, tokens.current.line, tokens.current.col,
-                    tokens.file),
+                subscriptsToExpr(ident1, subscripts, tokens.current.line,
+                    tokens.current.col, tokens.file, scope),
                 value,
                 tokens.current.line,
                 tokens.current.col,
@@ -166,13 +166,8 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
             return SetStatement(
               ident1,
               SubtractExpression(
-                GetExpr(
-                  ident1,
-                  scope,
-                  tokens.current.line,
-                  tokens.current.col,
-                  tokens.file,
-                ),
+                subscriptsToExpr(ident1, subscripts, tokens.current.line,
+                    tokens.current.col, tokens.file, scope),
                 value,
                 tokens.current.line,
                 tokens.current.col,
@@ -348,6 +343,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   Expression expr = parseExpression(tokens, scope, sharedSupertype);
   tokens.expectChar(TokenType.endOfStatement);
   return ExpressionStatement(expr, tokens.current.line, tokens.current.col);
+}
+
+Expression subscriptsToExpr(String ident1, List<Expression> subscripts,
+    int line, int col, String file, TypeValidator validator) {
+  return subscripts.length > 0
+      ? SubscriptExpression(
+          subscriptsToExpr(ident1, subscripts.toList()..removeLast(), line, col,
+              file, validator),
+          subscripts.last,
+          line,
+          col,
+          file)
+      : GetExpr(ident1, validator, line, col, file);
 }
 
 MapEntry<List<Statement>, TypeValidator> parse(

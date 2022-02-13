@@ -76,6 +76,19 @@ class SourceLocationInstruction extends Instruction {
   }
 }
 
+class CommentInstruction extends Instruction {
+  String message;
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addComment(blockId, message);
+  }
+
+  Null constructor(String messageArg) {
+    super.constructor();
+    message = messageArg;
+  }
+}
+
 class ReturnInstruction extends Instruction {
   String comment;
 
@@ -123,7 +136,7 @@ class DoIfTypeMismatchInstruction extends Instruction {
   TypeHandle dynamicType;
   String continueLabel;
   Object block; // XXX should be CompiledScope
-  String comment;
+  String what;
 
   Null prepareInstructions() {
     super.prepareInstructions();
@@ -132,22 +145,35 @@ class DoIfTypeMismatchInstruction extends Instruction {
   }
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    // xxxxx
-    String byte = '00h';
-    String bitInByte = '0';
-    assembler.addCode(blockId, concat('bt ', byte, ', ', bitInByte), comment);
-    assembler.addCode(blockId, concat('jc ', continueLabel), 'skip next block if the selected bit is set');
+    Whatever environment = cast(cast(block).environment)() as TypeRegistry; // XXX Whatever should be CompilationEnvironment
+    assembler.addMov(blockId, rax, dynamicType.type!.asOperand(), concat('load the dynamic type of ', what, ' into rax'));
+    Integer width = environment.typeTableWidth / 8;
+    if (environment.typeTableWidth % 8 > 0) {
+      width += 1;
+    }
+    if (width > 1) {
+      assembler.addCode(blockId, concat('mul ', width), 'adjust to the relative start of that type\'s entry in the type table');
+    }
+    Integer code = staticType.code - environment.typeTableOffset;
+    String bitInByte = concat(code % 8);
+    if (code > 0) {
+      assembler.addCode(blockId, concat('add rax, ', code / 8), 'adjust to the byte containing the bit to check against');
+    }
+    assembler.addCode(blockId, concat('lea r10, ', environment.typeTableLabel), 'move type table offset into r10');
+    assembler.addCode(blockId, 'add rax, r10', 'adjust rax to point to the type table');
+    assembler.addCode(blockId, concat('bt dword ptr [rax], ', bitInByte), concat('check that ', what, ' is a ', staticType));
+    assembler.addCode(blockId, concat('jc ', continueLabel), 'skip next block if the type matches');
     (cast(block).generateAssembler as NullFunction)(assembler, blockId);
     assembler.addCode(blockId, concat(continueLabel, ':'), null);
   }
 
-  Null constructor(Type staticTypeArg, TypeHandle dynamicTypeArg, String continueLabelArg, Object blockArg, String commentArg) { // XXX Object should be CompiledScope
+  Null constructor(Type staticTypeArg, TypeHandle dynamicTypeArg, String continueLabelArg, Object blockArg, String whatArg) { // XXX Object should be CompiledScope
     super.constructor();
     staticType = staticTypeArg;
     dynamicType = dynamicTypeArg;
     continueLabel = continueLabelArg;
     block = blockArg;
-    comment = commentArg;
+    what = whatArg;
   }
 }
 
@@ -452,10 +478,22 @@ class CompilationEnvironment extends TypeRegistry {
     }
   }
 
+  VotSource integers;
+
+  ValueHandle integer(Integer value) {
+    integers.staticType.markConstructed();
+    return ValueHandle(integers, LiteralIntegerVot(integers.staticType as NumericType, value));
+  }
+
+  String typeTableLabel;
+  Integer typeTableOffset;
+  Integer typeTableWidth;
+
   Null generateTypeTable(Assembler assembler, String label) {
     IntegerList bytes = []:Integer;
     Integer byte = 0;
     Integer bits = 0;
+    Integer width = 0;
     for (type in sortedTypes) {
       for (supertype in sortedTypes) {
         if (supertype.isUsedInTypeCheck) {
@@ -475,6 +513,9 @@ class CompilationEnvironment extends TypeRegistry {
       append(bytes, byte);
       byte = 0;
       bits = 0;
+      if (type.isUsedInTypeCheck) {
+        width += 1;
+      }
     }
     assembler.addData(
       label,
@@ -485,23 +526,14 @@ class CompilationEnvironment extends TypeRegistry {
         'Type table',
       ],
     );
+    typeTableOffset = len(sortedTypes);
+    typeTableWidth = width;
   }
-
-  VotSource integers;
-
-  ValueHandle integer(Integer value) {
-    integers.staticType.markConstructed();
-    return ValueHandle(integers, LiteralIntegerVot(integers.staticType as NumericType, value));
-  }
-
-  String typeTableLabel;
-  ValueHandle typeTableOffset;
 
   Null compile(Assembler assembler) {
     typeTableLabel = generateLabel('typeTable');
-    typeTableOffset = ValueHandle(integers, null);
     prepareInstructions();
-    typeTableOffset.assign(LiteralIntegerVot(integers.staticType as NumericType, assignTypeCodes()));
+    assignTypeCodes();
     generateTypeTable(assembler, typeTableLabel);
     prepareSlots();
     generateAssemblerBlocks(assembler);
@@ -517,7 +549,7 @@ class CompilationEnvironment extends TypeRegistry {
 // ============================================================================
 // SCOPES
 // ============================================================================
-ObjectFunction makeCompiledScope;
+ObjectFunction makeCompiledNestedScope;
 class CompiledScope extends Object {
   // parent scope, for lookups
   CompiledScopeNullable parent;
@@ -643,11 +675,12 @@ class CompiledScope extends Object {
 
   Null emitParameterChecks(SlotList parameters) {
     // check for parameter count
+    append(instructions, CommentInstruction('Check parameter count'));
     String label = environment().generateLabel(concat('func$', name, '$paramCountGood'));
     Slot paramCount = registerStaticValue(OperandVot(cast(environment().runtimeLibrary).coreIntegerType as Type, rcx), 'parameter count');
     ValueHandle paramCountValue = paramCount.read(this);
     ValueHandle expectedParamCountValue = environment().integer(len(parameters));
-    CompiledScope block = makeCompiledScope(this, label) as CompiledScope;
+    CompiledScope block = makeCompiledNestedScope(this, label) as CompiledScope;
     ValueHandle printHandle = (cast(environment().runtimeLibrary!).corePrint as Slot).read(block);
     ValueHandle messageHandle = (cast(environment().runtimeLibrary!).parameterCountCheckFailureMessage as Slot).read(block);
     block.emitSubroutineCall(printHandle, [ messageHandle ]);
@@ -661,25 +694,19 @@ class CompiledScope extends Object {
       block,
       'check number of parameters is as expected',
     ));
+    append(instructions, CommentInstruction('Check parameter types'));
     Integer index = 0;
     for (parameter in parameters) {
       index += 1;
       String label = environment().generateLabel(concat('func$', name, '$param', index, '$TypeGood'));
-      CompiledScope block = makeCompiledScope(this, label) as CompiledScope;
+      CompiledScope block = makeCompiledNestedScope(this, label) as CompiledScope;
       ValueHandle printHandle = (cast(environment().runtimeLibrary!).corePrint as Slot).read(block);
       ValueHandle messageHandle = (cast(environment().runtimeLibrary!).parameterTypeCheckFailureMessage as Slot).read(block);
       block.emitSubroutineCall(printHandle, [ messageHandle ]);
       ValueHandle exitHandle = (cast(environment().runtimeLibrary!).coreExit as Slot).read(block);
       ValueHandle failureExitCode = environment().integer(0x01);
       block.emitSubroutineCall(exitHandle, [ failureExitCode ]);
-      // xxxxxxxxx
-      //append(instructions, DoIfTypeMismatchInstruction(
-      //  parameter.staticType,
-      //  parameter.readType(this),
-      //  label,
-      //  block,
-      //  concat('check type of parameter ', index, ' is as expected'),
-      //));
+      append(instructions, DoIfTypeMismatchInstruction(parameter.staticType, parameter.read(this).type, label, block, parameter.debugName));
     }
   }
 
@@ -719,7 +746,14 @@ class CompiledScope extends Object {
     return concat('<', name, ':', className, '@', internalObjectId, '>');
   }
 }
-makeCompiledScope = CompiledScope;
+
+class CompiledNestedScope extends CompiledScope {
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.indent(blockId, super.generateAssembler);
+  }
+}
+makeCompiledNestedScope = CompiledNestedScope;
+
 
 class CompiledStackFrameScope extends CompiledScope {
   CompiledScope stackFrame() { // XXX CompiledScope should be CompiledStackFrameScope
@@ -753,6 +787,8 @@ class CompiledStackFrameScope extends CompiledScope {
     assembler.addCode(blockId, 'push rbp', 'save volatile registers');
     if (stackSize > 0) {
       // TODO: should list what variables we're allocating space for here
+      // TODO: if stackSize > 8KB (0x2000), call __chkstk__
+      assert(stackSize < 0x2000, 'need to implement calling __chkstk__');
       assembler.addCode(blockId, concat('sub rsp, ', hex8(stackSize)), 'allocate space for stack');
     }
     assembler.addCode(blockId, concat('lea rbp, [rsp+', hex8(stackSize), ']'), 'set up frame pointer');
@@ -836,7 +872,6 @@ class BuiltInPrintSubroutineInstructions extends Instruction {
      *      ... :     ... :
      *     0000 :    0000 :
      */
-    assembler.addComment(blockId, 'TODO: check type of argument'); // TODO: check type of argument
     assembler.addComment(blockId, 'Calling GetStdHandle');
     assembler.addCode(blockId, 'mov rcx, -11', 'argument #1: STD_OUTPUT_HANDLE');
     assembler.addCode(blockId, 'call GetStdHandle', 'handle returned in rax');

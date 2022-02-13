@@ -89,6 +89,7 @@ class Assembler extends Object {
   StringList data = []:String;
   StringList labels = []:String;
   StringListList code = []:StringList;
+  IntegerList indents = []:Integer;
 
   Integer lineLength = 64;
 
@@ -117,11 +118,18 @@ class Assembler extends Object {
     }
   }
 
+  Null indent(Integer blockId, NullFunction generateAssembler) {
+    indents[blockId] += 2;
+    generateAssembler(this, blockId);
+    indents[blockId] -= 2;
+  }
+
   Null addCode(Integer blockId, String line, StringNullable comment) {
+    String indentedLine = concat(stringTimes(' ', indents[blockId]), line);
     if (comment != null) {
-      append(code[blockId], concat('  ', padRight(line, lineLength, ' '), ' ; ', comment));
+      append(code[blockId], concat('  ', padRight(indentedLine, lineLength, ' '), ' ; ', comment));
     } else {
-      append(code[blockId], concat('  ', line));
+      append(code[blockId], concat('  ', indentedLine));
     }
   }
 
@@ -159,12 +167,13 @@ class Assembler extends Object {
     }
     append(subcode, concat(label, ':'));
     append(code, subcode);
+    append(indents, 0);
     assert(len(code) == len(labels), 'labels and code are out of sync');
     return len(code) - 1;
   }
 
   Null addComment(Integer blockId, String message) {
-    append(code[blockId], concat('  ; ', message));
+    append(code[blockId], concat('  ', stringTimes(' ', indents[blockId]), '; ', message));
   }
 
   Null addBlankLine(Integer blockId) {
