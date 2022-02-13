@@ -5,7 +5,6 @@ option casemap:none
 
 ; includes
 includelib kernel32.lib
-includelib kernel32.lib
 
 ; externs
 extern GetStdHandle : proc

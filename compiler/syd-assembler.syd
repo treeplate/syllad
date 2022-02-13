@@ -84,7 +84,7 @@ Operand rcx = Operand('rcx', otRegister);
 Operand rdx = Operand('rdx', otRegister);
 
 class Assembler extends Object {
-  StringList includelibs = []:String;
+  Set includelibs = Set();
   StringList externs = []:String;
   StringList data = []:String;
   StringList labels = []:String;
@@ -94,7 +94,7 @@ class Assembler extends Object {
   Integer lineLength = 64;
 
   Null addIncludeLib(String filename) {
-    append(includelibs, concat('includelib ', filename));
+    includelibs.add(concat('includelib ', filename));
   }
 
   Null addExternProc(String procname) {
@@ -199,7 +199,7 @@ class Assembler extends Object {
       'option casemap:none\n',
       '\n',
       '; includes\n',
-      join(includelibs, '\n'),
+      join((includelibs.values() as StringList), '\n'),
       '\n\n',
       '; externs\n',
       join(externs, '\n'),
