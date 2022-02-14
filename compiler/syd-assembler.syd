@@ -44,6 +44,33 @@ String stringLiteral(String value) {
   return joinList(buffer);
 }
 
+String camelCase(String value) {
+  StringList buffer = []:String;
+  Boolean needUpper = false;
+  for (char in scalarValues(value)) {
+    if (char >= 0x41 && char <= 0x5A) { // A-Z
+      if (needUpper) {
+        append(buffer, chr(char));
+      } else {
+        append(buffer, chr(char + 0x20));
+      }
+    } else if (char >= 0x61 && char <= 0x7A) {
+      if (needUpper) {
+        append(buffer, chr(char - 0x20));
+        needUpper = false;
+      } else {
+        append(buffer, chr(char));
+      }
+    } else {
+      if (char >= 0x30 && char <= 0x39) {
+        append(buffer, chr(char));
+      }
+      needUpper = true;
+    }
+  }
+  return joinList(buffer);
+}
+
 enum ot { Imm32 Imm64 Indirect Label LabelOffset Register }
 
 class Operand extends Object {
@@ -94,6 +121,7 @@ class Assembler extends Object {
   StringList labels = []:String;
   StringListList code = []:StringList;
   IntegerList indents = []:Integer;
+  StringNullableList pendingComments = []:StringNullable;
 
   Integer lineLength = 64;
 
@@ -130,6 +158,10 @@ class Assembler extends Object {
 
   Null addCode(Integer blockId, String line, StringNullable comment) {
     String indentedLine = concat(stringTimes(' ', indents[blockId]), line);
+    if (pendingComments[blockId] != null) {
+      append(code[blockId], concat('  ', stringTimes(' ', indents[blockId]), '; ', pendingComments[blockId]));
+      pendingComments[blockId] = null;
+    }
     if (comment != null) {
       append(code[blockId], concat('  ', padRight(indentedLine, lineLength, ' '), ' ; ', comment));
     } else {
@@ -138,7 +170,10 @@ class Assembler extends Object {
   }
 
   Null addMov(Integer blockId, Operand destination, Operand source, String comment) {
-    if (source.kind == otImm64) {
+    if (source.kind == otIndirect && destination.kind == otIndirect) {
+      addCode(blockId, concat('mov r11, ', source.operand), comment);
+      addCode(blockId, concat('mov ', destination.operand, ', r11'), concat('(indirect via r11 because mov can\'t do memory-to-memory)'));
+    } else if (source.kind == otImm64) {
       addCode(blockId, concat('mov r11, ', source.operand), comment);
       addCode(blockId, concat('mov ', destination.operand, ', r11'), concat('(indirect via r11 because ', source.operand, ' could be a 64 bit value)'));
     } else if (source.kind == otImm32) {
@@ -172,12 +207,18 @@ class Assembler extends Object {
     append(subcode, concat(label, ':'));
     append(code, subcode);
     append(indents, 0);
+    append(pendingComments, null);
     assert(len(code) == len(labels), 'labels and code are out of sync');
     return len(code) - 1;
   }
 
   Null addComment(Integer blockId, String message) {
     append(code[blockId], concat('  ', stringTimes(' ', indents[blockId]), '; ', message));
+    pendingComments[blockId] = null;
+  }
+
+  Null addPendingComment(Integer blockId, String message) {
+    pendingComments[blockId] = message;
   }
 
   Null addBlankLine(Integer blockId) {

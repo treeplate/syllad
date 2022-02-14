@@ -87,7 +87,7 @@ class SourceLocationInstruction extends Instruction {
   SourceCode statement;
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    assembler.addComment(blockId, concat('Line ', statement.sourceLocation.lineNo, ': ', truncateString(concat(statement), assembler.lineLength)));
+    assembler.addPendingComment(blockId, concat('Line ', statement.sourceLocation.lineNo, ': ', truncateString(concat(statement), assembler.lineLength)));
   }
 
   Null constructor(SourceCode statementArg) {
@@ -708,6 +708,7 @@ class CompiledScope extends Object {
   }
 
   ValueHandle emitSubroutineCall(ValueHandle target, ValueHandleList arguments) {
+    append(instructions, CommentInstruction('Prepare local variables for function call'));
     Slot thisPointer = registerDynamicValue(cast(cast(environment().runtimeLibrary!).coreClassType), 'this pointer');
     Slot closurePointer = registerDynamicValue(cast(cast(environment().runtimeLibrary!).coreClosureType), 'closure pointer');
     thisPointer.writeStatic(this, SentinelVot(cast(environment().runtimeLibrary!).coreClassType as Type));
@@ -735,10 +736,28 @@ class CompiledScope extends Object {
     return returnValue.read(this);
   }
 
-  Null emitReturn(ValueHandle value) {
+  CompiledScope createErrorHandlerBlock(Slot errorMessage, String what) {
+    String label = environment().generateLabel(concat('func$', name, '$', camelCase(what), '$Ok'));
+    CompiledScope block = makeCompiledNestedScope(this, label) as CompiledScope;
+    ValueHandle printHandle = (cast(environment().runtimeLibrary!).corePrint as Slot).read(block);
+    block.emitSubroutineCall(printHandle, [ errorMessage.read(block) ]);
+    ValueHandle exitHandle = (cast(environment().runtimeLibrary!).coreExit as Slot).read(block);
+    ValueHandle failureExitCode = environment().integer(0x01);
+    block.emitSubroutineCall(exitHandle, [ failureExitCode ]);
+    return block;
+  }
+
+  Null emitTypeCheck(ValueHandle value, Type type, Slot errorMessage, String what) {
+    CompiledScope block = createErrorHandlerBlock(errorMessage, what);
+    append(instructions, DoIfTypeMismatchInstruction(type, value.type, block.name, block, what));
+  }
+
+  Null emitReturn(ValueHandle value) { // xxx maybe this should go in CompiledSubroutine?
     // xxxx verify the type statically
     CompiledScope subroutine = stackFrame();
-    assert(subroutine.className == 'CompiledSubroutine', 'cannot return from global scope');
+    assert(subroutine.className == 'CompiledSubroutine', 'cannot return from global scope'); // XXX should use "is" operator
+    Type returnType = (cast(subroutine).type as AbstractSubroutineType).returnType;
+    emitTypeCheck(value, returnType, cast(environment().runtimeLibrary!).returnValueTypeCheckFailureMessage as Slot, concat('return value of ', name));
     (cast(subroutine).returnValue as Slot).write(this, value);
     append(instructions, ReturnInstruction(subroutine, 'return'));
   }
@@ -747,37 +766,25 @@ class CompiledScope extends Object {
     // xxxx verify the types statically
     // check for parameter count
     append(instructions, CommentInstruction('Check parameter count'));
-    String label = environment().generateLabel(concat('func$', name, '$paramCountGood'));
     Slot paramCount = registerStaticValue(OperandVot(cast(environment().runtimeLibrary).coreIntegerType as Type, rcx), 'parameter count');
     ValueHandle paramCountValue = paramCount.read(this);
     ValueHandle expectedParamCountValue = environment().integer(len(parameters));
-    CompiledScope block = makeCompiledNestedScope(this, label) as CompiledScope;
-    ValueHandle printHandle = (cast(environment().runtimeLibrary!).corePrint as Slot).read(block);
-    ValueHandle messageHandle = (cast(environment().runtimeLibrary!).parameterCountCheckFailureMessage as Slot).read(block);
-    block.emitSubroutineCall(printHandle, [ messageHandle ]);
-    ValueHandle exitHandle = (cast(environment().runtimeLibrary!).coreExit as Slot).read(block);
-    ValueHandle failureExitCode = environment().integer(0x01);
-    block.emitSubroutineCall(exitHandle, [ failureExitCode ]);
+    CompiledScope block = createErrorHandlerBlock(
+      cast(environment().runtimeLibrary!).parameterCountCheckFailureMessage as Slot,
+      'parameter count',
+    );
     append(instructions, DoIfNotEqualInstruction(
       paramCountValue,
       expectedParamCountValue,
-      label,
+      block.name,
       block,
       'check number of parameters is as expected',
     ));
     Integer index = 0;
     for (parameter in parameters) {
       append(instructions, CommentInstruction(concat('Check type of parameter ', index, ', ', parameter.debugName, ' (expecting ', parameter.staticType, ')')));
+      emitTypeCheck(parameter.read(this), parameter.staticType, cast(environment().runtimeLibrary!).parameterTypeCheckFailureMessage as Slot, parameter.debugName);
       index += 1;
-      String label = environment().generateLabel(concat('func$', name, '$param', index, '$TypeGood'));
-      CompiledScope block = makeCompiledNestedScope(this, label) as CompiledScope;
-      ValueHandle printHandle = (cast(environment().runtimeLibrary!).corePrint as Slot).read(block);
-      ValueHandle messageHandle = (cast(environment().runtimeLibrary!).parameterTypeCheckFailureMessage as Slot).read(block);
-      block.emitSubroutineCall(printHandle, [ messageHandle ]);
-      ValueHandle exitHandle = (cast(environment().runtimeLibrary!).coreExit as Slot).read(block);
-      ValueHandle failureExitCode = environment().integer(0x01);
-      block.emitSubroutineCall(exitHandle, [ failureExitCode ]);
-      append(instructions, DoIfTypeMismatchInstruction(parameter.staticType, parameter.read(this).type, label, block, parameter.debugName));
     }
   }
 
@@ -1174,6 +1181,7 @@ class CompiledRuntimeLibrary extends CompiledLibrary {
 
   Slot parameterCountCheckFailureMessage;
   Slot parameterTypeCheckFailureMessage;
+  Slot returnValueTypeCheckFailureMessage;
 
   Slot registerStringConstant(String labelBase, String value, Integer line, Integer col, String file) {
     String label = compilationEnvironment.generateLabel(labelBase);
@@ -1217,6 +1225,11 @@ class CompiledRuntimeLibrary extends CompiledLibrary {
     parameterTypeCheckFailureMessage = registerStringConstant(
       'parameterTypeCheckFailureMessage',
       'error: type mismatch for function %s parameter %d, expected %s, got %s\n',
+      __LINE__, __COL__, __FILE__,
+    );
+    returnValueTypeCheckFailureMessage = registerStringConstant(
+      'returnValueTypeCheckFailureMessage',
+      'error: type mismatch for function return value, expected %s, got %s\n',
       __LINE__, __COL__, __FILE__,
     );
   }

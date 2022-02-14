@@ -1,5 +1,2 @@
-Integer three() {
-  return 3;
-}
-
-exit(three());
+Null foo() {}
+print(foo);

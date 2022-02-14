@@ -1,0 +1,7 @@
+// expected exit code is 1
+
+String foo() {
+  return 5;
+}
+
+exit(foo());

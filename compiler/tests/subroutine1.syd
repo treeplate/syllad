@@ -1,8 +1,7 @@
-// should print "test"
-// currently fails because "foo" argument does not shadow "foo" subroutine name
+// expected output: test
 
 Null foo(String foo) {
-  println(foo);
+  print(foo);
 }
 
-foo('test');
+foo('test\n');

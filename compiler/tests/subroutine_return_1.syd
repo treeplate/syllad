@@ -1,0 +1,7 @@
+// expected exit code is 5
+
+Integer foo() {
+  return 5;
+}
+
+exit(foo());

@@ -63,9 +63,9 @@ class StatementBlock extends AstNode {
   }
 
   Null generateInstructions(CompiledScope scope) {
-    Null compileChild(AstNode child, CompiledScope scope) {
-      scope.emitInstruction(SourceLocationInstruction(child));
-      cast(cast(child).generateInstructions)(scope); // workaround because self-reference doesn't work in closures
+    Null compileChild(Statement child, CompiledScope scope) {
+      scope.emitInstruction(SourceLocationInstruction(child)); // TODO: only emit this for lines that actually generate assembler...
+      child.generateInstructions(scope); // workaround because self-reference doesn't work in closures
     }
     walk(compileChild, scope);
   }

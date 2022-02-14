@@ -1,3 +1,5 @@
+// StringNullableList pendingComments = []:String;
+// append(pendingComments, null); // fails, but should fail on previous line
 
 //class A { Null test() { this.test(); } }
 //Integer bar = 1; class Foo { Null constructor() { } } println(Foo().bar);
@@ -83,6 +85,7 @@ stderr('syllad self-hosting compiler');
 //   imports of missing files crash the compiler
 //   soundness in type system -- a variable being of type X should be a guarantee that it will have a value of type X
 //     - returns are "not really type safe"
+//     - functions without returns aren't statically checked
 //     - toString returning non-string isn't checked for either
 //     - currently not true with uninitialized variables (they start as an instance of Null instead)
 //     - weird error messages when doing covariance:

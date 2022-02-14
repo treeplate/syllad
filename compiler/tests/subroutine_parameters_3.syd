@@ -1,0 +1,5 @@
+// expected exit code is 1
+
+Null foo(Integer value) { }
+
+foo(1, 2);
