@@ -57,7 +57,8 @@ main:
   mov qword ptr [rbp-010h], 000000000h                             ; type of this pointer
   mov qword ptr [rbp-018h], 0h                                     ; value of closure pointer
   ; Calling func$print with 1 arguments
-  push func$foo                                                    ; value of argument #1
+  mov r11, func$foo                                                ; value of argument #1
+  push r11                                                         ; (indirect via r11 because "func$foo" cannot be used with push)
   push 000000006h                                                  ; type of argument #1
   lea r11, [rbp-020h]                                              ; pointer to return value (and type, 8 bytes earlier)
   push r11                                                         ; (that pointer is the last value pushed to the stack)

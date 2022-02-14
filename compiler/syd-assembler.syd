@@ -78,6 +78,14 @@ class Operand extends Object {
   String location;
   ot kind;
 
+  Boolean isMemory() {
+    return kind == otIndirect || kind == otLabel || kind == otLabelOffset;
+  }
+
+  String toString() {
+    return operand;
+  }
+
   Null constructor(String operandArg, ot kindArg) {
     super.constructor();
     if (kindArg == otIndirect) {
@@ -94,10 +102,6 @@ class Operand extends Object {
       // no location
     }
     kind = kindArg;
-  }
-
-  String toString() {
-    return operand;
   }
 }
 
@@ -170,7 +174,7 @@ class Assembler extends Object {
   }
 
   Null addMov(Integer blockId, Operand destination, Operand source, String comment) {
-    if (source.kind == otIndirect && destination.kind == otIndirect) {
+    if (source.isMemory() && destination.isMemory()) {
       addCode(blockId, concat('mov r11, ', source.operand), comment);
       addCode(blockId, concat('mov ', destination.operand, ', r11'), concat('(indirect via r11 because mov can\'t do memory-to-memory)'));
     } else if (source.kind == otImm64) {
@@ -190,7 +194,7 @@ class Assembler extends Object {
   }
 
   Null addPush(Integer blockId, Operand source, String comment) {
-    if (source.kind == otLabelOffset) {
+    if (source.kind == otLabel || source.kind == otLabelOffset) {
       addCode(blockId, concat('mov r11, ', source.operand), comment);
       addCode(blockId, concat('push r11'), concat('(indirect via r11 because "', source.operand, '" cannot be used with push)'));
     } else {

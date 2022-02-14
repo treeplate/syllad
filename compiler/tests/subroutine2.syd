@@ -1,5 +1,4 @@
 // should print "<function (foo function)>" or other implementation-specific toString
-// currently fails because pushing reference to subroutine gets wrong assembler
 // currently fails because "println" is not implemented as stringifying
 // currently fails because no stringification of function references
 
