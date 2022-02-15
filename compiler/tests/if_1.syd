@@ -1,0 +1,25 @@
+// expected output: Hi
+// expected output: Hello
+// expected exit code is 3
+
+Boolean not(Boolean x) {
+  if(x) {
+    return false;
+  }
+  return true;
+}
+
+Null foo(Boolean x) {
+  if(x) {
+    print("Hi\n");
+  }
+  if(not(x)) {
+    print("Hello\n");
+  }
+}
+foo(true);
+foo(false);
+if (false) {
+  exit(1);
+}
+exit(3);

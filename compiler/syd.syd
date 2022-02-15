@@ -1,3 +1,15 @@
+// - "if"
+// - "is" expression
+// - adding static type checking ("xxxx")
+// - "while"
+// - variables
+// - string ref counting
+// - lists, garbage collection
+// - concat for strings, joinList for StringLists
+// - stringification
+// - creating the runtime library (aiming to eventually implement the real "println")
+
+
 // StringNullableList pendingComments = []:String;
 // append(pendingComments, null); // fails, but should fail on previous line
 

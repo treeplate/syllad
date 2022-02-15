@@ -137,7 +137,7 @@ class DoIfNotEqualInstruction extends Instruction {
   }
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    assembler.addCode(blockId, concat('cmp ', a.value!.asOperand().operand, ', ', b.value!.asOperand().operand), comment);
+    assembler.addCmp(blockId, a.value!.asOperand(), b.value!.asOperand(), comment);
     assembler.addCode(blockId, concat('je ', continueLabel), 'skip next block if they are equal');
     (cast(block).generateAssembler as NullFunction)(assembler, blockId);
     assembler.addCode(blockId, concat(continueLabel, ':'), null);
@@ -752,7 +752,7 @@ class CompiledScope extends Object {
     append(instructions, DoIfTypeMismatchInstruction(type, value.type, block.name, block, what));
   }
 
-  Null emitReturn(ValueHandle value) { // xxx maybe this should go in CompiledSubroutine?
+  Null emitReturn(ValueHandle value) {
     // xxxx verify the type statically
     CompiledScope subroutine = stackFrame();
     assert(subroutine.className == 'CompiledSubroutine', 'cannot return from global scope'); // XXX should use "is" operator
@@ -760,6 +760,11 @@ class CompiledScope extends Object {
     emitTypeCheck(value, returnType, cast(environment().runtimeLibrary!).returnValueTypeCheckFailureMessage as Slot, concat('return value of ', name));
     (cast(subroutine).returnValue as Slot).write(this, value);
     append(instructions, ReturnInstruction(subroutine, 'return'));
+  }
+
+  Null emitIfStatement(CompiledScope block, ValueHandle condition) {
+    String label = environment().generateLabel(concat(camelCase(name), '$if$continuation'));
+    append(instructions, DoIfNotEqualInstruction(condition, (cast(environment().runtimeLibrary!).coreFalse as Slot).read(this), label, block, 'if statement'));
   }
 
   Null emitParameterChecks(SlotList parameters) {
@@ -1021,10 +1026,10 @@ class BuiltInPrintSubroutine extends BuiltInSubroutine {
   Null constructor(CompiledScopeNullable parentArg) { // XXX parentArg should be CompiledRuntimeLibrary
     super.constructor(
       parentArg,
-      SubroutineTypeWithVarArgs(
+      SubroutineTypeWithSpecificParameters(
         cast(cast(cast(parentArg).environment)()),
         cast(cast(parentArg).coreNullType),
-        cast(cast(parentArg).coreAnythingType),
+        [cast(parentArg).coreStringType as Type],
       ),
       'print',
     );
@@ -1207,8 +1212,8 @@ class CompiledRuntimeLibrary extends CompiledLibrary {
     coreNull = registerConstant('null', LiteralIntegerVot(coreNullType, 0x00));
     coreBooleanType = BooleanType(compilationEnvironmentArg);
     declareType(coreBooleanType);
-    coreTrue = registerConstant('false', LiteralIntegerVot(coreBooleanType, 0x00));
-    coreFalse = registerConstant('true', LiteralIntegerVot(coreBooleanType, 0x01));
+    coreFalse = registerConstant('false', LiteralIntegerVot(coreBooleanType, 0x00));
+    coreTrue = registerConstant('true', LiteralIntegerVot(coreBooleanType, 0x01));
     coreIntegerType = IntegerType(compilationEnvironmentArg);
     declareType(coreIntegerType);
     coreStringType = StringType(compilationEnvironmentArg);

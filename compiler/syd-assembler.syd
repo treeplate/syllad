@@ -62,7 +62,8 @@ String camelCase(String value) {
         append(buffer, chr(char));
       }
     } else {
-      if (char >= 0x30 && char <= 0x39) {
+      if ((char >= 0x30 && char <= 0x39) ||
+          (char == 0x24)) {
         append(buffer, chr(char));
       }
       needUpper = true;
@@ -79,7 +80,11 @@ class Operand extends Object {
   ot kind;
 
   Boolean isMemory() {
-    return kind == otIndirect || kind == otLabel || kind == otLabelOffset;
+    return kind == otIndirect || kind == otLabelOffset;
+  }
+
+  Boolean isImmediate() {
+    return kind == otImm32 || kind == otImm64 || kind == otLabel;
   }
 
   String toString() {
@@ -184,6 +189,24 @@ class Assembler extends Object {
       addCode(blockId, concat('mov qword ptr ', destination.operand, ', ', source.operand), comment);
     } else {
       addCode(blockId, concat('mov ', destination.operand, ', ', source.operand), comment);
+    }
+  }
+
+  Null addCmp(Integer blockId, Operand a, Operand b, String comment) {
+    if (a.isImmediate() && b.isImmediate()) {
+      // TODO: should optimize call sites and make this an assert instead
+      addCode(blockId, concat('mov r11, ', a.operand), comment);
+      addCode(blockId, concat('cmp r11, ', b.operand), concat('(indirect via r11 because both operands are immediates)'));
+    } else if (b.kind == otImm32) {
+      addCode(blockId, concat('cmp qword ptr ', a.operand, ', ', b.operand), comment);
+    } else if (b.kind == otImm64) {
+      addCode(blockId, concat('mov r11, ', a.operand), comment);
+      addCode(blockId, concat('cmp r11, ', b.operand), concat('(indirect via r11 because ', b.operand, ' could be a 64 bit value)'));
+    } else if (a.isMemory() && b.isMemory()) {
+      addCode(blockId, concat('mov r11, ', a.operand), comment);
+      addCode(blockId, concat('cmp r11, ', b.operand), concat('(indirect via r11 because both operands are memory references)'));
+    } else {
+      addCode(blockId, concat('cmp ', a.operand, ', ', b.operand), comment);
     }
   }
 

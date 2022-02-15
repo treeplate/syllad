@@ -794,6 +794,14 @@ class IfStatement extends Statement {
     );
   }
 
+  Null generateInstructions(CompiledScope scope) {
+    ValueHandle expressionHandle = expression.generateInstructions(scope);
+    CompiledScope blockScope = CompiledNestedScope(scope, scope.environment().generateLabel(concat(camelCase(scope.name), '$if$block')));
+    block.generateInstructions(blockScope);
+    assert(elseClause == null, 'TODO: else clauses');
+    scope.emitIfStatement(blockScope, expressionHandle);
+  }
+
   Null walk(NullFunction callback, Anything context) {
     callback(expression, context);
     callback(block, context);
