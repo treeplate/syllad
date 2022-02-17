@@ -13,6 +13,7 @@ String hex64(Integer value) {
 }
 
 String stringLiteral(String value) {
+  assert(value != '', 'empty strings are not representable in assembler');
   StringList buffer = []:String;
   Boolean quoted = false;
   for (char in scalarValues(value)) {
@@ -61,9 +62,11 @@ String camelCase(String value) {
       } else {
         append(buffer, chr(char));
       }
+    } else if (char == 0x24) {
+      append(buffer, chr(char));
+      needUpper = false;
     } else {
-      if ((char >= 0x30 && char <= 0x39) ||
-          (char == 0x24)) {
+      if (char >= 0x30 && char <= 0x39) {
         append(buffer, chr(char));
       }
       needUpper = true;
@@ -195,6 +198,7 @@ class Assembler extends Object {
   Null addCmp(Integer blockId, Operand a, Operand b, String comment) {
     if (a.isImmediate() && b.isImmediate()) {
       // TODO: should optimize call sites and make this an assert instead
+      // call sites can either use STC/CLC or (preferred) actually skip the offending code
       addCode(blockId, concat('mov r11, ', a.operand), comment);
       addCode(blockId, concat('cmp r11, ', b.operand), concat('(indirect via r11 because both operands are immediates)'));
     } else if (b.kind == otImm32) {

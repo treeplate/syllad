@@ -1,5 +1,3 @@
-// - "if"
-// - "is" expression
 // - adding static type checking ("xxxx")
 // - "while"
 // - variables
@@ -225,7 +223,7 @@ Expression parseUnaryExpression(TokenConsumer source) {
     if (source.isNextIdentifier('is')) {
       source.expectIdentifier('is');
       String typeName = source.readIdentifier();
-      result = IsOperatorExpression(result, typeName, source.lastLocation());
+      result = IsOperatorExpression(result, TypeIdentifier(typeName, source.lastLocation()), source.lastLocation());
       continue;
     }
     break;
@@ -589,6 +587,7 @@ Statement _parseStatement(TokenConsumer source) {
     return ExpressionStatement(expression, source.lastLocation());
   }
   // Expression followed by some operator: must be assignment.
+  // TODO: the following leads to a weird error when the input is just |''|.
   if (!expression.isLValue()) {
     throw(source.butFound('assignable lvalue expression', expression.toString()));
   }

@@ -4,14 +4,20 @@ import 'syd-assembler.syd';
 
 class VotSource extends Object {
   Type staticType;
+  String debugName;
 
   Null forceAllocation() {
     throw(concat('Cannot force allocation of ', this));
   }
 
-  Null constructor(Type staticTypeArg) {
+  String toString() {
+    return concat('<', debugName, ': ', staticType, '>');
+  }
+
+  Null constructor(Type staticTypeArg, String debugNameArg) {
     super.constructor();
     staticType = staticTypeArg;
+    debugName = debugNameArg;
   }
 }
 
@@ -87,6 +93,10 @@ class ValueVot extends Vot {
 class SentinelVot extends ValueVot {
   Operand asOperand() {
     return Operand('0h', otImm32);
+  }
+
+  Null constructor(SentinelType staticTypeArg) {
+    super.constructor(staticTypeArg);
   }
 }
 

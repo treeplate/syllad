@@ -153,21 +153,19 @@ class DoIfNotEqualInstruction extends Instruction {
   }
 }
 
-class DoIfTypeMismatchInstruction extends Instruction {
+class TypeCheckInstruction extends Instruction {
   Type staticType;
   TypeHandle dynamicType;
-  String continueLabel;
-  Object block; // XXX should be CompiledScope
   String what;
+  Whatever environment; // XXX Whatever should be CompilationEnvironment
 
   Null prepareInstructions() {
     super.prepareInstructions();
     staticType.markUsedInTypeCheck();
-    (cast(block).prepareInstructions as NullFunction)();
   }
 
+  // sets CF if the type check is successful (dynamicType is staticType)
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    Whatever environment = cast(cast(block).environment)() as TypeRegistry; // XXX Whatever should be CompilationEnvironment
     assembler.addMov(blockId, rax, dynamicType.type!.asOperand(), concat('load the dynamic type of ', what, ' into rax'));
     Integer width = environment.typeTableWidth / 8;
     if (environment.typeTableWidth % 8 > 0) {
@@ -177,25 +175,64 @@ class DoIfTypeMismatchInstruction extends Instruction {
       assembler.addCode(blockId, concat('mul ', width), 'adjust to the relative start of that type\'s entry in the type table');
     }
     Integer code = staticType.code - environment.typeTableOffset;
-    String bitInByte = concat(code % 8);
     if (code > 8) {
       assembler.addCode(blockId, concat('add rax, ', code / 8), concat('adjust to the byte containing the bit to check against'));
     }
     assembler.addCode(blockId, concat('lea r10, ', environment.typeTableLabel), 'move type table offset into r10');
     assembler.addCode(blockId, 'add rax, r10', 'adjust rax to point to the type table');
-    assembler.addCode(blockId, concat('bt qword ptr [rax], ', bitInByte), concat('check that ', what, ' is ', staticType));
+    assembler.addCode(blockId, concat('bt qword ptr [rax], ', concat(code % 8)), concat('check that ', what, ' is ', staticType));
+  }
+
+  Null constructor(Type staticTypeArg, TypeHandle dynamicTypeArg, String whatArg, Whatever environmentArg) {
+    super.constructor();
+    staticType = staticTypeArg;
+    dynamicType = dynamicTypeArg;
+    what = whatArg;
+    environment = environmentArg;
+  }
+}
+
+class DoIfTypeMismatchInstruction extends TypeCheckInstruction {
+  String continueLabel;
+  Object block; // XXX should be CompiledScope
+
+  Null prepareInstructions() {
+    super.prepareInstructions();
+    (cast(block).prepareInstructions as NullFunction)();
+  }
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    super.generateAssembler(assembler, blockId);
     assembler.addCode(blockId, concat('jc ', continueLabel), 'skip next block if the type matches');
     (cast(block).generateAssembler as NullFunction)(assembler, blockId);
     assembler.addCode(blockId, concat(continueLabel, ':'), null);
   }
 
   Null constructor(Type staticTypeArg, TypeHandle dynamicTypeArg, String continueLabelArg, Object blockArg, String whatArg) { // XXX Object should be CompiledScope
-    super.constructor();
-    staticType = staticTypeArg;
-    dynamicType = dynamicTypeArg;
+    super.constructor(staticTypeArg, dynamicTypeArg, whatArg, cast(cast(blockArg).environment)() as TypeRegistry);
     continueLabel = continueLabelArg;
     block = blockArg;
-    what = whatArg;
+  }
+}
+
+class StoreTypeCheckInstruction extends TypeCheckInstruction {
+  ValueHandle target;
+
+  Null prepareInstructions() {
+    super.prepareInstructions();
+    target.forceAllocation();
+  }
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    super.generateAssembler(assembler, blockId);
+    assembler.addMov(blockId, target.value!.asOperand(), (environment.integer as ValueHandleFunction)(0).value!.asOperand(), concat('clear ', target.source.debugName));
+    assembler.addCode(blockId, concat('setc byte ptr ', target.value!.asOperand()), concat('store result in ', target.source.debugName));
+    assembler.addMov(blockId, target.type.type!.asOperand(), (cast((environment.runtimeLibrary as WhateverNullable)!).coreBooleanType as Type).asOperand(), concat(target.source.debugName, ' is a Boolean'));
+  }
+
+  Null constructor(Type staticTypeArg, TypeHandle dynamicTypeArg, ValueHandle targetArg, String whatArg, Whatever environmentArg) { // XXX Whatever should be CompilationEnvironment
+    super.constructor(staticTypeArg, dynamicTypeArg, whatArg, environmentArg);
+    target = targetArg;
   }
 }
 
@@ -205,20 +242,14 @@ class StringConstantDataInstruction extends Instruction {
   SourceLocation source;
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    assembler.addData(
-      label,
-      [
-        'dq -01h',
-        // XXX length is wrong, we should be giving the byte length in whatever encoding we use (probably UTF-8? though windows, so maybe UTF-16?)
-        concat('dq ', len(scalarValues(value))), 
-        concat('db ', stringLiteral(value)),
-      ],
-      [
-        'String constant (reference count)',
-        'Length',
-        concat(source),
-      ],
-    );
+    // XXX length is wrong, we should be giving the byte length in whatever encoding we use (probably UTF-8? though windows, so maybe UTF-16?)
+    StringList data = ['dq -01h', concat('dq ', len(scalarValues(value)))]:String;
+    StringList comments = ['String constant (reference count)', 'Length']:String;
+    if (value != '') {
+      append(data, concat('db ', stringLiteral(value)));
+      append(comments, concat(source));
+    }
+    assembler.addData(label, data, comments);
   }  
 
   Null constructor(String labelArg, String valueArg, SourceLocation sourceArg) {
@@ -242,15 +273,12 @@ class SlotInstruction extends Instruction {
   }
 }
 
-class ReadSlotInstruction extends SlotInstruction {
+class PopulateValueHandleInstruction extends SlotInstruction {
   ValueHandle handle;
 
-  // XXX when assembling, defer to slot.type
-  // e.g. for ref counting management of Strings, GC of lists and objects
-
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    assert(handle.value == null, concat('tried to generate assembler for a ReadSlotInstruction (', this, ') after its handle (', handle, ') was already populated'));
-    assert(cast(slot).location != sentinel, concat('tried to generate assembler for a ReadSlotInstruction (', this, ') before the slot\'s location was populated'));
+    assert(handle.value == null, concat('tried to generate assembler for a PopulateValueHandleInstruction (', this, ') after its handle (', handle, ') was already populated'));
+    assert(cast(slot).location != sentinel, concat('tried to generate assembler for a PopulateValueHandleInstruction (', this, ') before the slot\'s location was populated'));
     handle.assign(cast(slot).location as ValueVot);
   }
 
@@ -262,11 +290,6 @@ class ReadSlotInstruction extends SlotInstruction {
 
 class WriteStaticSlotInstruction extends SlotInstruction {
   ValueVot value;
-
-  Null prepareInstructions() {
-    super.prepareInstructions();
-    value.staticType.markConstructed();
-  }
 
   // XXX when assembling, defer to slot.type
   // e.g. for ref counting management of Strings, GC of lists and objects
@@ -361,7 +384,6 @@ class SubroutineCallInstruction extends Instruction {
 // ============================================================================
 
 class Slot extends VotSource {
-  String debugName;
   Boolean isAnonymous;
   Boolean isStatic;
 
@@ -374,7 +396,7 @@ class Slot extends VotSource {
     ValueHandle result = ValueHandle(this, null);
     referencingStackFrames.add(cast(cast(currentScope).stackFrame)());
     isRead = true;
-    (cast(currentScope).emitInstruction as NullFunction)(ReadSlotInstruction(this, result));
+    (cast(currentScope).emitInstruction as NullFunction)(PopulateValueHandleInstruction(this, result));
     return result;
   }
 
@@ -386,6 +408,13 @@ class Slot extends VotSource {
   Null write(Object currentScope, ValueHandle newValue) { // XXX Object should be CompiledScope
     referencingStackFrames.add(cast(cast(currentScope).stackFrame)());
     (cast(currentScope).emitInstruction as NullFunction)(WriteDynamicSlotInstruction(this, newValue));
+  }
+
+  ValueHandle prepareWrite(Object currentScope) { // XXX Object should be CompiledScope
+    ValueHandle result = ValueHandle(this, null);
+    referencingStackFrames.add(cast(cast(currentScope).stackFrame)());
+    (cast(currentScope).emitInstruction as NullFunction)(PopulateValueHandleInstruction(this, result));
+    return result;
   }
 
   Null forceAllocation() {
@@ -414,16 +443,15 @@ class Slot extends VotSource {
     location = locationArg;
   }
 
-  Null constructor(Type staticTypeArg, Object homeScopeArg, String debugNameArg, Boolean isAnonymousArg, Boolean isStaticArg) { // XXX Object should be CompiledScope
-    super.constructor(staticTypeArg);
-    homeScope = homeScopeArg;
-    debugName = debugNameArg;
-    isAnonymous = isAnonymousArg;
-    isStatic = isStaticArg;
+  String toString() {
+    return concat('<', debugName, ': ', staticType, ' at ', location, '>');
   }
 
-  String toString() {
-    return concat('<slot ', staticType, ' at ', location, '>');
+  Null constructor(Type staticTypeArg, Object homeScopeArg, String debugNameArg, Boolean isAnonymousArg, Boolean isStaticArg) { // XXX Object should be CompiledScope
+    super.constructor(staticTypeArg, debugNameArg);
+    homeScope = homeScopeArg;
+    isAnonymous = isAnonymousArg;
+    isStatic = isStaticArg;
   }
 }
 
@@ -613,7 +641,7 @@ class CompilationEnvironment extends TypeRegistry {
   Null constructor(Assembler assembler) {
     super.constructor();
     runtimeLibrary = cast(cast(cast(this).CompiledRuntimeLibrary)(this, 'rtl'));
-    integers = VotSource(cast(runtimeLibrary).coreIntegerType as Type);
+    integers = VotSource(cast(runtimeLibrary).coreIntegerType as Type, 'integers');
    }
 }
 
@@ -667,13 +695,13 @@ class CompiledScope extends Object {
   }
 
   Slot registerDynamicValue(Type type, String debugName) {
-    Slot slot = Slot(type, this, debugName, true, false);
+    Slot slot = Slot(type, this, debugName, true, false); // anonymous, mutable
     registerSlot(slot);
     return slot;
   }
 
   Slot registerStaticValue(ValueVot value, String debugName) {
-    Slot slot = Slot(value.staticType, this, debugName, true, true);
+    Slot slot = Slot(value.staticType, this, debugName, true, true); // anonymous, immutable
     registerSlot(slot);
     slot.writeStatic(this, value);
     return slot;
@@ -681,7 +709,7 @@ class CompiledScope extends Object {
 
   Slot registerVariable(String name, Type type, ValueVot initialValue) {
     assert(!isIdentifierDeclaredInLocalScope(name), 'tried to redeclare an identifier within a scope');
-    Slot slot = Slot(type, this, name, false, false);
+    Slot slot = Slot(type, this, name, false, false); // named, mutable
     registerSlot(slot);
     identifiers.set(name, slot);
     slot.writeStatic(this, initialValue);
@@ -690,20 +718,22 @@ class CompiledScope extends Object {
 
   Slot registerConstant(String name, ValueVot value) {
     assert(!isIdentifierDeclaredInLocalScope(name), 'tried to redeclare an identifier within a scope');
-    Slot slot = Slot(value.staticType, this, name, false, true);
+    Slot slot = Slot(value.staticType, this, name, false, true); // named, immutable
     globalScope().registerSlot(slot);
     identifiers.set(name, slot);
     slot.writeStatic(this, value);
+    value.staticType.markConstructed();
     return slot;
   }
 
   Slot registerSubroutine(CompiledScope subroutine) { // XXX CompiledScope should be CompiledSubroutine
     assert(!isIdentifierDeclaredInLocalScope(cast(subroutine).name as String), 'tried to redeclare an identifier within a scope');
-    Slot slot = Slot(cast(subroutine).type as Type, this, cast(subroutine).name as String, false, true);
+    Slot slot = Slot(cast(subroutine).type as Type, this, cast(subroutine).name as String, false, true); // named, immutable
     registerSlot(slot);
     identifiers.set(cast(subroutine).name, slot);
     slot.writeStatic(this, LabelVot(cast(subroutine).type as AbstractSubroutineType, cast(subroutine).label as String));
     environment().addSubroutine(subroutine);
+    (cast(subroutine).type as Type).markConstructed();
     return slot;
   }
 
@@ -711,8 +741,8 @@ class CompiledScope extends Object {
     append(instructions, CommentInstruction('Prepare local variables for function call'));
     Slot thisPointer = registerDynamicValue(cast(cast(environment().runtimeLibrary!).coreClassType), 'this pointer');
     Slot closurePointer = registerDynamicValue(cast(cast(environment().runtimeLibrary!).coreClosureType), 'closure pointer');
-    thisPointer.writeStatic(this, SentinelVot(cast(environment().runtimeLibrary!).coreClassType as Type));
-    closurePointer.writeStatic(this, SentinelVot(cast(environment().runtimeLibrary!).coreClosureType as Type));
+    thisPointer.writeStatic(this, cast(environment().runtimeLibrary!).coreSentinel as ValueVot);
+    closurePointer.writeStatic(this, cast(environment().runtimeLibrary!).coreSentinel as ValueVot);
     Type returnType;
     VotSource targetSlot = target.source;
     if (targetSlot.staticType.isSubroutineType()) {
@@ -839,7 +869,7 @@ makeCompiledNestedScope = CompiledNestedScope;
 
 
 class CompiledStackFrameScope extends CompiledScope {
-  CompiledScope stackFrame() { // XXX CompiledScope should be CompiledStackFrameScope
+  CompiledStackFrameScope stackFrame() { 
     return this;
   }
 
@@ -1176,7 +1206,9 @@ class CompiledRuntimeLibrary extends CompiledLibrary {
   RootClassType coreClassType;
   ClosureType coreClosureType;
   SystemType coreSystemType;
+  SentinelType coreSentinelType;
 
+  ValueVot coreSentinel;
   Slot coreNull;
   Slot coreTrue;
   Slot coreFalse;
@@ -1195,6 +1227,7 @@ class CompiledRuntimeLibrary extends CompiledLibrary {
       value,
       SourceLocation(line, col, file),
     ));
+    coreStringType.markConstructed();
     return registerStaticValue(LabelPointerVot(coreStringType, label), labelBase);
   }
 
@@ -1204,9 +1237,12 @@ class CompiledRuntimeLibrary extends CompiledLibrary {
     coreClassType = RootClassType(compilationEnvironmentArg);
     coreClosureType = ClosureType(compilationEnvironmentArg);
     coreSystemType = SystemType(compilationEnvironmentArg);
+    coreSentinelType = SentinelType(compilationEnvironmentArg);
     // built-in types
     coreAnythingType = AnythingType(compilationEnvironmentArg);
     declareType(coreAnythingType);
+    coreSentinel = SentinelVot(coreSentinelType);
+    coreSentinelType.markConstructed();
     coreNullType = NullType(compilationEnvironmentArg);
     declareType(coreNullType);
     coreNull = registerConstant('null', LiteralIntegerVot(coreNullType, 0x00));

@@ -1,0 +1,16 @@
+String stringify(Anything arg) {
+  if (arg is String) {
+    return arg;
+  }
+  if (arg is Boolean) {
+    if (arg) {
+      return 'true';
+    }
+    return 'false';
+  }
+  if (arg is Null) {
+    return 'null';
+  }
+  print('Cannot stringify a value\n');
+  exit(1);
+}

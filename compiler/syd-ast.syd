@@ -99,6 +99,7 @@ class StringLiteralExpression extends Expression {
       sourceLocation,
     ));
     Type type = (scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreStringType;
+    type.markConstructed();
     return scope.registerStaticValue(LabelPointerVot(type, label), concat(this)).read(scope);
   }
 
@@ -270,20 +271,28 @@ class MemberAccessExpression extends Expression {
 
 class IsOperatorExpression extends Expression {
   Expression expression;
-  String typeName;
+  TypeIdentifier type;
   
   String toStringIndent(Integer indent) {
-    return concat(expression.toStringIndent(indent), ' is ', typeName);
+    return concat(expression.toStringIndent(indent), ' is ', type);
   }
 
   Null walk(NullFunction callback, Anything context) {
     callback(expression, context);
   }
 
-  Null constructor(Expression expressionArg, String typeNameArg, SourceLocation sourceLocationArg) {
+  ValueHandle generateInstructions(CompiledScope scope) {
+    TypeHandle lhs = expression.generateInstructions(scope).type;
+    Type rhs = type.generateInstructions(scope);
+    Slot slot = scope.registerDynamicValue((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreBooleanType, 'is expression result');
+    scope.emitInstruction(StoreTypeCheckInstruction(rhs, lhs, slot.prepareWrite(scope), concat(expression), scope.environment()));
+    return slot.read(scope);
+  }
+
+  Null constructor(Expression expressionArg, TypeIdentifier typeArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     expression = expressionArg;
-    typeName = typeNameArg;
+    type = typeArg;
   }
 }
 

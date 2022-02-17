@@ -34,7 +34,7 @@ class Type extends Object {
   }
 
   Operand asOperand() {
-    assert(code != null, concat('cannot read type operand (', name, ') before codes are assigned'));
+    assert(code != null, concat('cannot read type operand (', name, ') before codes are assigned (did you forget to call markConstructed?)'));
     return Operand(hex32(code!), otImm32);
   }
 
@@ -71,24 +71,6 @@ class Type extends Object {
   }
 }
 
-class NothingTypeXXX extends Type {
-  Boolean isSubtypeOf(Type other) {
-    return false;
-  }
-
-  Boolean literalValueIsAppropriate(Anything value) {
-    return value == this;
-  }
-
-  Boolean hasDynamicType() {
-    return false;
-  }
-
-  Null constructor(TypeRegistryInterface typeRegistryArg) {
-    super.constructor(typeRegistryArg, '<nothing>');
-  }
-}
-
 class AnythingType extends Type {
   Boolean isSubtypeOf(Type other) {
     return other is AnythingType;
@@ -98,8 +80,26 @@ class AnythingType extends Type {
     return true;
   }
 
+  Null markConstructed() {
+    assert(false, 'Anything type cannot be constructed.');
+  }
+
   Null constructor(TypeRegistryInterface typeRegistryArg) {
     super.constructor(typeRegistryArg, 'Anything');
+  }
+}
+
+class SentinelType extends Type {
+  Boolean isSubtypeOf(Type other) {
+    return true;
+  }
+
+  Boolean hasDynamicType() {
+    return true;
+  }
+
+  Null constructor(TypeRegistryInterface typeRegistryArg) {
+    super.constructor(typeRegistryArg, '<sentinel>');
   }
 }
 
@@ -112,6 +112,10 @@ class NullableType extends Type {
 
   Boolean hasDynamicType() {
     return true;
+  }
+
+  Null markConstructed() {
+    assert(false, 'Nullable types cannot be constructed.');
   }
 
   Null constructor(TypeRegistryInterface typeRegistryArg, Type subtypeArg) {
