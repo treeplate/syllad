@@ -1,0 +1,9 @@
+// expected output: Line 1
+// expected output: Line 2
+
+while (true) {
+  print('Line 1\r\n');
+  break;
+  print('FAIL\r\n');
+}
+print('Line 2\r\n');

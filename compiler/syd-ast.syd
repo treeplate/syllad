@@ -2,6 +2,7 @@ import 'core.syd';
 import 'syd-tokenizer.syd';
 import 'syd-utils.syd';
 import 'syd-compiler.syd';
+import 'syd-loop-scopes.syd';
 
 class AstNode extends SourceCode {
   String toStringIndent(Integer indent) {
@@ -666,16 +667,37 @@ class ReturnStatement extends Statement {
   }
 
   Null generateInstructions(CompiledScope scope) {
+    if (!(scope.stackFrame() is CompiledSubroutine)) {
+      throw(concat('Invalid return; not in a function at ', sourceLocation));
+    }
+    CompiledSubroutine subroutine = scope.stackFrame() as CompiledSubroutine;
     if (expression != null) {
-      scope.emitReturn(expression!.generateInstructions(scope));
+      subroutine.emitReturnFrom(scope, expression!.generateInstructions(scope));
     } else {
-      scope.emitReturn((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreNull.read(scope));
+      subroutine.emitReturnFrom(scope, (scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreNull.read(scope));
     }
   }
 
   Null constructor(ExpressionNullable expressionArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     expression = expressionArg;
+  }
+}
+
+class BreakStatement extends Statement {
+  String toStringIndent(Integer indent) {
+    return 'break;\n';
+  }
+
+  Null generateInstructions(CompiledScope scope) {
+    CompiledScopeNullable loopScope = scope;
+    while (loopScope != null && !(loopScope is CompiledLoopScope)) {
+      loopScope = loopScope!.parent;
+    }
+    if (scope == null) {
+      throw(concat('Invalid break; not in a loop at ', this));
+    }
+    (scope as CompiledLoopScope).emitBreakInstructionFrom(scope);
   }
 }
 
@@ -808,7 +830,7 @@ class IfStatement extends Statement {
     CompiledScope blockScope = CompiledNestedScope(scope, scope.environment().generateLabel(concat(camelCase(scope.name), '$if$block')));
     block.generateInstructions(blockScope);
     assert(elseClause == null, 'TODO: else clauses');
-    scope.emitIfStatement(blockScope, expressionHandle);
+    scope.emitConditionalBlock(blockScope, expressionHandle, (cast(scope.environment().runtimeLibrary!).coreFalse as Slot).read(scope), 'if', concat(expression));
   }
 
   Null walk(NullFunction callback, Anything context) {
@@ -880,6 +902,14 @@ class WhileStatement extends Statement {
   Null walk(NullFunction callback, Anything context) {
     callback(expression, context);
     callback(block, context);
+  }
+
+  Null generateInstructions(CompiledScope scope) {
+    ValueHandle expressionHandle = expression.generateInstructions(scope);
+    CompiledLoopScope loopScope = CompiledLoopScope(scope, 'while');
+    loopScope.emitConditionalJump(loopScope.loopBottomLabel, expressionHandle, (cast(scope.environment().runtimeLibrary!).coreFalse as Slot).read(scope), 'while condition');
+    block.generateInstructions(loopScope);
+    scope.emitBlock(loopScope);
   }
 
   Null constructor(Expression expressionArg, StatementBlock blockArg, SourceLocation sourceLocationArg) {

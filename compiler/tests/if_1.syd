@@ -1,20 +1,20 @@
-// expected output: Hi
-// expected output: Hello
+// expected output: Line 1
+// expected output: Line 2
 // expected exit code is 3
 
 Boolean not(Boolean x) {
-  if(x) {
+  if (x) {
     return false;
   }
   return true;
 }
 
 Null foo(Boolean x) {
-  if(x) {
-    print("Hi\n");
+  if (not(x)) {
+    print("Line 2\n");
   }
-  if(not(x)) {
-    print("Hello\n");
+  if (x) {
+    print("Line 1\n");
   }
 }
 foo(true);

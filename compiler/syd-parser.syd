@@ -1,0 +1,552 @@
+import 'syd-tokenizer.syd';
+import 'syd-ast.syd';
+
+// forward declaration
+ExpressionFunction parseExpression;
+
+Expression parseExpressionLeaves(TokenConsumer source) {
+  // bool literals
+  if (source.isNext(ttIdentifier)) {
+    String identifier = source.readIdentifier();
+    return VariableExpression(identifier, source.lastLocation());
+  }
+  if (source.isNext(ttString)) {
+    String value = source.readString();
+    return StringLiteralExpression(value, source.lastLocation());
+  }
+  if (source.isNext(ttInteger)) {
+    Integer value = source.readInteger();
+    return IntegerLiteralExpression(value, source.lastLocation());
+  }
+  if (source.isNext(ttOpenBracket)) {
+    source.expectPunctuation(ttOpenBracket);
+    ExpressionList values = []:Expression;
+    while (!source.isNext(ttCloseBracket)) {
+      append(values, parseExpression(source));
+      if (!source.isNext(ttCloseBracket)) {
+        source.expectPunctuation(ttComma);
+      }
+    }
+    source.expectPunctuation(ttCloseBracket);
+    return ListLiteralExpression(values, source.lastLocation());
+  }
+  if (source.isNext(ttOpenParen)) {
+    source.expectPunctuation(ttOpenParen);
+    Expression expression = parseExpression(source);
+    source.expectPunctuation(ttCloseParen);
+    return expression;
+  }
+  throw(source.expected('expression'));
+}
+
+Expression parseUnaryExpression(TokenConsumer source) {
+  if (source.isNext(ttMinus)) {
+    source.expectPunctuation(ttMinus);
+    SourceLocation location = source.lastLocation();
+    return IntegerNegationExpression(parseUnaryExpression(source), location);
+  }
+  if (source.isNext(ttPlus)) {
+    source.expectPunctuation(ttPlus);
+    SourceLocation location = source.lastLocation();
+    return PlusExpression(parseUnaryExpression(source), location);
+  }
+  if (source.isNext(ttBang)) {
+    source.expectPunctuation(ttBang);
+    SourceLocation location = source.lastLocation();
+    return BooleanNotExpression(parseUnaryExpression(source), location);
+  }
+  if (source.isNext(ttTilde)) {
+    source.expectPunctuation(ttTilde);
+    SourceLocation location = source.lastLocation();
+    return BitwiseNotExpression(parseUnaryExpression(source), location);
+  }
+  Expression result = parseExpressionLeaves(source);
+  while (true) {
+    if (source.isNext(ttOpenParen)) {
+      source.expectPunctuation(ttOpenParen);
+      ExpressionList arguments = []:Expression;
+      while (!source.isNext(ttCloseParen)) {
+        append(arguments, parseExpression(source));
+        if (!source.isNext(ttCloseParen)) {
+          source.expectPunctuation(ttComma);
+        }
+      }
+      source.expectPunctuation(ttCloseParen);
+      result = SubroutineCallExpression(result, arguments, source.lastLocation());
+      continue;
+    }
+    if (source.isNext(ttOpenBracket)) {
+      source.expectPunctuation(ttOpenBracket);
+      Expression argument = parseExpression(source);
+      source.expectPunctuation(ttCloseBracket);
+      result = SubscriptExpression(result, argument, source.lastLocation());
+      continue;
+    }
+    if (source.isNext(ttPeriod)) {
+      source.expectPunctuation(ttPeriod);
+      String identifier = source.readIdentifier();
+      result = MemberAccessExpression(result, identifier, source.lastLocation());
+      continue;
+    }
+    if (source.isNextIdentifier('is')) {
+      source.expectIdentifier('is');
+      String typeName = source.readIdentifier();
+      result = IsOperatorExpression(result, TypeIdentifier(typeName, source.lastLocation()), source.lastLocation());
+      continue;
+    }
+    break;
+  }
+  return result;
+}
+
+Expression parseExpressionMultiplication(TokenConsumer source) {
+  Expression result = parseUnaryExpression(source);
+  while (true) {
+    if (source.isNext(ttAsterisk)) {
+      source.expectPunctuation(ttAsterisk);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseUnaryExpression(source);
+      result = OperatorMultiplicationExpression(result, rhs, location);
+      continue;
+    }
+    if (source.isNext(ttSlash)) {
+      source.expectPunctuation(ttSlash);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseUnaryExpression(source);
+      result = OperatorDivisionExpression(result, rhs, location);
+      continue;
+    }
+    if (source.isNext(ttModulus)) {
+      source.expectPunctuation(ttModulus);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseUnaryExpression(source);
+      result = OperatorModulusExpression(result, rhs, location);
+      continue;
+    }
+    break;
+  }
+  return result;
+}
+
+Expression parseExpressionAddition(TokenConsumer source) {
+  Expression result = parseExpressionMultiplication(source);
+  while (true) {
+    if (source.isNext(ttPlus)) {
+      source.expectPunctuation(ttPlus);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseExpressionMultiplication(source);
+      result = OperatorAdditionExpression(result, rhs, location);
+      continue;
+    }
+    if (source.isNext(ttMinus)) {
+      source.expectPunctuation(ttMinus);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseExpressionMultiplication(source);
+      result = OperatorSubtractionExpression(result, rhs, location);
+      continue;
+    }
+    break;
+  }
+  return result;
+}
+
+Expression parseExpressionShift(TokenConsumer source) {
+  Expression result = parseExpressionAddition(source);
+  while (true) {
+    if (source.isNext(ttLessThanLessThan)) {
+      source.expectPunctuation(ttLessThanLessThan);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseExpressionAddition(source);
+      result = OperatorLeftShiftExpression(result, rhs, location);
+      continue;
+    }
+    if (source.isNext(ttGreaterThanGreaterThan)) {
+      source.expectPunctuation(ttGreaterThanGreaterThan);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseExpressionAddition(source);
+      result = OperatorRightShiftExpression(result, rhs, location);
+      continue;
+    }
+    break;
+  }
+  return result;
+}
+
+Expression parseExpressionRelational(TokenConsumer source) {
+  Expression result = parseExpressionShift(source);
+  while (true) {
+    if (source.isNext(ttLessThan)) {
+      source.expectPunctuation(ttLessThan);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseExpressionShift(source);
+      result = OperatorLessThanExpression(result, rhs, location);
+      continue;
+    }
+    if (source.isNext(ttLessThanEquals)) {
+      source.expectPunctuation(ttLessThanEquals);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseExpressionShift(source);
+      result = OperatorLessThanOrEqualsExpression(result, rhs, location);
+      continue;
+    }
+    if (source.isNext(ttGreaterThan)) {
+      source.expectPunctuation(ttGreaterThan);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseExpressionAddition(source);
+      result = OperatorGreaterThanExpression(result, rhs, location);
+      continue;
+    }
+    if (source.isNext(ttGreaterThanEquals)) {
+      source.expectPunctuation(ttGreaterThanEquals);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseExpressionAddition(source);
+      result = OperatorGreaterThanOrEqualsExpression(result, rhs, location);
+      continue;
+    }
+    break;
+  }
+  return result;
+}
+
+Expression parseExpressionLogicalEquality(TokenConsumer source) {
+  Expression result = parseExpressionRelational(source);
+  while (true) {
+    if (source.isNext(ttEqualsEquals)) {
+      source.expectPunctuation(ttEqualsEquals);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseExpressionRelational(source);
+      result = OperatorEqualsEqualsExpression(result, rhs, location);
+      continue;
+    }
+    if (source.isNext(ttBangEquals)) {
+      source.expectPunctuation(ttBangEquals);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseExpressionRelational(source);
+      result = OperatorBangEqualsExpression(result, rhs, location);
+      continue;
+    }
+    break;
+  }
+  return result;
+}
+
+Expression parseExpressionBitwiseAnd(TokenConsumer source) {
+  Expression result = parseExpressionLogicalEquality(source);
+  while (true) {
+    if (source.isNext(ttAmpersand)) {
+      source.expectPunctuation(ttAmpersand);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseExpressionLogicalEquality(source);
+      result = OperatorBitwiseAndExpression(result, rhs, location);
+      continue;
+    }
+    break;
+  }
+  return result;
+}
+
+Expression parseExpressionBitwiseXor(TokenConsumer source) {
+  Expression result = parseExpressionBitwiseAnd(source);
+  while (true) {
+    if (source.isNext(ttCaret)) {
+      source.expectPunctuation(ttCaret);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseExpressionBitwiseAnd(source);
+      result = OperatorBitwiseXorExpression(result, rhs, location);
+      continue;
+    }
+    break;
+  }
+  return result;
+}
+
+Expression parseExpressionBitwiseOr(TokenConsumer source) {
+  Expression result = parseExpressionBitwiseXor(source);
+  while (true) {
+    if (source.isNext(ttVerticalBar)) {
+      source.expectPunctuation(ttVerticalBar);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseExpressionBitwiseXor(source);
+      result = OperatorBitwiseOrExpression(result, rhs, location);
+      continue;
+    }
+    break;
+  }
+  return result;
+}
+
+Expression parseExpressionLogicalAnd(TokenConsumer source) {
+  Expression result = parseExpressionBitwiseOr(source);
+  while (true) {
+    if (source.isNext(ttAmpersandAmpersand)) {
+      source.expectPunctuation(ttAmpersandAmpersand);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseExpressionBitwiseOr(source);
+      result = OperatorLogicalAndExpression(result, rhs, location);
+      continue;
+    }
+    break;
+  }
+  return result;
+}
+
+Expression _parseExpression(TokenConsumer source) {
+  Expression result = parseExpressionLogicalAnd(source);
+  while (true) {
+    if (source.isNext(ttVerticalBarVerticalBar)) {
+      source.expectPunctuation(ttVerticalBarVerticalBar);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseExpressionLogicalAnd(source);
+      result = OperatorLogicalOrExpression(result, rhs, location);
+      continue;
+    }
+    break;
+  }
+  return result;
+}
+parseExpression = _parseExpression;
+
+// forward declaration
+StatementFunction parseStatement;
+
+StatementBlock parseBlock(TokenConsumer source) {
+  source.expectPunctuation(ttOpenBrace);
+  StatementList statements = []:Statement;
+  while (!source.isNext(ttCloseBrace)) {
+    append(statements, parseStatement(source));
+  }
+  source.expectPunctuation(ttCloseBrace);
+  return StatementBlock(statements, source.lastLocation());
+}
+
+IfStatement parseIfStatement(TokenConsumer source) {
+  source.expectIdentifier('if');
+  SourceLocation location = source.lastLocation();
+  source.expectPunctuation(ttOpenParen);
+  Expression expression = parseExpression(source);
+  source.expectPunctuation(ttCloseParen);
+  StatementBlock block = parseBlock(source);
+  ElseClauseNullable elseClause = null;
+  if (source.isNextIdentifier('else')) {
+    source.expectIdentifier('else');
+    SourceLocation location = source.lastLocation();
+    if (source.isNextIdentifier('if')) {
+      elseClause = ElseIfClause(parseIfStatement(source), location);
+    } else {
+      elseClause = DefaultElseClause(parseBlock(source), location);
+    }
+  }
+  return IfStatement(expression, block, elseClause, location);
+}
+
+Statement parseDeclaration(TokenConsumer source) {
+  String typeName = source.readIdentifier();
+  TypeIdentifier type = TypeIdentifier(typeName, source.lastLocation());
+  String identifier = source.readIdentifier();
+  if (source.isNext(ttEquals)) {
+    source.expectPunctuation(ttEquals);
+    SourceLocation location = source.lastLocation();
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return VariableDeclarationStatement(type, identifier, initializer, location);
+  }
+  if (source.isNext(ttOpenParen)) {
+    SourceLocation location = source.lastLocation();
+    source.expectPunctuation(ttOpenParen);
+    AnythingListList parameters = []:AnythingList;
+    while (!source.isNext(ttCloseParen)) {
+      if (len(parameters) > 0) {
+        source.expectPunctuation(ttComma);
+      }
+      String parameterTypeName = source.readIdentifier();
+      TypeIdentifier parameterType = TypeIdentifier(parameterTypeName, source.lastLocation());
+      String parameterName = source.readIdentifier();
+      append(parameters, [ parameterType, parameterName ]);
+    }
+    source.expectPunctuation(ttCloseParen);
+    StatementBlock block = parseBlock(source);
+    return SubroutineDeclarationStatement(type, identifier, parameters, block, location);
+  }
+  if (source.isNext(ttSemicolon)) {
+    SourceLocation location = source.lastLocation();
+    source.expectPunctuation(ttSemicolon);
+    Expression initialValue;
+    return VariableDeclarationStatement(type, identifier, null, location);
+  }
+  throw(source.expected('"=", "(", or ";"'));
+}
+
+Statement _parseStatement(TokenConsumer source) {
+  if (source.isNextIdentifier('enum')) {
+    source.expectIdentifier('enum');
+    String name = source.readIdentifier();
+    source.expectPunctuation(ttOpenBrace);
+    StringList values = []:String;
+    while (source.isNext(ttIdentifier)) {
+      append(values, source.readIdentifier());
+    }
+    source.expectPunctuation(ttCloseBrace);
+    return EnumDeclaration(name, values, source.lastLocation());
+  }
+  if (source.isNextIdentifier('class')) {
+    source.expectIdentifier('class');
+    String className = source.readIdentifier();
+    SourceLocation location = source.lastLocation();
+    StringNullable superclassName = null;
+    if (source.isNextIdentifier('extends')) {
+      source.expectIdentifier('extends');
+      superclassName = source.readIdentifier();
+    }
+    source.expectPunctuation(ttOpenBrace);
+    DeclarationStatementList members = []:DeclarationStatement;
+    while (!source.isNext(ttCloseBrace)) {
+      append(members, parseDeclaration(source));
+    }
+    source.expectPunctuation(ttCloseBrace);
+    return ClassDeclaration(className, superclassName, members, location);
+  }
+  if (source.isNextIdentifier('if')) {
+    return parseIfStatement(source);
+  }
+  if (source.isNextIdentifier('return')) {
+    source.expectIdentifier('return');
+    ExpressionNullable returnValue = null;
+    if (!source.isNext(ttSemicolon)) {
+      returnValue = parseExpression(source);
+    }
+    source.expectPunctuation(ttSemicolon);
+    return ReturnStatement(returnValue, source.lastLocation());
+  }
+  if (source.isNextIdentifier('break')) {
+    source.expectIdentifier('break');
+    source.expectPunctuation(ttSemicolon);
+    return BreakStatement(source.lastLocation());
+  }
+  if (source.isNextIdentifier('import')) {
+    source.expectIdentifier('import');
+    String path = source.readString();
+    source.expectPunctuation(ttSemicolon);
+    return ImportStatement(path, source.lastLocation());
+  }
+  if (source.isNextIdentifier('while')) {
+    source.expectIdentifier('while');
+    source.expectPunctuation(ttOpenParen);
+    Expression expression = parseExpression(source);
+    source.expectPunctuation(ttCloseParen);
+    SourceLocation location = source.lastLocation();
+    StatementBlock block = parseBlock(source);
+    return WhileStatement(expression, block, location);
+  }
+  if (source.isNextIdentifier('for')) {
+    source.expectIdentifier('for');
+    source.expectPunctuation(ttOpenParen);
+    String variable = source.readIdentifier();
+    source.expectIdentifier('in');
+    Expression expression = parseExpression(source);
+    source.expectPunctuation(ttCloseParen);
+    SourceLocation location = source.lastLocation();
+    StatementBlock block = parseBlock(source);
+    return ForStatement(variable, expression, block, location);
+  }
+  // TODO:
+  // break
+  // continue
+  if (source.isNext2(ttIdentifier, ttIdentifier)) {
+    return parseDeclaration(source);
+  }
+  Expression expression = parseExpression(source);
+  if (source.isNext(ttSemicolon)) {
+    source.expectPunctuation(ttSemicolon);
+    return ExpressionStatement(expression, source.lastLocation());
+  }
+  // Expression followed by some operator: must be assignment.
+  // TODO: the following leads to a weird error when the input is just |''|.
+  if (!expression.isLValue()) {
+    throw(source.butFound('assignable lvalue expression', expression.toString()));
+  }
+  if (source.isNext(ttEquals)) {
+    source.expectPunctuation(ttEquals);
+    SourceLocation location = source.lastLocation();
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return StraightAssignmentStatement(expression, initializer, location);
+  }
+  if (source.isNext(ttPlusEquals)) {
+    source.expectPunctuation(ttPlusEquals);
+    SourceLocation location = source.lastLocation();
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return PlusAssignmentStatement(expression, initializer, location);
+  }
+  if (source.isNext(ttMinusEquals)) {
+    source.expectPunctuation(ttMinusEquals);
+    SourceLocation location = source.lastLocation();
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return MinusAssignmentStatement(expression, initializer, location);
+  }
+  if (source.isNext(ttAsteriskEquals)) {
+    source.expectPunctuation(ttAsteriskEquals);
+    SourceLocation location = source.lastLocation();
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return AsteriskAssignmentStatement(expression, initializer, location);
+  }
+  if (source.isNext(ttAsteriskEquals)) {
+    source.expectPunctuation(ttAsteriskEquals);
+    SourceLocation location = source.lastLocation();
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return AsteriskAssignmentStatement(expression, initializer, location);
+  }
+  if (source.isNext(ttSlashEquals)) {
+    source.expectPunctuation(ttSlashEquals);
+    SourceLocation location = source.lastLocation();
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return SlashAssignmentStatement(expression, initializer, location);
+  }
+  if (source.isNext(ttModulusEquals)) {
+    source.expectPunctuation(ttModulusEquals);
+    SourceLocation location = source.lastLocation();
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return ModulusAssignmentStatement(expression, initializer, location);
+  }
+  if (source.isNext(ttAmpersandEquals)) {
+    source.expectPunctuation(ttAmpersandEquals);
+    SourceLocation location = source.lastLocation();
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return BitwiseAndAssignmentStatement(expression, initializer, location);
+  }
+  if (source.isNext(ttCaretEquals)) {
+    source.expectPunctuation(ttCaretEquals);
+    SourceLocation location = source.lastLocation();
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return BitwiseXorAssignmentStatement(expression, initializer, location);
+  }
+  if (source.isNext(ttVerticalBarEquals)) {
+    source.expectPunctuation(ttVerticalBarEquals);
+    SourceLocation location = source.lastLocation();
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return BitwiseOrAssignmentStatement(expression, initializer, location);
+  }
+  throw(source.expected('assignment operator (e.g. "=")'));
+}
+parseStatement = _parseStatement;
+
+Library parseTokens(TokenList tokens, String name, Boolean isProgram) {
+  stderr('parsing...');
+  TokenConsumer source = TokenConsumer(tokens);
+  StatementList statements = []:Statement;
+  while (!source.isNext(ttEof)) {
+    append(statements, parseStatement(source));
+  }
+  if (isProgram) {
+    return Program(statements, name, SourceLocation(0, 0, name));
+  }
+  return Library(statements, name, SourceLocation(0, 0, name));
+}

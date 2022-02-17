@@ -28,51 +28,6 @@ import 'syd-assembler.syd';
      *     0000 :    0000 :
      */
 
-// ============================================================================
-// VOT HANDLES
-// ============================================================================
-
-class TypeHandle extends Object {
-  TypeVotNullable type = null;
-
-  Null assign(TypeVot typeArg) {
-    assert(type == null, 'cannot assign a type handle twice');
-    type = typeArg;
-  }
-
-  Null constructor(TypeVotNullable typeArg) {
-    super.constructor();
-    if (typeArg != null) {
-      assign(typeArg!);
-    }
-  }
-}
-
-class ValueHandle extends Object {
-  VotSource source;
-  ValueVotNullable value = null;
-  TypeHandle type;
-
-  Null forceAllocation() {
-    source.forceAllocation();
-  }
-
-  Null assign(ValueVot valueArg) {
-    assert(value == null, 'cannot assign a value handle twice');
-    assert(valueArg.staticType.isSubtypeOf(source.staticType), concat('cannot assign ', valueArg.staticType, ' to ', source.staticType));
-    value = valueArg;
-    type.assign(valueArg.dynamicType());
-  }
-
-  Null constructor(VotSource sourceArg, ValueVotNullable valueArg) {
-    super.constructor();
-    source = sourceArg;
-    type = TypeHandle(null);
-    if (valueArg != null) {
-      assign(valueArg!);
-    }
-  }
-}
 
 // ============================================================================
 // INSTRUCTIONS
@@ -109,27 +64,23 @@ class CommentInstruction extends Instruction {
   }
 }
 
-class ReturnInstruction extends Instruction {
-  Object stackFrame; // XXX Object should be CompiledSubroutine
+class LabelInstruction extends Instruction {
+  String label;
   String comment;
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    assembler.addCode(blockId, concat('jmp ', cast(stackFrame).epilogLabel), comment);
+    assembler.addCode(blockId, concat(label, ':'), comment);
   }
 
-  Null constructor(Object stackFrameArg, String commentArg) { // XXX Object should be CompiledSubroutine
+  Null constructor(String labelArg, String commentArg) {
     super.constructor();
-    stackFrame = stackFrameArg;
+    label = labelArg;
     comment = commentArg;
   }
 }
 
-class DoIfNotEqualInstruction extends Instruction {
-  ValueHandle a;
-  ValueHandle b;
-  String continueLabel;
-  Object block; // XXX should be CompiledScope
-  String comment;
+class DoBlockInstruction extends Instruction {
+  Object block; // XXX should be CompiledNestedScope
 
   Null prepareInstructions() {
     super.prepareInstructions();
@@ -137,18 +88,66 @@ class DoIfNotEqualInstruction extends Instruction {
   }
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    assembler.addCmp(blockId, a.value!.asOperand(), b.value!.asOperand(), comment);
-    assembler.addCode(blockId, concat('je ', continueLabel), 'skip next block if they are equal');
     (cast(block).generateAssembler as NullFunction)(assembler, blockId);
-    assembler.addCode(blockId, concat(continueLabel, ':'), null);
   }
 
-  Null constructor(ValueHandle aArg, ValueHandle bArg, String continueLabelArg, Object blockArg, String commentArg) { // XXX Object should be CompiledScope
+  Null constructor(Object blockArg) { // XXX Object should be CompiledScope
+    super.constructor();
+    block = blockArg;
+  }
+}
+
+class JumpInstruction extends Instruction {
+  String target;
+  String comment;
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addCode(blockId, concat('jmp ', target), comment);
+  }
+
+  Null constructor(String targetArg, String commentArg) {
+    super.constructor();
+    target = targetArg;
+    comment = commentArg;
+  }
+}
+
+class JumpIfEqualInstruction extends Instruction {
+  ValueHandle a;
+  ValueHandle b;
+  String label;
+  String comment;
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addCmp(blockId, a.value!.asOperand(), b.value!.asOperand(), comment);
+    assembler.addCode(blockId, concat('je ', label), 'jump if they are equal');
+  }
+
+  Null constructor(ValueHandle aArg, ValueHandle bArg, String labelArg, String commentArg) {
     super.constructor();
     a = aArg;
     b = bArg;
-    continueLabel = continueLabelArg;
-    block = blockArg;
+    label = labelArg;
+    comment = commentArg;
+  }
+}
+
+class JumpUnlessEqualInstruction extends Instruction {
+  ValueHandle a;
+  ValueHandle b;
+  String label;
+  String comment;
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addCmp(blockId, a.value!.asOperand(), b.value!.asOperand(), comment);
+    assembler.addCode(blockId, concat('jne ', label), 'jump if they are equal');
+  }
+
+  Null constructor(ValueHandle aArg, ValueHandle bArg, String labelArg, String commentArg) {
+    super.constructor();
+    a = aArg;
+    b = bArg;
+    label = labelArg;
     comment = commentArg;
   }
 }
@@ -210,7 +209,7 @@ class DoIfTypeMismatchInstruction extends TypeCheckInstruction {
 
   Null constructor(Type staticTypeArg, TypeHandle dynamicTypeArg, String continueLabelArg, Object blockArg, String whatArg) { // XXX Object should be CompiledScope
     super.constructor(staticTypeArg, dynamicTypeArg, whatArg, cast(cast(blockArg).environment)() as TypeRegistry);
-    continueLabel = continueLabelArg;
+    continueLabel = cast(environment.generateLabel)(concat(continueLabelArg, '$TypeMatch')) as String;
     block = blockArg;
   }
 }
@@ -652,7 +651,7 @@ ObjectFunction makeCompiledNestedScope;
 class CompiledScope extends Object {
   // parent scope, for lookups
   CompiledScopeNullable parent;
-  String name;
+  String name; // TODO: rethink exactly what this means
 
   CompiledScope globalScope() { // XXX CompiledScope should be CompiledLibrary
     assert(parent != null, 'compiled scope chain failure');
@@ -668,6 +667,10 @@ class CompiledScope extends Object {
   CompilationEnvironment environment() {
     assert(parent != null, 'compiled scope chain failure');
     return cast(cast(parent!).environment)();
+  }
+
+  String labelPrefix() {
+    abstract();
   }
 
   // variables namespace
@@ -767,8 +770,8 @@ class CompiledScope extends Object {
   }
 
   CompiledScope createErrorHandlerBlock(Slot errorMessage, String what) {
-    String label = environment().generateLabel(concat('func$', name, '$', camelCase(what), '$Ok'));
-    CompiledScope block = makeCompiledNestedScope(this, label) as CompiledScope;
+    CompiledScope block = makeCompiledNestedScope(this, concat(camelCase(what), '$Error')) as CompiledScope;
+    String label = environment().generateLabel(concat(block.labelPrefix(), '$', camelCase(what), '$Ok'));
     ValueHandle printHandle = (cast(environment().runtimeLibrary!).corePrint as Slot).read(block);
     block.emitSubroutineCall(printHandle, [ errorMessage.read(block) ]);
     ValueHandle exitHandle = (cast(environment().runtimeLibrary!).coreExit as Slot).read(block);
@@ -779,22 +782,24 @@ class CompiledScope extends Object {
 
   Null emitTypeCheck(ValueHandle value, Type type, Slot errorMessage, String what) {
     CompiledScope block = createErrorHandlerBlock(errorMessage, what);
-    append(instructions, DoIfTypeMismatchInstruction(type, value.type, block.name, block, what));
+    append(instructions, DoIfTypeMismatchInstruction(type, value.type, concat(labelPrefix(), '$', camelCase(what)), block, what));
   }
 
-  Null emitReturn(ValueHandle value) {
-    // xxxx verify the type statically
-    CompiledScope subroutine = stackFrame();
-    assert(subroutine.className == 'CompiledSubroutine', 'cannot return from global scope'); // XXX should use "is" operator
-    Type returnType = (cast(subroutine).type as AbstractSubroutineType).returnType;
-    emitTypeCheck(value, returnType, cast(environment().runtimeLibrary!).returnValueTypeCheckFailureMessage as Slot, concat('return value of ', name));
-    (cast(subroutine).returnValue as Slot).write(this, value);
-    append(instructions, ReturnInstruction(subroutine, 'return'));
+  Null emitBlock(CompiledScope block) {
+    append(instructions, DoBlockInstruction(block));
   }
 
-  Null emitIfStatement(CompiledScope block, ValueHandle condition) {
-    String label = environment().generateLabel(concat(camelCase(name), '$if$continuation'));
-    append(instructions, DoIfNotEqualInstruction(condition, (cast(environment().runtimeLibrary!).coreFalse as Slot).read(this), label, block, 'if statement'));
+  // runs block if a != b
+  Null emitConditionalBlock(CompiledScope block, ValueHandle a, ValueHandle b, String what, String comment) {
+    String label = environment().generateLabel(concat(labelPrefix(), '$', camelCase(what), '$continuation'));
+    append(instructions, JumpIfEqualInstruction(a, b, label, comment));
+    append(instructions, DoBlockInstruction(block));
+    append(instructions, LabelInstruction(label, concat('end of ', what)));
+  }
+
+  // jumps to label if a == b
+  Null emitConditionalJump(String label, ValueHandle a, ValueHandle b, String comment) {
+    append(instructions, JumpIfEqualInstruction(a, b, label, comment));
   }
 
   Null emitParameterChecks(SlotList parameters) {
@@ -808,13 +813,7 @@ class CompiledScope extends Object {
       cast(environment().runtimeLibrary!).parameterCountCheckFailureMessage as Slot,
       'parameter count',
     );
-    append(instructions, DoIfNotEqualInstruction(
-      paramCountValue,
-      expectedParamCountValue,
-      block.name,
-      block,
-      'check number of parameters is as expected',
-    ));
+    emitConditionalBlock(block, paramCountValue, expectedParamCountValue, 'parameter count', 'check number of parameters is as expected');
     Integer index = 0;
     for (parameter in parameters) {
       append(instructions, CommentInstruction(concat('Check type of parameter ', index, ', ', parameter.debugName, ' (expecting ', parameter.staticType, ')')));
@@ -861,12 +860,19 @@ class CompiledScope extends Object {
 }
 
 class CompiledNestedScope extends CompiledScope {
+  String labelPrefix() {
+    return concat(parent!.labelPrefix(), '$', name);
+  }
+
   Null generateAssembler(Assembler assembler, Integer blockId) {
     assembler.indent(blockId, super.generateAssembler);
   }
+
+  Null constructor(CompiledScope parentArg, String nameArg) {
+    super.constructor(parentArg, nameArg);
+  }
 }
 makeCompiledNestedScope = CompiledNestedScope;
-
 
 class CompiledStackFrameScope extends CompiledScope {
   CompiledStackFrameScope stackFrame() { 
@@ -943,12 +949,22 @@ class CompiledStackFrameScope extends CompiledScope {
   }
 }
 
+class ReturnInstruction extends JumpInstruction {
+  Null constructor(Object stackFrame, String commentArg) { // XXX Object should be CompiledSubroutine
+    super.constructor(cast(stackFrame).epilogLabel as String, commentArg);
+  }
+}
+
 class CompiledSubroutine extends CompiledStackFrameScope {
   AbstractSubroutineType type;
   String label;
   String epilogLabel;
 
   Slot returnValue;
+
+  String labelPrefix() {
+    return concat('func$', name);
+  }
 
   StringList nonvolatileRegistersUsed() {
     StringList result = super.nonvolatileRegistersUsed();
@@ -984,11 +1000,18 @@ class CompiledSubroutine extends CompiledStackFrameScope {
     generateAssembler(assembler, assembler.addLabel(label, name));
   }
 
+  Null emitReturnFrom(CompiledScope scope, ValueHandle value) {
+    // xxxx verify the type of value statically
+    scope.emitTypeCheck(value, type.returnType, cast(environment().runtimeLibrary!).returnValueTypeCheckFailureMessage as Slot, concat('return value of ', name));
+    returnValue.write(scope, value);
+    scope.emitInstruction(ReturnInstruction(this, 'return'));
+  }
+
   Null constructor(CompiledScopeNullable parentArg, AbstractSubroutineType typeArg, String nameArg) {
     super.constructor(parentArg, nameArg);
     type = typeArg;
-    label = environment().generateLabel(concat('func$', name));
-    epilogLabel = environment().generateLabel(concat('func$', name, '$epilog'));
+    label = environment().generateLabel(labelPrefix());
+    epilogLabel = environment().generateLabel(concat(labelPrefix(), '$epilog'));
     returnValue = registerDynamicValue(type.returnType, 'return value');
     returnValue.writeStatic(this, OperandPairVot(type.returnType, Operand('r15-08h', otIndirect), Operand('r15', otIndirect)));
   }
@@ -1120,6 +1143,10 @@ class CompiledLibrary extends CompiledStackFrameScope {
     return compilationEnvironment;
   }
 
+  String labelPrefix() {
+    return camelCase(name);
+  }
+
   CompiledLibraryList libraries = []:CompiledLibrary;
 
   Null importLibrary(CompiledLibrary library) {
@@ -1197,6 +1224,10 @@ class CompiledLibrary extends CompiledStackFrameScope {
 }
 
 class CompiledRuntimeLibrary extends CompiledLibrary {
+  String labelPrefix() {
+    return 'rtl';
+  }
+
   AnythingType coreAnythingType;
   NullType coreNullType;
   BooleanType coreBooleanType;

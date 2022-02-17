@@ -234,3 +234,45 @@ class ParameterVot extends ValueVot {
            + 0x08 * savedRegisterCount;
   }
 }
+
+class TypeHandle extends Object {
+  TypeVotNullable type = null;
+
+  Null assign(TypeVot typeArg) {
+    assert(type == null, 'cannot assign a type handle twice');
+    type = typeArg;
+  }
+
+  Null constructor(TypeVotNullable typeArg) {
+    super.constructor();
+    if (typeArg != null) {
+      assign(typeArg!);
+    }
+  }
+}
+
+class ValueHandle extends Object {
+  VotSource source;
+  ValueVotNullable value = null;
+  TypeHandle type;
+
+  Null forceAllocation() {
+    source.forceAllocation();
+  }
+
+  Null assign(ValueVot valueArg) {
+    assert(value == null, 'cannot assign a value handle twice');
+    assert(valueArg.staticType.isSubtypeOf(source.staticType), concat('cannot assign ', valueArg.staticType, ' to ', source.staticType));
+    value = valueArg;
+    type.assign(valueArg.dynamicType());
+  }
+
+  Null constructor(VotSource sourceArg, ValueVotNullable valueArg) {
+    super.constructor();
+    source = sourceArg;
+    type = TypeHandle(null);
+    if (valueArg != null) {
+      assign(valueArg!);
+    }
+  }
+}

@@ -1,0 +1,28 @@
+import 'syd-compiler.syd';
+
+class CompiledLoopScope extends CompiledNestedScope {
+  String loopTopLabel;
+  String loopBottomLabel;
+
+  Null prepareInstructions() {
+    emitInstruction(JumpInstruction(loopTopLabel, concat('return to top of ', name)));
+    super.prepareInstructions();
+  }
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addCode(blockId, concat(loopTopLabel, ':'), null);
+    super.generateAssembler(assembler, blockId);
+    assembler.addCode(blockId, concat(loopBottomLabel, ':'), null);
+  }
+
+  Null emitBreakInstructionFrom(CompiledScope scope) {
+    // jump to loopBottomLabel
+    scope.emitInstruction(JumpInstruction(loopBottomLabel, concat('break out of ', name)));
+  }
+
+  Null constructor(CompiledScope parentArg, String nameArg) {
+    super.constructor(parentArg, nameArg);
+    loopTopLabel = environment().generateLabel(concat(parentArg.labelPrefix(), '$', name, '$top'));
+    loopBottomLabel = environment().generateLabel(concat(parentArg.labelPrefix(), '$', name, '$bottom'));
+  }
+}
