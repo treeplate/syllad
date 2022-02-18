@@ -82,8 +82,9 @@ class Expression extends AstNode {
     return false;
   }
 
-  // Expressions are expected to declare a Slot then return a ValueHandle read from that Slot
-  ValueHandle generateInstructions(CompiledScope scope) {
+  // Expressions are expected to declare (or identify) a Slot, and return it.
+  // For lvalues, this Slot might be written to.
+  Slot generateInstructions(CompiledScope scope) {
     abstract();
   }
 }
@@ -92,7 +93,7 @@ class StringLiteralExpression extends Expression {
   String value;
   String label;
 
-  ValueHandle generateInstructions(CompiledScope scope) {
+  Slot generateInstructions(CompiledScope scope) {
     label = scope.environment().generateLabel('string');
     scope.emitInstruction(StringConstantDataInstruction(
       label,
@@ -101,7 +102,7 @@ class StringLiteralExpression extends Expression {
     ));
     Type type = (scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreStringType;
     type.markConstructed();
-    return scope.registerStaticValue(LabelPointerVot(type, label), concat(this)).read(scope);
+    return scope.registerStaticValue(LabelPointerVot(type, label), concat(this));
   }
 
   String toStringIndent(Integer indent) {
@@ -117,9 +118,8 @@ class StringLiteralExpression extends Expression {
 class IntegerLiteralExpression extends Expression {
   Integer value;
 
-  ValueHandle generateInstructions(CompiledScope scope) {
-    Slot slot = scope.registerStaticValue(LiteralIntegerVot((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreIntegerType, value), concat(this));
-    return slot.read(scope);
+  Slot generateInstructions(CompiledScope scope) {
+    return scope.registerStaticValue(LiteralIntegerVot((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreIntegerType, value), concat(this));
   }
   
   String toStringIndent(Integer indent) {
@@ -165,12 +165,12 @@ class VariableExpression extends Expression {
     return true;
   }
 
-  ValueHandle generateInstructions(CompiledScope scope) {
+  Slot generateInstructions(CompiledScope scope) {
     SlotNullable slot = scope.lookupIdentifier(name);
     if (slot == null) {
       throw(concat('Identifier "', name, '" not known at ', sourceLocation));
     }
-    return slot!.read(scope);
+    return slot;
   }
 
   Null constructor(String nameArg, SourceLocation sourceLocationArg) {
@@ -203,12 +203,12 @@ class SubroutineCallExpression extends Expression {
     }
   }
 
-  ValueHandle generateInstructions(CompiledScope scope) {
-    ValueHandle subroutine = subroutineReference.generateInstructions(scope);
+  Slot generateInstructions(CompiledScope scope) {
+    ValueHandle subroutine = subroutineReference.generateInstructions(scope).read(scope);
     ValueHandleList argumentValues = []:ValueHandle;
     if (subroutine.source.staticType is AbstractSubroutineType) {
       for (argument in arguments) {
-        append(argumentValues, argument.generateInstructions(scope));
+        append(argumentValues, argument.generateInstructions(scope).read(scope));
       }
     } else {
       throw(concat('"', subroutineReference, '" is not a subroutine at ', sourceLocation));
@@ -282,12 +282,12 @@ class IsOperatorExpression extends Expression {
     callback(expression, context);
   }
 
-  ValueHandle generateInstructions(CompiledScope scope) {
-    TypeHandle lhs = expression.generateInstructions(scope).type;
+  Slot generateInstructions(CompiledScope scope) {
+    TypeHandle lhs = expression.generateInstructions(scope).read(scope).type;
     Type rhs = type.generateInstructions(scope);
     Slot slot = scope.registerDynamicValue((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreBooleanType, 'is expression result');
     scope.emitInstruction(StoreTypeCheckInstruction(rhs, lhs, slot.prepareWrite(scope), concat(expression), scope.environment()));
-    return slot.read(scope);
+    return slot;
   }
 
   Null constructor(Expression expressionArg, TypeIdentifier typeArg, SourceLocation sourceLocationArg) {
@@ -505,6 +505,19 @@ class VariableDeclarationStatement extends DeclarationStatement {
     }
     return concat(type.toStringIndent(indent), ' ', identifier, ' = ', rValue!.toStringIndent(indent), ';\n');
   }
+  
+  Null generateInstructions(CompiledScope scope) {
+    ValueHandle rValueHandle;
+    if (rValue == null) {
+      rValueHandle = ValueHandle(
+        scope.environment().integers, // TODO: dubious source (maybe rename it?)
+        (scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreSentinel,
+      );
+    } else {
+      rValueHandle = rValue!.generateInstructions(scope).read(scope);
+    }
+    scope.registerVariable(identifier, type.generateInstructions(scope), rValueHandle);
+  }
 
   Null constructor(TypeIdentifier typeArg, String identifierArg, ExpressionNullable rValueArg, SourceLocation sourceLocationArg) {
     super.constructor(identifierArg, rValueArg, sourceLocationArg);
@@ -672,7 +685,7 @@ class ReturnStatement extends Statement {
     }
     CompiledSubroutine subroutine = scope.stackFrame() as CompiledSubroutine;
     if (expression != null) {
-      subroutine.emitReturnFrom(scope, expression!.generateInstructions(scope));
+      subroutine.emitReturnFrom(scope, expression!.generateInstructions(scope).read(scope));
     } else {
       subroutine.emitReturnFrom(scope, (scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreNull.read(scope));
     }
@@ -725,6 +738,7 @@ class AssignmentStatement extends Statement {
   Expression rValue;
 
   String describeOperator() { abstract(); }
+  ValueHandle computeResult(CompiledScope scope) { abstract(); }
 
   String toStringIndent(Integer indent) {
     return concat(
@@ -735,6 +749,12 @@ class AssignmentStatement extends Statement {
       rValue.toStringIndent(indent),
       ';\n',
     );
+  }
+
+  Null generateInstructions(CompiledScope scope) {
+    // xxxx static type check
+    Slot slot = lValue.generateInstructions(scope);
+    slot.write(scope, computeResult(scope));
   }
 
   Null walk(NullFunction callback, Anything context) {
@@ -753,6 +773,10 @@ class AssignmentStatement extends Statement {
 class StraightAssignmentStatement extends AssignmentStatement {
   String describeOperator() {
     return '=';
+  }
+
+  ValueHandle computeResult(CompiledScope scope) {
+    return rValue.generateInstructions(scope).read(scope);
   }
 }
 
@@ -826,7 +850,7 @@ class IfStatement extends Statement {
   }
 
   Null generateInstructions(CompiledScope scope) {
-    ValueHandle expressionHandle = expression.generateInstructions(scope);
+    ValueHandle expressionHandle = expression.generateInstructions(scope).read(scope);
     CompiledScope blockScope = CompiledNestedScope(scope, scope.environment().generateLabel(concat(camelCase(scope.name), '$if$block')));
     block.generateInstructions(blockScope);
     assert(elseClause == null, 'TODO: else clauses');
@@ -905,7 +929,7 @@ class WhileStatement extends Statement {
   }
 
   Null generateInstructions(CompiledScope scope) {
-    ValueHandle expressionHandle = expression.generateInstructions(scope);
+    ValueHandle expressionHandle = expression.generateInstructions(scope).read(scope);
     CompiledLoopScope loopScope = CompiledLoopScope(scope, 'while');
     loopScope.emitConditionalJump(loopScope.loopBottomLabel, expressionHandle, (cast(scope.environment().runtimeLibrary!).coreFalse as Slot).read(scope), 'while condition');
     block.generateInstructions(loopScope);

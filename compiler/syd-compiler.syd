@@ -219,7 +219,7 @@ class StoreTypeCheckInstruction extends TypeCheckInstruction {
 
   Null prepareInstructions() {
     super.prepareInstructions();
-    target.forceAllocation();
+    target.forceAllocation(); // TODO: can we allow this to use a register...?
   }
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
@@ -390,6 +390,21 @@ class Slot extends VotSource {
   Set referencingStackFrames = Set(); // of CompiledStackFrameScope
   Boolean needsAllocation = false;
   Boolean isRead = false;
+  Boolean isInitialized = false;
+  Boolean isWritten = false;
+
+  Null forceAllocation() {
+    needsAllocation = true;
+  }
+
+  Null recordWrite() {
+    if (!isInitialized) {
+      isInitialized = true;
+    } else if (!isWritten) {
+      isWritten = true;
+      needsAllocation = true; // TODO: support using registers instead
+    }
+  }
 
   ValueHandle read(Object currentScope) { // XXX Object should be CompiledScope
     ValueHandle result = ValueHandle(this, null);
@@ -402,22 +417,21 @@ class Slot extends VotSource {
   Null writeStatic(Object currentScope, ValueVot newValue) { // XXX Object should be CompiledScope
     referencingStackFrames.add(cast(cast(currentScope).stackFrame)());
     (cast(currentScope).emitInstruction as NullFunction)(WriteStaticSlotInstruction(this, newValue));
+    recordWrite();
   }
 
   Null write(Object currentScope, ValueHandle newValue) { // XXX Object should be CompiledScope
     referencingStackFrames.add(cast(cast(currentScope).stackFrame)());
     (cast(currentScope).emitInstruction as NullFunction)(WriteDynamicSlotInstruction(this, newValue));
+    recordWrite();
   }
 
   ValueHandle prepareWrite(Object currentScope) { // XXX Object should be CompiledScope
     ValueHandle result = ValueHandle(this, null);
     referencingStackFrames.add(cast(cast(currentScope).stackFrame)());
     (cast(currentScope).emitInstruction as NullFunction)(PopulateValueHandleInstruction(this, result));
+    recordWrite();
     return result;
-  }
-
-  Null forceAllocation() {
-    needsAllocation = true;
   }
 
   Boolean canBeStackAllocated() {
@@ -426,9 +440,6 @@ class Slot extends VotSource {
         && (len(stackFrames) == 1)
         && (stackFrames[0] == cast(cast(homeScope).stackFrame)())
         && (isAnonymous || (homeScope.className != 'CompiledLibrary'));
-    if (!result) {
-      println(concat('cannot allocate: ', this, '\n', 'stackFrames: ', stackFrames, '\nhomeScope: ', homeScope, '\nisAnon: ', isAnonymous));
-    }
     return result;
   }
 
@@ -710,12 +721,12 @@ class CompiledScope extends Object {
     return slot;
   }
 
-  Slot registerVariable(String name, Type type, ValueVot initialValue) {
+  Slot registerVariable(String name, Type type, ValueHandle initialValue) {
     assert(!isIdentifierDeclaredInLocalScope(name), 'tried to redeclare an identifier within a scope');
     Slot slot = Slot(type, this, name, false, false); // named, mutable
     registerSlot(slot);
     identifiers.set(name, slot);
-    slot.writeStatic(this, initialValue);
+    slot.write(this, initialValue);
     return slot;
   }
 
@@ -740,7 +751,7 @@ class CompiledScope extends Object {
     return slot;
   }
 
-  ValueHandle emitSubroutineCall(ValueHandle target, ValueHandleList arguments) {
+  Slot emitSubroutineCall(ValueHandle target, ValueHandleList arguments) {
     append(instructions, CommentInstruction('Prepare local variables for function call'));
     Slot thisPointer = registerDynamicValue(cast(cast(environment().runtimeLibrary!).coreClassType), 'this pointer');
     Slot closurePointer = registerDynamicValue(cast(cast(environment().runtimeLibrary!).coreClosureType), 'closure pointer');
@@ -766,7 +777,7 @@ class CompiledScope extends Object {
       returnValuePointer,
     );
     append(instructions, call);
-    return returnValue.read(this);
+    return returnValue;
   }
 
   CompiledScope createErrorHandlerBlock(Slot errorMessage, String what) {
@@ -889,13 +900,20 @@ class CompiledStackFrameScope extends CompiledScope {
 
   Null prepareSlots() {
     for (slot in slots) {
-      if (slot.isRead && slot.needsAllocation && slot.canBeStackAllocated()) {
-        // TODO emit a comment giving the stack layout for this stack frame
-        slot.assignLocation(StackAllocatedVot(slot.staticType, stackSize));
-        if (slot.staticType.hasDynamicType()) {
-          stackSize += 0x10;
-        } else {
-          stackSize += 0x08;
+      //stderr(concat(slot, ' read:', slot.isRead, ' needs:', slot.needsAllocation, ' stack?:', slot.canBeStackAllocated(), ' heap?:', slot.needsHeapAllocation()));
+      if (slot.isRead) {
+        if (slot.needsAllocation) {
+          if (slot.canBeStackAllocated()) {
+            // TODO emit a comment giving the stack layout for this stack frame
+            slot.assignLocation(StackAllocatedVot(slot.staticType, stackSize));
+            if (slot.staticType.hasDynamicType()) {
+              stackSize += 0x10;
+            } else {
+              stackSize += 0x08;
+            }
+          } else {
+            throw(concat('not sure what to do with ', slot, ' in terms of allocation'));
+          }
         }
       }
     }

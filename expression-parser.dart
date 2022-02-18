@@ -266,7 +266,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
               (result.type as FunctionValueType).parameters.length !=
                   arguments.length) {
             throw FileInvalid(
-                "Not enough arguments to $result line ${tokens.current.line} column ${tokens.current.col} file ${tokens.file}");
+                "Not enough arguments to $result (expected ${(result.type as FunctionValueType).parameters}, got $arguments) line ${tokens.current.line} column ${tokens.current.col} file ${tokens.file}");
           }
           tokens.moveNext();
           result = FunctionCallExpr(
