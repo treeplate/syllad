@@ -31,12 +31,12 @@ extern ExitProcess : proc
   returnValueTypeCheckFailureMessage dq -01h                       ; String constant (reference count)
                dq 68                                               ; Length
                db "error: type mismatch for function return value, expected %s, got %s", 0ah ; line 1319 column 25 in file syd-compiler.syd
-  string$1     dq -01h                                             ; String constant (reference count)
-               dq 1                                                ; Length
-               db "a"                                              ; line 3 column 3 in file temp.syd
   string       dq -01h                                             ; String constant (reference count)
-               dq 15                                               ; Length
-               db "Hello from foo!"                                ; line 1 column 23 in file temp2.syd
+               dq 16                                               ; Length
+               db "Hello from foo!", 0ah                           ; line 1 column 25 in file temp2.syd
+  string$1     dq -01h                                             ; String constant (reference count)
+               dq 9                                                ; Length
+               db "temp.syd", 0ah                                  ; line 2 column 18 in file temp.syd
 
 .code
 
@@ -48,32 +48,6 @@ main:
   push rbp                                                         ; save volatile registers
   lea rbp, [rsp+000h]                                              ; set up frame pointer
   ; Epilog
-  pop rbp                                                          ; restore volatile registers
-
-  ; temp.syd
-  ; ========
-  ; Prolog
-  push rbp                                                         ; save volatile registers
-  sub rsp, 028h                                                    ; allocate space for stack
-  lea rbp, [rsp+028h]                                              ; set up frame pointer
-  ; Prepare local variables for function call
-  mov qword ptr [rbp-008h], 0h                                     ; value of this pointer
-  mov qword ptr [rbp-010h], 000000000h                             ; type of this pointer
-  mov qword ptr [rbp-018h], 0h                                     ; value of closure pointer
-  ; Calling func$exit with 1 arguments
-  push 000000000h                                                  ; value of argument #1
-  push 000000005h                                                  ; type of argument #1
-  lea r11, [rbp-020h]                                              ; pointer to return value (and type, 8 bytes earlier)
-  push r11                                                         ; (that pointer is the last value pushed to the stack)
-  lea r9, [rbp-008h]                                               ; pointer to this
-  mov r8, [rbp-010h]                                               ; type of this
-  lea rdx, [rbp-018h]                                              ; pointer to closure
-  mov rcx, 1                                                       ; number of arguments
-  sub rsp, 20h                                                     ; allocate shadow space
-  call func$exit                                                   ; jump to subroutine
-  add rsp, 038h                                                    ; release shadow space and arguments
-  ; Epilog
-  add rsp, 028h                                                    ; free space for stack
   pop rbp                                                          ; restore volatile registers
 
   ; temp2.syd
@@ -101,6 +75,49 @@ main:
   add rsp, 038h                                                    ; release shadow space and arguments
   ; Epilog
   add rsp, 028h                                                    ; free space for stack
+  pop rbp                                                          ; restore volatile registers
+
+  ; temp.syd
+  ; ========
+  ; Prolog
+  push rbp                                                         ; save volatile registers
+  sub rsp, 050h                                                    ; allocate space for stack
+  lea rbp, [rsp+050h]                                              ; set up frame pointer
+  ; Prepare local variables for function call
+  mov qword ptr [rbp-008h], 0h                                     ; value of this pointer
+  mov qword ptr [rbp-010h], 000000000h                             ; type of this pointer
+  mov qword ptr [rbp-018h], 0h                                     ; value of closure pointer
+  ; Calling func$print with 1 arguments
+  mov r11, offset string$1                                         ; value of argument #1
+  push r11                                                         ; (indirect via r11 because "offset string$1" cannot be used with push)
+  push 000000006h                                                  ; type of argument #1
+  lea r11, [rbp-020h]                                              ; pointer to return value (and type, 8 bytes earlier)
+  push r11                                                         ; (that pointer is the last value pushed to the stack)
+  lea r9, [rbp-008h]                                               ; pointer to this
+  mov r8, [rbp-010h]                                               ; type of this
+  lea rdx, [rbp-018h]                                              ; pointer to closure
+  mov rcx, 1                                                       ; number of arguments
+  sub rsp, 20h                                                     ; allocate shadow space
+  call func$print                                                  ; jump to subroutine
+  add rsp, 038h                                                    ; release shadow space and arguments
+  ; Prepare local variables for function call
+  mov qword ptr [rbp-030h], 0h                                     ; value of this pointer
+  mov qword ptr [rbp-038h], 000000000h                             ; type of this pointer
+  mov qword ptr [rbp-040h], 0h                                     ; value of closure pointer
+  ; Calling func$exit with 1 arguments
+  push 000000000h                                                  ; value of argument #1
+  push 000000005h                                                  ; type of argument #1
+  lea r11, [rbp-048h]                                              ; pointer to return value (and type, 8 bytes earlier)
+  push r11                                                         ; (that pointer is the last value pushed to the stack)
+  lea r9, [rbp-030h]                                               ; pointer to this
+  mov r8, [rbp-038h]                                               ; type of this
+  lea rdx, [rbp-040h]                                              ; pointer to closure
+  mov rcx, 1                                                       ; number of arguments
+  sub rsp, 20h                                                     ; allocate shadow space
+  call func$exit                                                   ; jump to subroutine
+  add rsp, 038h                                                    ; release shadow space and arguments
+  ; Epilog
+  add rsp, 050h                                                    ; free space for stack
   pop rbp                                                          ; restore volatile registers
   ret                                                              ; exit application
 

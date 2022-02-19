@@ -1,4 +1,4 @@
-// - import order
+// TODO
 // - something that runs each test in turn (and matches expectation)
 // - adding static type checking ("xxxx")
 // - heap allocation

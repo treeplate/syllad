@@ -497,13 +497,13 @@ class CompilationEnvironment extends TypeRegistry {
   Null declareLibrary(String filename) {
     assert(libraries.get(filename) == null, 'tried to declare library that was already declared');
     libraries.set(filename, false);
-    append(libraryNames, filename);
   }
 
   Null defineLibrary(String filename, Object library) { // XXX Object should be CompiledLibrary
     assert(library.className == 'CompiledLibrary', 'library is not a CompiledLibrary');
     assert(libraries.get(filename) == false, 'tried to define library that was not declared or was already defined');
     libraries.set(filename, library);
+    append(libraryNames, filename);
   }
 
   ls getLibraryState(String filename) {

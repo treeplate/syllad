@@ -1,1 +1,2 @@
 import 'temp2.syd';
+print('temp.syd\n');
