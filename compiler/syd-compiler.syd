@@ -243,7 +243,7 @@ class StringConstantDataInstruction extends Instruction {
   Null generateAssembler(Assembler assembler, Integer blockId) {
     // XXX length is wrong, we should be giving the byte length in whatever encoding we use (probably UTF-8? though windows, so maybe UTF-16?)
     StringList data = ['dq -01h', concat('dq ', len(scalarValues(value)))]:String;
-    StringList comments = ['String constant (reference count)', 'Length']:String;
+    StringNullableList comments = ['String constant (reference count)', 'Length']:StringNullable;
     if (value != '') {
       append(data, concat('db ', stringLiteral(value)));
       append(comments, concat(source));
@@ -628,12 +628,8 @@ class CompilationEnvironment extends TypeRegistry {
     }
     assembler.addData(
       label,
-      [
-        concat('db ', join(map(bytes, hex8) as StringList, ', ')),
-      ],
-      [
-        concat('Type table\n', join(comment, '')),
-      ],
+      [ concat('db ', join(map(bytes, hex8) as StringList, ', ')) ],
+      [ concat('Type table\n', join(comment, '')) ]:StringNullable,
     );
     typeTableOffset = offset;
     typeTableWidth = width;

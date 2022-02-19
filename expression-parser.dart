@@ -189,8 +189,8 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
           tokens.moveNext();
           Expression operandB = parseExpression(tokens, scope, integerType);
           tokens.expectChar(TokenType.closeSquare);
-          if (!result.type
-              .isSubtypeOf(ListValueType(sharedSupertype, tokens.file))) {
+          if (!result.type.isSubtypeOf(ListValueType(
+              ValueType(null, "Whatever", 0, 0, 'internal'), 'internal'))) {
             throw FileInvalid(
                 "tried to subscript ${result.type} ($result) on line ${tokens.current.line} column ${tokens.current.col} file ${tokens.file}");
           }

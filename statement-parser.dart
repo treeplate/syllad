@@ -469,7 +469,10 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope) {
   int __itn = _itn++;
   tokens.moveNext();
   Expression iterable = parseExpression(
-      tokens, scope, IterableValueType(sharedSupertype, tokens.file));
+      tokens,
+      scope,
+      IterableValueType(
+          ValueType(null, "Whatever", 0, 0, 'internal'), 'internal'));
   TypeValidator innerScope = TypeValidator()
     ..types.addAll(scope.types)
     ..nonconst.addAll(scope.nonconst);

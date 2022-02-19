@@ -24,13 +24,16 @@ extern ExitProcess : proc
 
   parameterCountCheckFailureMessage dq -01h                        ; String constant (reference count)
                dq 88                                               ; Length
-               db "error: function call received the wrong number of parameters (expected %d, received %d)", 0ah ; line 1313 column 25 in file syd-compiler.syd
+               db "error: function call received the wrong number of parameters (expected %d, received %d)", 0ah ; line 1309 column 25 in file syd-compiler.syd
   parameterTypeCheckFailureMessage dq -01h                         ; String constant (reference count)
                dq 71                                               ; Length
-               db "error: type mismatch for function %s parameter %d, expected %s, got %s", 0ah ; line 1318 column 25 in file syd-compiler.syd
+               db "error: type mismatch for function %s parameter %d, expected %s, got %s", 0ah ; line 1314 column 25 in file syd-compiler.syd
   returnValueTypeCheckFailureMessage dq -01h                       ; String constant (reference count)
                dq 68                                               ; Length
-               db "error: type mismatch for function return value, expected %s, got %s", 0ah ; line 1323 column 25 in file syd-compiler.syd
+               db "error: type mismatch for function return value, expected %s, got %s", 0ah ; line 1319 column 25 in file syd-compiler.syd
+  string$1     dq -01h                                             ; String constant (reference count)
+               dq 1                                                ; Length
+               db "a"                                              ; line 3 column 3 in file temp.syd
   string       dq -01h                                             ; String constant (reference count)
                dq 15                                               ; Length
                db "Hello from foo!"                                ; line 1 column 23 in file temp2.syd

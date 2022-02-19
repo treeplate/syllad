@@ -10,10 +10,6 @@
 // - stringification
 // - implement the real "println"
 
-
-// StringNullableList pendingComments = []:String;
-// append(pendingComments, null); // fails, but should fail on previous line
-
 //class A { Null test() { this.test(); } }
 //Integer bar = 1; class Foo { Null constructor() { } } println(Foo().bar);
 
@@ -88,33 +84,14 @@ stderr('syllad self-hosting compiler');
 //     - this should be true (but isn't): 2-3+4 == (2-3)+4
 // P2 (making things much harder):
 //   some errors with line numbers are... inaccurate
-//   not all errors say where the error happened, e.g.:
-//     - stack traces from "assert" and "throw" don't give class/method names, line numbers, or file names, only call expressions (and are different from each other)
-//   this crashes compiler: class A { }
-//   this prints <String>: class A { Null constructor() { } } println(A());
 //   instance variables can be used to access variables in scope of class: Integer bar = 1; class Foo { Null constructor() { } } println(Foo().bar);
 // P3 (nice-to-haves for which i've found workarounds):
 //   performance
-//   import loops crash the compiler with a stack overflow
-//   imports of missing files crash the compiler
 //   soundness in type system -- a variable being of type X should be a guarantee that it will have a value of type X
 //     - returns are "not really type safe"
 //     - functions without returns aren't statically checked
 //     - toString returning non-string isn't checked for either
 //     - currently not true with uninitialized variables (they start as an instance of Null instead)
-//     - weird error messages when doing covariance:
-//       class A {
-//         Null foo(A z) { }
-//         Null constructor(){}
-//       }
-//       class B extends A {
-//         String test() { return 'test'; }
-//         Null foo(B x) { // expected this to be the line with the error message
-//           println(x.test());
-//         }
-//       }
-//       A b = B();
-//       b.foo(A());
 //     - shadow rules are weird: class A { } class B extends A { Null println() { } }
 //   function types with signatures
 //   string interpolation
@@ -130,7 +107,6 @@ stderr('syllad self-hosting compiler');
 //   detailed language reference
 //   [] could have its type inferred from context
 // P4 (minor typos and such):
-//   "Expected Boolean, got ImportStatement while parsing expression (Instance of 'IsExpr') on line 595 column 34 file syd.syd"
 //   assigning to an undeclared variable says "Cannot reassign...".
 //   error messages are inconsistent in style, e.g. giving file/line/col in different ways:
 //     "You cannot return a Constant (<Constant>) from registerConstant, which is supposed to return a Variable! (syd-compiler.syd 226:19)"

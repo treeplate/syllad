@@ -16,19 +16,31 @@ class TypeValidator {
     "concat":
         FunctionValueType(stringType, InfiniteIterable(sharedSupertype), 'rtl'),
     "parseInt": FunctionValueType(integerType, [stringType], 'rtl'),
-    'addLists': FunctionValueType(ListValueType(sharedSupertype, 'rtl'),
-        InfiniteIterable(ListValueType(sharedSupertype, 'rtl')), 'rtl'),
+    'addLists': FunctionValueType(
+        ListValueType(sharedSupertype, 'rtl'),
+        InfiniteIterable(
+            ListValueType(ValueType(null, "Whatever", 0, 0, 'rtl'), 'rtl')),
+        'rtl'),
     'charsOf': FunctionValueType(
         IterableValueType(stringType, 'rtl'), [stringType], 'rtl'),
     'scalarValues': FunctionValueType(
         IterableValueType(integerType, 'rtl'), [stringType], 'rtl'),
     'len': FunctionValueType(
-        integerType, [ListValueType(sharedSupertype, 'rtl')], 'rtl'),
+        integerType,
+        [ListValueType(ValueType(null, "Whatever", 0, 0, 'rtl'), 'rtl')],
+        'rtl'),
     'input': FunctionValueType(stringType, [], 'rtl'),
-    'append': FunctionValueType(sharedSupertype,
-        [ListValueType(sharedSupertype, 'rtl'), sharedSupertype], 'rtl'),
-    'iterator': FunctionValueType(IteratorValueType(sharedSupertype, 'rtl'),
-        [IterableValueType(sharedSupertype, 'rtl')], 'rtl'),
+    'append': FunctionValueType(
+        sharedSupertype,
+        [
+          ListValueType(ValueType(null, "Whatever", 0, 0, 'rtl'), 'rtl'),
+          sharedSupertype
+        ],
+        'rtl'),
+    'iterator': FunctionValueType(
+        IteratorValueType(sharedSupertype, 'rtl'),
+        [IterableValueType(ValueType(null, "Whatever", 0, 0, 'rtl'), 'rtl')],
+        'rtl'),
     'next': FunctionValueType(
         booleanType, [IteratorValueType(sharedSupertype, 'rtl')], 'rtl'),
     'current': FunctionValueType(
@@ -42,7 +54,9 @@ class TypeValidator {
     'last': FunctionValueType(
         sharedSupertype, [IterableValueType(sharedSupertype, 'rtl')], 'rtl'),
     'single': FunctionValueType(
-        sharedSupertype, [IterableValueType(sharedSupertype, 'rtl')], 'rtl'),
+        sharedSupertype,
+        [IterableValueType(ValueType(null, "Whatever", 0, 0, 'rtl'), 'rtl')],
+        'rtl'),
     'assert': FunctionValueType(booleanType, [booleanType, stringType], 'rtl'),
     'padLeft': FunctionValueType(
         stringType, [stringType, integerType, stringType], 'rtl'),
@@ -60,7 +74,9 @@ class TypeValidator {
     'cast': FunctionValueType(
         ValueType(null, "Whatever", 0, 0, 'rtl'), [sharedSupertype], 'rtl'),
     'joinList': FunctionValueType(
-        stringType, [ListValueType(sharedSupertype, 'rtl')], 'rtl'),
+        stringType,
+        [ListValueType(ValueType(null, "Whatever", 0, 0, 'rtl'), 'rtl')],
+        'rtl'),
     'className': stringType,
   };
 
@@ -68,6 +84,10 @@ class TypeValidator {
 
   void setVar(String name, int subscripts, ValueType value, int line, int col,
       String file) {
+    if (!types.containsKey(name)) {
+      throw FileInvalid(
+          "Cannot assign to $name, an undeclared variable     $file:$line:$col");
+    }
     if (!nonconst.contains(name) && subscripts == 0) {
       throw FileInvalid("Cannot reassign $name (line $line column $col $file)");
     }
@@ -321,7 +341,7 @@ class ListValueType extends IterableValueType {
     return name == possibleParent.name ||
         (parent != null && parent!.isSubtypeOf(possibleParent)) ||
         (possibleParent is IterableValueType &&
-            genericParameter.isSubtypeOf(possibleParent.genericParameter)) ||
+            genericParameter == possibleParent.genericParameter) ||
         (possibleParent is NullableValueType &&
             isSubtypeOf(possibleParent.genericParam));
   }

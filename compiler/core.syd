@@ -40,7 +40,7 @@ String padRight(String line, Integer length, String padding) {
   return concat(line, stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))));
 }
 
-AnythingList map(AnythingList items, AnythingFunction callback) {
+AnythingList map(WhateverList items, AnythingFunction callback) {
   AnythingList result = [];
   Integer index = 0;
   while (index < len(items)) {
@@ -50,7 +50,7 @@ AnythingList map(AnythingList items, AnythingFunction callback) {
   return result;
 }
 
-Boolean contains(AnythingList list, Anything item) {
+Boolean contains(WhateverList list, Anything item) {
   for (entry in list) {
     if (entry == item) {
       return true;
