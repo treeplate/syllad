@@ -518,6 +518,8 @@ class InfiniteIterable<T> extends Iterable<T> {
 
   final T value;
 
+  String toString() => '($value...)';
+
   @override
   InfiniteIterator<T> get iterator => InfiniteIterator<T>(value);
 }

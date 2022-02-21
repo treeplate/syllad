@@ -80,7 +80,7 @@ class FunctionStatement extends Statement {
   final ValueType returnType;
   final String name;
   final String file;
-  final List<Parameter> params;
+  final Iterable<Parameter> params;
   final List<Statement> body;
   @override
   StatementResult run(Scope scope) {
@@ -107,8 +107,15 @@ class FunctionStatement extends Statement {
         funscope.values['this'] =
             ValueWrapper(thisType!, thisScope, 'this (funstatement)');
       }
-      for (ValueWrapper aSub in a) {
-        funscope.values[params[i++].name] = aSub;
+      if (params is List) {
+        for (ValueWrapper aSub in a) {
+          funscope.values[(params as List)[i++].name] = aSub;
+        }
+      } else {
+        funscope.values[params.first.name] = ValueWrapper(
+            ListValueType(sharedSupertype, 'internal'),
+            List.unmodifiable(a),
+            'varargs');
       }
       for (Statement statement in body) {
         StatementResult value = statement.run(funscope);

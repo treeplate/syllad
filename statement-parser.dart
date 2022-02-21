@@ -273,7 +273,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         );
         if (subscripts.isNotEmpty) {
           throw FileInvalid(
-              "type $ident1${subscripts.map((e) => '[$e]')} contains square brackets line ${tokens.current.line} col ${tokens.current.col}");
+              "type $ident1${subscripts.map((e) => '[$e]')} contains square brackets line ${tokens.current.line} col ${tokens.current.col} file ${tokens.file}");
         }
         return NewVarStatement(
           ident2,
@@ -286,42 +286,72 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         );
       }
       tokens.expectChar(TokenType.openParen);
-      List<Parameter> params = [];
+      Iterable<Parameter> params = [];
+      bool isVararg = false;
       while (tokens.current is! CharToken ||
           tokens.currentChar != TokenType.closeParen) {
         String type = tokens.currentIdent;
         tokens.moveNext();
+        if (tokens.current is CharToken &&
+            tokens.currentChar == TokenType.ellipsis) {
+          tokens.moveNext();
+          if (isVararg) {
+            throw FileInvalid(
+                "$ident2 had 2 varargs line ${tokens.current.line} col ${tokens.current.col} file ${tokens.file}");
+          }
+          if (params.isNotEmpty) {
+            throw FileInvalid(
+                "$ident2 had regular arguments before a vararg line ${tokens.current.line} col ${tokens.current.col} file ${tokens.file}");
+          }
+          isVararg = true;
+        }
         String name = tokens.currentIdent;
         tokens.moveNext();
         if (tokens.currentChar != TokenType.closeParen) {
           tokens.expectChar(TokenType.comma);
         }
-        params.add(Parameter(
+        (params as List<Parameter>).add(Parameter(
             ValueType(null, type, tokens.current.line, tokens.current.col,
                 tokens.file),
             name));
       }
+      if (isVararg && params.length > 1) {
+        throw FileInvalid(
+            "$ident2 had ${params.length - 1} regular arguments and a vararg line ${tokens.current.line} col ${tokens.current.col} file ${tokens.file}");
+      }
+      if (isVararg) {
+        params = InfiniteIterable(params.single);
+      }
       tokens.expectChar(TokenType.closeParen);
       tokens.expectChar(TokenType.openBrace);
-      List<Statement> body = parseBlock(
-          tokens,
-          TypeValidator()
-            ..types.addAll(scope.types)
-            ..nonconst.addAll(scope.nonconst)
-            ..types.addAll(
-                Map.fromEntries(params.map((e) => MapEntry(e.name, e.type))))
-            ..types[ident2] = FunctionValueType(
-                ValueType(null, ident1, tokens.current.line, tokens.current.col,
-                    tokens.file),
-                params.map((e) => e.type),
-                tokens.file));
+      Iterable<ValueType> typeParams = isVararg
+          ? InfiniteIterable(params.first.type)
+          : params.map((e) => e.type);
+      TypeValidator tv = TypeValidator()
+        ..types.addAll(scope.types)
+        ..nonconst.addAll(scope.nonconst)
+        ..types.addAll(isVararg
+            ? {params.first.name: ListValueType(params.first.type, 'internal')}
+            : Map.fromEntries(params.map((e) => MapEntry(e.name, e.type))))
+        ..types[ident2] = FunctionValueType(
+          ValueType(
+            null,
+            ident1,
+            tokens.current.line,
+            tokens.current.col,
+            tokens.file,
+          ),
+          typeParams,
+          tokens.file,
+        );
+      List<Statement> body = parseBlock(tokens, tv);
       tokens.expectChar(TokenType.closeBrace);
       scope.newVar(
         ident2,
         FunctionValueType(
             ValueType(null, ident1, tokens.current.line, tokens.current.col,
                 tokens.file),
-            params.map((e) => e.type),
+            typeParams,
             tokens.file),
         tokens.current.line,
         tokens.current.col,
@@ -411,7 +441,7 @@ ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
 
   MapEntry<List<Statement>, TypeValidator> result = filesLoaded[str] ??
       (filesLoaded[str] = parse(
-        lex(File('compiler/$str').readAsStringSync()),
+        lex(File('compiler/$str').readAsStringSync(), str),
         str,
       ));
   filesStartedLoading.remove(str);

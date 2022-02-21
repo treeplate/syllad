@@ -21,7 +21,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         }
         if (!superclass.properties.types.containsKey(member)) {
           throw FileInvalid(
-              '${scope.currentClass.name}\'s superclass (${superclass.name}) has no member $member; attempted \'super.$member\' ${tokens.current.line}, ${tokens.current.col}, ${tokens.file}');
+              '${scope.currentClass.name}\'s superclass (${superclass.name}) has no member $member; attempted \'super.$member\' ${tokens.current.line}:${tokens.current.col}, ${tokens.file}');
         }
         tokens.moveNext();
         return SuperExpression(

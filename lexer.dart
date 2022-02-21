@@ -11,6 +11,7 @@ enum TokenType {
 
   comma, // ,
   period, // .
+  ellipsis, // ...
   bang, // !
 
   plus, // +
@@ -95,6 +96,8 @@ enum _LexerState {
   greaterThan,
   lessThan,
   equalTo,
+  period,
+  periodperiod,
   exclamationPoint,
   comment,
   commentBackslash,
@@ -106,7 +109,7 @@ enum _LexerState {
   multiLineCommentStar,
 }
 
-Iterable<Token> lex(String file) sync* {
+Iterable<Token> lex(String file, String filename) sync* {
   // /* to (\\ or */) multi-line comment, # or // single-line comments (\\ to end comment)
   _LexerState state = _LexerState.top;
   StringBuffer intVal = StringBuffer();
@@ -160,7 +163,7 @@ Iterable<Token> lex(String file) sync* {
         yield CharToken(TokenType.minus, line, col);
         break;
       case 0x2e:
-        yield CharToken(TokenType.period, line, col);
+        state = _LexerState.period;
         break;
       case 0x2f:
         state = _LexerState.slash;
@@ -434,6 +437,27 @@ Iterable<Token> lex(String file) sync* {
           state = _LexerState.top;
         } else {
           state = _LexerState.multiLineComment;
+        }
+        break;
+      case _LexerState.period:
+        if (rune == 0x2e) {
+          state = _LexerState.periodperiod;
+        } else {
+          yield CharToken(TokenType.period, line, col);
+          state = _LexerState.top;
+          yield* parseRuneFromTop(rune);
+        }
+        break;
+      case _LexerState.periodperiod:
+        if (rune == 0x2e) {
+          yield CharToken(TokenType.ellipsis, line, col);
+          state = _LexerState.top;
+        } else {
+          print("TWO PERIODS $line $col $filename");
+          yield CharToken(TokenType.period, line, col);
+          yield CharToken(TokenType.period, line, col);
+          state = _LexerState.top;
+          yield* parseRuneFromTop(rune);
         }
         break;
     }
