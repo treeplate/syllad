@@ -95,14 +95,14 @@ class StringLiteralExpression extends Expression {
 
   Slot generateInstructions(CompiledScope scope) {
     label = scope.environment().generateLabel('string');
-    scope.emitInstruction(StringConstantDataInstruction(
+    scope.emitInstruction(StringConstantInstruction(
       label,
       value,
       sourceLocation,
     ));
     Type type = (scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreStringType;
     type.markConstructed();
-    return scope.registerStaticValue(LabelPointerVot(type, label), concat(this));
+    return scope.registerStaticValue(ImmediateAddressVot(type, label), concat(this));
   }
 
   String toStringIndent(Integer indent) {

@@ -75,44 +75,56 @@ String camelCase(String value) {
   return joinList(buffer);
 }
 
-enum ot { Imm32 Imm64 Indirect Label LabelOffset Register }
+enum ot { Imm32 Imm64 Indirect AddressOfLabel DereferencedPointerLabel Register }
 
 class Operand extends Object {
-  String operand;
-  String location;
+  String debugName;
+  String value;
+  String destination;
   ot kind;
 
   Boolean isMemory() {
-    return kind == otIndirect || kind == otLabelOffset;
+    return kind == otIndirect || kind == otDereferencedPointerLabel;
   }
 
   Boolean isImmediate() {
-    return kind == otImm32 || kind == otImm64 || kind == otLabel;
+    return kind == otImm32 || kind == otImm64 || kind == otAddressOfLabel;
+  }
+
+  Boolean isImmediate64() {
+    return kind == otImm64 || kind == otAddressOfLabel;
   }
 
   String toString() {
-    return operand;
+    return debugName;
   }
 
   Null constructor(String operandArg, ot kindArg) {
     super.constructor();
-    if (kindArg == otIndirect) {
-      operand = concat('[', operandArg, ']');
-      location = operandArg;
-    } else if (kindArg == otLabel) {
-      operand = operandArg;
-      location = concat('offset ', operandArg);
-    } else if (kindArg == otLabelOffset) {
-      operand = concat('offset ', operandArg);
-      // no location
-    } else {
-      operand = operandArg;
-      // no location
-    }
     kind = kindArg;
+    debugName = operandArg;
+    if (kindArg == otImm32 || kindArg == otImm64) {
+      value = operandArg;
+    } else if (kindArg == otAddressOfLabel) {
+      value = concat('offset ', operandArg);
+    } else if (kindArg == otIndirect) {
+      value = concat('[', operandArg, ']');
+      destination = value;
+    } else if (kindArg == otDereferencedPointerLabel) {
+      value = operandArg;
+      destination = operandArg;
+    } else {
+      assert(kindArg == otRegister, 'Operand does not know about all ot* possibilities');
+      value = operandArg;
+      destination = operandArg;
+    }
   }
 }
 
+Operand rax = Operand('rax', otRegister);
+Operand rbx = Operand('rbx', otRegister);
+Operand rcx = Operand('rcx', otRegister);
+Operand rdx = Operand('rdx', otRegister);
 Operand r8 = Operand('r8', otRegister);
 Operand r9 = Operand('r9', otRegister);
 Operand r10 = Operand('r10', otRegister);
@@ -121,15 +133,13 @@ Operand r12 = Operand('r12', otRegister);
 Operand r13 = Operand('r13', otRegister);
 Operand r14 = Operand('r14', otRegister);
 Operand r15 = Operand('r15', otRegister);
-Operand rax = Operand('rax', otRegister);
-Operand rbx = Operand('rbx', otRegister);
-Operand rcx = Operand('rcx', otRegister);
-Operand rdx = Operand('rdx', otRegister);
 
 class Assembler extends Object {
   Set includelibs = Set();
   StringList externs = []:String;
+  StringList const = []:String;
   StringList data = []:String;
+  StringList bss = []:String;
   StringList labels = []:String;
   StringListList code = []:StringList;
   IntegerList indents = []:Integer;
@@ -145,21 +155,57 @@ class Assembler extends Object {
     append(externs, concat('extern ', procname, ' : proc'));
   }
 
+  Null addConst(String label, StringList lines, StringNullableList comments) {
+    assert(len(lines) > 0, 'addConst got no data');
+    Integer index = 0;
+    String prefix = label;
+    while (index < len(lines)) {
+      String line = concat('  ', padRight(prefix, 12, ' '), ' ', lines[index]);
+      StringNullable comment = comments[index];
+      if (comment != null) {
+        line = concat(padRight(line, lineLength, ' '), ' ; ', comment);
+      }
+      append(const, line);
+      index += 1;
+      prefix = '';
+    }
+  }
+
   Null addData(String label, StringList lines, StringNullableList comments) {
     assert(len(lines) > 0, 'addData got no data');
     Integer index = 0;
     String prefix = label;
     while (index < len(lines)) {
-      String line = lines[index];
+      String line = concat('  ', padRight(prefix, 12, ' '), ' ', lines[index]);
       StringNullable comment = comments[index];
       if (comment != null) {
-        append(data, concat('  ', padRight(concat(padRight(prefix, 12, ' '), ' ', line), lineLength, ' '), ' ; ', comment));
-      } else {
-        append(data, concat('  ', padRight(label, 12, ' '), ' ', line));
+        line = concat(padRight(line, lineLength, ' '), ' ; ', comment);
       }
+      append(const, line);
       index += 1;
       prefix = '';
     }
+  }
+
+  Null addBss(String label, Integer bytes, String comment) {
+    String prefix;
+    Integer count;
+    if (bytes % 4 == 0) {
+      prefix = 'dq';
+      count = bytes / 4;
+    } else {
+      prefix = 'db';
+      count = bytes;
+    }
+    append(bss,
+      concat(
+        padRight(
+          concat('  ', label, ' ', prefix, ' ?', stringTimes(', ?', count - 1)),
+          lineLength, ' ',
+        ),
+        ' ; ', comment,
+      )
+    );
   }
 
   Null indent(Integer blockId, NullFunction generateAssembler) {
@@ -175,23 +221,23 @@ class Assembler extends Object {
       pendingComments[blockId] = null;
     }
     if (comment != null) {
-      append(code[blockId], concat('  ', padRight(indentedLine, lineLength, ' '), ' ; ', comment));
+      append(code[blockId], concat(padRight(concat('  ', indentedLine), lineLength, ' '), ' ; ', comment));
     } else {
-      append(code[blockId], concat('  ', indentedLine));
+      append(code[blockId],                 concat('  ', indentedLine));
     }
   }
 
   Null addMov(Integer blockId, Operand destination, Operand source, String comment) {
     if (source.isMemory() && destination.isMemory()) {
-      addCode(blockId, concat('mov r11, ', source.operand), comment);
-      addCode(blockId, concat('mov ', destination.operand, ', r11'), concat('(indirect via r11 because mov can\'t do memory-to-memory)'));
-    } else if (source.kind == otImm64) {
-      addCode(blockId, concat('mov r11, ', source.operand), comment);
-      addCode(blockId, concat('mov ', destination.operand, ', r11'), concat('(indirect via r11 because ', source.operand, ' could be a 64 bit value)'));
-    } else if (source.kind == otImm32) {
-      addCode(blockId, concat('mov qword ptr ', destination.operand, ', ', source.operand), comment);
+      addCode(blockId, concat('mov r11, ', source.value), comment);
+      addCode(blockId, concat('mov ', destination.destination, ', r11'), concat('(indirect via r11 because mov can\'t do memory-to-memory)'));
+    } else if (source.isImmediate64()) {
+      addCode(blockId, concat('mov r11, ', source.value), comment);
+      addCode(blockId, concat('mov ', destination.destination, ', r11'), concat('(indirect via r11 because ', source, ' is an imm64)'));
+    } else if (source.isImmediate()) {
+      addCode(blockId, concat('mov qword ptr ', destination.destination, ', ', source.value), comment);
     } else {
-      addCode(blockId, concat('mov ', destination.operand, ', ', source.operand), comment);
+      addCode(blockId, concat('mov ', destination.destination, ', ', source.value), comment);
     }
   }
 
@@ -199,33 +245,33 @@ class Assembler extends Object {
     if (a.isImmediate() && b.isImmediate()) {
       // TODO: should optimize call sites and make this an assert instead
       // call sites can either use STC/CLC or (preferred) actually skip the offending code
-      addCode(blockId, concat('mov r11, ', a.operand), comment);
-      addCode(blockId, concat('cmp r11, ', b.operand), concat('(indirect via r11 because both operands are immediates)'));
-    } else if (b.kind == otImm32) {
-      addCode(blockId, concat('cmp qword ptr ', a.operand, ', ', b.operand), comment);
-    } else if (b.kind == otImm64) {
-      addCode(blockId, concat('mov r11, ', a.operand), comment);
-      addCode(blockId, concat('cmp r11, ', b.operand), concat('(indirect via r11 because ', b.operand, ' could be a 64 bit value)'));
+      addCode(blockId, concat('mov r11, ', a.value), comment);
+      addCode(blockId, concat('cmp r11, ', b.value), concat('(indirect via r11 because both operands are immediates)'));
+    } else if (b.isImmediate64()) {
+      addCode(blockId, concat('mov r11, ', a.value), comment);
+      addCode(blockId, concat('cmp r11, ', b.value), concat('(indirect via r11 because ', b, ' is an imm64)'));
+    } else if (b.isImmediate()) {
+      addCode(blockId, concat('cmp qword ptr ', a.value, ', ', b.value), comment);
     } else if (a.isMemory() && b.isMemory()) {
-      addCode(blockId, concat('mov r11, ', a.operand), comment);
-      addCode(blockId, concat('cmp r11, ', b.operand), concat('(indirect via r11 because both operands are memory references)'));
+      addCode(blockId, concat('mov r11, ', a.value), comment);
+      addCode(blockId, concat('cmp r11, ', b.value), concat('(indirect via r11 because both operands are memory references)'));
     } else {
-      addCode(blockId, concat('cmp ', a.operand, ', ', b.operand), comment);
+      addCode(blockId, concat('cmp ', a.value, ', ', b.value), comment);
     }
   }
 
   Null addLea(Integer blockId, Operand destination, Operand source, String comment) {
     assert(source.kind == otIndirect, concat('can only lea from a memory location, not a ', source.kind, ', when trying to add "lea ', destination, ', ', source, '"'));
     assert(destination.kind == otRegister, 'can only lea to a register');
-    addCode(blockId, concat('lea ', destination.operand, ', ', source.operand), comment);
+    addCode(blockId, concat('lea ', destination.destination, ', ', source.value), comment);
   }
 
   Null addPush(Integer blockId, Operand source, String comment) {
-    if (source.kind == otLabel || source.kind == otLabelOffset) {
-      addCode(blockId, concat('mov r11, ', source.operand), comment);
-      addCode(blockId, concat('push r11'), concat('(indirect via r11 because "', source.operand, '" cannot be used with push)'));
+    if (source.isImmediate64()) {
+      addCode(blockId, concat('mov r11, ', source.value), comment);
+      addCode(blockId, concat('push r11'), concat('(indirect via r11 because "', source, '" is an imm64)'));
     } else {
-      addCode(blockId, concat('push ', source.operand), comment);
+      addCode(blockId, concat('push ', source.value), comment);
     }
   }
 
@@ -280,8 +326,14 @@ class Assembler extends Object {
       '; externs\n',
       join(externs, '\n'),
       '\n\n',
+      '.const\n',
+      join(const, '\n'),
+      '\n\n',
       '.data\n',
       join(data, '\n'),
+      '\n\n',
+      '_BSS segment\n',
+      join(bss, '\n'),
       '\n\n',
       '.code\n',
       '\n',

@@ -120,11 +120,11 @@ class LiteralIntegerVot extends ValueVot {
   }
 }
 
-class LabelVot extends ValueVot {
+class ImmediateAddressVot extends ValueVot {
   String label;
 
   Operand asOperand() {
-    return Operand(label, otLabel);
+    return Operand(label, otAddressOfLabel);
   }
 
   Null constructor(Type typeArg, String labelArg) {
@@ -137,11 +137,11 @@ class LabelVot extends ValueVot {
   }
 }
 
-class LabelPointerVot extends ValueVot {
+class DereferencedPointerVot extends ValueVot {
   String label;
 
   Operand asOperand() {
-    return Operand(label, otLabelOffset);
+    return Operand(label, otDereferencedPointerLabel);
   }
 
   Null constructor(Type typeArg, String labelArg) {
@@ -151,6 +151,30 @@ class LabelPointerVot extends ValueVot {
 
   String toString() {
     return concat("[", className, ":", label, "@", internalObjectId, "]");
+  }
+}
+
+class GlobalVariableVot extends ValueVot {
+  String valueLabel;
+  String typeLabel;
+
+  Operand asOperand() {
+    return Operand(valueLabel, otDereferencedPointerLabel);
+  }
+
+  TypeVot dynamicType() {
+    return OperandTypeVot(Operand(typeLabel, otDereferencedPointerLabel));
+  }
+
+  Null constructor(Type staticTypeArg, String valueLabelArg, String typeLabelArg) {
+    assert(staticTypeArg.hasDynamicType(), 'cannot use GlobalVariableVot with non-dynamic type');
+    super.constructor(staticTypeArg);
+    valueLabel = valueLabelArg;
+    typeLabel = typeLabelArg;
+  }
+
+  String toString() {
+    return concat("[", className, ":", valueLabel, "@", internalObjectId, "]");
   }
 }
 

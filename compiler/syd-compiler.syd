@@ -235,7 +235,7 @@ class StoreTypeCheckInstruction extends TypeCheckInstruction {
   }
 }
 
-class StringConstantDataInstruction extends Instruction {
+class StringConstantInstruction extends Instruction {
   String label;
   String value;
   SourceLocation source;
@@ -248,7 +248,7 @@ class StringConstantDataInstruction extends Instruction {
       append(data, concat('db ', stringLiteral(value)));
       append(comments, concat(source));
     }
-    assembler.addData(label, data, comments);
+    assembler.addConst(label, data, comments);
   }  
 
   Null constructor(String labelArg, String valueArg, SourceLocation sourceArg) {
@@ -349,7 +349,6 @@ class SubroutineCallInstruction extends Instruction {
   }
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    assembler.addComment(blockId, concat('Calling ', target.value!.asOperand(), ' with ', len(arguments), ' arguments'));
     Integer argumentIndex = len(arguments) - 1;
     while (argumentIndex >= 0) {
       assembler.addPush(blockId, arguments[argumentIndex].value!.asOperand(), concat('value of argument #', argumentIndex + 1));
@@ -434,17 +433,24 @@ class Slot extends VotSource {
     return result;
   }
 
-  Boolean canBeStackAllocated() {
-    AnythingList stackFrames = referencingStackFrames.values();
-    Boolean result = needsAllocation
-        && (len(stackFrames) == 1)
-        && (stackFrames[0] == cast(cast(homeScope).stackFrame)())
-        && (isAnonymous || (homeScope.className != 'CompiledLibrary'));
-    return result;
+  Boolean isGlobal() {
+    return homeScope.className == 'CompiledLibrary' // XXX should use is
+        || homeScope.className == 'CompiledRuntimeLibrary';
   }
 
-  Boolean needsHeapAllocation() {
-    return needsAllocation && !canBeStackAllocated();
+  Boolean canBeGloballyAllocated() {
+    return isGlobal();
+  }
+
+  Boolean canBeStackAllocated() {
+    AnythingList stackFrames = referencingStackFrames.values();
+    return (len(stackFrames) == 1)
+        && (stackFrames[0] == cast(cast(homeScope).stackFrame)())
+        && (isAnonymous || (!isGlobal()));
+  }
+
+  Boolean canBeHeapAllocated() {
+    return !isGlobal();
   }
 
   ValueVot location;
@@ -626,7 +632,7 @@ class CompilationEnvironment extends TypeRegistry {
         offset += 1;
       }
     }
-    assembler.addData(
+    assembler.addConst(
       label,
       [ concat('db ', join(map(bytes, hex8) as StringList, ', ')) ],
       [ concat('Type table\n', join(comment, '')) ]:StringNullable,
@@ -741,16 +747,15 @@ class CompiledScope extends Object {
     Slot slot = Slot(cast(subroutine).type as Type, this, cast(subroutine).name as String, false, true); // named, immutable
     registerSlot(slot);
     identifiers.set(cast(subroutine).name, slot);
-    slot.writeStatic(this, LabelVot(cast(subroutine).type as AbstractSubroutineType, cast(subroutine).label as String));
+    slot.writeStatic(this, ImmediateAddressVot(cast(subroutine).type as AbstractSubroutineType, cast(subroutine).label as String));
     environment().addSubroutine(subroutine);
     (cast(subroutine).type as Type).markConstructed();
     return slot;
   }
 
   Slot emitSubroutineCall(ValueHandle target, ValueHandleList arguments) {
-    append(instructions, CommentInstruction('Prepare local variables for function call'));
-    Slot thisPointer = registerDynamicValue(cast(cast(environment().runtimeLibrary!).coreClassType), 'this pointer');
-    Slot closurePointer = registerDynamicValue(cast(cast(environment().runtimeLibrary!).coreClosureType), 'closure pointer');
+    Slot thisPointer = registerDynamicValue(cast(cast(environment().runtimeLibrary!).coreClassType), 'this pointer for function call (placeholder)');
+    Slot closurePointer = registerDynamicValue(cast(cast(environment().runtimeLibrary!).coreClosureType), 'closure pointer for function call (placeholder)');
     thisPointer.writeStatic(this, cast(environment().runtimeLibrary!).coreSentinel as ValueVot);
     closurePointer.writeStatic(this, cast(environment().runtimeLibrary!).coreSentinel as ValueVot);
     Type returnType;
@@ -778,11 +783,14 @@ class CompiledScope extends Object {
 
   CompiledScope createErrorHandlerBlock(Slot errorMessage, String what) {
     CompiledScope block = makeCompiledNestedScope(this, concat(camelCase(what), '$Error')) as CompiledScope;
+    block.emitInstruction(CommentInstruction(concat('Error handling block for ', what)));
     String label = environment().generateLabel(concat(block.labelPrefix(), '$', camelCase(what), '$Ok'));
     ValueHandle printHandle = (cast(environment().runtimeLibrary!).corePrint as Slot).read(block);
+    block.emitInstruction(CommentInstruction(concat(' - print(', errorMessage.debugName, ')')));
     block.emitSubroutineCall(printHandle, [ errorMessage.read(block) ]);
     ValueHandle exitHandle = (cast(environment().runtimeLibrary!).coreExit as Slot).read(block);
     ValueHandle failureExitCode = environment().integer(0x01);
+    block.emitInstruction(CommentInstruction(concat(' - exit(1)')));
     block.emitSubroutineCall(exitHandle, [ failureExitCode ]);
     return block;
   }
@@ -894,6 +902,8 @@ class CompiledStackFrameScope extends CompiledScope {
 
   Integer stackSize = 0x00;
 
+  SlotList bssSlots = []:Slot;
+
   Null prepareSlots() {
     for (slot in slots) {
       //stderr(concat(slot, ' read:', slot.isRead, ' needs:', slot.needsAllocation, ' stack?:', slot.canBeStackAllocated(), ' heap?:', slot.needsHeapAllocation()));
@@ -907,6 +917,11 @@ class CompiledStackFrameScope extends CompiledScope {
             } else {
               stackSize += 0x08;
             }
+          } else if (slot.canBeGloballyAllocated()) {
+            String valueLabel = environment().generateLabel(concat('global', len(bssSlots), 'Value'));
+            String typeLabel = environment().generateLabel(concat('global', len(bssSlots), 'Type'));
+            slot.assignLocation(GlobalVariableVot(slot.staticType, valueLabel, typeLabel));
+            append(bssSlots, slot);
           } else {
             throw(concat('not sure what to do with ', slot, ' in terms of allocation'));
           }
@@ -953,6 +968,10 @@ class CompiledStackFrameScope extends CompiledScope {
   }
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
+    for (slot in bssSlots) {
+      assembler.addBss((slot.location as GlobalVariableVot).valueLabel, 4, slot.debugName);
+      assembler.addBss((slot.location as GlobalVariableVot).typeLabel, 4, concat('dynamic type of ', slot.debugName));
+    }
     generatePrologAssembler(assembler, blockId);
     super.generateAssembler(assembler, blockId);
     generateEpilogAssembler(assembler, blockId);
@@ -1267,13 +1286,13 @@ class CompiledRuntimeLibrary extends CompiledLibrary {
 
   Slot registerStringConstant(String labelBase, String value, Integer line, Integer col, String file) {
     String label = compilationEnvironment.generateLabel(labelBase);
-    emitInstruction(StringConstantDataInstruction(
+    emitInstruction(StringConstantInstruction(
       label,
       value,
       SourceLocation(line, col, file),
     ));
     coreStringType.markConstructed();
-    return registerStaticValue(LabelPointerVot(coreStringType, label), labelBase);
+    return registerStaticValue(ImmediateAddressVot(coreStringType, label), labelBase);
   }
 
   Null constructor(CompilationEnvironment compilationEnvironmentArg, String nameArg) {
