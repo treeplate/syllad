@@ -225,7 +225,7 @@ class StoreTypeCheckInstruction extends TypeCheckInstruction {
   Null generateAssembler(Assembler assembler, Integer blockId) {
     super.generateAssembler(assembler, blockId);
     assembler.addMov(blockId, target.value!.asOperand(), (environment.integer as ValueHandleFunction)(0).value!.asOperand(), concat('clear ', target.source.debugName));
-    assembler.addCode(blockId, concat('setc byte ptr ', target.value!.asOperand()), concat('store result in ', target.source.debugName));
+    assembler.addCode(blockId, concat('setc byte ptr ', target.value!.asOperand().value), concat('store result in ', target.source.debugName));
     assembler.addMov(blockId, target.type.type!.asOperand(), (cast((environment.intrinsicsLibrary as WhateverNullable)!).coreBooleanType as Type).asOperand(), concat(target.source.debugName, ' is a Boolean'));
   }
 
@@ -363,7 +363,7 @@ class SubroutineCallInstruction extends Instruction {
     assembler.addLea(blockId, rdx, closurePointer.value!.asOperand(), 'pointer to closure');
     assembler.addCode(blockId, concat('mov rcx, ', len(arguments)), 'number of arguments');
     assembler.addCode(blockId, 'sub rsp, 20h', 'allocate shadow space');
-    assembler.addCode(blockId, concat('call ', target.value!.asOperand()), 'jump to subroutine');
+    assembler.addCode(blockId, concat('call ', target.value!.asOperand().value), 'jump to subroutine');
     assembler.addCode(blockId, concat('add rsp, ', hex8(32 + 8 * 2 * len(arguments) + 8)), 'release shadow space and arguments');
   }  
 
@@ -499,6 +499,7 @@ class CompilationEnvironment extends TypeRegistry {
   Map libraries = Map(); // String -> false (actively being compiled) or CompiledLibrary
   StringList libraryNames = []:String;
   ObjectNullable intrinsicsLibrary = null; // XXX Object should be CompiledIntrinsicsLibraryNullable
+  ObjectNullable runtimeLibrary = null; // XXX Object should be CompiledLibraryNullable
 
   Null declareLibrary(String filename) {
     assert(libraries.get(filename) == null, 'tried to declare library that was already declared');
@@ -530,6 +531,10 @@ class CompilationEnvironment extends TypeRegistry {
     return libraries.get(filename);
   }
 
+  Null setRuntimeLibrary(Object runtimeLibraryArg) { // XXX Object should be CompiledLibrary
+    runtimeLibrary = runtimeLibraryArg;
+  }
+
   ObjectList subroutines = []:Object; // XXX Object should be CompiledSubroutine
 
   Null addSubroutine(Object subroutine) { // XXX Object should be CompiledSubroutine
@@ -538,6 +543,7 @@ class CompilationEnvironment extends TypeRegistry {
 
   Null prepareInstructions() {
     (cast(intrinsicsLibrary).prepareInstructions as NullFunction)();
+    (cast(runtimeLibrary).prepareInstructions as NullFunction)();
     for (libraryName in libraryNames) {
       Anything library = libraries.get(libraryName);
       assert(library is Object, concat(libraryName, ' was never fully compiled'));
@@ -550,6 +556,7 @@ class CompilationEnvironment extends TypeRegistry {
 
   Null prepareSlots() {
     (cast(intrinsicsLibrary).prepareSlots as NullFunction)();
+    (cast(runtimeLibrary).prepareSlots as NullFunction)();
     for (libraryName in libraryNames) {
       Anything library = libraries.get(libraryName);
       assert(library is Object, concat(libraryName, ' was never fully compiled'));
@@ -562,6 +569,7 @@ class CompilationEnvironment extends TypeRegistry {
 
   Null generateAssemblerBlocks(Assembler assembler) {
     (cast(intrinsicsLibrary).generateAssemblerBlock as NullFunction)(assembler);
+    (cast(runtimeLibrary).generateAssemblerBlock as NullFunction)(assembler);
     for (libraryName in libraryNames) {
       Anything library = libraries.get(libraryName);
       assert(library is Object, concat(libraryName, ' was never fully compiled'));
@@ -1239,6 +1247,10 @@ class CompiledLibrary extends CompiledStackFrameScope {
     CompiledLibraryNullable intrinsicsLibrary = cast(compilationEnvironment.intrinsicsLibrary); // XXX CompiledLibrary should be CompiledIntrinsicsLibrary
     if (intrinsicsLibrary != null) {
       importLibrary(intrinsicsLibrary!);
+    }
+    CompiledLibraryNullable runtimeLibrary = compilationEnvironment.runtimeLibrary as CompiledLibraryNullable;
+    if (runtimeLibrary != null) {
+      importLibrary(runtimeLibrary!);
     }
   }
 

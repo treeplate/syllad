@@ -1,5 +1,4 @@
 // TODO
-// - autoimport rtl
 // - something that runs each test in turn (and matches expectation)
 // - static type checking ("xxxx")
 // - heap allocation
@@ -139,9 +138,13 @@ String mainProgramFileName = 'temp.syd';
 Assembler assembler = Assembler();
 //assembler.addCode(assembler.mainBlockId, 'int 3', 'debugger');
 CompilationEnvironment compilationEnvironment = CompilationEnvironment(assembler);
+compilationEnvironment.setRuntimeLibrary(
+  parseTokens(tokenize(scalarValues(readFile('syd-rtl.syd')), 'runtime library'), 'runtime library', false).generateScopes(compilationEnvironment)
+);
 CompiledLibrary program = processFile(mainProgramFileName, compilationEnvironment, true);
 compilationEnvironment.defineLibrary(mainProgramFileName, program);
 compilationEnvironment.compile(assembler);
+assembler.addComment(assembler.mainBlockId, 'End of global scope');
 assembler.addCode(assembler.mainBlockId, 'ret', 'exit application');
 stderr('Compilation finished!');
 stderr('Result:');

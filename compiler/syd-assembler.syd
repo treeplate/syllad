@@ -96,7 +96,7 @@ class Operand extends Object {
   }
 
   String toString() {
-    return debugName;
+    return concat('"', debugName, '"');
   }
 
   Null constructor(String operandArg, ot kindArg) {

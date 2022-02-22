@@ -991,8 +991,8 @@ class Library extends StatementBlock {
 class Program extends Library {
   Null generateInstructions(CompiledScope scope) {
     super.generateInstructions(scope);
-    Slot slot = scope.registerStaticValue(LiteralIntegerVot((scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary).coreIntegerType, 0), 'default exit code');
-    ValueHandle exitCode = slot.read(scope);
+    scope.emitInstruction(CommentInstruction('Terminate application - call exit(0)'));
+    ValueHandle exitCode = scope.environment().integer(0);
     ValueHandle exit = (scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary).coreExit.read(scope);
     scope.emitSubroutineCall(exit, [exitCode]);
   }

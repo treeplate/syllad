@@ -1,3 +1,19 @@
+/* (unsupported by compiler; requires: ==, >, %, /, +, chr, concat (for strings))
+String intToStr(Integer value) {
+  if (value == 0) {
+    return '0';
+  }
+  String buffer = ''; 
+  Integer newValue = value; // parameters are final
+  while (newValue > 0) {
+    Integer digit = newValue % 10;
+    newValue = newValue / 10;
+    buffer = concat(chr(0x30 + digit), buffer);
+  }
+  return buffer;
+}
+*/
+
 String stringify(Anything arg) {
   if (arg is String) {
     return arg;
@@ -10,6 +26,9 @@ String stringify(Anything arg) {
   }
   if (arg is Null) {
     return 'null';
+  }
+  if (arg is Integer) {
+    //return intToStr(arg as Integer) // requires: as, concat, >, %, /, +, chr, ==
   }
   print('Cannot stringify a value\n');
   exit(1);
