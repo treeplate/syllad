@@ -269,10 +269,17 @@ class Assembler extends Object {
   Null addPush(Integer blockId, Operand source, String comment) {
     if (source.isImmediate64()) {
       addCode(blockId, concat('mov r11, ', source.value), comment);
-      addCode(blockId, concat('push r11'), concat('(indirect via r11 because "', source, '" is an imm64)'));
+      addCode(blockId, concat('push r11'), concat('(indirect via r11 because ', source, ' is an imm64)'));
     } else {
       addCode(blockId, concat('push ', source.value), comment);
     }
+  }
+
+  Null addOpcode(Integer blockId, String opcode, OperandList operands, String comment) {
+    String encode(Operand operand) {
+      return operand.value;
+    }
+    addCode(blockId, concat(opcode, ' ', join(map(operands, encode) as StringList, ', ')), comment);
   }
 
   Integer addLabel(String label, StringNullable comment) {

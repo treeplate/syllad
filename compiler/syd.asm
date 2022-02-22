@@ -25,13 +25,16 @@ extern ExitProcess : proc
 
   parameterCountCheckFailureMessage dq -01h                      ; String constant (reference count)
                dq 88                                             ; Length
-               db "error: function call received the wrong number of parameters (expected %d, received %d)", 0ah ; line 1340 column 25 in file syd-compiler.syd
+               db "error: function call received the wrong number of parameters (expected %d, received %d)", 0ah ; line 1374 column 25 in file syd-compiler.syd
   parameterTypeCheckFailureMessage dq -01h                       ; String constant (reference count)
                dq 71                                             ; Length
-               db "error: type mismatch for function %s parameter %d, expected %s, got %s", 0ah ; line 1345 column 25 in file syd-compiler.syd
+               db "error: type mismatch for function %s parameter %d, expected %s, got %s", 0ah ; line 1379 column 25 in file syd-compiler.syd
   returnValueTypeCheckFailureMessage dq -01h                     ; String constant (reference count)
                dq 68                                             ; Length
-               db "error: type mismatch for function return value, expected %s, got %s", 0ah ; line 1350 column 25 in file syd-compiler.syd
+               db "error: type mismatch for function return value, expected %s, got %s", 0ah ; line 1384 column 25 in file syd-compiler.syd
+  operandTypeCheckFailureMessage dq -01h                         ; String constant (reference count)
+               dq 54                                             ; Length
+               db "error: type mismatch for operand, expected %s, got %s", 0ah ; line 1389 column 25 in file syd-compiler.syd
   string       dq -01h                                           ; String constant (reference count)
                dq 4                                              ; Length
                db "true"                                         ; line 23 column 19 in file runtime library
@@ -55,8 +58,8 @@ _BSS segment
 
 public main
 main:
-  ; rtl
-  ; ===
+  ; intrinsics
+  ; ==========
   ; Prolog
   push rbp                                                       ; save volatile registers
   lea rbp, [rsp+000h]                                            ; set up frame pointer
@@ -75,54 +78,172 @@ main:
   ; ========
   ; Prolog
   push rbp                                                       ; save volatile registers
-  sub rsp, 078h                                                  ; allocate space for stack
-  lea rbp, [rsp+078h]                                            ; set up frame pointer
-  ; Line 1: print(stringify(true));
-  mov qword ptr [rbp-008h], 0h                                   ; value of this pointer for function call (placeholder)
-  mov qword ptr [rbp-010h], 000000000h                           ; type of this pointer for function call (placeholder)
-  mov qword ptr [rbp-018h], 0h                                   ; value of closure pointer for function call (placeholder)
-  push 000000001h                                                ; value of argument #1
-  push 000000005h                                                ; type of argument #1
-  lea r11, [rbp-020h]                                            ; pointer to return value (and type, 8 bytes earlier)
+  sub rsp, 0310h                                                 ; allocate space for stack
+  lea rbp, [rsp+0310h]                                           ; set up frame pointer
+  ; Line 3: Integer c = a + b;
+  mov qword ptr r11, 000000005h                                  ; add mutates first operand, so indirect via register
+  add r11, 000000007h                                            ; + operator
+  mov [rbp-0a8h], r11                                            ; store result
+  mov qword ptr [rbp-0b0h], 000000006h                           ; store type
+  ; Line 4: Integer d = a + b + c + 11 /* 0xb */;
+  mov qword ptr r11, 000000005h                                  ; add mutates first operand, so indirect via register
+  add r11, 000000007h                                            ; + operator
+  mov [rbp-0158h], r11                                           ; store result
+  mov qword ptr [rbp-0160h], 000000006h                          ; store type
+  mov rax, [rbp-0160h]                                           ; load the dynamic type of a + b into rax
+  lea r10, typeTable                                             ; move type table offset into r10
+  add rax, r10                                                   ; adjust rax to point to the type table
+  bt qword ptr [rax], 2                                          ; check that a + b is Integer'6
+  jc tempSyd$aB$TypeMatch                                        ; skip next block if the type matches
+    ; Error handling block for a + b
+    ;  - print(operandTypeCheckFailureMessage)
+    mov qword ptr [rbp-0168h], 0h                                ; value of this pointer for function call (placeholder)
+    mov qword ptr [rbp-0170h], 000000000h                        ; type of this pointer for function call (placeholder)
+    mov qword ptr [rbp-0178h], 0h                                ; value of closure pointer for function call (placeholder)
+    mov r11, offset operandTypeCheckFailureMessage               ; value of argument #1
+    push r11                                                     ; (indirect via r11 because "operandTypeCheckFailureMessage" is an imm64)
+    push 000000007h                                              ; type of argument #1
+    lea r11, [rbp-0180h]                                         ; pointer to return value (and type, 8 bytes earlier)
+    push r11                                                     ; (that pointer is the last value pushed to the stack)
+    lea r9, [rbp-0168h]                                          ; pointer to this
+    mov r8, [rbp-0170h]                                          ; type of this
+    lea rdx, [rbp-0178h]                                         ; pointer to closure
+    mov rcx, 1                                                   ; number of arguments
+    sub rsp, 20h                                                 ; allocate shadow space
+    call offset func$print                                       ; jump to subroutine
+    add rsp, 038h                                                ; release shadow space and arguments
+    ;  - exit(1)
+    mov qword ptr [rbp-0190h], 0h                                ; value of this pointer for function call (placeholder)
+    mov qword ptr [rbp-0198h], 000000000h                        ; type of this pointer for function call (placeholder)
+    mov qword ptr [rbp-01a0h], 0h                                ; value of closure pointer for function call (placeholder)
+    push 000000001h                                              ; value of argument #1
+    push 000000006h                                              ; type of argument #1
+    lea r11, [rbp-01a8h]                                         ; pointer to return value (and type, 8 bytes earlier)
+    push r11                                                     ; (that pointer is the last value pushed to the stack)
+    lea r9, [rbp-0190h]                                          ; pointer to this
+    mov r8, [rbp-0198h]                                          ; type of this
+    lea rdx, [rbp-01a0h]                                         ; pointer to closure
+    mov rcx, 1                                                   ; number of arguments
+    sub rsp, 20h                                                 ; allocate shadow space
+    call offset func$exit                                        ; jump to subroutine
+    add rsp, 038h                                                ; release shadow space and arguments
+  tempSyd$aB$TypeMatch:
+  mov rax, [rbp-0b0h]                                            ; load the dynamic type of c into rax
+  lea r10, typeTable                                             ; move type table offset into r10
+  add rax, r10                                                   ; adjust rax to point to the type table
+  bt qword ptr [rax], 2                                          ; check that c is Integer'6
+  jc tempSyd$c$TypeMatch                                         ; skip next block if the type matches
+    ; Error handling block for c
+    ;  - print(operandTypeCheckFailureMessage)
+    mov qword ptr [rbp-01b8h], 0h                                ; value of this pointer for function call (placeholder)
+    mov qword ptr [rbp-01c0h], 000000000h                        ; type of this pointer for function call (placeholder)
+    mov qword ptr [rbp-01c8h], 0h                                ; value of closure pointer for function call (placeholder)
+    mov r11, offset operandTypeCheckFailureMessage               ; value of argument #1
+    push r11                                                     ; (indirect via r11 because "operandTypeCheckFailureMessage" is an imm64)
+    push 000000007h                                              ; type of argument #1
+    lea r11, [rbp-01d0h]                                         ; pointer to return value (and type, 8 bytes earlier)
+    push r11                                                     ; (that pointer is the last value pushed to the stack)
+    lea r9, [rbp-01b8h]                                          ; pointer to this
+    mov r8, [rbp-01c0h]                                          ; type of this
+    lea rdx, [rbp-01c8h]                                         ; pointer to closure
+    mov rcx, 1                                                   ; number of arguments
+    sub rsp, 20h                                                 ; allocate shadow space
+    call offset func$print                                       ; jump to subroutine
+    add rsp, 038h                                                ; release shadow space and arguments
+    ;  - exit(1)
+    mov qword ptr [rbp-01e0h], 0h                                ; value of this pointer for function call (placeholder)
+    mov qword ptr [rbp-01e8h], 000000000h                        ; type of this pointer for function call (placeholder)
+    mov qword ptr [rbp-01f0h], 0h                                ; value of closure pointer for function call (placeholder)
+    push 000000001h                                              ; value of argument #1
+    push 000000006h                                              ; type of argument #1
+    lea r11, [rbp-01f8h]                                         ; pointer to return value (and type, 8 bytes earlier)
+    push r11                                                     ; (that pointer is the last value pushed to the stack)
+    lea r9, [rbp-01e0h]                                          ; pointer to this
+    mov r8, [rbp-01e8h]                                          ; type of this
+    lea rdx, [rbp-01f0h]                                         ; pointer to closure
+    mov rcx, 1                                                   ; number of arguments
+    sub rsp, 20h                                                 ; allocate shadow space
+    call offset func$exit                                        ; jump to subroutine
+    add rsp, 038h                                                ; release shadow space and arguments
+  tempSyd$c$TypeMatch:
+  mov r11, [rbp-0158h]                                           ; add mutates first operand, so indirect via register
+  add r11, [rbp-0a8h]                                            ; + operator
+  mov [rbp-0208h], r11                                           ; store result
+  mov qword ptr [rbp-0210h], 000000006h                          ; store type
+  mov rax, [rbp-0210h]                                           ; load the dynamic type of a + b + c into rax
+  lea r10, typeTable                                             ; move type table offset into r10
+  add rax, r10                                                   ; adjust rax to point to the type table
+  bt qword ptr [rax], 2                                          ; check that a + b + c is Integer'6
+  jc tempSyd$aBC$TypeMatch                                       ; skip next block if the type matches
+    ; Error handling block for a + b + c
+    ;  - print(operandTypeCheckFailureMessage)
+    mov qword ptr [rbp-0218h], 0h                                ; value of this pointer for function call (placeholder)
+    mov qword ptr [rbp-0220h], 000000000h                        ; type of this pointer for function call (placeholder)
+    mov qword ptr [rbp-0228h], 0h                                ; value of closure pointer for function call (placeholder)
+    mov r11, offset operandTypeCheckFailureMessage               ; value of argument #1
+    push r11                                                     ; (indirect via r11 because "operandTypeCheckFailureMessage" is an imm64)
+    push 000000007h                                              ; type of argument #1
+    lea r11, [rbp-0230h]                                         ; pointer to return value (and type, 8 bytes earlier)
+    push r11                                                     ; (that pointer is the last value pushed to the stack)
+    lea r9, [rbp-0218h]                                          ; pointer to this
+    mov r8, [rbp-0220h]                                          ; type of this
+    lea rdx, [rbp-0228h]                                         ; pointer to closure
+    mov rcx, 1                                                   ; number of arguments
+    sub rsp, 20h                                                 ; allocate shadow space
+    call offset func$print                                       ; jump to subroutine
+    add rsp, 038h                                                ; release shadow space and arguments
+    ;  - exit(1)
+    mov qword ptr [rbp-0240h], 0h                                ; value of this pointer for function call (placeholder)
+    mov qword ptr [rbp-0248h], 000000000h                        ; type of this pointer for function call (placeholder)
+    mov qword ptr [rbp-0250h], 0h                                ; value of closure pointer for function call (placeholder)
+    push 000000001h                                              ; value of argument #1
+    push 000000006h                                              ; type of argument #1
+    lea r11, [rbp-0258h]                                         ; pointer to return value (and type, 8 bytes earlier)
+    push r11                                                     ; (that pointer is the last value pushed to the stack)
+    lea r9, [rbp-0240h]                                          ; pointer to this
+    mov r8, [rbp-0248h]                                          ; type of this
+    lea rdx, [rbp-0250h]                                         ; pointer to closure
+    mov rcx, 1                                                   ; number of arguments
+    sub rsp, 20h                                                 ; allocate shadow space
+    call offset func$exit                                        ; jump to subroutine
+    add rsp, 038h                                                ; release shadow space and arguments
+  tempSyd$aBC$TypeMatch:
+  mov r11, [rbp-0208h]                                           ; add mutates first operand, so indirect via register
+  add r11, 00000000bh                                            ; + operator
+  mov [rbp-02b8h], r11                                           ; store result
+  mov qword ptr [rbp-02c0h], 000000006h                          ; store type
+  ; Line 6: exit(d);
+  mov qword ptr [rbp-02c8h], 0h                                  ; value of this pointer for function call (placeholder)
+  mov qword ptr [rbp-02d0h], 000000000h                          ; type of this pointer for function call (placeholder)
+  mov qword ptr [rbp-02d8h], 0h                                  ; value of closure pointer for function call (placeholder)
+  push [rbp-02b8h]                                               ; value of argument #1
+  push [rbp-02c0h]                                               ; type of argument #1
+  lea r11, [rbp-02e0h]                                           ; pointer to return value (and type, 8 bytes earlier)
   push r11                                                       ; (that pointer is the last value pushed to the stack)
-  lea r9, [rbp-008h]                                             ; pointer to this
-  mov r8, [rbp-010h]                                             ; type of this
-  lea rdx, [rbp-018h]                                            ; pointer to closure
+  lea r9, [rbp-02c8h]                                            ; pointer to this
+  mov r8, [rbp-02d0h]                                            ; type of this
+  lea rdx, [rbp-02d8h]                                           ; pointer to closure
   mov rcx, 1                                                     ; number of arguments
   sub rsp, 20h                                                   ; allocate shadow space
-  call offset func$stringify                                     ; jump to subroutine
-  add rsp, 038h                                                  ; release shadow space and arguments
-  mov qword ptr [rbp-030h], 0h                                   ; value of this pointer for function call (placeholder)
-  mov qword ptr [rbp-038h], 000000000h                           ; type of this pointer for function call (placeholder)
-  mov qword ptr [rbp-040h], 0h                                   ; value of closure pointer for function call (placeholder)
-  push [rbp-020h]                                                ; value of argument #1
-  push [rbp-028h]                                                ; type of argument #1
-  lea r11, [rbp-048h]                                            ; pointer to return value (and type, 8 bytes earlier)
-  push r11                                                       ; (that pointer is the last value pushed to the stack)
-  lea r9, [rbp-030h]                                             ; pointer to this
-  mov r8, [rbp-038h]                                             ; type of this
-  lea rdx, [rbp-040h]                                            ; pointer to closure
-  mov rcx, 1                                                     ; number of arguments
-  sub rsp, 20h                                                   ; allocate shadow space
-  call offset func$print                                         ; jump to subroutine
+  call offset func$exit                                          ; jump to subroutine
   add rsp, 038h                                                  ; release shadow space and arguments
   ; Terminate application - call exit(0)
-  mov qword ptr [rbp-058h], 0h                                   ; value of this pointer for function call (placeholder)
-  mov qword ptr [rbp-060h], 000000000h                           ; type of this pointer for function call (placeholder)
-  mov qword ptr [rbp-068h], 0h                                   ; value of closure pointer for function call (placeholder)
+  mov qword ptr [rbp-02f0h], 0h                                  ; value of this pointer for function call (placeholder)
+  mov qword ptr [rbp-02f8h], 000000000h                          ; type of this pointer for function call (placeholder)
+  mov qword ptr [rbp-0300h], 0h                                  ; value of closure pointer for function call (placeholder)
   push 000000000h                                                ; value of argument #1
   push 000000006h                                                ; type of argument #1
-  lea r11, [rbp-070h]                                            ; pointer to return value (and type, 8 bytes earlier)
+  lea r11, [rbp-0308h]                                           ; pointer to return value (and type, 8 bytes earlier)
   push r11                                                       ; (that pointer is the last value pushed to the stack)
-  lea r9, [rbp-058h]                                             ; pointer to this
-  mov r8, [rbp-060h]                                             ; type of this
-  lea rdx, [rbp-068h]                                            ; pointer to closure
+  lea r9, [rbp-02f0h]                                            ; pointer to this
+  mov r8, [rbp-02f8h]                                            ; type of this
+  lea rdx, [rbp-0300h]                                           ; pointer to closure
   mov rcx, 1                                                     ; number of arguments
   sub rsp, 20h                                                   ; allocate shadow space
   call offset func$exit                                          ; jump to subroutine
   add rsp, 038h                                                  ; release shadow space and arguments
   ; Epilog
-  add rsp, 078h                                                  ; free space for stack
+  add rsp, 0310h                                                 ; free space for stack
   pop rbp                                                        ; restore volatile registers
   ; End of global scope
   ret                                                            ; exit application
@@ -144,7 +265,7 @@ func$print:
     mov qword ptr [rbp-018h], 000000000h                         ; type of this pointer for function call (placeholder)
     mov qword ptr [rbp-020h], 0h                                 ; value of closure pointer for function call (placeholder)
     mov r11, offset parameterCountCheckFailureMessage            ; value of argument #1
-    push r11                                                     ; (indirect via r11 because ""parameterCountCheckFailureMessage"" is an imm64)
+    push r11                                                     ; (indirect via r11 because "parameterCountCheckFailureMessage" is an imm64)
     push 000000007h                                              ; type of argument #1
     lea r11, [rbp-028h]                                          ; pointer to return value (and type, 8 bytes earlier)
     push r11                                                     ; (that pointer is the last value pushed to the stack)
@@ -183,7 +304,7 @@ func$print:
     mov qword ptr [rbp-068h], 000000000h                         ; type of this pointer for function call (placeholder)
     mov qword ptr [rbp-070h], 0h                                 ; value of closure pointer for function call (placeholder)
     mov r11, offset parameterTypeCheckFailureMessage             ; value of argument #1
-    push r11                                                     ; (indirect via r11 because ""parameterTypeCheckFailureMessage"" is an imm64)
+    push r11                                                     ; (indirect via r11 because "parameterTypeCheckFailureMessage" is an imm64)
     push 000000007h                                              ; type of argument #1
     lea r11, [rbp-078h]                                          ; pointer to return value (and type, 8 bytes earlier)
     push r11                                                     ; (that pointer is the last value pushed to the stack)
@@ -248,7 +369,7 @@ func$exit:
     mov qword ptr [rbp-010h], 000000000h                         ; type of this pointer for function call (placeholder)
     mov qword ptr [rbp-018h], 0h                                 ; value of closure pointer for function call (placeholder)
     mov r11, offset parameterCountCheckFailureMessage            ; value of argument #1
-    push r11                                                     ; (indirect via r11 because ""parameterCountCheckFailureMessage"" is an imm64)
+    push r11                                                     ; (indirect via r11 because "parameterCountCheckFailureMessage" is an imm64)
     push 000000007h                                              ; type of argument #1
     lea r11, [rbp-020h]                                          ; pointer to return value (and type, 8 bytes earlier)
     push r11                                                     ; (that pointer is the last value pushed to the stack)
@@ -287,7 +408,7 @@ func$exit:
     mov qword ptr [rbp-060h], 000000000h                         ; type of this pointer for function call (placeholder)
     mov qword ptr [rbp-068h], 0h                                 ; value of closure pointer for function call (placeholder)
     mov r11, offset parameterTypeCheckFailureMessage             ; value of argument #1
-    push r11                                                     ; (indirect via r11 because ""parameterTypeCheckFailureMessage"" is an imm64)
+    push r11                                                     ; (indirect via r11 because "parameterTypeCheckFailureMessage" is an imm64)
     push 000000007h                                              ; type of argument #1
     lea r11, [rbp-070h]                                          ; pointer to return value (and type, 8 bytes earlier)
     push r11                                                     ; (that pointer is the last value pushed to the stack)
@@ -344,7 +465,7 @@ func$stringify:
     mov qword ptr [rbp-010h], 000000000h                         ; type of this pointer for function call (placeholder)
     mov qword ptr [rbp-018h], 0h                                 ; value of closure pointer for function call (placeholder)
     mov r11, offset parameterCountCheckFailureMessage            ; value of argument #1
-    push r11                                                     ; (indirect via r11 because ""parameterCountCheckFailureMessage"" is an imm64)
+    push r11                                                     ; (indirect via r11 because "parameterCountCheckFailureMessage" is an imm64)
     push 000000007h                                              ; type of argument #1
     lea r11, [rbp-020h]                                          ; pointer to return value (and type, 8 bytes earlier)
     push r11                                                     ; (that pointer is the last value pushed to the stack)
@@ -383,7 +504,7 @@ func$stringify:
     mov qword ptr [rbp-060h], 000000000h                         ; type of this pointer for function call (placeholder)
     mov qword ptr [rbp-068h], 0h                                 ; value of closure pointer for function call (placeholder)
     mov r11, offset parameterTypeCheckFailureMessage             ; value of argument #1
-    push r11                                                     ; (indirect via r11 because ""parameterTypeCheckFailureMessage"" is an imm64)
+    push r11                                                     ; (indirect via r11 because "parameterTypeCheckFailureMessage" is an imm64)
     push 000000007h                                              ; type of argument #1
     lea r11, [rbp-070h]                                          ; pointer to return value (and type, 8 bytes earlier)
     push r11                                                     ; (that pointer is the last value pushed to the stack)
@@ -432,7 +553,7 @@ func$stringify:
       mov qword ptr [rbp-0c0h], 000000000h                       ; type of this pointer for function call (placeholder)
       mov qword ptr [rbp-0c8h], 0h                               ; value of closure pointer for function call (placeholder)
       mov r11, offset returnValueTypeCheckFailureMessage         ; value of argument #1
-      push r11                                                   ; (indirect via r11 because ""returnValueTypeCheckFailureMessage"" is an imm64)
+      push r11                                                   ; (indirect via r11 because "returnValueTypeCheckFailureMessage" is an imm64)
       push 000000007h                                            ; type of argument #1
       lea r11, [rbp-0d0h]                                        ; pointer to return value (and type, 8 bytes earlier)
       push r11                                                   ; (that pointer is the last value pushed to the stack)
@@ -479,88 +600,12 @@ func$stringify:
     cmp qword ptr [rbp+048h], 000000000h                         ; arg
     je func$stringify$stringify$if$block$1$if$continuation       ; jump if they are equal
       ; Line 23: return 'true';
-      mov qword ptr rax, 000000007h                              ; load the dynamic type of return value of stringify into rax
-      lea r10, typeTable                                         ; move type table offset into r10
-      add rax, r10                                               ; adjust rax to point to the type table
-      bt qword ptr [rax], 3                                      ; check that return value of stringify is String'7
-      jc func$stringify$stringify$if$block$1$stringify$if$block$1$if$block$returnValueOfStringify$TypeMatch ; skip next block if the type matches
-        ; Error handling block for return value of stringify
-        ;  - print(returnValueTypeCheckFailureMessage)
-        mov qword ptr [rbp-0118h], 0h                            ; value of this pointer for function call (placeholder)
-        mov qword ptr [rbp-0120h], 000000000h                    ; type of this pointer for function call (placeholder)
-        mov qword ptr [rbp-0128h], 0h                            ; value of closure pointer for function call (placeholder)
-        mov r11, offset returnValueTypeCheckFailureMessage       ; value of argument #1
-        push r11                                                 ; (indirect via r11 because ""returnValueTypeCheckFailureMessage"" is an imm64)
-        push 000000007h                                          ; type of argument #1
-        lea r11, [rbp-0130h]                                     ; pointer to return value (and type, 8 bytes earlier)
-        push r11                                                 ; (that pointer is the last value pushed to the stack)
-        lea r9, [rbp-0118h]                                      ; pointer to this
-        mov r8, [rbp-0120h]                                      ; type of this
-        lea rdx, [rbp-0128h]                                     ; pointer to closure
-        mov rcx, 1                                               ; number of arguments
-        sub rsp, 20h                                             ; allocate shadow space
-        call offset func$print                                   ; jump to subroutine
-        add rsp, 038h                                            ; release shadow space and arguments
-        ;  - exit(1)
-        mov qword ptr [rbp-0140h], 0h                            ; value of this pointer for function call (placeholder)
-        mov qword ptr [rbp-0148h], 000000000h                    ; type of this pointer for function call (placeholder)
-        mov qword ptr [rbp-0150h], 0h                            ; value of closure pointer for function call (placeholder)
-        push 000000001h                                          ; value of argument #1
-        push 000000006h                                          ; type of argument #1
-        lea r11, [rbp-0158h]                                     ; pointer to return value (and type, 8 bytes earlier)
-        push r11                                                 ; (that pointer is the last value pushed to the stack)
-        lea r9, [rbp-0140h]                                      ; pointer to this
-        mov r8, [rbp-0148h]                                      ; type of this
-        lea rdx, [rbp-0150h]                                     ; pointer to closure
-        mov rcx, 1                                               ; number of arguments
-        sub rsp, 20h                                             ; allocate shadow space
-        call offset func$exit                                    ; jump to subroutine
-        add rsp, 038h                                            ; release shadow space and arguments
-      func$stringify$stringify$if$block$1$stringify$if$block$1$if$block$returnValueOfStringify$TypeMatch:
       mov r11, offset string                                     ; value of return value
       mov [r15], r11                                             ; (indirect via r11 because "string" is an imm64)
       mov qword ptr [r15-08h], 000000007h                        ; type of return value
       jmp func$stringify$epilog                                  ; return
     func$stringify$stringify$if$block$1$if$continuation:         ; end of if
     ; Line 25: return 'false';
-    mov qword ptr rax, 000000007h                                ; load the dynamic type of return value of stringify into rax
-    lea r10, typeTable                                           ; move type table offset into r10
-    add rax, r10                                                 ; adjust rax to point to the type table
-    bt qword ptr [rax], 3                                        ; check that return value of stringify is String'7
-    jc func$stringify$stringify$if$block$1$returnValueOfStringify$TypeMatch ; skip next block if the type matches
-      ; Error handling block for return value of stringify
-      ;  - print(returnValueTypeCheckFailureMessage)
-      mov qword ptr [rbp-0168h], 0h                              ; value of this pointer for function call (placeholder)
-      mov qword ptr [rbp-0170h], 000000000h                      ; type of this pointer for function call (placeholder)
-      mov qword ptr [rbp-0178h], 0h                              ; value of closure pointer for function call (placeholder)
-      mov r11, offset returnValueTypeCheckFailureMessage         ; value of argument #1
-      push r11                                                   ; (indirect via r11 because ""returnValueTypeCheckFailureMessage"" is an imm64)
-      push 000000007h                                            ; type of argument #1
-      lea r11, [rbp-0180h]                                       ; pointer to return value (and type, 8 bytes earlier)
-      push r11                                                   ; (that pointer is the last value pushed to the stack)
-      lea r9, [rbp-0168h]                                        ; pointer to this
-      mov r8, [rbp-0170h]                                        ; type of this
-      lea rdx, [rbp-0178h]                                       ; pointer to closure
-      mov rcx, 1                                                 ; number of arguments
-      sub rsp, 20h                                               ; allocate shadow space
-      call offset func$print                                     ; jump to subroutine
-      add rsp, 038h                                              ; release shadow space and arguments
-      ;  - exit(1)
-      mov qword ptr [rbp-0190h], 0h                              ; value of this pointer for function call (placeholder)
-      mov qword ptr [rbp-0198h], 000000000h                      ; type of this pointer for function call (placeholder)
-      mov qword ptr [rbp-01a0h], 0h                              ; value of closure pointer for function call (placeholder)
-      push 000000001h                                            ; value of argument #1
-      push 000000006h                                            ; type of argument #1
-      lea r11, [rbp-01a8h]                                       ; pointer to return value (and type, 8 bytes earlier)
-      push r11                                                   ; (that pointer is the last value pushed to the stack)
-      lea r9, [rbp-0190h]                                        ; pointer to this
-      mov r8, [rbp-0198h]                                        ; type of this
-      lea rdx, [rbp-01a0h]                                       ; pointer to closure
-      mov rcx, 1                                                 ; number of arguments
-      sub rsp, 20h                                               ; allocate shadow space
-      call offset func$exit                                      ; jump to subroutine
-      add rsp, 038h                                              ; release shadow space and arguments
-    func$stringify$stringify$if$block$1$returnValueOfStringify$TypeMatch:
     mov r11, offset string$1                                     ; value of return value
     mov [r15], r11                                               ; (indirect via r11 because "string$1" is an imm64)
     mov qword ptr [r15-08h], 000000007h                          ; type of return value
@@ -577,44 +622,6 @@ func$stringify:
   cmp qword ptr [rbp-01b8h], 000000000h                          ; arg is Null
   je func$stringify$if$continuation$2                            ; jump if they are equal
     ; Line 28: return 'null';
-    mov qword ptr rax, 000000007h                                ; load the dynamic type of return value of stringify into rax
-    lea r10, typeTable                                           ; move type table offset into r10
-    add rax, r10                                                 ; adjust rax to point to the type table
-    bt qword ptr [rax], 3                                        ; check that return value of stringify is String'7
-    jc func$stringify$stringify$if$block$2$returnValueOfStringify$TypeMatch ; skip next block if the type matches
-      ; Error handling block for return value of stringify
-      ;  - print(returnValueTypeCheckFailureMessage)
-      mov qword ptr [rbp-01c8h], 0h                              ; value of this pointer for function call (placeholder)
-      mov qword ptr [rbp-01d0h], 000000000h                      ; type of this pointer for function call (placeholder)
-      mov qword ptr [rbp-01d8h], 0h                              ; value of closure pointer for function call (placeholder)
-      mov r11, offset returnValueTypeCheckFailureMessage         ; value of argument #1
-      push r11                                                   ; (indirect via r11 because ""returnValueTypeCheckFailureMessage"" is an imm64)
-      push 000000007h                                            ; type of argument #1
-      lea r11, [rbp-01e0h]                                       ; pointer to return value (and type, 8 bytes earlier)
-      push r11                                                   ; (that pointer is the last value pushed to the stack)
-      lea r9, [rbp-01c8h]                                        ; pointer to this
-      mov r8, [rbp-01d0h]                                        ; type of this
-      lea rdx, [rbp-01d8h]                                       ; pointer to closure
-      mov rcx, 1                                                 ; number of arguments
-      sub rsp, 20h                                               ; allocate shadow space
-      call offset func$print                                     ; jump to subroutine
-      add rsp, 038h                                              ; release shadow space and arguments
-      ;  - exit(1)
-      mov qword ptr [rbp-01f0h], 0h                              ; value of this pointer for function call (placeholder)
-      mov qword ptr [rbp-01f8h], 000000000h                      ; type of this pointer for function call (placeholder)
-      mov qword ptr [rbp-0200h], 0h                              ; value of closure pointer for function call (placeholder)
-      push 000000001h                                            ; value of argument #1
-      push 000000006h                                            ; type of argument #1
-      lea r11, [rbp-0208h]                                       ; pointer to return value (and type, 8 bytes earlier)
-      push r11                                                   ; (that pointer is the last value pushed to the stack)
-      lea r9, [rbp-01f0h]                                        ; pointer to this
-      mov r8, [rbp-01f8h]                                        ; type of this
-      lea rdx, [rbp-0200h]                                       ; pointer to closure
-      mov rcx, 1                                                 ; number of arguments
-      sub rsp, 20h                                               ; allocate shadow space
-      call offset func$exit                                      ; jump to subroutine
-      add rsp, 038h                                              ; release shadow space and arguments
-    func$stringify$stringify$if$block$2$returnValueOfStringify$TypeMatch:
     mov r11, offset string$2                                     ; value of return value
     mov [r15], r11                                               ; (indirect via r11 because "string$2" is an imm64)
     mov qword ptr [r15-08h], 000000007h                          ; type of return value
@@ -636,7 +643,7 @@ func$stringify:
   mov qword ptr [rbp-0230h], 000000000h                          ; type of this pointer for function call (placeholder)
   mov qword ptr [rbp-0238h], 0h                                  ; value of closure pointer for function call (placeholder)
   mov r11, offset string$3                                       ; value of argument #1
-  push r11                                                       ; (indirect via r11 because ""string$3"" is an imm64)
+  push r11                                                       ; (indirect via r11 because "string$3" is an imm64)
   push 000000007h                                                ; type of argument #1
   lea r11, [rbp-0240h]                                           ; pointer to return value (and type, 8 bytes earlier)
   push r11                                                       ; (that pointer is the last value pushed to the stack)

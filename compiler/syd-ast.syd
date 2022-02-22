@@ -347,7 +347,30 @@ class OperatorExpression extends Expression {
   Expression lhs;
   Expression rhs;
 
-  String describeOperator() { abstract(); }
+  String describeOperator() {
+    abstract();
+    // e.g.:
+    // return '+';
+  }
+
+  Null generateTypeCheckInstructions(ValueHandle lhsValue, ValueHandle rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    abstract();
+    // e.g.:
+    // scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(lhs));
+    // scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs));
+  }
+
+  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
+    abstract();
+    // e.g.:
+    // return intrinsics.coreIntegerType;
+  }
+
+  Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    abstract();
+    // e.g.:
+    // scope.emitInstruction(AdditionInstruction(lhsValue, rhsValue, result, concat(describeOperator(), ' operator')));
+  }
   
   String toStringIndent(Integer indent) {
     return concat(
@@ -364,6 +387,17 @@ class OperatorExpression extends Expression {
     callback(rhs, context);
   }
 
+  Slot generateInstructions(CompiledScope scope) {
+    // xxxx static type checks
+    CompiledIntrinsicsLibrary intrinsics = scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary;
+    ValueHandle lhsValue = lhs.generateInstructions(scope).read(scope);
+    ValueHandle rhsValue = rhs.generateInstructions(scope).read(scope);
+    generateTypeCheckInstructions(lhsValue, rhsValue, scope, intrinsics);
+    Slot result = scope.registerDynamicValue(returnType(intrinsics), concat(describeOperator(), ' operator result'));
+    generateExpressionInstructions(lhsValue, rhsValue, result.prepareWrite(scope), scope, intrinsics);
+    return result;
+  }
+
   Null constructor(Expression lhsArg, Expression rhsArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     lhs = lhsArg;
@@ -374,6 +408,19 @@ class OperatorExpression extends Expression {
 class OperatorAdditionExpression extends OperatorExpression {
   String describeOperator() {
     return '+';
+  }
+
+  Null generateTypeCheckInstructions(ValueHandle lhsValue, ValueHandle rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(lhs));
+    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs));
+  }
+
+  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
+    return intrinsics.coreIntegerType;
+  }
+
+  Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(BiOperandInstruction('add', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
   }
 }
 

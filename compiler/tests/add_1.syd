@@ -1,3 +1,5 @@
+// expected exit code is 35
+
 Integer a = 5;
 Integer b = 7;
 Integer c = a + b;

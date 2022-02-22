@@ -36,20 +36,25 @@ class Vot extends Object {
 // TYPE VOTS
 
 class TypeVot extends Vot {
-  // this class exists mainly to allow APIs to signal that they
-  // really expect a type vot, not a value vot
+  Boolean canStaticallyProveCompatibilityWith(Type staticType) {
+    return false;
+  }
 }
 
 class StaticTypeVot extends TypeVot {
-  Type staticType;
+  Type type;
 
   Operand asOperand() {
-    return staticType.asOperand();
+    return type.asOperand();
   }
 
-  Null constructor(Type staticTypeArg) {
+  Boolean canStaticallyProveCompatibilityWith(Type staticType) {
+    return type.isSubtypeOf(staticType);
+  }
+
+  Null constructor(Type typeArg) {
     super.constructor();
-    staticType = staticTypeArg;
+    type = typeArg;
   }
 }
 

@@ -201,10 +201,13 @@ class DoIfTypeMismatchInstruction extends TypeCheckInstruction {
   }
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    super.generateAssembler(assembler, blockId);
-    assembler.addCode(blockId, concat('jc ', continueLabel), 'skip next block if the type matches');
-    (cast(block).generateAssembler as NullFunction)(assembler, blockId);
-    assembler.addCode(blockId, concat(continueLabel, ':'), null);
+    if (!dynamicType.type!.canStaticallyProveCompatibilityWith(staticType)) {
+      super.generateAssembler(assembler, blockId);
+      assembler.addCode(blockId, concat('jc ', continueLabel), 'skip next block if the type matches');
+      (cast(block).generateAssembler as NullFunction)(assembler, blockId);
+      assembler.addCode(blockId, concat(continueLabel, ':'), null);
+    }
+    // TODO: xxxx we could also check if we can statically disprove compatibility
   }
 
   Null constructor(Type staticTypeArg, TypeHandle dynamicTypeArg, String continueLabelArg, Object blockArg, String whatArg) { // XXX Object should be CompiledScope
@@ -232,6 +235,37 @@ class StoreTypeCheckInstruction extends TypeCheckInstruction {
   Null constructor(Type staticTypeArg, TypeHandle dynamicTypeArg, ValueHandle targetArg, String whatArg, Whatever environmentArg) { // XXX Whatever should be CompilationEnvironment
     super.constructor(staticTypeArg, dynamicTypeArg, whatArg, environmentArg);
     target = targetArg;
+  }
+}
+
+class BiOperandInstruction extends Instruction {
+  String opcode;
+  ValueHandle lhs;
+  ValueHandle rhs;
+  ValueHandle result;
+  Type resultType;
+  String comment;
+
+  Null prepareInstructions() {
+    super.prepareInstructions();
+    result.forceAllocation(); // TODO: can we allow this to use a register...?
+  }
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addMov(blockId, r11, lhs.value!.asOperand(), concat(opcode, ' mutates first operand, so indirect via register'));
+    assembler.addOpcode(blockId, opcode, [r11, rhs.value!.asOperand()]:Operand, comment);
+    assembler.addMov(blockId, result.value!.asOperand(), r11, 'store result');
+    assembler.addMov(blockId, result.type.type!.asOperand(), resultType.asOperand(), 'store type');
+  }
+
+  Null constructor(String opcodeArg, ValueHandle lhsArg, ValueHandle rhsArg, ValueHandle resultArg, Type resultTypeArg, String commentArg) {
+    super.constructor();
+    opcode = opcodeArg;
+    lhs = lhsArg;
+    rhs = rhsArg;
+    result = resultArg;
+    resultType = resultTypeArg;
+    comment = commentArg;
   }
 }
 
@@ -660,7 +694,7 @@ class CompilationEnvironment extends TypeRegistry {
 
   Null constructor(Assembler assembler) {
     super.constructor();
-    intrinsicsLibrary = cast(cast(cast(this).CompiledIntrinsicsLibrary)(this, 'rtl'));
+    intrinsicsLibrary = cast(cast(cast(this).CompiledIntrinsicsLibrary)(this, 'intrinsics'));
     integers = VotSource(cast(intrinsicsLibrary).coreIntegerType as Type, 'integers');
    }
 }
@@ -1295,6 +1329,7 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
   Slot parameterCountCheckFailureMessage;
   Slot parameterTypeCheckFailureMessage;
   Slot returnValueTypeCheckFailureMessage;
+  Slot operandTypeCheckFailureMessage;
 
   Slot registerStringConstant(String labelBase, String value, Integer line, Integer col, String file) {
     String label = compilationEnvironment.generateLabel(labelBase);
@@ -1347,6 +1382,11 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
     returnValueTypeCheckFailureMessage = registerStringConstant(
       'returnValueTypeCheckFailureMessage',
       'error: type mismatch for function return value, expected %s, got %s\n',
+      __LINE__, __COL__, __FILE__,
+    );
+    operandTypeCheckFailureMessage = registerStringConstant(
+      'operandTypeCheckFailureMessage',
+      'error: type mismatch for operand, expected %s, got %s\n',
       __LINE__, __COL__, __FILE__,
     );
   }
