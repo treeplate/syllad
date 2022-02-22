@@ -1,18 +1,7 @@
-/*String concatList(WhateverList args, Integer offset) {
-  if(len(args) - offset == 0) { return ''; }
-  if(len(args) - offset == 1) { return concat(args[0]); }
-  return concat(args[offset], concatList(args, offset+1));
-}
-Null printlnNoSpaces(Anything... args) {
-  println(concatList(args, 0));
-}
-printlnNoSpaces('3', '2', '4');
-//*/
-
 // TODO
 // - something that runs each test in turn (and matches expectation)
 // - static type checking ("xxxx")
-// - global variables should go into .data section and be referenced by label
+// - put initialized globals into .data section
 // - heap allocation
 //    - import GetProcessHeap, HeapAlloc, HeapFree from kernel32
 // - string ref counting

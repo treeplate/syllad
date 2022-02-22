@@ -89,7 +89,7 @@ class FunctionStatement extends Statement {
         (List<ValueWrapper> a, List<String> stack,
             [Scope? thisScope, ValueType? thisType]) {
       int i = 0;
-      if (a.length != params.length) {
+      if (params is! InfiniteIterable && a.length != params.length) {
         throw FileInvalid(
             "Wrong number of arguments to $name: args $a, params $params\n${stack.reversed.join('\n')}");
       }

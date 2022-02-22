@@ -513,15 +513,173 @@ ValueType basicTypes(
   }
 }
 
-class InfiniteIterable<T> extends Iterable<T> {
+class InfiniteIterable<E> implements Iterable<E> {
   InfiniteIterable(this.value);
 
-  final T value;
+  final E value;
 
   String toString() => '($value...)';
 
+  InfiniteIterable<T> map<T>(T Function(E) mapper) {
+    return InfiniteIterable(mapper(value));
+  }
+
   @override
-  InfiniteIterator<T> get iterator => InfiniteIterator<T>(value);
+  InfiniteIterator<E> get iterator => InfiniteIterator<E>(value);
+
+  @override
+  bool any(bool Function(E element) test) {
+    // TODO: implement any
+    throw UnimplementedError();
+  }
+
+  @override
+  Iterable<R> cast<R>() {
+    // TODO: implement cast
+    throw UnimplementedError();
+  }
+
+  @override
+  bool contains(Object? element) {
+    // TODO: implement contains
+    throw UnimplementedError();
+  }
+
+  @override
+  E elementAt(int index) {
+    return value;
+  }
+
+  @override
+  bool every(bool Function(E element) test) {
+    // TODO: implement every
+    throw UnimplementedError();
+  }
+
+  @override
+  Iterable<T> expand<T>(Iterable<T> Function(E element) toElements) {
+    // TODO: implement expand
+    throw UnimplementedError();
+  }
+
+  @override
+  // TODO: implement first
+  E get first => value;
+
+  @override
+  E firstWhere(bool Function(E element) test, {E Function()? orElse}) {
+    // TODO: implement firstWhere
+    throw UnimplementedError();
+  }
+
+  @override
+  T fold<T>(T initialValue, T Function(T previousValue, E element) combine) {
+    // TODO: implement fold
+    throw UnimplementedError();
+  }
+
+  @override
+  Iterable<E> followedBy(Iterable<E> other) {
+    // TODO: implement followedBy
+    throw UnimplementedError();
+  }
+
+  @override
+  void forEach(void Function(E element) action) {
+    // TODO: implement forEach
+  }
+
+  @override
+  // TODO: implement isEmpty
+  bool get isEmpty => throw UnimplementedError();
+
+  @override
+  // TODO: implement isNotEmpty
+  bool get isNotEmpty => throw UnimplementedError();
+
+  @override
+  String join([String separator = ""]) {
+    // TODO: implement join
+    throw UnimplementedError();
+  }
+
+  @override
+  // TODO: implement last
+  E get last => throw UnimplementedError();
+
+  @override
+  E lastWhere(bool Function(E element) test, {E Function()? orElse}) {
+    // TODO: implement lastWhere
+    throw UnimplementedError();
+  }
+
+  @override
+  // TODO: implement length
+  int get length => throw UnsupportedError("$this got length called on it");
+
+  @override
+  E reduce(E Function(E value, E element) combine) {
+    // TODO: implement reduce
+    throw UnimplementedError();
+  }
+
+  @override
+  // TODO: implement single
+  E get single => throw UnimplementedError();
+
+  @override
+  E singleWhere(bool Function(E element) test, {E Function()? orElse}) {
+    // TODO: implement singleWhere
+    throw UnimplementedError();
+  }
+
+  @override
+  Iterable<E> skip(int count) {
+    // TODO: implement skip
+    throw UnimplementedError();
+  }
+
+  @override
+  Iterable<E> skipWhile(bool Function(E value) test) {
+    // TODO: implement skipWhile
+    throw UnimplementedError();
+  }
+
+  @override
+  Iterable<E> take(int count) {
+    // TODO: implement take
+    throw UnimplementedError();
+  }
+
+  @override
+  Iterable<E> takeWhile(bool Function(E value) test) {
+    // TODO: implement takeWhile
+    throw UnimplementedError();
+  }
+
+  @override
+  List<E> toList({bool growable = true}) {
+    // TODO: implement toList
+    throw UnimplementedError();
+  }
+
+  @override
+  Set<E> toSet() {
+    // TODO: implement toSet
+    throw UnimplementedError();
+  }
+
+  @override
+  Iterable<E> where(bool Function(E element) test) {
+    // TODO: implement where
+    throw UnimplementedError();
+  }
+
+  @override
+  Iterable<T> whereType<T>() {
+    // TODO: implement whereType
+    throw UnimplementedError();
+  }
 }
 
 class InfiniteIterator<T> extends Iterator<T> {
@@ -533,5 +691,7 @@ class InfiniteIterator<T> extends Iterator<T> {
   T get current => value;
 
   @override
-  bool moveNext() => true;
+  bool moveNext() {
+    return true;
+  }
 }
