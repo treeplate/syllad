@@ -226,7 +226,7 @@ class StoreTypeCheckInstruction extends TypeCheckInstruction {
     super.generateAssembler(assembler, blockId);
     assembler.addMov(blockId, target.value!.asOperand(), (environment.integer as ValueHandleFunction)(0).value!.asOperand(), concat('clear ', target.source.debugName));
     assembler.addCode(blockId, concat('setc byte ptr ', target.value!.asOperand()), concat('store result in ', target.source.debugName));
-    assembler.addMov(blockId, target.type.type!.asOperand(), (cast((environment.runtimeLibrary as WhateverNullable)!).coreBooleanType as Type).asOperand(), concat(target.source.debugName, ' is a Boolean'));
+    assembler.addMov(blockId, target.type.type!.asOperand(), (cast((environment.intrinsicsLibrary as WhateverNullable)!).coreBooleanType as Type).asOperand(), concat(target.source.debugName, ' is a Boolean'));
   }
 
   Null constructor(Type staticTypeArg, TypeHandle dynamicTypeArg, ValueHandle targetArg, String whatArg, Whatever environmentArg) { // XXX Whatever should be CompilationEnvironment
@@ -435,7 +435,7 @@ class Slot extends VotSource {
 
   Boolean isGlobal() {
     return homeScope.className == 'CompiledLibrary' // XXX should use is
-        || homeScope.className == 'CompiledRuntimeLibrary';
+        || homeScope.className == 'CompiledIntrinsicsLibrary';
   }
 
   Boolean canBeGloballyAllocated() {
@@ -498,7 +498,7 @@ class CompilationEnvironment extends TypeRegistry {
 
   Map libraries = Map(); // String -> false (actively being compiled) or CompiledLibrary
   StringList libraryNames = []:String;
-  ObjectNullable runtimeLibrary = null; // XXX Object should be CompiledRuntimeLibraryNullable
+  ObjectNullable intrinsicsLibrary = null; // XXX Object should be CompiledIntrinsicsLibraryNullable
 
   Null declareLibrary(String filename) {
     assert(libraries.get(filename) == null, 'tried to declare library that was already declared');
@@ -537,7 +537,7 @@ class CompilationEnvironment extends TypeRegistry {
   }
 
   Null prepareInstructions() {
-    (cast(runtimeLibrary).prepareInstructions as NullFunction)();
+    (cast(intrinsicsLibrary).prepareInstructions as NullFunction)();
     for (libraryName in libraryNames) {
       Anything library = libraries.get(libraryName);
       assert(library is Object, concat(libraryName, ' was never fully compiled'));
@@ -549,7 +549,7 @@ class CompilationEnvironment extends TypeRegistry {
   }
 
   Null prepareSlots() {
-    (cast(runtimeLibrary).prepareSlots as NullFunction)();
+    (cast(intrinsicsLibrary).prepareSlots as NullFunction)();
     for (libraryName in libraryNames) {
       Anything library = libraries.get(libraryName);
       assert(library is Object, concat(libraryName, ' was never fully compiled'));
@@ -561,7 +561,7 @@ class CompilationEnvironment extends TypeRegistry {
   }
 
   Null generateAssemblerBlocks(Assembler assembler) {
-    (cast(runtimeLibrary).generateAssemblerBlock as NullFunction)(assembler);
+    (cast(intrinsicsLibrary).generateAssemblerBlock as NullFunction)(assembler);
     for (libraryName in libraryNames) {
       Anything library = libraries.get(libraryName);
       assert(library is Object, concat(libraryName, ' was never fully compiled'));
@@ -652,8 +652,8 @@ class CompilationEnvironment extends TypeRegistry {
 
   Null constructor(Assembler assembler) {
     super.constructor();
-    runtimeLibrary = cast(cast(cast(this).CompiledRuntimeLibrary)(this, 'rtl'));
-    integers = VotSource(cast(runtimeLibrary).coreIntegerType as Type, 'integers');
+    intrinsicsLibrary = cast(cast(cast(this).CompiledIntrinsicsLibrary)(this, 'rtl'));
+    integers = VotSource(cast(intrinsicsLibrary).coreIntegerType as Type, 'integers');
    }
 }
 
@@ -754,17 +754,17 @@ class CompiledScope extends Object {
   }
 
   Slot emitSubroutineCall(ValueHandle target, ValueHandleList arguments) {
-    Slot thisPointer = registerDynamicValue(cast(cast(environment().runtimeLibrary!).coreClassType), 'this pointer for function call (placeholder)');
-    Slot closurePointer = registerDynamicValue(cast(cast(environment().runtimeLibrary!).coreClosureType), 'closure pointer for function call (placeholder)');
-    thisPointer.writeStatic(this, cast(environment().runtimeLibrary!).coreSentinel as ValueVot);
-    closurePointer.writeStatic(this, cast(environment().runtimeLibrary!).coreSentinel as ValueVot);
+    Slot thisPointer = registerDynamicValue(cast(cast(environment().intrinsicsLibrary!).coreClassType), 'this pointer for function call (placeholder)');
+    Slot closurePointer = registerDynamicValue(cast(cast(environment().intrinsicsLibrary!).coreClosureType), 'closure pointer for function call (placeholder)');
+    thisPointer.writeStatic(this, cast(environment().intrinsicsLibrary!).coreSentinel as ValueVot);
+    closurePointer.writeStatic(this, cast(environment().intrinsicsLibrary!).coreSentinel as ValueVot);
     Type returnType;
     VotSource targetSlot = target.source;
     if (targetSlot.staticType.isSubroutineType()) {
       AbstractSubroutineType subroutineType = targetSlot.staticType as AbstractSubroutineType;
       returnType = subroutineType.returnType;
     } else {
-      returnType = cast(cast(environment().runtimeLibrary!).coreAnythingType);
+      returnType = cast(cast(environment().intrinsicsLibrary!).coreAnythingType);
     }
     ValueHandle thisPointerRead = thisPointer.read(this);
     ValueHandle closurePointerRead = closurePointer.read(this);
@@ -785,10 +785,10 @@ class CompiledScope extends Object {
     CompiledScope block = makeCompiledNestedScope(this, concat(camelCase(what), '$Error')) as CompiledScope;
     block.emitInstruction(CommentInstruction(concat('Error handling block for ', what)));
     String label = environment().generateLabel(concat(block.labelPrefix(), '$', camelCase(what), '$Ok'));
-    ValueHandle printHandle = (cast(environment().runtimeLibrary!).corePrint as Slot).read(block);
+    ValueHandle printHandle = (cast(environment().intrinsicsLibrary!).corePrint as Slot).read(block);
     block.emitInstruction(CommentInstruction(concat(' - print(', errorMessage.debugName, ')')));
     block.emitSubroutineCall(printHandle, [ errorMessage.read(block) ]);
-    ValueHandle exitHandle = (cast(environment().runtimeLibrary!).coreExit as Slot).read(block);
+    ValueHandle exitHandle = (cast(environment().intrinsicsLibrary!).coreExit as Slot).read(block);
     ValueHandle failureExitCode = environment().integer(0x01);
     block.emitInstruction(CommentInstruction(concat(' - exit(1)')));
     block.emitSubroutineCall(exitHandle, [ failureExitCode ]);
@@ -821,18 +821,18 @@ class CompiledScope extends Object {
     // xxxx verify the types statically
     // check for parameter count
     append(instructions, CommentInstruction('Check parameter count'));
-    Slot paramCount = registerStaticValue(OperandVot(cast(environment().runtimeLibrary).coreIntegerType as Type, rcx), 'parameter count');
+    Slot paramCount = registerStaticValue(OperandVot(cast(environment().intrinsicsLibrary).coreIntegerType as Type, rcx), 'parameter count');
     ValueHandle paramCountValue = paramCount.read(this);
     ValueHandle expectedParamCountValue = environment().integer(len(parameters));
     CompiledScope block = createErrorHandlerBlock(
-      cast(environment().runtimeLibrary!).parameterCountCheckFailureMessage as Slot,
+      cast(environment().intrinsicsLibrary!).parameterCountCheckFailureMessage as Slot,
       'parameter count',
     );
     emitConditionalBlock(block, paramCountValue, expectedParamCountValue, 'parameter count', 'check number of parameters is as expected');
     Integer index = 0;
     for (parameter in parameters) {
       append(instructions, CommentInstruction(concat('Check type of parameter ', index, ', ', parameter.debugName, ' (expecting ', parameter.staticType, ')')));
-      emitTypeCheck(parameter.read(this), parameter.staticType, cast(environment().runtimeLibrary!).parameterTypeCheckFailureMessage as Slot, parameter.debugName);
+      emitTypeCheck(parameter.read(this), parameter.staticType, cast(environment().intrinsicsLibrary!).parameterTypeCheckFailureMessage as Slot, parameter.debugName);
       index += 1;
     }
   }
@@ -1035,7 +1035,7 @@ class CompiledSubroutine extends CompiledStackFrameScope {
 
   Null emitReturnFrom(CompiledScope scope, ValueHandle value) {
     // xxxx verify the type of value statically
-    scope.emitTypeCheck(value, type.returnType, cast(environment().runtimeLibrary!).returnValueTypeCheckFailureMessage as Slot, concat('return value of ', name));
+    scope.emitTypeCheck(value, type.returnType, cast(environment().intrinsicsLibrary!).returnValueTypeCheckFailureMessage as Slot, concat('return value of ', name));
     returnValue.write(scope, value);
     scope.emitInstruction(ReturnInstruction(this, 'return'));
   }
@@ -1058,7 +1058,7 @@ class CompiledSubroutine extends CompiledStackFrameScope {
 }
 
 class BuiltInSubroutine extends CompiledSubroutine {
-  Null constructor(CompiledScopeNullable parentArg, AbstractSubroutineType signature, String name) { // XXX parentArg should be CompiledRuntimeLibrary
+  Null constructor(CompiledScopeNullable parentArg, AbstractSubroutineType signature, String name) { // XXX parentArg should be CompiledIntrinsicsLibrary
     super.constructor(parentArg, signature, name);
   }
 }
@@ -1109,7 +1109,7 @@ class BuiltInPrintSubroutine extends BuiltInSubroutine {
     super.prepareInstructions();
   }
 
-  Null constructor(CompiledScopeNullable parentArg) { // XXX parentArg should be CompiledRuntimeLibrary
+  Null constructor(CompiledScopeNullable parentArg) { // XXX parentArg should be CompiledIntrinsicsLibrary
     super.constructor(
       parentArg,
       SubroutineTypeWithSpecificParameters(
@@ -1150,7 +1150,7 @@ class BuiltInExitSubroutine extends BuiltInSubroutine {
     super.prepareInstructions();
   }
 
-  Null constructor(CompiledScopeNullable parentArg) { // XXX parentArg should be CompiledRuntimeLibrary
+  Null constructor(CompiledScopeNullable parentArg) { // XXX parentArg should be CompiledIntrinsicsLibrary
     super.constructor(
       parentArg,
       createOrFindSubroutineType(
@@ -1236,9 +1236,9 @@ class CompiledLibrary extends CompiledStackFrameScope {
   Null constructor(CompilationEnvironment compilationEnvironmentArg, String nameArg) {
     super.constructor(null, nameArg);
     compilationEnvironment = compilationEnvironmentArg;
-    CompiledLibraryNullable runtimeLibrary = cast(compilationEnvironment.runtimeLibrary); // XXX CompiledLibrary should be CompiledRuntimeLibrary
-    if (runtimeLibrary != null) {
-      importLibrary(runtimeLibrary!);
+    CompiledLibraryNullable intrinsicsLibrary = cast(compilationEnvironment.intrinsicsLibrary); // XXX CompiledLibrary should be CompiledIntrinsicsLibrary
+    if (intrinsicsLibrary != null) {
+      importLibrary(intrinsicsLibrary!);
     }
   }
 
@@ -1256,7 +1256,7 @@ class CompiledLibrary extends CompiledStackFrameScope {
   }
 }
 
-class CompiledRuntimeLibrary extends CompiledLibrary {
+class CompiledIntrinsicsLibrary extends CompiledLibrary {
   String labelPrefix() {
     return 'rtl';
   }

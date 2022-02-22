@@ -100,7 +100,7 @@ class StringLiteralExpression extends Expression {
       value,
       sourceLocation,
     ));
-    Type type = (scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreStringType;
+    Type type = (scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary).coreStringType;
     type.markConstructed();
     return scope.registerStaticValue(ImmediateAddressVot(type, label), concat(this));
   }
@@ -119,7 +119,7 @@ class IntegerLiteralExpression extends Expression {
   Integer value;
 
   Slot generateInstructions(CompiledScope scope) {
-    return scope.registerStaticValue(LiteralIntegerVot((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreIntegerType, value), concat(this));
+    return scope.registerStaticValue(LiteralIntegerVot((scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary).coreIntegerType, value), concat(this));
   }
   
   String toStringIndent(Integer indent) {
@@ -285,7 +285,7 @@ class IsOperatorExpression extends Expression {
   Slot generateInstructions(CompiledScope scope) {
     TypeHandle lhs = expression.generateInstructions(scope).read(scope).type;
     Type rhs = type.generateInstructions(scope);
-    Slot slot = scope.registerDynamicValue((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreBooleanType, 'is expression result');
+    Slot slot = scope.registerDynamicValue((scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary).coreBooleanType, 'is expression result');
     scope.emitInstruction(StoreTypeCheckInstruction(rhs, lhs, slot.prepareWrite(scope), concat(expression), scope.environment()));
     return slot;
   }
@@ -511,7 +511,7 @@ class VariableDeclarationStatement extends DeclarationStatement {
     if (rValue == null) {
       rValueHandle = ValueHandle(
         scope.environment().integers, // TODO: dubious source (maybe rename it?)
-        (scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreSentinel,
+        (scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary).coreSentinel,
       );
     } else {
       rValueHandle = rValue!.generateInstructions(scope).read(scope);
@@ -687,7 +687,7 @@ class ReturnStatement extends Statement {
     if (expression != null) {
       subroutine.emitReturnFrom(scope, expression!.generateInstructions(scope).read(scope));
     } else {
-      subroutine.emitReturnFrom(scope, (scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreNull.read(scope));
+      subroutine.emitReturnFrom(scope, (scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary).coreNull.read(scope));
     }
   }
 
@@ -854,7 +854,7 @@ class IfStatement extends Statement {
     CompiledScope blockScope = CompiledNestedScope(scope, scope.environment().generateLabel(concat(camelCase(scope.name), '$if$block')));
     block.generateInstructions(blockScope);
     assert(elseClause == null, 'TODO: else clauses');
-    scope.emitConditionalBlock(blockScope, expressionHandle, (cast(scope.environment().runtimeLibrary!).coreFalse as Slot).read(scope), 'if', concat(expression));
+    scope.emitConditionalBlock(blockScope, expressionHandle, (cast(scope.environment().intrinsicsLibrary!).coreFalse as Slot).read(scope), 'if', concat(expression));
   }
 
   Null walk(NullFunction callback, Anything context) {
@@ -931,7 +931,7 @@ class WhileStatement extends Statement {
   Null generateInstructions(CompiledScope scope) {
     ValueHandle expressionHandle = expression.generateInstructions(scope).read(scope);
     CompiledLoopScope loopScope = CompiledLoopScope(scope, 'while');
-    loopScope.emitConditionalJump(loopScope.loopBottomLabel, expressionHandle, (cast(scope.environment().runtimeLibrary!).coreFalse as Slot).read(scope), 'while condition');
+    loopScope.emitConditionalJump(loopScope.loopBottomLabel, expressionHandle, (cast(scope.environment().intrinsicsLibrary!).coreFalse as Slot).read(scope), 'while condition');
     block.generateInstructions(loopScope);
     scope.emitBlock(loopScope);
   }
@@ -991,9 +991,9 @@ class Library extends StatementBlock {
 class Program extends Library {
   Null generateInstructions(CompiledScope scope) {
     super.generateInstructions(scope);
-    Slot slot = scope.registerStaticValue(LiteralIntegerVot((scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreIntegerType, 0), 'default exit code');
+    Slot slot = scope.registerStaticValue(LiteralIntegerVot((scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary).coreIntegerType, 0), 'default exit code');
     ValueHandle exitCode = slot.read(scope);
-    ValueHandle exit = (scope.environment().runtimeLibrary! as CompiledRuntimeLibrary).coreExit.read(scope);
+    ValueHandle exit = (scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary).coreExit.read(scope);
     scope.emitSubroutineCall(exit, [exitCode]);
   }
 }

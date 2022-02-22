@@ -1,16 +1,16 @@
 // TODO
+// - autoimport rtl
 // - something that runs each test in turn (and matches expectation)
 // - static type checking ("xxxx")
-// - put initialized globals into .data section
 // - heap allocation
 //    - import GetProcessHeap, HeapAlloc, HeapFree from kernel32
 // - string ref counting
-// - lists, garbage collection
-// - autoimport rtl
 // - vararg internal rtl functions
 // - concat for strings, joinList for StringLists
+// - lists, garbage collection
 // - stringification
 // - implement the real "println"
+// - put initialized globals into .data section
 
 //class A { Null test() { this.test(); } }
 //Integer bar = 1; class Foo { Null constructor() { } } println(Foo().bar);
