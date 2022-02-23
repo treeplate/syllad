@@ -405,11 +405,7 @@ class OperatorExpression extends Expression {
   }
 }
 
-class OperatorAdditionExpression extends OperatorExpression {
-  String describeOperator() {
-    return '+';
-  }
-
+class NumericOperatorExpression extends OperatorExpression {
   Null generateTypeCheckInstructions(ValueHandle lhsValue, ValueHandle rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
     scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(lhs));
     scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs));
@@ -418,39 +414,120 @@ class OperatorAdditionExpression extends OperatorExpression {
   Type returnType(CompiledIntrinsicsLibrary intrinsics) {
     return intrinsics.coreIntegerType;
   }
+}
+
+class OperatorAdditionExpression extends NumericOperatorExpression {
+  String describeOperator() {
+    return '+';
+  }
 
   Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
     scope.emitInstruction(BiOperandInstruction('add', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
   }
 }
 
-class OperatorSubtractionExpression extends OperatorExpression {
+class OperatorSubtractionExpression extends NumericOperatorExpression {
   String describeOperator() {
     return '-';
   }
+
+  Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(BiOperandInstruction('sub', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
+  }
 }
 
-class OperatorMultiplicationExpression extends OperatorExpression {
+class OperatorMultiplicationExpression extends NumericOperatorExpression {
   String describeOperator() {
     return '*';
   }
-}
 
-class OperatorDivisionExpression extends OperatorExpression {
-  String describeOperator() {
-    return '/';
+  Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(BiOperandInstruction('imul', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
   }
 }
 
-class OperatorModulusExpression extends OperatorExpression {
+class OperatorDivisionExpression extends NumericOperatorExpression {
+  String describeOperator() {
+    return '/';
+  }
+
+  // TODO: idiv
+}
+
+class OperatorModulusExpression extends NumericOperatorExpression {
   String describeOperator() {
     return '%';
+  }
+
+  // TODO: idiv
+}
+
+class OperatorBitwiseAndExpression extends NumericOperatorExpression {
+  String describeOperator() {
+    return '&';
+  }
+
+  Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(BiOperandInstruction('and', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
+  }
+}
+
+class OperatorBitwiseOrExpression extends NumericOperatorExpression {
+  String describeOperator() {
+    return '|';
+  }
+
+  Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(BiOperandInstruction('or', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
+  }
+}
+
+class OperatorBitwiseXorExpression extends NumericOperatorExpression {
+  String describeOperator() {
+    return '^';
+  }
+
+  Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(BiOperandInstruction('xor', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
+  }
+}
+
+class OperatorLeftShiftExpression extends NumericOperatorExpression {
+  String describeOperator() {
+    return '<<';
+  }
+
+  Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(BiOperandInstruction('shl', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
+  }
+}
+
+class OperatorRightShiftExpression extends NumericOperatorExpression {
+  String describeOperator() {
+    return '>>';
+  }
+
+  Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(BiOperandInstruction('shr', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
   }
 }
 
 class OperatorEqualsEqualsExpression extends OperatorExpression {
   String describeOperator() {
     return '==';
+  }
+
+  Null generateTypeCheckInstructions(ValueHandle lhsValue, ValueHandle rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    // accepts any type
+    // xxxx statically check the types are compatible
+  }
+
+  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
+    return intrinsics.coreBooleanType;
+  }
+
+  Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(StoreEqualityInstruction(lhsValue, rhsValue, result, scope.environment()));
   }
 }
 
@@ -460,45 +537,62 @@ class OperatorBangEqualsExpression extends OperatorExpression {
   }
 }
 
-class OperatorLessThanExpression extends OperatorExpression {
+class OperatorNumericCmpExpression extends OperatorExpression {
+  cc flag() {
+    abstract();
+  }
+
+  Null generateTypeCheckInstructions(ValueHandle lhsValue, ValueHandle rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(lhs));
+    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs));
+  }
+
+  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
+    return intrinsics.coreBooleanType;
+  }
+
+  Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(StoreCmpInstruction(lhsValue, rhsValue, result, flag(), scope.environment()));
+  }
+}
+
+class OperatorLessThanExpression extends OperatorNumericCmpExpression {
   String describeOperator() {
     return '<';
   }
-}
 
-class OperatorLeftShiftExpression extends OperatorExpression {
-  String describeOperator() {
-    return '<<';
+  cc flag() {
+    return ccLessThan;
   }
 }
 
-class OperatorLessThanOrEqualsExpression extends OperatorExpression {
+class OperatorLessThanOrEqualsExpression extends OperatorNumericCmpExpression {
   String describeOperator() {
     return '<=';
   }
+
+  cc flag() {
+    return ccLessThanOrEqual;
+  }
 }
 
-class OperatorGreaterThanExpression extends OperatorExpression {
+class OperatorGreaterThanExpression extends OperatorNumericCmpExpression {
   String describeOperator() {
     return '>';
   }
-}
 
-class OperatorRightShiftExpression extends OperatorExpression {
-  String describeOperator() {
-    return '>>';
+  cc flag() {
+    return ccGreaterThan;
   }
 }
 
-class OperatorGreaterThanOrEqualsExpression extends OperatorExpression {
+class OperatorGreaterThanOrEqualsExpression extends OperatorNumericCmpExpression {
   String describeOperator() {
     return '>=';
   }
-}
 
-class OperatorBitwiseAndExpression extends OperatorExpression {
-  String describeOperator() {
-    return '&';
+  cc flag() {
+    return ccGreaterThanOrEqual;
   }
 }
 
@@ -508,23 +602,12 @@ class OperatorLogicalAndExpression extends OperatorExpression {
   }
 }
 
-class OperatorBitwiseOrExpression extends OperatorExpression {
-  String describeOperator() {
-    return '|';
-  }
-}
-
 class OperatorLogicalOrExpression extends OperatorExpression {
   String describeOperator() {
     return '||';
   }
 }
 
-class OperatorBitwiseXorExpression extends OperatorExpression {
-  String describeOperator() {
-    return '^';
-  }
-}
 
 class DeclarationStatement extends Statement {
   String identifier;
@@ -976,8 +1059,8 @@ class WhileStatement extends Statement {
   }
 
   Null generateInstructions(CompiledScope scope) {
-    ValueHandle expressionHandle = expression.generateInstructions(scope).read(scope);
     CompiledLoopScope loopScope = CompiledLoopScope(scope, 'while');
+    ValueHandle expressionHandle = expression.generateInstructions(loopScope).read(loopScope);
     loopScope.emitConditionalJump(loopScope.loopBottomLabel, expressionHandle, (cast(scope.environment().intrinsicsLibrary!).coreFalse as Slot).read(scope), 'while condition');
     block.generateInstructions(loopScope);
     scope.emitBlock(loopScope);

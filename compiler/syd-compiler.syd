@@ -119,8 +119,8 @@ class JumpIfEqualInstruction extends Instruction {
   String comment;
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    assembler.addCmp(blockId, a.value!.asOperand(), b.value!.asOperand(), comment);
-    assembler.addCode(blockId, concat('je ', label), 'jump if they are equal');
+    assembler.addCmp(blockId, a.value!.asOperand(), b.value!.asOperand(), a.source.debugName, b.source.debugName);
+    assembler.addCode(blockId, concat('je ', label), comment);
   }
 
   Null constructor(ValueHandle aArg, ValueHandle bArg, String labelArg, String commentArg) {
@@ -139,8 +139,8 @@ class JumpUnlessEqualInstruction extends Instruction {
   String comment;
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    assembler.addCmp(blockId, a.value!.asOperand(), b.value!.asOperand(), comment);
-    assembler.addCode(blockId, concat('jne ', label), 'jump if they are equal');
+    assembler.addCmp(blockId, a.value!.asOperand(), b.value!.asOperand(), a.source.debugName, b.source.debugName);
+    assembler.addCode(blockId, concat('jne ', label), comment);
   }
 
   Null constructor(ValueHandle aArg, ValueHandle bArg, String labelArg, String commentArg) {
@@ -149,6 +149,40 @@ class JumpUnlessEqualInstruction extends Instruction {
     b = bArg;
     label = labelArg;
     comment = commentArg;
+  }
+}
+
+class StoreEqualityInstruction extends Instruction {
+  ValueHandle a;
+  ValueHandle b;
+  ValueHandle target;
+  Whatever environment; // XXX Whatever should be CompilationEnvironment
+
+  Null prepareInstructions() {
+    super.prepareInstructions();
+    target.forceAllocation(); // TODO: can we allow this to use a register...?
+  }
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    // TODO: hard-code result for literal comparisons
+    // TODO: make this work for strings
+    assembler.addZero(blockId, r10, 'prepare r10 for result of value comparison');
+    assembler.addCmp(blockId, a.value!.asOperand(), b.value!.asOperand(), a.source.debugName, b.source.debugName);
+    assembler.addCode(blockId, 'sete byte ptr r10b', 'store result in r10');
+    assembler.addZero(blockId, rax, 'prepare rax for result of type comparison');
+    assembler.addCmp(blockId, a.type.type!.asOperand(), b.type.type!.asOperand(), concat('type of ', a.source.debugName), concat('type of ', b.source.debugName));
+    assembler.addCode(blockId, 'sete byte ptr al', 'store result in rax');
+    assembler.addCode(blockId, 'and r10, rax', 'true if type and value are both equal; result goes into r10');
+    assembler.addMov(blockId, target.value!.asOperand(), r10, concat('store result in ', target.source.debugName));
+    assembler.addMov(blockId, target.type.type!.asOperand(), (cast((environment.intrinsicsLibrary as WhateverNullable)!).coreBooleanType as Type).asOperand(), concat(target.source.debugName, ' is a Boolean'));
+  }
+
+  Null constructor(ValueHandle aArg, ValueHandle bArg, ValueHandle targetArg, Whatever environmentArg) { // XXX Whatever should be CompilationEnvironment
+    super.constructor();
+    a = aArg;
+    b = bArg;
+    target = targetArg;
+    environment = environmentArg;
   }
 }
 
@@ -182,7 +216,7 @@ class TypeCheckInstruction extends Instruction {
     assembler.addCode(blockId, concat('bt qword ptr [rax], ', concat(code % 8)), concat('check that ', what, ' is ', staticType));
   }
 
-  Null constructor(Type staticTypeArg, TypeHandle dynamicTypeArg, String whatArg, Whatever environmentArg) {
+  Null constructor(Type staticTypeArg, TypeHandle dynamicTypeArg, String whatArg, Whatever environmentArg) { // XXX Whatever should be CompilationEnvironment
     super.constructor();
     staticType = staticTypeArg;
     dynamicType = dynamicTypeArg;
@@ -252,9 +286,9 @@ class BiOperandInstruction extends Instruction {
   }
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    assembler.addMov(blockId, r11, lhs.value!.asOperand(), concat(opcode, ' mutates first operand, so indirect via register'));
-    assembler.addOpcode(blockId, opcode, [r11, rhs.value!.asOperand()]:Operand, comment);
-    assembler.addMov(blockId, result.value!.asOperand(), r11, 'store result');
+    assembler.addMov(blockId, r10, lhs.value!.asOperand(), concat(opcode, ' mutates first operand, so indirect via register'));
+    assembler.addOpcode(blockId, opcode, [r10, rhs.value!.asOperand()]:Operand, comment);
+    assembler.addMov(blockId, result.value!.asOperand(), r10, 'store result');
     assembler.addMov(blockId, result.type.type!.asOperand(), resultType.asOperand(), 'store type');
   }
 
@@ -266,6 +300,50 @@ class BiOperandInstruction extends Instruction {
     result = resultArg;
     resultType = resultTypeArg;
     comment = commentArg;
+  }
+}
+
+enum cc { GreaterThan GreaterThanOrEqual LessThan LessThanOrEqual }
+
+class StoreCmpInstruction extends Instruction {
+  ValueHandle a;
+  ValueHandle b;
+  ValueHandle target;
+  cc flag;
+  Whatever environment; // XXX Whatever should be CompilationEnvironment
+
+  Null prepareInstructions() {
+    super.prepareInstructions();
+    target.forceAllocation(); // TODO: can we allow this to use a register...?
+  }
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    // TODO: hard-code result for literal comparisons
+    String opcodeSuffix;
+    if (flag == ccGreaterThan) {
+      opcodeSuffix = 'g';
+    } else if (flag == ccGreaterThanOrEqual) {
+      opcodeSuffix = 'ge';
+    } else if (flag == ccLessThan) {
+      opcodeSuffix = 'l';
+    } else if (flag == ccLessThanOrEqual) {
+      opcodeSuffix = 'le';
+    } else {
+      assert(false, concat('unknown flag ', flag));
+    }
+    assembler.addMov(blockId, target.value!.asOperand(), (environment.integer as ValueHandleFunction)(0).value!.asOperand(), concat('clear ', target.source.debugName));
+    assembler.addCmp(blockId, a.value!.asOperand(), b.value!.asOperand(), a.source.debugName, b.source.debugName);
+    assembler.addCode(blockId, concat('set', opcodeSuffix, ' byte ptr ', target.value!.asOperand().value), concat('store result in ', target.source.debugName));
+    assembler.addMov(blockId, target.type.type!.asOperand(), (cast((environment.intrinsicsLibrary as WhateverNullable)!).coreBooleanType as Type).asOperand(), concat(target.source.debugName, ' is a Boolean'));
+  }
+
+  Null constructor(ValueHandle aArg, ValueHandle bArg, ValueHandle targetArg, cc flagArg, Whatever environmentArg) { // XXX Whatever should be CompilationEnvironment
+    super.constructor();
+    a = aArg;
+    b = bArg;
+    target = targetArg;
+    flag = flagArg;
+    environment = environmentArg;
   }
 }
 
@@ -389,9 +467,9 @@ class SubroutineCallInstruction extends Instruction {
       assembler.addPush(blockId, arguments[argumentIndex].value!.dynamicType().asOperand(), concat('type of argument #', argumentIndex + 1));
       argumentIndex -= 1;
     }
-    // XXX why do we do addlea/addpush via r11 instead of just addpush?
-    assembler.addLea(blockId, r11, returnValue.value!.asOperand(), 'pointer to return value (and type, 8 bytes earlier)');
-    assembler.addPush(blockId, r11, '(that pointer is the last value pushed to the stack)');
+    // XXX why do we do addlea/addpush via r10 instead of just addpush?
+    assembler.addLea(blockId, r10, returnValue.value!.asOperand(), 'pointer to return value (and type, 8 bytes earlier)');
+    assembler.addPush(blockId, r10, '(that pointer is the last value pushed to the stack)');
     assembler.addLea(blockId, r9, thisPointer.value!.asOperand(), 'pointer to this');
     assembler.addMov(blockId, r8, thisPointer.value!.dynamicType().asOperand(), 'type of this');
     assembler.addLea(blockId, rdx, closurePointer.value!.asOperand(), 'pointer to closure');

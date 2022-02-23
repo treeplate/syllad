@@ -1,4 +1,4 @@
-/* (unsupported by compiler; requires: ==, >, %, /, +, chr, concat (for strings))
+/* (unsupported by compiler; requires: %, /, chr, concat (for strings))
 String intToStr(Integer value) {
   if (value == 0) {
     return '0';
@@ -28,7 +28,7 @@ String stringify(Anything arg) {
     return 'null';
   }
   if (arg is Integer) {
-    //return intToStr(arg as Integer) // requires: as, concat, >, %, /, +, chr, ==
+    //return intToStr(arg as Integer) // requires: as, concat, %, /, chr
   }
   print('Cannot stringify a value\n');
   exit(1);

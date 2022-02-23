@@ -121,19 +121,22 @@ class Operand extends Object {
   }
 }
 
-Operand rax = Operand('rax', otRegister);
-Operand rbx = Operand('rbx', otRegister);
-Operand rcx = Operand('rcx', otRegister);
-Operand rdx = Operand('rdx', otRegister);
-Operand r8 = Operand('r8', otRegister);
-Operand r9 = Operand('r9', otRegister);
-Operand r10 = Operand('r10', otRegister);
-Operand r11 = Operand('r11', otRegister);
-Operand r12 = Operand('r12', otRegister);
-Operand r13 = Operand('r13', otRegister);
-Operand r14 = Operand('r14', otRegister);
-Operand r15 = Operand('r15', otRegister);
+// 64 BIT INTEGER REGISTERS
+// non-volatile registers must be saved by CompiledStackFrameScope
+Operand rax = Operand('rax', otRegister); // used as scratch register, input to opcodes like mul; redundant return value in calling convention (volatile)
+Operand rbx = Operand('rbx', otRegister); // (nonvolatile)
+Operand rcx = Operand('rcx', otRegister); // used in function calling convention for number of arguments (volatile)
+Operand rdx = Operand('rdx', otRegister); // used in function calling convention for closure pointer (volatile)
+Operand r8 = Operand('r8', otRegister); // used in function calling convention for type of "this" object (volatile)
+Operand r9 = Operand('r9', otRegister); // used in function calling convention for pointer to "this" object (volatile)
+Operand r10 = Operand('r10', otRegister); // scratch register used by syd-compiler.syd (volatile)
+Operand r11 = Operand('r11', otRegister); // scratch register used by Assembler class below (volatile)
+Operand r12 = Operand('r12', otRegister); // (nonvolatile)
+Operand r13 = Operand('r13', otRegister); // (nonvolatile)
+Operand r14 = Operand('r14', otRegister); // (nonvolatile)
+Operand r15 = Operand('r15', otRegister); // return value pointer used by CompiledSubroutine (nonvolatile)
 
+// Methods of Assembler other than addCode may mutate r11 without notice and without saving it.
 class Assembler extends Object {
   Set includelibs = Set();
   StringList externs = []:String;
@@ -241,23 +244,29 @@ class Assembler extends Object {
     }
   }
 
-  Null addCmp(Integer blockId, Operand a, Operand b, String comment) {
+  Null addCmp(Integer blockId, Operand a, Operand b, String aWhat, String bWhat) {
+    // TODO: refactor to avoid so much code duplication
     if (a.isImmediate() && b.isImmediate()) {
       // TODO: should optimize call sites and make this an assert instead
       // call sites can either use STC/CLC or (preferred) actually skip the offending code
-      addCode(blockId, concat('mov r11, ', a.value), comment);
-      addCode(blockId, concat('cmp r11, ', b.value), concat('(indirect via r11 because both operands are immediates)'));
+      addCode(blockId, concat('mov r11, ', a.value), concat('compare ', aWhat, '...'));
+      addCode(blockId, concat('cmp r11, ', b.value), concat('...to ', bWhat));
     } else if (b.isImmediate64()) {
-      addCode(blockId, concat('mov r11, ', a.value), comment);
-      addCode(blockId, concat('cmp r11, ', b.value), concat('(indirect via r11 because ', b, ' is an imm64)'));
+      addCode(blockId, concat('mov r11, ', a.value), concat('compare ', aWhat, '...'));
+      addCode(blockId, concat('cmp r11, ', b.value), concat('...to ', bWhat));
     } else if (b.isImmediate()) {
-      addCode(blockId, concat('cmp qword ptr ', a.value, ', ', b.value), comment);
+      addCode(blockId, concat('cmp qword ptr ', a.value, ', ', b.value), concat('compare ', aWhat, ' to ', bWhat));
     } else if (a.isMemory() && b.isMemory()) {
-      addCode(blockId, concat('mov r11, ', a.value), comment);
-      addCode(blockId, concat('cmp r11, ', b.value), concat('(indirect via r11 because both operands are memory references)'));
+      addCode(blockId, concat('mov r11, ', a.value), concat('compare ', aWhat, '...'));
+      addCode(blockId, concat('cmp r11, ', b.value), concat('...to ', bWhat));
     } else {
-      addCode(blockId, concat('cmp ', a.value, ', ', b.value), comment);
+      addCode(blockId, concat('cmp ', a.value, ', ', b.value), concat('compare ', aWhat, ' to ', bWhat));
     }
+  }
+
+  Null addZero(Integer blockId, Operand operand, String comment) {
+    assert(operand.kind == otRegister, 'can only zero a register');
+    addCode(blockId, concat('xor ', operand.destination, ', ', operand.destination), comment);
   }
 
   Null addLea(Integer blockId, Operand destination, Operand source, String comment) {

@@ -1,0 +1,22 @@
+// expected output: PASS
+
+Null testFalse(Boolean condition) {
+  if (condition) {
+    print('FAIL\n');
+    exit(1);
+  }
+}
+
+testFalse(1 + 2 == 2);
+testFalse(3 - 1 == 3);
+testFalse(3 * 2 == 5);
+testFalse((0x03 & 0x05) == 0);
+testFalse((0x03 | 0x05) == 0);
+testFalse((0x03 ^ 0x05) == 0);
+testFalse(0x03 << 2 == 0x06);
+testFalse(0x06 >> 2 == 0x03);
+testFalse(1 > 3);
+testFalse(3 < 1);
+testFalse(0 >= 1);
+testFalse(1 <= 0);
+print('PASS\n');
