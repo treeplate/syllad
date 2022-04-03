@@ -1,4 +1,65 @@
-/* (unsupported by compiler; requires: %, /, chr, concat (for strings))
+// TODO:
+//  - implement varargs
+//  - implement for-in
+//  - implement len
+//  - implement heap
+//  - implement alloc (and free)
+//  - implement moveInteger
+//  - implement reinterpret_cast
+//  - implement moveBytes
+//  - implement string ref counting
+
+/*
+String concat(String... arguments) {
+  Integer length = 0;
+  for (segment in arguments) {
+    length += len(segment);
+  }
+  Integer resultPointer = alloc(16 + length);
+  moveInteger(resultPointer, 1); // ref count
+  moveInteger(resultPointer + 8, length);
+  Integer index = 16;
+  for (segment in arguments) {
+    Integer segmentPointer = reinterpret_cast(segment);
+    moveBytes(index, segmentPointer + 8, len(segment));
+    index += len(segment);
+  }
+  String result = reinterpret_cast(resultPointer);
+  return result;
+}
+
+String digitToStr(Integer digit) {
+  if (digit == 1) {
+    return '1';
+  }
+  if (digit == 2) {
+    return '2';
+  }
+  if (digit == 3) {
+    return '3';
+  }
+  if (digit == 4) {
+    return '4';
+  }
+  if (digit == 5) {
+    return '5';
+  }
+  if (digit == 6) {
+    return '6';
+  }
+  if (digit == 7) {
+    return '7';
+  }
+  if (digit == 8) {
+    return '8';
+  }
+  if (digit == 9) {
+    return '9';
+  }
+  print("Invalid digit passed to digitToStr\n");
+  exit(1);
+}
+
 String intToStr(Integer value) {
   if (value == 0) {
     return '0';
@@ -8,11 +69,10 @@ String intToStr(Integer value) {
   while (newValue > 0) {
     Integer digit = newValue % 10;
     newValue = newValue / 10;
-    buffer = concat(chr(0x30 + digit), buffer);
+    buffer = concat(digitToStr(digit), buffer);
   }
   return buffer;
 }
-*/
 
 String stringify(Anything arg) {
   if (arg is String) {
@@ -28,8 +88,22 @@ String stringify(Anything arg) {
     return 'null';
   }
   if (arg is Integer) {
-    //return intToStr(arg as Integer) // requires: as, concat, %, /, chr
+    return intToStr(arg as Integer);
   }
   print('Cannot stringify a value\n');
   exit(1);
 }
+
+Null println(String... parts) { 
+  Boolean first = true;
+  int index = 0;
+  for (part in parts) {
+    if (first == false) {
+      print(' ');
+    }
+    print(part);
+    first = false;
+  }
+  print('\n');
+}
+*/

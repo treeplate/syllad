@@ -5,8 +5,9 @@ import 'statements.dart';
 import 'package:characters/characters.dart';
 import 'lexer.dart';
 
-Scope runProgram(List<Statement> ast) {
-  Scope scope = Scope(stack: ["main"])
+Scope runProgram(List<Statement> ast, String filename,
+    [List<String> stack = const []]) {
+  Scope scope = Scope(stack: stack + ['$filename'])
     ..values = {
       "true": true,
       "false": false,
@@ -98,16 +99,6 @@ Scope runProgram(List<Statement> ast) {
       },
       "single": (List<ValueWrapper> l, List<String> s) {
         return l.single.value.single;
-      },
-      'assert': (List<ValueWrapper> l, List<String> s) {
-        return l.first.value
-            ? ValueWrapper(booleanType, true, 'assert rtv')
-            : throw FileInvalid(
-                "Assertion failed: ${l.last.value}. stack: \n${s.reversed.join('\n')}}");
-      },
-      "padLeft": (List<ValueWrapper> l, List<String> s) {
-        return ValueWrapper(stringType,
-            l.first.value.padLeft(l[1].value, l[2].value), 'padLeft rtv');
       },
       "hex": (List<ValueWrapper> l, List<String> s) {
         return ValueWrapper(

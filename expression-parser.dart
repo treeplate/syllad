@@ -17,11 +17,11 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         ValueType? superclass = scope.currentClass.parent;
         if (superclass is! ClassValueType) {
           throw FileInvalid(
-              '${scope.currentClass.name} has no superclass; attempted \'super.$member\' ${tokens.current.line}, ${tokens.current.col}, ${tokens.file}');
+              '${scope.currentClass.name} has no superclass; attempted \'super.$member\' ${formatCursorPositionFromTokens(tokens)}');
         }
         if (!superclass.properties.types.containsKey(member)) {
           throw FileInvalid(
-              '${scope.currentClass.name}\'s superclass (${superclass.name}) has no member $member; attempted \'super.$member\' ${tokens.current.line}:${tokens.current.col}, ${tokens.file}');
+              '${scope.currentClass.name}\'s superclass (${superclass.name}) has no member $member; attempted \'super.$member\' ${formatCursorPositionFromTokens(tokens)}');
         }
         tokens.moveNext();
         return SuperExpression(
@@ -47,7 +47,6 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
       scope.getVar(
         tokens.currentIdent,
         0,
-        sharedSupertype,
         tokens.current.line,
         tokens.current.col,
         tokens.file,
@@ -69,7 +68,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
             null, "Dog", tokens.current.line, tokens.current.col, tokens.file);
         while (tokens.current is! CharToken ||
             tokens.currentChar != TokenType.closeSquare) {
-          Expression expr = parseExpression(tokens, scope, sharedSupertype);
+          Expression expr = parseExpression(tokens, scope);
           if (tokens.currentChar != TokenType.closeSquare) {
             tokens.expectChar(TokenType.comma);
           }
@@ -97,7 +96,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
               tokens.current.line, tokens.current.col, tokens.file);
           if (!type.isSubtypeOf(t) && elements.isNotEmpty)
             throw FileInvalid(
-                'Invalid explicit list type (inferred type $type, provided type $t) line ${tokens.current.line} col umn ${tokens.current.col} file ${tokens.file}');
+                'Invalid explicit list type (inferred type $type, provided type $t) ${formatCursorPositionFromTokens(tokens)}');
           type = t;
           tokens.moveNext();
         }
@@ -111,12 +110,12 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
       }
       if (tokens.currentChar == TokenType.openParen) {
         tokens.moveNext();
-        Expression r = parseExpression(tokens, scope, sharedSupertype);
+        Expression r = parseExpression(tokens, scope);
         tokens.moveNext();
         return r;
       }
       throw FileInvalid(
-        "Unexpected token ${tokens.current} on line ${tokens.current.line} column ${tokens.current.col} file ${tokens.file}",
+        "Unexpected token ${tokens.current} on ${formatCursorPositionFromTokens(tokens)}",
       );
   }
   assert(false);
@@ -187,12 +186,16 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
               tokens.currentChar == TokenType.bang)) {
         if (tokens.currentChar == TokenType.openSquare) {
           tokens.moveNext();
-          Expression operandB = parseExpression(tokens, scope, integerType);
+          Expression operandB = parseExpression(tokens, scope);
+          if (!operandB.type.isSubtypeOf(integerType)) {
+            throw FileInvalid(
+                "Attempted to subscript using non-integer index: $operandB. ${formatCursorPositionFromTokens(tokens)}");
+          }
           tokens.expectChar(TokenType.closeSquare);
           if (!result.type.isSubtypeOf(ListValueType(
-              ValueType(null, "Whatever", 0, 0, 'internal'), 'internal'))) {
+              ValueType(null, "Whatever", -2, 0, 'internal'), 'internal'))) {
             throw FileInvalid(
-                "tried to subscript ${result.type} ($result) on line ${tokens.current.line} column ${tokens.current.col} file ${tokens.file}");
+                "tried to subscript ${result.type} ($result) ${formatCursorPositionFromTokens(tokens)}");
           }
           result = SubscriptExpression(
             result,
@@ -205,7 +208,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
           if (result.type is! ClassValueType &&
               result.type.name != 'Whatever') {
             throw FileInvalid(
-                "tried to access member of ${result.type} on line ${tokens.current.line} column ${tokens.current.col} file ${tokens.file}");
+                "tried to access member of ${result.type} ${formatCursorPositionFromTokens(tokens)}");
           }
           tokens.moveNext();
           String operandB = tokens.currentIdent;
@@ -215,7 +218,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
                   .types
                   .containsKey(operandB)) {
             throw FileInvalid(
-                "tried to access nonexistent member '$operandB' of ${result.type} on line ${tokens.current.line} column ${tokens.current.col} file ${tokens.file}");
+                "tried to access nonexistent member '$operandB' of ${result.type} ${formatCursorPositionFromTokens(tokens)}");
           }
           tokens.moveNext();
           result = MemberAccessExpression(result, operandB, tokens.current.line,
@@ -224,7 +227,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
           tokens.moveNext();
           if (result.type is! NullableValueType) {
             throw FileInvalid(
-                "Attempted unwrap of non-nullable type (${result.type}) on line ${tokens.current.line} column ${tokens.current.col} file ${tokens.file}");
+                "Attempted unwrap of non-nullable type (${result.type}) ${formatCursorPositionFromTokens(tokens)}");
           }
           result = UnwrapExpression(
               result, tokens.current.line, tokens.current.col, tokens.file);
@@ -232,7 +235,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
           if (!result.type.isSubtypeOf(
               GenericFunctionValueType(sharedSupertype, tokens.file))) {
             throw FileInvalid(
-                "tried to call ${result.type} ($result) on line ${tokens.current.line} column ${tokens.current.col} file ${tokens.file}");
+                "tried to call ${result.type} ($result) ${formatCursorPositionFromTokens(tokens)}");
           }
           tokens.moveNext();
           List<Expression> arguments = [];
@@ -244,17 +247,20 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
                 (result.type as FunctionValueType).parameters.length <=
                     arguments.length) {
               throw FileInvalid(
-                  "Too many arguments to $result line ${tokens.current.line} col ${tokens.current.col} file ${tokens.file}");
+                  "Too many arguments to $result ${formatCursorPositionFromTokens(tokens)}");
             }
             Expression expr = parseExpression(
               tokens,
               scope,
-              result.type is! FunctionValueType
-                  ? sharedSupertype
-                  : (result.type as FunctionValueType)
-                      .parameters
-                      .elementAt(arguments.length),
             );
+            if (result.type is FunctionValueType) {
+              if (!expr.type.isSubtypeOf((result.type as FunctionValueType)
+                  .parameters
+                  .elementAt(arguments.length))) {
+                throw FileInvalid(
+                    "parameter ${arguments.length} of $result expects type ${(result.type as FunctionValueType).parameters.elementAt(arguments.length)} got $expr (a ${expr.type}) ${formatCursorPositionFromTokens(tokens)}");
+              }
+            }
             if (tokens.currentChar != TokenType.closeParen) {
               tokens.expectChar(TokenType.comma);
             }
@@ -266,7 +272,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
               (result.type as FunctionValueType).parameters.length !=
                   arguments.length) {
             throw FileInvalid(
-                "Not enough arguments to $result (expected ${(result.type as FunctionValueType).parameters}, got $arguments) line ${tokens.current.line} column ${tokens.current.col} file ${tokens.file}");
+                "Not enough arguments to $result (expected ${(result.type as FunctionValueType).parameters}, got $arguments) ${formatCursorPositionFromTokens(tokens)}");
           }
           tokens.moveNext();
           result = FunctionCallExpr(
@@ -285,13 +291,8 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
   return operandA;
 }
 
-Expression parseExpression(
-    TokenIterator tokens, TypeValidator scope, ValueType type) {
+Expression parseExpression(TokenIterator tokens, TypeValidator scope) {
   Expression expr = parseOr(tokens, scope);
-  if (!expr.type.isSubtypeOf(type)) {
-    throw FileInvalid(
-        "Expected $type, got $expr (a ${expr.type}) line ${tokens.current.line} column ${tokens.current.col} file ${tokens.file}");
-  }
   return expr;
 }
 

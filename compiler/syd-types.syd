@@ -1,20 +1,17 @@
 import 'core.syd';
 import 'syd-assembler.syd';
 
-// XXX this whole class can be merged with TypeRegistry once we have forward type declarations
-class TypeRegistryInterface extends Object {
-  // This is used by createOrFindSubroutineType().
-  // TODO: right now managing this is O(N), could be made faster
-  // e.g. keep the list sorted and binary search, or shard it by
-  // number of parameters or return type or whatever...
-  ObjectList typesOfSubroutinesWithSpecificParameters = []:Object;
+fwdclass Type extends Object;
+fwdclass AbstractSubroutineType extends Type;
+fwdclass AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineType;
+fwdclass AbstractListType extends Type;
+fwdclass ReadOnlyListType extends AbstractListType;
+fwdclass TypeRegistry extends Object;
 
-  Null registerType(Object type, Boolean isSubroutineType) {
-    abstract();
-  }
-}
-
-// xxx Type knows how to do things like + - * / % () [] etc
+fwdclassprop TypeList AbstractSubroutineTypeWithSpecificParameters.parameterTypes;
+fwdclassprop NullFunction TypeRegistry.registerType;
+fwdclassprop AbstractSubroutineTypeWithSpecificParametersList TypeRegistry.typesOfSubroutinesWithSpecificParameters;
+fwdclassprop ReadOnlyListTypeList TypeRegistry.typesOfReadOnlyLists;
 
 class Type extends Object {
   IntegerNullable code = null;
@@ -57,7 +54,7 @@ class Type extends Object {
     code = codeArg;
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg, String nameArg) {
+  Null constructor(TypeRegistry typeRegistryArg, String nameArg) {
     name = nameArg;
     super.constructor();
     typeRegistryArg.registerType(this, isSubroutineType());
@@ -84,7 +81,7 @@ class AnythingType extends Type {
     assert(false, 'Anything type cannot be constructed.');
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg) {
+  Null constructor(TypeRegistry typeRegistryArg) {
     super.constructor(typeRegistryArg, 'Anything');
   }
 }
@@ -98,7 +95,7 @@ class SentinelType extends Type {
     return true;
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg) {
+  Null constructor(TypeRegistry typeRegistryArg) {
     super.constructor(typeRegistryArg, '<sentinel>');
   }
 }
@@ -118,7 +115,7 @@ class NullableType extends Type {
     assert(false, 'Nullable types cannot be constructed.');
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg, Type subtypeArg) {
+  Null constructor(TypeRegistry typeRegistryArg, Type subtypeArg) {
     super.constructor(typeRegistryArg, concat(subtypeArg.name, 'Nullable'));
     subtype = subtypeArg;
   }
@@ -129,7 +126,7 @@ class NumericType extends Type {
     return true;
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg, String nameArg) {
+  Null constructor(TypeRegistry typeRegistryArg, String nameArg) {
     super.constructor(typeRegistryArg, nameArg);
   }
 }
@@ -143,7 +140,7 @@ class NullType extends NumericType {
     return value == null;
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg) {
+  Null constructor(TypeRegistry typeRegistryArg) {
     super.constructor(typeRegistryArg, 'Null');
   }
 }
@@ -157,7 +154,7 @@ class BooleanType extends NumericType {
     return value == true || value == false;
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg) {
+  Null constructor(TypeRegistry typeRegistryArg) {
     super.constructor(typeRegistryArg, 'Boolean');
   }
 }
@@ -171,7 +168,7 @@ class IntegerType extends NumericType {
     return value is Integer;
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg) {
+  Null constructor(TypeRegistry typeRegistryArg) {
     super.constructor(typeRegistryArg, 'Integer');
   }
 }
@@ -191,7 +188,7 @@ class StringType extends Type {
     return true;
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg) {
+  Null constructor(TypeRegistry typeRegistryArg) {
     super.constructor(typeRegistryArg, 'String');
   }
 }
@@ -220,7 +217,7 @@ class EnumType extends NumericType {
     return value is EnumValue && cast(value).type == this;
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg, String nameArg, StringList valuesArg) {
+  Null constructor(TypeRegistry typeRegistryArg, String nameArg, StringList valuesArg) {
     super.constructor(typeRegistryArg, nameArg);
     Integer index = 0;
     for (value in valuesArg) {
@@ -237,7 +234,7 @@ class ClassType extends Type {
     return true;
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg, String nameArg) {
+  Null constructor(TypeRegistry typeRegistryArg, String nameArg) {
     super.constructor(typeRegistryArg, nameArg);
   }
 }
@@ -253,7 +250,7 @@ class RootClassType extends Type {
     return true;
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg) {
+  Null constructor(TypeRegistry typeRegistryArg) {
     super.constructor(typeRegistryArg, '<object>');
   }
 }
@@ -266,7 +263,7 @@ class AbstractSubroutineType extends Type {
   }
 
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType || (other is AbstractSubroutineType && returnType.isSubtypeOf(cast(cast(other).returnType)));
+    return other is AnythingType || (other is AbstractSubroutineType && returnType.isSubtypeOf((other as AbstractSubroutineType).returnType));
   }
 
   Boolean isSubroutineType() {
@@ -277,32 +274,46 @@ class AbstractSubroutineType extends Type {
     return true;
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg, Type returnTypeArg) {
+  Null constructor(TypeRegistry typeRegistryArg, Type returnTypeArg) {
     returnType = returnTypeArg;
     super.constructor(typeRegistryArg, createName());
   }
 }
 
 class SubroutineTypeWithAnyArguments extends AbstractSubroutineType {
-  Null constructor(TypeRegistryInterface typeRegistryArg, Type returnTypeArg) {
+  Null markConstructed() {
+    assert(false, concat(name, ' type cannot be constructed.'));
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg, Type returnTypeArg) {
     super.constructor(typeRegistryArg, returnTypeArg);
   }
 }
 
-class SubroutineTypeWithVarArgs extends AbstractSubroutineType {
-  Type argumentType;
+class AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineType {
+  Boolean equals(Type returnTypeArg, TypeList parameterTypesArg, Boolean isVarArgsArg) {
+    abstract();
+  }
+}
+
+class SubroutineTypeWithVarArgs extends AbstractSubroutineTypeWithSpecificParameters {
+  Type parameterType;
 
   String createName() {
-    return concat(super.createName(), '(', argumentType.name, '...)');
+    return concat(super.createName(), '(', parameterType.name, '...)');
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg, Type returnTypeArg, Type argumentTypeArg) {
-    argumentType = argumentTypeArg;
+  Boolean equals(Type returnTypeArg, TypeList parameterTypesArg, Boolean isVarArgsArg) {
+    return isVarArgsArg && returnTypeArg == returnType && len(parameterTypesArg) == 1 && parameterTypesArg[0] == parameterType;
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg, Type returnTypeArg, Type parameterTypeArg) {
+    parameterType = parameterTypeArg;
     super.constructor(typeRegistryArg, returnTypeArg);
   }
 }
 
-class SubroutineTypeWithSpecificParameters extends AbstractSubroutineType {
+class SubroutineTypeWithSpecificParameters extends AbstractSubroutineTypeWithSpecificParameters {
   TypeList parameterTypes;
 
   String createName() {
@@ -312,59 +323,87 @@ class SubroutineTypeWithSpecificParameters extends AbstractSubroutineType {
     return concat(super.createName(), '(', join(map(parameterTypes, stringify) as StringList, ', '), ')');
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg, Type returnTypeArg, TypeList parameterTypesArg) {
+  Boolean equals(Type returnTypeArg, TypeList parameterTypesArg, Boolean isVarArgsArg) {
+    if (isVarArgsArg || returnTypeArg != returnType || len(parameterTypesArg) != len(parameterTypes)) {
+      return false;
+    }
+    Integer index = 0;
+    while (index < len(parameterTypes)) {
+      if (parameterTypesArg[index] != parameterTypes[index]) {
+        return false;
+      }
+      index += 1;
+    }
+    return true;
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg, Type returnTypeArg, TypeList parameterTypesArg) {
     parameterTypes = parameterTypesArg;
     super.constructor(typeRegistryArg, returnTypeArg);
   }
 }
 
-SubroutineTypeWithSpecificParameters createOrFindSubroutineType(TypeRegistryInterface typeRegistry, Type returnType, TypeList parameterTypes) {
+AbstractSubroutineTypeWithSpecificParameters createOrFindSubroutineType(TypeRegistry typeRegistry, Type returnType, TypeList parameterTypes, Boolean isVarArgs) {
   for (entry in typeRegistry.typesOfSubroutinesWithSpecificParameters) {
-    SubroutineTypeWithSpecificParameters type = entry as SubroutineTypeWithSpecificParameters;
-    if (type.returnType != returnType) {
-      continue;
+    if (entry.equals(returnType, parameterTypes, isVarArgs)) {
+      return entry;
     }
-    if (len(type.parameterTypes) != len(parameterTypes)) {
-      continue;
-    }
-    Integer index = 0;
-    Boolean found = true;
-    while (index < len(parameterTypes)) {
-      if (parameterTypes[index] != type.parameterTypes[index]) {
-        found = false;
-        break;
-      }
-      index += 1;
-    }
-    if (!found) {
-      continue;
-    }
-    return type;
+  }
+  if (isVarArgs) {
+    assert(len(parameterTypes) == 1, 'varargs must have exactly one parameter type');
+    return SubroutineTypeWithVarArgs(typeRegistry, returnType, parameterTypes[0]);
   }
   return SubroutineTypeWithSpecificParameters(typeRegistry, returnType, parameterTypes);
 }
 
 // xxx ListLiteral
 
-class ListType extends Type {
-  // pointer to heap-allocated structure
-
+class AbstractListType extends Type {
   Type elementType;
-
-  Boolean isSubtypeOf(Type other) {
-    return other is Anything || (other is ListType && elementType.isSubtypeOf(cast(cast(other).elementType)));
-  }
 
   Boolean hasDynamicType() {
     return true;
   }
 
-  // xxx literals
-
-  Null constructor(TypeRegistryInterface typeRegistryArg, Type elementTypeArg) {
-    super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'List'));
+  Null constructor(TypeRegistry typeRegistryArg, String nameArg, Type elementTypeArg) {
+    super.constructor(typeRegistryArg, nameArg);
     elementType = elementTypeArg;
   }
+}
+
+class ListType extends AbstractListType {
+  // pointer to heap-allocated structure
+
+  Boolean isSubtypeOf(Type other) {
+    return other is Anything || (other is AbstractListType && elementType.isSubtypeOf((other as AbstractListType).elementType));
+  }
+
+  // xxx literals
+
+  Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
+    super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'List'), elementTypeArg);
+  }
+}
+
+class ReadOnlyListType extends AbstractListType {
+  // pointer to heap-allocated structure, or a VarArgsParameterVot
+
+  Boolean isSubtypeOf(Type other) {
+    return other is Anything || (other is ReadOnlyListType && elementType.isSubtypeOf((other as ReadOnlyListType).elementType));
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
+    super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'ReadOnlyList'), elementTypeArg);
+  }
+}
+
+ReadOnlyListType createOrFindReadOnlyListType(TypeRegistry typeRegistry, Type elementType) {
+  for (entry in typeRegistry.typesOfReadOnlyLists) {
+    if (entry.elementType == elementType) {
+      return entry;
+    }
+  }
+  return ReadOnlyListType(typeRegistry, elementType);
 }
 
 class IterableType extends Type {
@@ -380,7 +419,7 @@ class IterableType extends Type {
     return true;
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg, Type elementTypeArg) {
+  Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
     super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'Iterable'));
     elementType = elementTypeArg;
   }
@@ -399,7 +438,7 @@ class IteratorType extends Type {
     return true; 
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg, Type elementTypeArg) {
+  Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
     super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'Iterator'));
     elementType = elementTypeArg;
   }
@@ -414,7 +453,7 @@ class ClosureType extends Type {
     return false;
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg) {
+  Null constructor(TypeRegistry typeRegistryArg) {
     super.constructor(typeRegistryArg, '<closure>');
   }
 }
@@ -428,18 +467,24 @@ class SystemType extends Type {
     return false;
   }
 
-  Null constructor(TypeRegistryInterface typeRegistryArg) {
+  Null constructor(TypeRegistry typeRegistryArg) {
     super.constructor(typeRegistryArg, '<system>');
   }
 }
 
-class TypeRegistry extends TypeRegistryInterface {
+class TypeRegistry extends Object {
   TypeList types = []:Type;
 
   Null registerType(Object type, Boolean isSubroutineType) { // XXX Object should be Type
     assert(type is Type, concat('tried to registerType ', type));
     append(types, type);
   }
+
+  // These are used by createOrFindSubroutineType(), createOrFindReadOnlyListType(), et al.
+  // TODO: right now managing this is O(N), could be made faster
+  // e.g. keep the list sorted and binary search.
+  AbstractSubroutineTypeWithSpecificParametersList typesOfSubroutinesWithSpecificParameters = []:AbstractSubroutineTypeWithSpecificParameters;
+  ReadOnlyListTypeList typesOfReadOnlyLists = []:ReadOnlyListType;
 
   TypeList sortedTypes;
 

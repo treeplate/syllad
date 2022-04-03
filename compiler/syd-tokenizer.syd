@@ -17,6 +17,9 @@ enum ts {
   HexStart
   Hex
 
+  Period
+  PeriodPeriod
+
   Plus
   Minus
   Asterisk
@@ -48,6 +51,7 @@ enum tt {
   OpenParen
   CloseParen
   Period
+  Ellipsis
   Comma
   Semicolon
 
@@ -131,6 +135,9 @@ class Token extends Object {
     }
     if (type == ttPeriod) {
       return '"."';
+    }
+    if (type == ttEllipsis) {
+      return '"..."';
     }
     if (type == ttComma) {
       return '","';
@@ -298,7 +305,7 @@ TokenList tokenize(IntegerIterable source, String filename) {
           state = tsMinus;
           break;
         } else if (ch == 0x2e) { // .
-          append(tokens, Token(ttPeriod, SourceLocation(lineNo, colNo, filename), null));
+          state = tsPeriod;
           break;
         } else if (ch == 0x2f) { // /
           state = tsSlash;
@@ -505,6 +512,24 @@ TokenList tokenize(IntegerIterable source, String filename) {
           append(tokens, Token(ttInteger, SourceLocation(lineNo, colNo - 1, filename), buffer));
           state = tsTop;
           // no break, reprocess in tsTop
+        }
+
+      } else if (state == tsPeriod) {
+        if (ch == 0x2e) { // .
+          state = tsPeriodPeriod;
+          break;
+        } else {
+          append(tokens, Token(ttPeriod, SourceLocation(lineNo, colNo, filename), null));
+          state = tsTop;
+          // no break, reprocess in tsTop
+        }
+      } else if (state == tsPeriodPeriod) {
+        if (ch == 0x2e) { // .
+          append(tokens, Token(ttEllipsis, SourceLocation(lineNo, colNo, filename), null));
+          state = tsTop;
+          break;
+        } else {
+          throw(concat('unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', SourceLocation(lineNo, colNo, filename), ': ', chr(ch)));
         }
 
       } else if (state == tsPlus) {
@@ -729,6 +754,11 @@ TokenList tokenize(IntegerIterable source, String filename) {
     throw(concat('incomplete hex literal at end of ', filename));
   } else if (state == tsHex) {
     append(tokens, Token(ttInteger, SourceLocation(lineNo, colNo, filename), buffer));
+
+  } else if (state == tsPeriod) {
+    append(tokens, Token(ttPeriod, SourceLocation(lineNo, colNo, filename), null));
+  } else if (state == tsPeriodPeriod) {
+    throw(concat('incomplete ellipsis at end of ', filename));
 
   } else if (state == tsPlus) {
     append(tokens, Token(ttPlus, SourceLocation(lineNo, colNo, filename), null));

@@ -85,6 +85,11 @@ class ValueVot extends Vot {
     abstract();
   }
 
+  Operand length() {
+    // TODO: implement this for heap-allocated lists and heap-allocated read-only lists
+    abstract();
+  }
+
   TypeVot dynamicType() {
     return StaticTypeVot(staticType);
   }
@@ -264,6 +269,48 @@ class ParameterVot extends ValueVot {
   }
 }
 
+class VarArgsParameterVot extends ValueVot {
+  Integer offset; // offset from rbp to first entry in list
+
+  Operand asOperand() {
+    throw('cannot directly reference varargs parameters');
+  }
+
+  Operand baseAddress() {
+    return Operand(concat('rbp+', hex8(offset)), otIndirect);
+  }
+
+  Operand length() {
+    return rcx;
+  }
+
+  Null constructor(Type staticTypeArg, Integer savedRegisterCount) {
+    super.constructor(staticTypeArg);
+    offset = 0x08 /* return value pointer */
+           + 0x08 /* type of first value */
+           + 0x20 /* shadow space */
+           + 0x08 /* return address */
+           + 0x08 * savedRegisterCount;
+  }
+}
+
+class DereferencedRegisterVot extends ValueVot {
+  String register;
+
+  Operand asOperand() {
+    return Operand(register, otIndirect); // [register]
+  }
+
+  TypeVot dynamicType() {
+    return OperandTypeVot(Operand(concat(register, '-', hex8(0x08)), otIndirect));
+  }
+
+  Null constructor(Type staticTypeArg, String registerArg) {
+    super.constructor(staticTypeArg);
+    register = registerArg;
+  }
+}
+
 class TypeHandle extends Object {
   TypeVotNullable type = null;
 
@@ -291,7 +338,7 @@ class ValueHandle extends Object {
 
   Null assign(ValueVot valueArg) {
     assert(value == null, 'cannot assign a value handle twice');
-    assert(valueArg.staticType.isSubtypeOf(source.staticType), concat('cannot assign ', valueArg.staticType, ' to ', source.staticType));
+    assert(valueArg.staticType.isSubtypeOf(source.staticType), concat('cannot assign ', valueArg.staticType, ' to ', source.staticType, ' debugName ', source.debugName));
     value = valueArg;
     type.assign(valueArg.dynamicType());
   }

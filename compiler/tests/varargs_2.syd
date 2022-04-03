@@ -1,0 +1,15 @@
+// expected output: Line 1
+// expected output: Line 2
+// expected exit code is 0
+
+Null test(String... args) {
+  Integer x = 0;
+  while (args[x] != '') {
+    print('Line ');
+    print(args[x]);
+    print('\n');
+    x = x + 1;
+  }
+}
+
+test('1', '2', '');

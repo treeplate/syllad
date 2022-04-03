@@ -1,14 +1,23 @@
 import 'core.syd';
 
 String hex8(Integer value) {
+  if (value < 0) {
+    return concat('-', hex8(-value));
+  }
   return concat('0', padLeft(hex(value), 2, '0'), 'h');
 }
 
 String hex32(Integer value) {
+  if (value < 0) {
+    return concat('-', hex32(-value));
+  }
   return concat('0', padLeft(hex(value), 8, '0'), 'h');
 }
 
 String hex64(Integer value) {
+  if (value < 0) {
+    return concat('-', hex64(-value));
+  }
   return concat('0', padLeft(hex(value), 16, '0'), 'h');
 }
 
@@ -135,6 +144,23 @@ Operand r12 = Operand('r12', otRegister); // (nonvolatile)
 Operand r13 = Operand('r13', otRegister); // (nonvolatile)
 Operand r14 = Operand('r14', otRegister); // (nonvolatile)
 Operand r15 = Operand('r15', otRegister); // return value pointer used by CompiledSubroutine (nonvolatile)
+Operand rsi = Operand('rsi', otRegister); // used for index into parameters in a varargs function (nonvolatile)
+Operand rdi = Operand('rdi', otRegister); // used for end of loop index in a varargs function (nonvolatile)
+
+Operand rcxShadow(Integer savedRegisterCount) {
+  // rbp and other registers saved locally + return address + earlier shadow registers
+  return Operand(concat('rbp+', hex8(0x08 * savedRegisterCount + 0x08 + 0 * 0x08)), otIndirect);
+}
+Operand rdxShadow(Integer savedRegisterCount) {
+  return Operand(concat('rbp+', hex8(0x08 * savedRegisterCount + 0x08 + 1 * 0x08)), otIndirect);
+}
+Operand r8Shadow(Integer savedRegisterCount) {
+  return Operand(concat('rbp+', hex8(0x08 * savedRegisterCount + 0x08 + 2 * 0x08)), otIndirect);
+}
+Operand r9Shadow(Integer savedRegisterCount) {
+  return Operand(concat('rbp+', hex8(0x08 * savedRegisterCount + 0x08 + 3 * 0x08)), otIndirect);
+}
+
 
 // Methods of Assembler other than addCode may mutate r11 without notice and without saving it.
 class Assembler extends Object {
@@ -175,6 +201,7 @@ class Assembler extends Object {
   }
 
   Null addData(String label, StringList lines, StringNullableList comments) {
+    // TODO: should save these in a map and print them in some reasonable order (like alphabetically by name)
     assert(len(lines) > 0, 'addData got no data');
     Integer index = 0;
     String prefix = label;
@@ -252,8 +279,8 @@ class Assembler extends Object {
       addCode(blockId, concat('mov r11, ', a.value), concat('compare ', aWhat, '...'));
       addCode(blockId, concat('cmp r11, ', b.value), concat('...to ', bWhat));
     } else if (b.isImmediate64()) {
-      addCode(blockId, concat('mov r11, ', a.value), concat('compare ', aWhat, '...'));
-      addCode(blockId, concat('cmp r11, ', b.value), concat('...to ', bWhat));
+      addCode(blockId, concat('mov r11, ', b.value), concat('compare ', aWhat, '...'));
+      addCode(blockId, concat('cmp ', a.value, ', r11'), concat('...to ', bWhat));
     } else if (b.isImmediate()) {
       addCode(blockId, concat('cmp qword ptr ', a.value, ', ', b.value), concat('compare ', aWhat, ' to ', bWhat));
     } else if (a.isMemory() && b.isMemory()) {

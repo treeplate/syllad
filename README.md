@@ -30,6 +30,7 @@ Identifiers start with one character out of `a`-`z`, `A`-`Z`, `_` {set *buffer* 
 
   comma, `,`
   period, `.`
+  ellipsis, `...`
   bang, `!`
 
   plus, `+`
@@ -58,4 +59,4 @@ Identifiers start with one character out of `a`-`z`, `A`-`Z`, `_` {set *buffer* 
   set, `=`
 ## IMPORTS
 Imports consist of the IDENTIFIER `import`, followed by a STRING {*path*}, followed by SEMICOLON.
-{This runs the file *path* and adds the resulting variables to the file scope}
+{This runs the file *path* and adds the resulting variables to the current file scope, as well as *path*'s own file scope if *path* hasn't been}

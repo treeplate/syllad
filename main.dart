@@ -5,11 +5,14 @@ import 'statement-parser.dart';
 
 void main() {
   try {
-    runProgram(parse(
-            lex(File('compiler/syd.syd').readAsStringSync(), 'syd.syd')
-                .toList(),
-            'syd.syd')
-        .key);
+    runProgram(
+        parse(
+                lex(File('compiler/syd.syd').readAsStringSync(), 'syd.syd')
+                    .toList(),
+                'syd.syd',
+                false)
+            .key,
+        'syd.syd');
   } on FileInvalid catch (e) {
     print("$e");
     exit(1);

@@ -5,7 +5,7 @@ class CompiledLoopScope extends CompiledNestedScope {
   String loopBottomLabel;
 
   Null prepareInstructions() {
-    emitInstruction(JumpInstruction(loopTopLabel, concat('return to top of ', name)));
+    emitInstruction(JumpInstruction(this, loopTopLabel, concat('return to top of ', name)));
     super.prepareInstructions();
   }
 
@@ -17,7 +17,7 @@ class CompiledLoopScope extends CompiledNestedScope {
 
   Null emitBreakInstructionFrom(CompiledScope scope) {
     // jump to loopBottomLabel
-    scope.emitInstruction(JumpInstruction(loopBottomLabel, concat('break out of ', name)));
+    scope.emitInstruction(JumpInstruction(this, loopBottomLabel, concat('break out of ', name)));
   }
 
   Null constructor(CompiledScope parentArg, String nameArg) {

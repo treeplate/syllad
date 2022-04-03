@@ -1,4 +1,33 @@
+
+
+/*
+StringList b;
+Null foo(String... s) {
+  b = s;
+}
+foo('a', 'b');
+append(b, 'c'); // crashes
+println(b);
+*/
+
+/*
+IntegerList b = [1,2,3];
+for (a in b) {
+  append(b, a); // crashes
+}
+print(b);
+*/
+// crashes: Boolean b; !b;
+
+//import 'a.syd'; // class Foo { Integer x; } Null bar(FooFunction a) { println(a().x); }
+//import 'b.syd'; // class Foo { String s; } Null bar(FooFunction a) { println(a().s); }
+
+//class Foo { Integer x; } Null bar(FooFunction a) { println(a().x); }
+//class Foo { String s; } Null bar(FooFunction a) { println(a().s); }
+
+
 // TODO
+// - verify that we keep the stack pointer 16-byte aligned
 // - something that runs each test in turn (and matches expectation)
 // - static type checking ("xxxx")
 // - heap allocation
@@ -22,18 +51,7 @@ import 'syd-assembler.syd';
 
 stderr('syllad self-hosting compiler');
 // syllad spec:
-// functions 'print', 'charsOf',
-// 'addLists', 'parseInt',
-// 'concat', 'len', 'input',
-// 'iterator', 'next', 'current',
-// 'append', 'stringTimes'
-// 'first', 'last', 'single'
-// 'copy', 'scalarValues',
-// 'assert', 'exit',
-// 'readFile', 'readFileBytes',
-// 'println', 'throw', 'hex',
-// 'chr', 'cast'
-// 'padLeft', 'joinList'
+// intrinsics.txt + rtl.syd = built-in functions
 // while loop
 // for-in loops
 // classical if-else
@@ -41,7 +59,7 @@ stderr('syllad self-hosting compiler');
 // enums (enum X {a b c}  ...  X state = Xa; ... state = Xb;   if(state == Xa) { ... })
 // values are functions or true or false or null or int literal or list literal (e.g. [1, 2]) or string literal ('' or "", newlines ok, single-character escapes)
 // types, or <t>, are:
-// Anything, Integer, String, Boolean, <t>List, <t>Iterable, <t>Iterator, Null, <t> (enums)
+// Anything, Integer, String, Boolean, <t>List, <t>Iterable, <t>Iterator, Null, <t> (enums/classes)
 // operators: [], <, >, +, -, /, *, &, &&, |, ^, ||, >=, <=, >>, <<
 
 // WISHLIST
@@ -63,7 +81,6 @@ stderr('syllad self-hosting compiler');
 //     }
 //     Node('a', [Node('b', [])]).walk();
 //   simpler example with probably same cause: class A { Null test() { this.test(); } }
-//   no forward class declarations means you can't have classes that deal with their subclasses
 //   the language requires gc:
 //     - closures can leak out of their stack frame:
 //       AnythingFunction makeLoop() {
@@ -79,8 +96,6 @@ stderr('syllad self-hosting compiler');
 //     - objects can reference each other, but there's no way to dispose of an object
 //     - lists are reference types (not copy-on-write value types) and one can form reference loops, but there's no way to dispose of a list
 //   language changes that I think have been announced but not yet implemented:
-//     - imperative statements being allowed in class declarations (so classes are really functions) is
-//     - blocks don't actually introduce scopes for variables (e.g. "Integer y = 0; if (true) { String y = 'bad'; } println(y);" prints "bad")
 //     - type declarations leak out of blocks (e.g. "if (true) { enum X { a } } X a;" does not fail)
 //     - this should be true (but isn't): 2-3+4 == (2-3)+4
 // P2 (making things much harder):
@@ -92,7 +107,7 @@ stderr('syllad self-hosting compiler');
 //     - returns are "not really type safe"
 //     - functions without returns aren't statically checked
 //     - toString returning non-string isn't checked for either
-//     - currently not true with uninitialized variables (they start as an instance of Null instead)
+//     - currently not true with uninitialized variables (they start as a sentinel of type 'uninitialized' instead)
 //     - shadow rules are weird: class A { } class B extends A { Null println() { } }
 //   function types with signatures
 //   string interpolation
@@ -103,15 +118,8 @@ stderr('syllad self-hosting compiler');
 //   switch (especially if the compiler can report missing enum values)
 //   no way to catch exceptions
 //   try-finally
-//   typed empty list constructor
-//   constants
 //   detailed language reference
 //   [] could have its type inferred from context
-// P4 (minor typos and such):
-//   assigning to an undeclared variable says "Cannot reassign...".
-//   error messages are inconsistent in style, e.g. giving file/line/col in different ways:
-//     "You cannot return a Constant (<Constant>) from registerConstant, which is supposed to return a Variable! (syd-compiler.syd 226:19)"
-//     "CompiledScope's superclass (Object) has no member prepareInstructions; attempted 'super.prepareInstructions' 814, 31, syd-compiler.syd"
 
 CompiledLibrary processFile(String filename, CompilationEnvironment compilationEnvironment, Boolean isProgram) {
   assert(compilationEnvironment.getLibraryState(filename) == lsUnknown, 'processFile has already processed this file');

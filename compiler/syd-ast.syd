@@ -65,7 +65,7 @@ class StatementBlock extends AstNode {
 
   Null generateInstructions(CompiledScope scope) {
     Null compileChild(Statement child, CompiledScope scope) {
-      scope.emitInstruction(SourceLocationInstruction(child)); // TODO: only emit this for lines that actually generate assembler...
+      scope.emitInstruction(SourceLocationInstruction(scope, child)); // TODO: only emit this for lines that actually generate assembler...
       child.generateInstructions(scope); // workaround because self-reference doesn't work in closures
     }
     walk(compileChild, scope);
@@ -89,17 +89,26 @@ class Expression extends AstNode {
   }
 }
 
+Map stringAtomTable = Map(); // value -> label
+
 class StringLiteralExpression extends Expression {
   String value;
   String label;
 
   Slot generateInstructions(CompiledScope scope) {
-    label = scope.environment().generateLabel('string');
-    scope.emitInstruction(StringConstantInstruction(
-      label,
-      value,
-      sourceLocation,
-    ));
+    StringNullable maybeLabel = stringAtomTable.get(value) as StringNullable;
+    if (maybeLabel == null) {
+      label = scope.environment().generateLabel('string');
+      scope.emitInstruction(StringConstantInstruction(
+        scope,
+        label,
+        value,
+        sourceLocation,
+      ));
+      stringAtomTable.set(value, label);
+    } else {
+      label = maybeLabel!;
+    }
     Type type = (scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary).coreStringType;
     type.markConstructed();
     return scope.registerStaticValue(ImmediateAddressVot(type, label), concat(this));
@@ -123,6 +132,12 @@ class IntegerLiteralExpression extends Expression {
   }
   
   String toStringIndent(Integer indent) {
+    if (value > -10 && value < 10) {
+      return intToStr(value);
+    }
+    if (value < 0) {
+      return concat(intToStr(value), ' /* -0x', hex(-value), ' *\/');
+    }
     return concat(intToStr(value), ' /* 0x', hex(value), ' *\/');
   }
 
@@ -139,7 +154,7 @@ class ListLiteralExpression extends Expression {
     String indenter(AstNode node) {
       return node.toStringIndent(indent);
     }
-    return concat('[', join(cast(map(values, indenter)), ','), ']');
+    return concat('[', join(map(values, indenter) as StringList, ','), ']');
   }
 
   Null walk(NullFunction callback, Anything context) {
@@ -231,6 +246,21 @@ class SubscriptExpression extends Expression {
     return concat(list.toStringIndent(indent), '[', argument.toStringIndent(indent), ']');
   }
 
+  Slot generateInstructions(CompiledScope scope) {
+    // xxxx static type checks
+    ValueHandle evaluatedList = list.generateInstructions(scope).read(scope);
+    // TODO: static type check for evaluatedList to check it's a List or ReadOnlyList
+    // TODO: dynamic type check to verify that evaluatedList is a List or ReadOnlyList at runtime
+    ValueHandle evaluatedArgument = argument.generateInstructions(scope).read(scope);
+    // TODO: static type check for evaluatedList to check it's a list
+    // TODO: dynamic type check to verify that evaluatedList is a list at runtime
+    Type elementType = (evaluatedList.source.staticType as AbstractListType).elementType;
+    Slot result = scope.registerDynamicValue(elementType, concat('element ', argument, ' of ', list));
+    CompiledScope boundsErrorBlock = scope.createErrorHandlerBlock(scope.environment().intrinsicsLibrary!.boundsFailureMessage, 'subscript bounds error');
+    scope.emitInstruction(SubscriptInstruction(scope, evaluatedList, evaluatedArgument, result.prepareWrite(scope), boundsErrorBlock, concat(scope.labelPrefix(), '$subscript')));
+    return result;
+  }
+
   Boolean isLValue() {
     return true;
   }
@@ -286,8 +316,35 @@ class IsOperatorExpression extends Expression {
     TypeHandle lhs = expression.generateInstructions(scope).read(scope).type;
     Type rhs = type.generateInstructions(scope);
     Slot slot = scope.registerDynamicValue((scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary).coreBooleanType, 'is expression result');
-    scope.emitInstruction(StoreTypeCheckInstruction(rhs, lhs, slot.prepareWrite(scope), concat(expression), scope.environment()));
+    scope.emitInstruction(StoreTypeCheckInstruction(scope, rhs, lhs, slot.prepareWrite(scope), concat(expression)));
     return slot;
+  }
+
+  Null constructor(Expression expressionArg, TypeIdentifier typeArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
+    expression = expressionArg;
+    type = typeArg;
+  }
+}
+
+class AsOperatorExpression extends Expression {
+  Expression expression;
+  TypeIdentifier type;
+  
+  String toStringIndent(Integer indent) {
+    return concat(expression.toStringIndent(indent), ' as ', type);
+  }
+
+  Null walk(NullFunction callback, Anything context) {
+    callback(expression, context);
+  }
+
+  Slot generateInstructions(CompiledScope scope) {
+    // xxxx static type check
+    Slot exprSlot = expression.generateInstructions(scope);
+    Type rhs = type.generateInstructions(scope);
+    scope.emitTypeCheck(exprSlot.read(scope), rhs, (scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary).asOperatorFailureMessage, concat(this));
+    return exprSlot;
   }
 
   Null constructor(Expression expressionArg, TypeIdentifier typeArg, SourceLocation sourceLocationArg) {
@@ -369,7 +426,7 @@ class OperatorExpression extends Expression {
   Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
     abstract();
     // e.g.:
-    // scope.emitInstruction(AdditionInstruction(lhsValue, rhsValue, result, concat(describeOperator(), ' operator')));
+    // scope.emitInstruction(AdditionInstruction(scope, lhsValue, rhsValue, result, concat(describeOperator(), ' operator')));
   }
   
   String toStringIndent(Integer indent) {
@@ -422,7 +479,7 @@ class OperatorAdditionExpression extends NumericOperatorExpression {
   }
 
   Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(BiOperandInstruction('add', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
+    scope.emitInstruction(BiOperandInstruction(scope, 'add', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
   }
 }
 
@@ -432,7 +489,7 @@ class OperatorSubtractionExpression extends NumericOperatorExpression {
   }
 
   Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(BiOperandInstruction('sub', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
+    scope.emitInstruction(BiOperandInstruction(scope, 'sub', lhsValue, rhsValue, result, intrinsics.coreIntegerType,  concat(describeOperator(), ' operator')));
   }
 }
 
@@ -442,7 +499,7 @@ class OperatorMultiplicationExpression extends NumericOperatorExpression {
   }
 
   Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(BiOperandInstruction('imul', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
+    scope.emitInstruction(BiOperandInstruction(scope, 'imul', lhsValue, rhsValue, result, intrinsics.coreIntegerType,  concat(describeOperator(), ' operator')));
   }
 }
 
@@ -451,7 +508,9 @@ class OperatorDivisionExpression extends NumericOperatorExpression {
     return '/';
   }
 
-  // TODO: idiv
+  Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(DivisonInstruction(scope, lhsValue, rhsValue, result, rax, intrinsics.coreIntegerType, len((scope.stackFrame() as CompiledStackFrameScope).nonvolatileRegistersUsed()), concat(describeOperator(), ' operator')));
+  }
 }
 
 class OperatorModulusExpression extends NumericOperatorExpression {
@@ -459,7 +518,9 @@ class OperatorModulusExpression extends NumericOperatorExpression {
     return '%';
   }
 
-  // TODO: idiv
+  Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(DivisonInstruction(scope, lhsValue, rhsValue, result, rdx, intrinsics.coreIntegerType, len((scope.stackFrame() as CompiledStackFrameScope).nonvolatileRegistersUsed()), concat(describeOperator(), ' operator')));
+  }
 }
 
 class OperatorBitwiseAndExpression extends NumericOperatorExpression {
@@ -468,7 +529,7 @@ class OperatorBitwiseAndExpression extends NumericOperatorExpression {
   }
 
   Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(BiOperandInstruction('and', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
+    scope.emitInstruction(BiOperandInstruction(scope, 'and', lhsValue, rhsValue, result, intrinsics.coreIntegerType,  concat(describeOperator(), ' operator')));
   }
 }
 
@@ -478,7 +539,7 @@ class OperatorBitwiseOrExpression extends NumericOperatorExpression {
   }
 
   Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(BiOperandInstruction('or', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
+    scope.emitInstruction(BiOperandInstruction(scope, 'or', lhsValue, rhsValue, result, intrinsics.coreIntegerType,  concat(describeOperator(), ' operator')));
   }
 }
 
@@ -488,7 +549,7 @@ class OperatorBitwiseXorExpression extends NumericOperatorExpression {
   }
 
   Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(BiOperandInstruction('xor', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
+    scope.emitInstruction(BiOperandInstruction(scope, 'xor', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
   }
 }
 
@@ -498,7 +559,7 @@ class OperatorLeftShiftExpression extends NumericOperatorExpression {
   }
 
   Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(BiOperandInstruction('shl', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
+    scope.emitInstruction(BiOperandInstruction(scope, 'shl', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
   }
 }
 
@@ -508,7 +569,7 @@ class OperatorRightShiftExpression extends NumericOperatorExpression {
   }
 
   Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(BiOperandInstruction('shr', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
+    scope.emitInstruction(BiOperandInstruction(scope, 'shr', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
   }
 }
 
@@ -527,13 +588,28 @@ class OperatorEqualsEqualsExpression extends OperatorExpression {
   }
 
   Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(StoreEqualityInstruction(lhsValue, rhsValue, result, scope.environment()));
+    // TODO: StoreEqualityInstruction needs to implement string comparisons
+    scope.emitInstruction(StoreEqualityInstruction(scope, lhsValue, rhsValue, result, false));
   }
 }
 
 class OperatorBangEqualsExpression extends OperatorExpression {
   String describeOperator() {
     return '!=';
+  }
+
+  Null generateTypeCheckInstructions(ValueHandle lhsValue, ValueHandle rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    // accepts any type
+    // xxxx statically check the types are compatible
+  }
+
+  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
+    return intrinsics.coreBooleanType;
+  }
+
+  Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    // TODO: StoreEqualityInstruction needs to implement string comparisons
+    scope.emitInstruction(StoreEqualityInstruction(scope, lhsValue, rhsValue, result, true));
   }
 }
 
@@ -552,7 +628,7 @@ class OperatorNumericCmpExpression extends OperatorExpression {
   }
 
   Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(StoreCmpInstruction(lhsValue, rhsValue, result, flag(), scope.environment()));
+    scope.emitInstruction(StoreCmpInstruction(scope, lhsValue, rhsValue, result, flag()));
   }
 }
 
@@ -640,7 +716,7 @@ class VariableDeclarationStatement extends DeclarationStatement {
     ValueHandle rValueHandle;
     if (rValue == null) {
       rValueHandle = ValueHandle(
-        scope.environment().integers, // TODO: dubious source (maybe rename it?)
+        scope.environment().intrinsicsLibrary!.integers, // TODO: dubious source (maybe rename it?)
         (scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary).coreSentinel,
       );
     } else {
@@ -659,6 +735,7 @@ class SubroutineDeclarationStatement extends Statement {
   TypeIdentifier returnType;
   String identifier;
   AnythingListList parameters; // pairs of type (TypeIdentifier) and identifier (String)
+  Boolean isVarArgs;
   StatementBlock body;
 
   Null walk(NullFunction callback, Anything context) {
@@ -671,22 +748,33 @@ class SubroutineDeclarationStatement extends Statement {
     for (entry in parameters) {
       append(compiledParameterTypes, (entry[0] as TypeIdentifier).generateInstructions(scope));
     }
-    SubroutineTypeWithSpecificParameters subroutineType = createOrFindSubroutineType(
+    AbstractSubroutineType subroutineType = createOrFindSubroutineType(
       scope.environment(),
       compiledReturnType,
       compiledParameterTypes,
+      isVarArgs,
     );
-    CompiledSubroutine subroutine = CompiledSubroutine(scope, subroutineType, identifier);
-    scope.registerSubroutine(subroutine);
-    SlotList parameterSlots = []:Slot;
-    Integer index = 0;
-    for (parameter in parameters) {
-      String name = parameter[1] as String;
-      Type type = compiledParameterTypes[index];
-      append(parameterSlots, subroutine.registerParameter(name, type, index));
-      index += 1;
+    CompiledSubroutine subroutine;
+    if (isVarArgs) {
+      subroutine = CompiledVarArgsSubroutine(scope, subroutineType, identifier);
+      assert(len(compiledParameterTypes) == 1, 'unexpected number of parameters to varargs function');
+      String name = parameters[0][1] as String;
+      Type type = compiledParameterTypes[0];
+      (subroutine as CompiledVarArgsSubroutine).registerVarArgsParameter(name, type);
+      (subroutine as CompiledVarArgsSubroutine).emitVarArgsParameterChecks(type);
+    } else {
+      subroutine = CompiledSubroutine(scope, subroutineType, identifier);
+      SlotList parameterSlots = []:Slot;
+      Integer index = 0;
+      for (parameter in parameters) {
+        String name = parameter[1] as String;
+        Type type = compiledParameterTypes[index];
+        append(parameterSlots, (subroutine as CompiledSubroutineWithSpecificParameters).registerParameter(name, type, index));
+        index += 1;
+      }
+      (subroutine as CompiledSubroutineWithSpecificParameters).emitParameterChecks(parameterSlots);
     }
-    subroutine.emitParameterChecks(parameterSlots);
+    scope.registerSubroutine(subroutine);
     // TODO: declare slot for "this" and "closure"
     body.generateInstructions(subroutine);
   }
@@ -705,11 +793,13 @@ class SubroutineDeclarationStatement extends Statement {
     return concat(returnType.toStringIndent(indent), ' ', identifier, '(', joinList(parametersList), ') {\n', bodyString, '}\n');
   }
 
-  Null constructor(TypeIdentifier returnTypeArg, String identifierArg, AnythingListList parametersArg, StatementBlock bodyArg, SourceLocation sourceLocationArg) {
+  Null constructor(TypeIdentifier returnTypeArg, String identifierArg, AnythingListList parametersArg, Boolean isVarArgsArg, StatementBlock bodyArg, SourceLocation sourceLocationArg) {
+    assert(!isVarArgsArg || (len(parametersArg) == 1), 'varargs is only valid with a single parameter');
     super.constructor(sourceLocationArg);
     returnType = returnTypeArg;
     identifier = identifierArg;
     parameters = parametersArg;
+    isVarArgs = isVarArgsArg;
     body = bodyArg;
   }
 }  
@@ -981,10 +1071,10 @@ class IfStatement extends Statement {
 
   Null generateInstructions(CompiledScope scope) {
     ValueHandle expressionHandle = expression.generateInstructions(scope).read(scope);
-    CompiledScope blockScope = CompiledNestedScope(scope, scope.environment().generateLabel(concat(camelCase(scope.name), '$if$block')));
+    CompiledNestedScope blockScope = CompiledNestedScope(scope, scope.environment().generateLabel(concat(camelCase(scope.name), '$if$block')));
     block.generateInstructions(blockScope);
     assert(elseClause == null, 'TODO: else clauses');
-    scope.emitConditionalBlock(blockScope, expressionHandle, (cast(scope.environment().intrinsicsLibrary!).coreFalse as Slot).read(scope), 'if', concat(expression));
+    scope.emitConditionalBlock(blockScope, expressionHandle, (scope.environment().intrinsicsLibrary!.coreFalse as Slot).read(scope), 'if', concat(expression));
   }
 
   Null walk(NullFunction callback, Anything context) {
@@ -1061,7 +1151,7 @@ class WhileStatement extends Statement {
   Null generateInstructions(CompiledScope scope) {
     CompiledLoopScope loopScope = CompiledLoopScope(scope, 'while');
     ValueHandle expressionHandle = expression.generateInstructions(loopScope).read(loopScope);
-    loopScope.emitConditionalJump(loopScope.loopBottomLabel, expressionHandle, (cast(scope.environment().intrinsicsLibrary!).coreFalse as Slot).read(scope), 'while condition');
+    loopScope.emitConditionalJump(loopScope.loopBottomLabel, expressionHandle, (scope.environment().intrinsicsLibrary!.coreFalse as Slot).read(scope), 'while condition');
     block.generateInstructions(loopScope);
     scope.emitBlock(loopScope);
   }
@@ -1095,6 +1185,19 @@ class ForStatement extends Statement {
     callback(block, context);
   }
 
+/*
+  Null generateInstructions(CompiledScope scope) {
+    CompiledLoopScope loopScope = CompiledLoopScope(scope, 'for');
+    ValueHandle expressionHandle = expression.generateInstructions(loopScope).read(loopScope);
+    // verify that expressionHandle is an *Iterable
+    // if it is statically a *ReadOnlyList
+    
+    loopScope.emitConditionalJump(loopScope.loopBottomLabel, expressionHandle, (scope.environment().intrinsicsLibrary!.coreFalse as Slot).read(scope), 'while condition');
+    block.generateInstructions(loopScope);
+    scope.emitBlock(loopScope);
+  }
+*/
+
   Null constructor(String variableArg, Expression iterableArg, StatementBlock blockArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     variable = variableArg;
@@ -1121,7 +1224,7 @@ class Library extends StatementBlock {
 class Program extends Library {
   Null generateInstructions(CompiledScope scope) {
     super.generateInstructions(scope);
-    scope.emitInstruction(CommentInstruction('Terminate application - call exit(0)'));
+    scope.emitInstruction(CommentInstruction(scope, 'Terminate application - call exit(0)'));
     ValueHandle exitCode = scope.environment().integer(0);
     ValueHandle exit = (scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary).coreExit.read(scope);
     scope.emitSubroutineCall(exit, [exitCode]);

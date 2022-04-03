@@ -30,15 +30,22 @@ class SetStatement extends Statement {
 class ImportStatement extends Statement {
   final List<Statement> file;
   final String filename;
+  final String currentFilename;
 
-  ImportStatement(this.file, this.filename) : super(0, 0);
+  ImportStatement(
+      this.file, this.filename, int line, int col, this.currentFilename)
+      : super(line, col);
 
   static Map<String, Scope> filesRan = {};
 
   @override
   StatementResult run(Scope scope) {
-    scope.values.addAll(
-        (filesRan[filename] ?? (filesRan[filename] = runProgram(file))).values);
+    List<String> newStack = scope.stack.toList();
+    newStack[newStack.length - 1] +=
+        " ${formatCursorPosition(line, col, currentFilename)}";
+    scope.values.addAll((filesRan[filename] ??
+            (filesRan[filename] = runProgram(file, filename, newStack)))
+        .values);
     return StatementResult(StatementResultType.nothing);
   }
 }
@@ -125,7 +132,7 @@ class FunctionStatement extends Statement {
           case StatementResultType.returnFunction:
             if (value.value!.type.isSubtypeOf(returnType)) return value;
             throw FileInvalid(
-                "You cannot return a ${value.value!.type} (${value.value!.value}) from $fromClass$name, which is supposed to return a $returnType!     $file:$line:$col\n${funscope.stack.reversed.join('\n')} ");
+                "You cannot return a ${value.value!.type} (${value.value!.value}) from $fromClass$name, which is supposed to return a $returnType!     ${formatCursorPosition(line, col, file)}\n${funscope.stack.reversed.join('\n')} ");
           case StatementResultType.breakWhile:
             throw FileInvalid("Break outside while");
           case StatementResultType.continueWhile:
@@ -134,11 +141,11 @@ class FunctionStatement extends Statement {
             return value;
         }
       }
-      if (!ValueType(null, 'Null', 0, 0, 'intrenal').isSubtypeOf(returnType)) {
+      if (!ValueType(null, 'Null', -2, 0, 'intrenal').isSubtypeOf(returnType)) {
         throw FileInvalid(
-            "$name has no return statement line $line column $col file $file");
+            "$name has no return statement ${formatCursorPosition(line, col, file)}");
       }
-      return ValueWrapper(ValueType(null, 'Null', 0, 0, 'intrenal'), null,
+      return ValueWrapper(ValueType(null, 'Null', -2, 0, 'intrenal'), null,
           'default return value of functions');
     }, '$name function');
     return StatementResult(StatementResultType.nothing);
@@ -247,7 +254,7 @@ class ReturnStatement extends Statement {
         tokens.current.col,
       );
     }
-    Expression expr = parseExpression(tokens, scope, sharedSupertype);
+    Expression expr = parseExpression(tokens, scope);
     tokens.expectChar(TokenType.endOfStatement);
     return ReturnStatement(
       expr,
@@ -292,7 +299,7 @@ class ClassStatement extends Statement {
       '~$name~methods',
       [],
       ValueWrapper(
-        ValueType(null, '~class_methods', 0, 0, "_internal"),
+        ValueType(null, '~class_methods', -2, 0, "_internal"),
         methods,
         'internal',
       ),

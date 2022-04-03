@@ -1,0 +1,9 @@
+String padLeft(String line, Integer length, String padding) {
+  return concat(stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))), line);
+}
+
+Null assert(Boolean condition, String message) {
+  if (!condition) {
+    throw(message);
+  }
+}

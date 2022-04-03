@@ -1,15 +1,7 @@
-// expected output: Hello
-// expected output: Hello
-// expected output: Hello
-// expected output: Hello
-// expected output: Hello
-// expected output: Good Bye
+// expected error: error: 
+// expected exit code is 1
 
-Integer index = 0;
-Integer target = 5;
-
-while (index < target) {
-  print('Hello\n');
-  index = index + 1;
+Null test(Integer... args) {
+  print(args[0]);
 }
-print('Good Bye\n');
+test();

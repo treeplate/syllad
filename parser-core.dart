@@ -1,5 +1,15 @@
 import 'lexer.dart';
 
+Map<String, TypeValidator> loadedGlobalScopes = {};
+String formatCursorPositionFromTokens(TokenIterator tokens) {
+  return formatCursorPosition(
+      tokens.current.line, tokens.current.col, tokens.file);
+}
+
+String formatCursorPosition(int line, int col, String file) {
+  return "$file:$line:$col";
+}
+
 class TypeValidator {
   Map<String, TypeValidator> classes = {};
   List<String> nonconst = [];
@@ -8,7 +18,7 @@ class TypeValidator {
   Map<String, ValueType> types = {
     "true": booleanType,
     "false": booleanType,
-    "null": ValueType(sharedSupertype, 'Null', 0, 0, 'rtl'),
+    "null": ValueType(sharedSupertype, 'Null', -2, 0, 'rtl'),
     "print": FunctionValueType(
         integerType, InfiniteIterable(sharedSupertype), 'rtl'),
     "stderr": FunctionValueType(
@@ -19,7 +29,7 @@ class TypeValidator {
     'addLists': FunctionValueType(
         ListValueType(sharedSupertype, 'rtl'),
         InfiniteIterable(
-            ListValueType(ValueType(null, "Whatever", 0, 0, 'rtl'), 'rtl')),
+            ListValueType(ValueType(null, "Whatever", -2, 0, 'rtl'), 'rtl')),
         'rtl'),
     'charsOf': FunctionValueType(
         IterableValueType(stringType, 'rtl'), [stringType], 'rtl'),
@@ -27,19 +37,19 @@ class TypeValidator {
         IterableValueType(integerType, 'rtl'), [stringType], 'rtl'),
     'len': FunctionValueType(
         integerType,
-        [ListValueType(ValueType(null, "Whatever", 0, 0, 'rtl'), 'rtl')],
+        [ListValueType(ValueType(null, "Whatever", -2, 0, 'rtl'), 'rtl')],
         'rtl'),
     'input': FunctionValueType(stringType, [], 'rtl'),
     'append': FunctionValueType(
         sharedSupertype,
         [
-          ListValueType(ValueType(null, "Whatever", 0, 0, 'rtl'), 'rtl'),
+          ListValueType(ValueType(null, "Whatever", -2, 0, 'rtl'), 'rtl'),
           sharedSupertype
         ],
         'rtl'),
     'iterator': FunctionValueType(
         IteratorValueType(sharedSupertype, 'rtl'),
-        [IterableValueType(ValueType(null, "Whatever", 0, 0, 'rtl'), 'rtl')],
+        [IterableValueType(ValueType(null, "Whatever", -2, 0, 'rtl'), 'rtl')],
         'rtl'),
     'next': FunctionValueType(
         booleanType, [IteratorValueType(sharedSupertype, 'rtl')], 'rtl'),
@@ -55,27 +65,24 @@ class TypeValidator {
         sharedSupertype, [IterableValueType(sharedSupertype, 'rtl')], 'rtl'),
     'single': FunctionValueType(
         sharedSupertype,
-        [IterableValueType(ValueType(null, "Whatever", 0, 0, 'rtl'), 'rtl')],
+        [IterableValueType(ValueType(null, "Whatever", -2, 0, 'rtl'), 'rtl')],
         'rtl'),
-    'assert': FunctionValueType(booleanType, [booleanType, stringType], 'rtl'),
-    'padLeft': FunctionValueType(
-        stringType, [stringType, integerType, stringType], 'rtl'),
     'hex': FunctionValueType(stringType, [integerType], 'rtl'),
     'chr': FunctionValueType(stringType, [integerType], 'rtl'),
     'exit': FunctionValueType(
-        ValueType(sharedSupertype, "Null", 0, 0, 'rtl'), [integerType], 'rtl'),
+        ValueType(sharedSupertype, "Null", -2, 0, 'rtl'), [integerType], 'rtl'),
     'readFile': FunctionValueType(stringType, [stringType], 'rtl'),
     'readFileBytes': FunctionValueType(
         ListValueType(integerType, 'rtl'), [stringType], 'rtl'),
     'println': FunctionValueType(
         integerType, InfiniteIterable(sharedSupertype), 'rtl'),
     'throw': FunctionValueType(
-        ValueType(sharedSupertype, "Null", 0, 0, 'rtl'), [stringType], 'rtl'),
+        ValueType(sharedSupertype, "Null", -2, 0, 'rtl'), [stringType], 'rtl'),
     'cast': FunctionValueType(
-        ValueType(null, "Whatever", 0, 0, 'rtl'), [sharedSupertype], 'rtl'),
+        ValueType(null, "Whatever", -2, 0, 'rtl'), [sharedSupertype], 'rtl'),
     'joinList': FunctionValueType(
         stringType,
-        [ListValueType(ValueType(null, "Whatever", 0, 0, 'rtl'), 'rtl')],
+        [ListValueType(ValueType(null, "Whatever", -2, 0, 'rtl'), 'rtl')],
         'rtl'),
     'className': stringType,
   };
@@ -86,21 +93,19 @@ class TypeValidator {
       String file) {
     if (!types.containsKey(name)) {
       throw FileInvalid(
-          "Cannot assign to $name, an undeclared variable     $file:$line:$col");
+          "Cannot assign to $name, an undeclared variable ${formatCursorPosition(line, col, file)}");
     }
     if (!nonconst.contains(name) && subscripts == 0) {
-      throw FileInvalid("Cannot reassign $name (line $line column $col $file)");
+      throw FileInvalid(
+        "Cannot reassign $name ${formatCursorPosition(line, col, file)}",
+      );
     }
     int oldSubs = subscripts;
-    if (!types.containsKey(name)) {
-      throw FileInvalid(
-          "$name nonexistent on line $line column $col file $file");
-    }
     ValueType type = types[name]!;
     while (subscripts > 0) {
       if (type is! ListValueType) {
         throw FileInvalid(
-          "Expected a list, got $type on line $line column $col file $file",
+          "Expected a list, got $type when trying to subscript $name ${formatCursorPosition(line, col, file)}",
         );
       }
       type = type.genericParameter;
@@ -110,7 +115,8 @@ class TypeValidator {
       print(value);
       print(type);
       throw FileInvalid(
-          "Expected $type, got $value while setting $name${"[...]" * oldSubs} to $value on line $line column $col file $file");
+        "Expected $type, got $value while setting $name${"[...]" * oldSubs} to $value ${formatCursorPosition(line, col, file)}",
+      );
     }
   }
 
@@ -118,7 +124,8 @@ class TypeValidator {
       [bool constant = false]) {
     if (directVars.contains(name)) {
       throw FileInvalid(
-          "$name already exists! (line $line, column $col, $file)");
+        'Attempted redeclare of existing variable $name ${formatCursorPosition(line, col, file)}',
+      );
     }
     types[name] = type;
     directVars.add(name);
@@ -127,27 +134,35 @@ class TypeValidator {
     }
   }
 
-  void getVar(String name, int subscripts, ValueType type, int line, int col,
-      String file) {
+  ValueType getVar(
+      String name, int subscripts, int line, int col, String file) {
     ValueType? realtype = types[name];
     if (realtype == null) {
+      String? filename;
+      for (MapEntry<String, TypeValidator> e in loadedGlobalScopes.entries) {
+        if (e.value.types.containsKey(name)) {
+          filename = e.key;
+        }
+      }
       throw FileInvalid(
-          "$name nonexistent on line $line column $col file $file");
+          "Attempted to retrieve $name, which is undefined. ${filename == null ? '' : '(maybe you meant to import $filename?) '}${formatCursorPosition(line, col, file)}");
     }
     while (subscripts > 0) {
       if (realtype is! ListValueType) {
         throw FileInvalid(
-          "Expected a list, but got $realtype on line $line column $col file $file",
+          "Expected a list, but got $realtype when trying to subscript $name ${formatCursorPosition(line, col, file)}",
         );
       }
       realtype = realtype.genericParameter;
       subscripts--;
     }
-    if (!realtype!.isSubtypeOf(type)) {
-      throw FileInvalid(
-        "Expected $type, got $realtype on line $line column $col file $file",
-      );
-    }
+    return realtype!;
+  }
+
+  TypeValidator copy() {
+    return TypeValidator()
+      ..types = Map.of(types)
+      ..nonconst = nonconst.toList();
   }
 }
 
@@ -266,10 +281,21 @@ class NullableValueType extends ValueType {
 }
 
 class ClassValueType extends ValueType {
-  ClassValueType(String name, this.supertype, this.properties, String file)
+  ClassValueType.internal(
+      String name, this.supertype, this.properties, String file)
       : super.internal(supertype ?? sharedSupertype, "$name", file);
+  factory ClassValueType(String name, ClassValueType? supertype,
+      TypeValidator properties, String file) {
+    return (ValueType.types["$name"] ??=
+            ClassValueType.internal(name, supertype, properties, file))
+        as ClassValueType;
+  }
   final TypeValidator properties;
   final ClassValueType? supertype;
+  final List<ClassValueType> subtypes = [];
+
+  Iterable<ClassValueType> get allDescendants => subtypes
+      .expand((element) => element.allDescendants.followedBy([element]));
   ValueType? recursiveLookup(String v) {
     return properties.types[v] ?? supertype?.recursiveLookup(v);
   }
@@ -398,19 +424,19 @@ class Scope {
 
   String toString() => toStringWithStack(['internal error']);
 
-  String toStringWithStack(List<String> stack) {
+  String toStringWithStack(List<String> stack2) {
     return values.containsKey('toString')
         ? values['toString']!
-            .value(<ValueWrapper>[], stack + ["implicit toString"])
+            .value(<ValueWrapper>[], stack2 + ["implicit toString"])
             .value
             .value
-        : "<${values['className']?.value ?? 'instance of class'}>";
+        : "<${values['className']?.value ?? '(instance of class: stack: $stack)'}>";
   }
 
   Map<String, ValueWrapper> values = {};
   static final Map<String, ValueType> tv_types = TypeValidator().types;
   void setVar(String name, List<int> subscripts, ValueWrapper value) {
-    if (parent?.internal_getVar(name) != null) {
+    if (!values.containsKey(name) && parent?.internal_getVar(name) != null) {
       parent!.setVar(name, subscripts, value);
       return;
     }
@@ -437,7 +463,7 @@ class Scope {
     var val = internal_getVar(name);
     return val ??
         (throw FileInvalid(
-            "$name nonexistent line $line column $column file $file"));
+            "$name nonexistent ${formatCursorPosition(line, column, file)}"));
   }
 
   Scope copy() {
@@ -478,9 +504,9 @@ class FunctionValueType extends GenericFunctionValueType {
     }
     if (possibleParent.parameters is InfiniteIterable ||
         parameters is InfiniteIterable) {
-      return false; //TODO
-    }
-    if (parameters.length != possibleParent.parameters.length) {
+      if (possibleParent.parameters is! InfiniteIterable ||
+          parameters is! InfiniteIterable) return false;
+    } else if (parameters.length != possibleParent.parameters.length) {
       return false;
     }
     int i = 0;
@@ -509,7 +535,7 @@ ValueType basicTypes(
       return ValueType.internal(parent, name, file);
     default:
       throw FileInvalid(
-          "'$name' type doesn't exist (line $line col $col file $file)");
+          "'$name' type doesn't exist ${formatCursorPosition(line, col, file)}");
   }
 }
 
@@ -563,7 +589,6 @@ class InfiniteIterable<E> implements Iterable<E> {
   }
 
   @override
-  // TODO: implement first
   E get first => value;
 
   @override

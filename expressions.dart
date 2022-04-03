@@ -85,7 +85,7 @@ class SubscriptExpression extends Expression {
   final Expression b;
 
   ValueType get type => a.type.name == "Whatever"
-      ? ValueType(null, "Whatever", 0, 0, '_')
+      ? ValueType(null, "Whatever", -2, 0, '_')
       : (a.type as ListValueType).genericParameter;
 
   String toString() => "$a[$b]";
@@ -98,18 +98,19 @@ class SubscriptExpression extends Expression {
     ValueWrapper iV = b.eval(scope);
     if (iV.value is! int)
       throw FileInvalid(
-          '$b is not integer, is ${iV.type} line $line column $col\n${scope.stack.reversed.join('\n')}');
+          '$b is not integer, is ${iV.type} ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}');
     int index = iV.value;
     return fancySubscript(list, index, scope);
   }
 
   ValueWrapper fancySubscript(ValueWrapper list, int index, Scope scope) {
     if (list.value is! List) {
-      throw FileInvalid("$a is not list (line $line column $col)");
+      throw FileInvalid(
+          "$a is not list ${formatCursorPosition(line, col, file)}");
     }
     if (list.value.length <= index || index < 0) {
       throw FileInvalid(
-          "RangeError: $list ($a) has ${list.value.length} elements, but it was subscripted with element $index. (line $line column $col file $file)");
+          "RangeError: $list ($a) has ${list.value.length} elements, but it was subscripted with element $index. ${formatCursorPosition(line, col, file)}");
     }
     return list.type == stringType
         ? ValueWrapper(stringType, list.value[index], 'subscript expr result')
@@ -132,7 +133,7 @@ class MemberAccessExpression extends Expression {
     ValueWrapper thisScopeWrapper = a.eval(scope);
     if (thisScopeWrapper.type is! ClassValueType) {
       throw FileInvalid(
-          "$thisScopeWrapper ($a) is not an instance of a class, it's a ${thisScopeWrapper.type} line $line col $col file $file\n${scope.stack.reversed.join('\n')}");
+          "$thisScopeWrapper ($a) is not an instance of a class, it's a ${thisScopeWrapper.type} ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}");
     }
     Scope thisScope = thisScopeWrapper.value;
     return thisScope.getVar(b, line, col, file);
@@ -180,14 +181,14 @@ class AsExpr extends Expression {
         if (!x.type
             .isSubtypeOf((isType as IterableValueType).genericParameter)) {
           throw FileInvalid(
-              "${operand.type} as ${isType} had invalid element type; expected ${(isType as IterableValueType).genericParameter} got $x (a ${x.type}) $line:$col file $file");
+              "${operand.type} as ${isType} had invalid element type; expected ${(isType as IterableValueType).genericParameter} got $x (a ${x.type}) ${formatCursorPosition(line, col, file)}");
         }
       }
       return ValueWrapper(isType, op.value, 'as (list.cast style)');
     }
     if (!possibleChildType.isSubtypeOf(isType)) {
       throw FileInvalid(
-          "as failed; expected $isType got $op (a $possibleChildType) $line:$col file $file");
+          "as failed; expected $isType got $op (a $possibleChildType) ${formatCursorPosition(line, col, file)}");
     }
     return op;
   }
@@ -247,7 +248,7 @@ class DivideExpression extends Expression {
     if (!(av.type.isSubtypeOf(integerType) &&
         bv.type.isSubtypeOf(integerType))) {
       throw FileInvalid(
-          "$av ($a) or $bv ($b) is not an integer; attempted $a/$b line $line col $col file $file\n ${scope.stack.reversed.join('\n')}");
+          "$av ($a) or $bv ($b) is not an integer; attempted $a/$b ${formatCursorPosition(line, col, file)}\n ${scope.stack.reversed.join('\n')}");
     }
     return ValueWrapper(integerType, av.value ~/ bv.value, '$this result');
   }
@@ -268,11 +269,11 @@ class RemainderExpression extends Expression {
     if (!(av.type.isSubtypeOf(integerType) &&
         bv.type.isSubtypeOf(integerType))) {
       throw FileInvalid(
-          "$av ($a) or $bv ($b) is not an integer; attempted $a%$b line $line col $col file $file\n ${scope.stack.reversed.join('\n')}");
+          "$av ($a) or $bv ($b) is not an integer; attempted $a%$b ${formatCursorPosition(line, col, file)}\n ${scope.stack.reversed.join('\n')}");
     }
     if (bv.value == 0) {
       throw FileInvalid(
-          "$a (${av.value}) % $b (0) attempted line $line col $col stack ${scope.stack.join('\n')}");
+          "$a (${av.value}) % $b (0) attempted ${formatCursorPosition(line, col, file)} stack ${scope.stack.join('\n')}");
     }
     return ValueWrapper(integerType, av.value % bv.value, '$this result');
   }
@@ -293,7 +294,7 @@ class SubtractExpression extends Expression {
     if (!(av.type.isSubtypeOf(integerType) &&
         bv.type.isSubtypeOf(integerType))) {
       throw FileInvalid(
-          "$av ($a) or $bv ($b) is not an integer; attempted $a-$b line $line col $col file $file\n ${scope.stack.reversed.join('\n')}");
+          "$av ($a) or $bv ($b) is not an integer; attempted $a-$b ${formatCursorPosition(line, col, file)}\n ${scope.stack.reversed.join('\n')}");
     }
     return ValueWrapper(integerType, av.value - bv.value, '$this result');
   }
@@ -316,7 +317,7 @@ class AddExpression extends Expression {
     if (!(av.type.isSubtypeOf(integerType) &&
         bv.type.isSubtypeOf(integerType))) {
       throw FileInvalid(
-          "$av ($a) or $bv ($b) is not an integer; attempted $a+$b line $line col $col file $file\n ${scope.stack.reversed.join('\n')}");
+          "$av ($a) or $bv ($b) is not an integer; attempted $a+$b ${formatCursorPosition(line, col, file)}\n ${scope.stack.reversed.join('\n')}");
     }
     return ValueWrapper(integerType, av.value + bv.value, '$this result');
   }
@@ -361,7 +362,7 @@ class SuperExpression extends Expression {
   ValueType get type => (tv.currentClass.parent is ClassValueType
           ? tv.currentClass.parent as ClassValueType
           : (throw FileInvalid(
-              "${tv.currentClass} has no supertype line $line column $col")))
+              "${tv.currentClass} has no supertype ${formatCursorPosition(line, col, file)}")))
       .properties
       .types[member]!;
 }
@@ -391,7 +392,7 @@ class BoringExpr extends Expression {
   final ValueType type;
 
   BoringExpr(this.value, this.type)
-      : super(0, 0, 'TODO (boring expr line,column, filename)');
+      : super(-2, 0, 'TODO (boring expr line,column, filename)');
   @override
   eval(Scope scope) {
     return ValueWrapper(type, value, '<todo boring expr vw desc>');
@@ -409,7 +410,7 @@ class UnwrapExpression extends Expression {
     ValueWrapper aval = a.eval(scope);
     if (aval.value == null) {
       throw FileInvalid(
-          "Failed unwrap of $aval line $line col $col file $file\n${scope.stack.reversed.join('\n')}");
+          "Failed unwrap of $aval ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}");
     }
     return aval;
   }
@@ -444,11 +445,12 @@ class FunctionCallExpr extends Expression {
           !args[i].type.isSubtypeOf(
               (a.type as FunctionValueType).parameters.elementAt(i))) {
         throw FileInvalid(
-            "argument #$i of $a, ${args[i]} (${b[i]}), of wrong type (${args[i].type}) expected ${(a.type as FunctionValueType).parameters.elementAt(i)} line $line column $col file $file\n${scope.stack.reversed.join('\n')}");
+            "argument #$i of $a, ${args[i]} (${b[i]}), of wrong type (${args[i].type}) expected ${(a.type as FunctionValueType).parameters.elementAt(i)} ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}");
       }
     }
     List<String> newStack = scope.stack.toList();
-    newStack[newStack.length - 1] += " $file:$line:$col";
+    newStack[newStack.length - 1] +=
+        " ${formatCursorPosition(line, col, file)}";
     dynamic result = (a.eval(scope).value as Function)(args, newStack);
     if (result is StatementResult) {
       switch (result.type) {
@@ -523,7 +525,7 @@ class GreaterExpression extends Expression {
     if (!(av.type.isSubtypeOf(integerType) &&
         bv.type.isSubtypeOf(integerType))) {
       throw FileInvalid(
-          "$av ($a) or $bv ($b) is not an integer; attempted $a>$b line $line col $col file $file\n ${scope.stack.reversed.join('\n')}");
+          "$av ($a) or $bv ($b) is not an integer; attempted $a>$b ${formatCursorPosition(line, col, file)}\n ${scope.stack.reversed.join('\n')}");
     }
     return ValueWrapper(booleanType, av.value > bv.value, '$this result');
   }

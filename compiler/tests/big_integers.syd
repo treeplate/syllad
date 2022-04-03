@@ -1,0 +1,6 @@
+// should either fail to compile or not print anything
+
+Integer n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+if (n == 0xFFFFFFFFFFFFFFFF) {
+  print("ERROR\n");
+}

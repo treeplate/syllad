@@ -94,6 +94,12 @@ Expression parseUnaryExpression(TokenConsumer source) {
       result = IsOperatorExpression(result, TypeIdentifier(typeName, source.lastLocation()), source.lastLocation());
       continue;
     }
+    if (source.isNextIdentifier('as')) {
+      source.expectIdentifier('as');
+      String typeName = source.readIdentifier();
+      result = AsOperatorExpression(result, TypeIdentifier(typeName, source.lastLocation()), source.lastLocation());
+      continue;
+    }
     break;
   }
   return result;
@@ -354,18 +360,25 @@ Statement parseDeclaration(TokenConsumer source) {
     SourceLocation location = source.lastLocation();
     source.expectPunctuation(ttOpenParen);
     AnythingListList parameters = []:AnythingList;
-    while (!source.isNext(ttCloseParen)) {
+    Boolean isVarArgs = false;
+    while (!source.isNext(ttCloseParen) && !isVarArgs) {
       if (len(parameters) > 0) {
         source.expectPunctuation(ttComma);
       }
       String parameterTypeName = source.readIdentifier();
       TypeIdentifier parameterType = TypeIdentifier(parameterTypeName, source.lastLocation());
+      if (len(parameters) == 0) {
+        if (source.isNext(ttEllipsis)) {
+          source.expectPunctuation(ttEllipsis);
+          isVarArgs = true;
+        }
+      }
       String parameterName = source.readIdentifier();
       append(parameters, [ parameterType, parameterName ]);
     }
     source.expectPunctuation(ttCloseParen);
     StatementBlock block = parseBlock(source);
-    return SubroutineDeclarationStatement(type, identifier, parameters, block, location);
+    return SubroutineDeclarationStatement(type, identifier, parameters, isVarArgs, block, location);
   }
   if (source.isNext(ttSemicolon)) {
     SourceLocation location = source.lastLocation();

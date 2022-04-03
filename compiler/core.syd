@@ -9,10 +9,16 @@ String intToStr(Integer value) {
   }
   StringList buffer = []:String;
   Integer newValue = value; // parameters are final
+  if (newValue < 0) {
+    newValue = -newValue;
+  }
   while (newValue > 0) {
     Integer digit = newValue % 10;
     newValue = newValue / 10;
     append(buffer, chr(0x30 + digit));
+  }
+  if (value < 0) {
+    append(buffer, '-');
   }
   Integer index = len(buffer);
   StringList flippedBuffer = []:String;
@@ -98,6 +104,7 @@ Integer hashAnything(Anything data) {
   return hashString(concat(data));
 }
 
+// Map has set, get, keys, values
 class Map {
   // outer list is indexed by hash mod length
   // it is a sparse list (hence nullable)

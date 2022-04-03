@@ -1,0 +1,5 @@
+// expected error: error: type mismatch for function test parameter 1, expected Integer, got String
+// expected exit code is 1
+
+Null test(Integer... args) {}
+test('a');
