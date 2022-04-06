@@ -605,13 +605,12 @@ class InfiniteIterable<E> implements Iterable<E> {
 
   @override
   Iterable<E> followedBy(Iterable<E> other) {
-    // TODO: implement followedBy
-    throw UnimplementedError();
+    throw UnsupportedError("$InfiniteIterable cannot be followed by anything");
   }
 
   @override
   void forEach(void Function(E element) action) {
-    // TODO: implement forEach
+    throw UnsupportedError("$InfiniteIterable iteration goes on forever");
   }
 
   @override
@@ -624,8 +623,7 @@ class InfiniteIterable<E> implements Iterable<E> {
 
   @override
   String join([String separator = ""]) {
-    // TODO: implement join
-    throw UnimplementedError();
+    throw UnsupportedError("$InfiniteIterable cannot be joined together");
   }
 
   @override
@@ -644,18 +642,17 @@ class InfiniteIterable<E> implements Iterable<E> {
 
   @override
   E reduce(E Function(E value, E element) combine) {
-    // TODO: implement reduce
-    throw UnimplementedError();
+    throw UnsupportedError("$InfiniteIterable cannot be reduced");
   }
 
   @override
   // TODO: implement single
-  E get single => throw UnimplementedError();
+  E get single => throw StateError(
+      "$InfiniteIterable has more than one element when calling 'single'");
 
   @override
   E singleWhere(bool Function(E element) test, {E Function()? orElse}) {
-    // TODO: implement singleWhere
-    throw UnimplementedError();
+    throw UnsupportedError("$InfiniteIterable.singleWhere");
   }
 
   @override
@@ -684,14 +681,12 @@ class InfiniteIterable<E> implements Iterable<E> {
 
   @override
   List<E> toList({bool growable = true}) {
-    // TODO: implement toList
-    throw UnimplementedError();
+    throw StateError("$InfiniteIterable cannot be converted to $List<$E>");
   }
 
   @override
   Set<E> toSet() {
-    // TODO: implement toSet
-    throw UnimplementedError();
+    throw StateError("$InfiniteIterable cannot be converted to $Set<$E>");
   }
 
   @override
