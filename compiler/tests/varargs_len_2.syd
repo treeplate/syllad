@@ -1,0 +1,9 @@
+// expected exit code is 3
+
+IntegerFunction foo = len;
+
+Integer bar(Integer... x) {
+  return foo(x);
+}
+
+exit(bar(1, 2, 3));

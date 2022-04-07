@@ -68,9 +68,27 @@ class Type extends Object {
   }
 }
 
+class WhateverType extends Type {
+  Boolean isSubtypeOf(Type other) {
+    return true;
+  }
+
+  Boolean hasDynamicType() {
+    return true;
+  }
+
+  Null markConstructed() {
+    assert(false, 'Whatever type cannot be constructed.');
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg) {
+    super.constructor(typeRegistryArg, 'Whatever');
+  }
+}
+
 class AnythingType extends Type {
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType;
+    return other is AnythingType || other is WhateverType;
   }
 
   Boolean hasDynamicType() {
@@ -104,7 +122,9 @@ class NullableType extends Type {
   Type subtype;
 
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType || (other is NullableType && subtype.isSubtypeOf(cast(cast(other).subtype)));
+    return other is AnythingType
+        || other is WhateverType
+        || (other is NullableType && subtype.isSubtypeOf((other as NullableType).subtype));
   }
 
   Boolean hasDynamicType() {
@@ -133,7 +153,10 @@ class NumericType extends Type {
 
 class NullType extends NumericType {
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType || other is NullType || other is NullableType;
+    return other is AnythingType
+        || other is WhateverType
+        || other is NullType
+        || other is NullableType;
   }
 
   Boolean literalValueIsAppropriate(Anything value) {
@@ -147,7 +170,9 @@ class NullType extends NumericType {
 
 class BooleanType extends NumericType {
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType || other is BooleanType;
+    return other is AnythingType
+        || other is WhateverType
+        || other is BooleanType;
   }
 
   Boolean literalValueIsAppropriate(Anything value) {
@@ -161,7 +186,9 @@ class BooleanType extends NumericType {
 
 class IntegerType extends NumericType {
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType || other is IntegerType;
+    return other is AnythingType
+        || other is WhateverType
+        || other is IntegerType;
   }
 
   Boolean literalValueIsAppropriate(Anything value) {
@@ -177,7 +204,9 @@ class StringType extends Type {
   // pointer to heap-allocated structure (or structure in data segment)
 
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType || other is StringType;
+    return other is AnythingType
+        || other is WhateverType
+        || other is StringType;
   }
 
   Boolean literalValueIsAppropriate(Anything value) {
@@ -210,7 +239,9 @@ class EnumType extends NumericType {
   Map values = Map();
 
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType || other is StringType;
+    return other is AnythingType
+        || other is WhateverType
+        || other is StringType;
   }
 
   Boolean literalValueIsAppropriate(Anything value) {
@@ -263,7 +294,9 @@ class AbstractSubroutineType extends Type {
   }
 
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType || (other is AbstractSubroutineType && returnType.isSubtypeOf((other as AbstractSubroutineType).returnType));
+    return other is AnythingType
+        || other is WhateverType
+        || (other is AbstractSubroutineType && returnType.isSubtypeOf((other as AbstractSubroutineType).returnType));
   }
 
   Boolean isSubroutineType() {
@@ -375,7 +408,11 @@ class ListType extends AbstractListType {
   // pointer to heap-allocated structure
 
   Boolean isSubtypeOf(Type other) {
-    return other is Anything || (other is AbstractListType && elementType.isSubtypeOf((other as AbstractListType).elementType));
+    return other is AnythingType
+        || other is WhateverType
+        || (other is AbstractListType &&
+            elementType.isSubtypeOf((other as AbstractListType).elementType) &&
+            (other as AbstractListType).elementType.isSubtypeOf(elementType));
   }
 
   // xxx literals
@@ -389,7 +426,9 @@ class ReadOnlyListType extends AbstractListType {
   // pointer to heap-allocated structure, or a VarArgsParameterVot
 
   Boolean isSubtypeOf(Type other) {
-    return other is Anything || (other is ReadOnlyListType && elementType.isSubtypeOf((other as ReadOnlyListType).elementType));
+    return other is AnythingType
+        || other is WhateverType
+        || (other is ReadOnlyListType && elementType.isSubtypeOf((other as ReadOnlyListType).elementType));
   }
 
   Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
@@ -412,7 +451,9 @@ class IterableType extends Type {
   Type elementType;
 
   Boolean isSubtypeOf(Type other) {
-    return other is Anything || (other is IterableType && elementType.isSubtypeOf(cast(cast(other).elementType)));
+    return other is AnythingType
+        || other is WhateverType
+        || (other is IterableType && elementType.isSubtypeOf(cast(cast(other).elementType)));
   }
 
   Boolean hasDynamicType() {
@@ -431,7 +472,9 @@ class IteratorType extends Type {
   Type elementType;
 
   Boolean isSubtypeOf(Type other) {
-    return other is Anything || (other is IteratorType && elementType.isSubtypeOf(cast(cast(other).elementType)));
+    return other is AnythingType
+        || other is WhateverType
+        || (other is IteratorType && elementType.isSubtypeOf(cast(cast(other).elementType)));
   }
 
   Boolean hasDynamicType() {

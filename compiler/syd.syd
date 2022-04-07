@@ -1,4 +1,8 @@
-
+/*
+IntegerList x = [3,2]:Integer;
+append(x as AnythingList, "h");
+println(x);
+*/
 
 /*
 StringList b;
@@ -17,6 +21,7 @@ for (a in b) {
 }
 print(b);
 */
+
 // crashes: Boolean b; !b;
 
 //import 'a.syd'; // class Foo { Integer x; } Null bar(FooFunction a) { println(a().x); }
@@ -33,6 +38,7 @@ print(b);
 // - heap allocation
 //    - import GetProcessHeap, HeapAlloc, HeapFree from kernel32
 // - string ref counting
+// - len for varargs
 // - vararg internal rtl functions
 // - concat for strings, joinList for StringLists
 // - lists, garbage collection

@@ -66,10 +66,13 @@ fwdclass BuiltInPrintSubroutine extends BuiltInSubroutine;
 fwdclassprop NullFunction BuiltInPrintSubroutine.constructor;
 fwdclass BuiltInExitSubroutine extends BuiltInSubroutine;
 fwdclassprop NullFunction BuiltInExitSubroutine.constructor;
+fwdclass BuiltInLenSubroutine extends BuiltInSubroutine;
+fwdclassprop NullFunction BuiltInLenSubroutine.constructor;
 fwdclass CompiledVarArgsSubroutine extends CompiledSubroutine;
 fwdclassprop NullFunction CompiledVarArgsSubroutine.constructor;
 
-fwdclassprop ValueVot Slot.location;
+fwdclassprop Boolean Slot.isStatic;
+fwdclassprop ValueVotNullable Slot.location;
 fwdclassprop NullFunction Slot.assignLocation;
 fwdclassprop NullFunction Slot.write;
 
@@ -94,6 +97,7 @@ fwdclassprop NullFunction CompiledStackFrameScope.generateAssemblerBlock;
 fwdclassprop String CompiledSubroutine.label;
 fwdclassprop String CompiledSubroutine.epilogLabel;
 fwdclassprop AbstractSubroutineType CompiledSubroutine.type;
+fwdclassprop SlotNullableFunction CompiledSubroutine.inline;
 fwdclassprop CompilationEnvironment CompiledLibrary.compilationEnvironment;
 fwdclassprop TypeNullableFunction CompiledLibrary.lookupType;
 
@@ -118,6 +122,7 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
   VotSource registers;
 
   AnythingType coreAnythingType;
+  WhateverType coreWhateverType;
   NullType coreNullType;
   BooleanType coreBooleanType;
   IntegerType coreIntegerType;
@@ -135,6 +140,7 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
 
   Slot corePrint;
   Slot coreExit;
+  Slot coreLen;
 
   Slot parameterCountCheckFailureMessage;
   Slot parameterTypeCheckFailureMessage;
@@ -167,6 +173,8 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
     // built-in types
     coreAnythingType = AnythingType(compilationEnvironmentArg);
     declareType(coreAnythingType);
+    coreWhateverType = WhateverType(compilationEnvironmentArg);
+    declareType(coreWhateverType);
     coreSentinel = SentinelVot(coreSentinelType);
     coreSentinelType.markConstructed();
     coreNullType = NullType(compilationEnvironmentArg);
@@ -184,6 +192,7 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
     // built-in functions
     corePrint = registerSubroutine(BuiltInPrintSubroutine(this));
     coreExit = registerSubroutine(BuiltInExitSubroutine(this));
+    coreLen = registerSubroutine(BuiltInLenSubroutine(this));
     // messages
     parameterCountCheckFailureMessage = registerStringConstant(
       'parameterCountCheckFailureMessage',
@@ -935,40 +944,60 @@ class SlotInstruction extends Instruction {
 
 class PopulateValueHandleInstruction extends SlotInstruction {
   ValueHandle handle;
+  Boolean inlined;
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    assert(handle.value == null, concat('tried to generate assembler for a PopulateValueHandleInstruction (', this, ') after its handle (', handle, ') was already populated'));
-    assert(slot.location != sentinel, concat('tried to generate assembler for a PopulateValueHandleInstruction (', this, ') before the slot\'s location was populated'));
-    handle.assign(slot.location);
+    if (!inlined) {
+      assert(handle.value == null, concat('tried to generate assembler for a PopulateValueHandleInstruction (', this, ') after its handle (', handle, ') was already populated'));
+      assert(slot.location != null, concat('tried to generate assembler for a PopulateValueHandleInstruction (', this, ') before the slot\'s location was populated'));
+      handle.assign(slot.location!);
+    }
   }
 
   Null constructor(CompiledScope scopeArg, Slot slotArg, ValueHandle handleArg) {
     super.constructor(scopeArg, slotArg);
     handle = handleArg;
+    if (slot.location != null && slot.isStatic) {
+      // we aggressively do this if possible, so that constants et al can be inlined
+      handle.assign(slot.location!);
+      inlined = true;
+    } else {
+      inlined = false;
+    }
   }
 }
 
 class WriteStaticSlotInstruction extends SlotInstruction {
   ValueVot value;
+  Boolean inlined;
 
   // XXX when assembling, defer to slot.type
   // e.g. for ref counting management of Strings, GC of lists and objects
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    if (slot.location != sentinel) {
-      assembler.addMov(blockId, slot.location.asOperand(), value.asOperand(), concat('value of ', slot.debugName));
-      if (slot.staticType.hasDynamicType()) {
-        assert(value.staticType.hasDynamicType(), concat('unexpectedly tried to map value of normal type ', slot.staticType, ' to non-dynamic-supporting type ', value.staticType));
-        assembler.addMov(blockId, slot.location.dynamicType().asOperand(), value.dynamicType().asOperand(), concat('type of ', slot.debugName));
+    if (!inlined) {
+      if (slot.location != null) {
+        assert(!slot.isStatic, 'cannot change a static slot\'s value');
+        assembler.addMov(blockId, slot.location!.asOperand(), value.asOperand(), concat('value of ', slot.debugName));
+        if (slot.staticType.hasDynamicType()) {
+          assert(value.staticType.hasDynamicType(), concat('unexpectedly tried to map value of normal type ', slot.staticType, ' to non-dynamic-supporting type ', value.staticType));
+          assembler.addMov(blockId, slot.location!.dynamicType().asOperand(), value.dynamicType().asOperand(), concat('type of ', slot.debugName));
+        }
+      } else {
+        slot.assignLocation(value);
       }
-    } else {
-      slot.assignLocation(value);
     }
   }
 
   Null constructor(CompiledScope scopeArg, Slot slotArg, ValueVot valueArg) {
     super.constructor(scopeArg, slotArg);
     value = valueArg;
+    if (slot.isStatic) {
+      slot.assignLocation(value);
+      inlined = true;
+    } else {
+      inlined = false;
+    }
   }
 }
 
@@ -979,10 +1008,10 @@ class WriteDynamicSlotInstruction extends SlotInstruction {
   // e.g. for ref counting management of Strings, GC of lists and objects
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    if (slot.location != sentinel) {
-      assembler.addMov(blockId, slot.location.asOperand(), value.value!.asOperand(), concat('value of ', slot.debugName));
+    if (slot.location != null) {
+      assembler.addMov(blockId, slot.location!.asOperand(), value.value!.asOperand(), concat('value of ', slot.debugName));
       if ((slot.staticType as Type).hasDynamicType()) {
-        assembler.addMov(blockId, slot.location.dynamicType().asOperand(), value.type.type!.asOperand(), concat('type of ', slot.debugName));
+        assembler.addMov(blockId, slot.location!.dynamicType().asOperand(), value.type.type!.asOperand(), concat('type of ', slot.debugName));
       }
     } else {
       slot.assignLocation(value.value!);
@@ -992,6 +1021,15 @@ class WriteDynamicSlotInstruction extends SlotInstruction {
   Null constructor(CompiledScope scopeArg, Slot slotArg, ValueHandle valueArg) {
     super.constructor(scopeArg, slotArg);
     value = valueArg;
+  }
+}
+
+class SubroutineVot extends ImmediateAddressVot {
+  CompiledSubroutine subroutine;
+
+  Null constructor(CompiledSubroutine subroutineArg) {
+    super.constructor(subroutineArg.type, subroutineArg.label);
+    subroutine = subroutineArg;
   }
 }
 
@@ -1054,7 +1092,7 @@ class SubroutineCallInstruction extends Instruction {
 
 class Slot extends VotSource {
   Boolean isAnonymous;
-  Boolean isStatic; // XXX what is this???
+  Boolean isStatic; // if true, this slot is immutable (can only be written once)
 
   CompiledScope homeScope; 
   Set referencingStackFrames = Set(); // of CompiledStackFrameScope
@@ -1071,6 +1109,7 @@ class Slot extends VotSource {
     if (!isInitialized) {
       isInitialized = true;
     } else if (!isWritten) {
+      assert(!isStatic, 'cannot write to an immutable slot');
       isWritten = true;
       needsAllocation = true; // TODO: support using registers instead
     }
@@ -1124,9 +1163,10 @@ class Slot extends VotSource {
     return !isGlobal();
   }
 
-  ValueVot location;
+  ValueVotNullable location = null;
 
   Null assignLocation(ValueVot locationArg) {
+    assert(location == null || !isStatic, 'cannot assign multiple locations to a static slot');
     location = locationArg;
   }
 
@@ -1233,13 +1273,19 @@ class CompiledScope extends Object {
     Slot slot = Slot(subroutine.type, this, subroutine.name, false, true); // named, immutable
     registerSlot(slot);
     identifiers.set(subroutine.name, slot);
-    slot.writeStatic(this, ImmediateAddressVot(subroutine.type, subroutine.label));
+    slot.writeStatic(this, SubroutineVot(subroutine));
     environment().addSubroutine(subroutine);
     subroutine.type.markConstructed();
     return slot;
   }
 
   Slot emitSubroutineCall(ValueHandle target, ValueHandleList arguments) {
+    if (target.value is SubroutineVot) {
+      SlotNullable result = (target.value! as SubroutineVot).subroutine.inline(this, arguments);
+      if (result != null) {
+        return result;
+      }
+    }
     Slot thisPointer = registerDynamicValue(environment().intrinsicsLibrary!.coreClassType, 'this pointer for function call (placeholder)');
     Slot closurePointer = registerDynamicValue(environment().intrinsicsLibrary!.coreClosureType, 'closure pointer for function call (placeholder)');
     thisPointer.writeStatic(this, environment().intrinsicsLibrary!.coreSentinel);
@@ -1467,6 +1513,10 @@ class CompiledSubroutine extends CompiledStackFrameScope {
     return concat('func$', name);
   }
 
+  SlotNullable inline(CompiledScope scope, ValueHandleList arguments) {
+    return null;
+  }
+
   StringList nonvolatileRegistersUsed() {
     StringList result = super.nonvolatileRegistersUsed();
     append(result, 'r15');
@@ -1519,7 +1569,7 @@ class CompiledSubroutine extends CompiledStackFrameScope {
 class CompiledSubroutineWithSpecificParameters extends CompiledSubroutine {
   Slot registerParameter(String name, Type type, Integer position) {
     assert(!isIdentifierDeclaredInLocalScope(name), 'duplicate parameter names');
-    Slot slot = Slot(type, this, name, false, true);
+    Slot slot = Slot(type, this, name, false, true); // named, immutable
     registerSlot(slot);
     identifiers.set(name, slot);
     slot.writeStatic(this, ParameterVot(type, len(nonvolatileRegistersUsed()), position));
@@ -1559,7 +1609,7 @@ class CompiledVarArgsSubroutine extends CompiledSubroutine {
     Type listType = createOrFindReadOnlyListType(environment(), type);
     listType.markConstructed();
     assert(!isIdentifierDeclaredInLocalScope(name), 'duplicate parameter name');
-    Slot slot = Slot(listType, this, name, false, true);
+    Slot slot = Slot(listType, this, name, false, true); // named, immutable
     registerSlot(slot);
     identifiers.set(name, slot);
     slot.writeStatic(this, VarArgsParameterVot(listType, len(nonvolatileRegistersUsed())));
@@ -1671,6 +1721,34 @@ class BuiltInExitSubroutine extends BuiltInSubroutine {
       parentArg,
       createOrFindSubroutineType(parentArg!.environment(), parentArg!.coreNullType, [ parentArg!.coreIntegerType ]:Type, false),
       'exit',
+    );
+  }
+}
+
+class BuiltInLenSubroutine extends BuiltInSubroutine {
+  SlotNullable inline(CompiledScope scope, ValueHandleList arguments) {
+    if (len(arguments) == 1 && arguments[0].value is VarArgsParameterVot) {
+      return scope.registerStaticValue(OperandVot(environment().intrinsicsLibrary!.coreIntegerType as Type, rcx), 'parameter count');
+    }
+    assert(false, 'non-inline len() not yet implemented');
+    return null;
+  }
+
+  Null prepareInstructions() {
+    super.prepareInstructions();
+    // TODO: implement
+  }
+
+  Null constructor(CompiledIntrinsicsLibraryNullable parentArg) { 
+    super.constructor(
+      parentArg,
+      createOrFindSubroutineType(
+        parentArg!.environment(),
+        parentArg!.coreIntegerType,
+        [ createOrFindReadOnlyListType(parentArg!.environment(), parentArg!.coreWhateverType) ]:Type,
+        false,
+      ),
+      'len',
     );
   }
 }
