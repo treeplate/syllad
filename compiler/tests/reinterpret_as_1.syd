@@ -1,0 +1,9 @@
+// expected output: strings are in order
+// expected exit code is 0
+
+'Foo' __as__ Boolean;
+Integer a = 'a' __as__ Integer;
+Integer b = 'b' __as__ Integer;
+if (a > b) {
+  print('strings are in order');
+}

@@ -1024,6 +1024,32 @@ class WriteDynamicSlotInstruction extends SlotInstruction {
   }
 }
 
+class WriteReinterpretAsInstruction extends SlotInstruction {
+  ValueHandle value;
+  Type type;
+
+  Null prepareInstructions() {
+    super.prepareInstructions();
+    slot.forceAllocation();
+  }
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    if (slot.location == null) {
+      // probably means it's not read
+      // no point storing the value anywhere
+      return;
+    }
+    assembler.addMov(blockId, slot.location!.asOperand(), value.value!.asOperand(), concat('value of ', slot.debugName));
+    assembler.addMov(blockId, slot.location!.dynamicType().asOperand(), type.asOperand(), concat('new type of ', slot.debugName));
+  }
+
+  Null constructor(CompiledScope scopeArg, Slot slotArg, ValueHandle valueArg, Type typeArg) {
+    super.constructor(scopeArg, slotArg);
+    value = valueArg;
+    type = typeArg;
+  }
+}
+
 class SubroutineVot extends ImmediateAddressVot {
   CompiledSubroutine subroutine;
 
@@ -1141,6 +1167,12 @@ class Slot extends VotSource {
     currentScope.emitInstruction(PopulateValueHandleInstruction(currentScope, this, result));
     recordWrite();
     return result;
+  }
+
+  Null writeReinterpret(CompiledScope currentScope, ValueHandle value, Type type) { 
+    referencingStackFrames.add(currentScope.stackFrame());
+    currentScope.emitInstruction(WriteReinterpretAsInstruction(currentScope, this, value, type));
+    recordWrite();
   }
 
   Boolean isGlobal() {

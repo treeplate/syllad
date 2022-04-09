@@ -1,31 +1,39 @@
 // TODO:
-//  - implement varargs
-//  - implement for-in
-//  - implement len
-//  - implement heap
-//  - implement alloc (and free)
-//  - implement moveInteger
-//  - implement reinterpret_cast
-//  - implement moveBytes
+//  - implement __as__
+//  - implement __writeToAddress(a, x): copies integer x to memory at address a
+//  - implement __readFromAddress(a): returns integer at memory at address a
+//  - implement __moveBytes(a, b, length): copy length bytes from a to b
+//  - implement __heap
+//  - implement __alloc (and free)
 //  - implement string ref counting
 
 /*
+String _stringAllocLength(String data) {
+  Integer pointer = data __as__ Integer;
+  return __readFromAddress(pointer + 8);
+}
+
 String concat(String... arguments) {
   Integer length = 0;
-  for (segment in arguments) {
-    length += len(segment);
+  Integer index = 0;
+  while (index < len(arguments)) {
+    length += stringAllocLength(arguments[index]);
+    index += 1;
   }
-  Integer resultPointer = alloc(16 + length);
-  moveInteger(resultPointer, 1); // ref count
-  moveInteger(resultPointer + 8, length);
-  Integer index = 16;
-  for (segment in arguments) {
-    Integer segmentPointer = reinterpret_cast(segment);
-    moveBytes(index, segmentPointer + 8, len(segment));
-    index += len(segment);
+  Integer resultPointer = __alloc(16 + length);
+  __writeToAddress(resultPointer, 1); // ref count
+  __writeToAddress(resultPointer + 8, length);
+  Integer cursor = 16;
+  index = 0;
+  while (index < len(arguments)) {
+    String segment = arguments[index];
+    Integer segmentPointer = segment __as__ Integer;
+    Integer segmentLength = stringAllocLength(segment);
+    __moveBytes(cursor, segmentPointer + 8, segmentLength);
+    cursor += segmentLength;
+    index += 1;
   }
-  String result = reinterpret_cast(resultPointer);
-  return result;
+  return resultPointer __as__ String;
 }
 
 String digitToStr(Integer digit) {

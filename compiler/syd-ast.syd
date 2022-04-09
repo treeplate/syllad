@@ -354,6 +354,33 @@ class AsOperatorExpression extends Expression {
   }
 }
 
+class ReinterpretAsOperatorExpression extends Expression {
+  Expression expression;
+  TypeIdentifier type;
+  
+  String toStringIndent(Integer indent) {
+    return concat(expression.toStringIndent(indent), ' __as__ ', type);
+  }
+
+  Null walk(NullFunction callback, Anything context) {
+    callback(expression, context);
+  }
+
+  Slot generateInstructions(CompiledScope scope) {
+    Slot exprSlot = expression.generateInstructions(scope);
+    Type rhs = type.generateInstructions(scope);
+    Slot result = scope.registerDynamicValue(rhs, concat('force cast of ', exprSlot.debugName, ' to ', rhs.name));
+    result.writeReinterpret(scope, exprSlot.read(scope), rhs);
+    return result;
+  }
+
+  Null constructor(Expression expressionArg, TypeIdentifier typeArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
+    expression = expressionArg;
+    type = typeArg;
+  }
+}
+
 class UnaryExpression extends Expression {
   Expression rhs;
 

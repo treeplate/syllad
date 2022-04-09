@@ -100,6 +100,12 @@ Expression parseUnaryExpression(TokenConsumer source) {
       result = AsOperatorExpression(result, TypeIdentifier(typeName, source.lastLocation()), source.lastLocation());
       continue;
     }
+    if (source.isNextIdentifier('__as__')) {
+      source.expectIdentifier('__as__');
+      String typeName = source.readIdentifier();
+      result = ReinterpretAsOperatorExpression(result, TypeIdentifier(typeName, source.lastLocation()), source.lastLocation());
+      continue;
+    }
     break;
   }
   return result;
