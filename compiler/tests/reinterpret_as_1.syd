@@ -1,9 +1,13 @@
 // expected output: strings are in order
+// expected output: strings are aligned as expected
 // expected exit code is 0
 
 'Foo' __as__ Boolean;
 Integer a = 'a' __as__ Integer;
 Integer b = 'b' __as__ Integer;
-if (a > b) {
-  print('strings are in order');
+if (a < b) {
+  print('strings are in order\n');
+}
+if (a + 8 + 8 + 8 == b) {
+  print('strings are aligned as expected\n');
 }

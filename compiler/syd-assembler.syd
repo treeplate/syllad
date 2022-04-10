@@ -147,6 +147,8 @@ Operand r15 = Operand('r15', otRegister); // return value pointer used by Compil
 Operand rsi = Operand('rsi', otRegister); // used for index into parameters in a varargs function (nonvolatile)
 Operand rdi = Operand('rdi', otRegister); // used for end of loop index in a varargs function (nonvolatile)
 
+Operand r10Dereference = Operand('r10', otIndirect);
+
 Operand rcxShadow(Integer savedRegisterCount) {
   // rbp and other registers saved locally + return address + earlier shadow registers
   return Operand(concat('rbp+', hex8(0x08 * savedRegisterCount + 0x08 + 0 * 0x08)), otIndirect);

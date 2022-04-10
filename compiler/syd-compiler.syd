@@ -68,6 +68,10 @@ fwdclass BuiltInExitSubroutine extends BuiltInSubroutine;
 fwdclassprop NullFunction BuiltInExitSubroutine.constructor;
 fwdclass BuiltInLenSubroutine extends BuiltInSubroutine;
 fwdclassprop NullFunction BuiltInLenSubroutine.constructor;
+fwdclass CompilerIntrinsic extends BuiltInSubroutine;
+fwdclassprop NullFunction CompilerIntrinsic.constructor;
+fwdclass BuiltInReadFromAddressIntrinsic extends CompilerIntrinsic;
+fwdclassprop NullFunction BuiltInReadFromAddressIntrinsic.constructor;
 fwdclass CompiledVarArgsSubroutine extends CompiledSubroutine;
 fwdclassprop NullFunction CompiledVarArgsSubroutine.constructor;
 
@@ -193,6 +197,8 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
     corePrint = registerSubroutine(BuiltInPrintSubroutine(this));
     coreExit = registerSubroutine(BuiltInExitSubroutine(this));
     coreLen = registerSubroutine(BuiltInLenSubroutine(this));
+    // intrinsics (no need to keep a reference to them, we'll never use them directly)
+    registerSubroutine(BuiltInReadFromAddressIntrinsic(this));
     // messages
     parameterCountCheckFailureMessage = registerStringConstant(
       'parameterCountCheckFailureMessage',
@@ -1066,6 +1072,8 @@ class SubroutineCallInstruction extends Instruction {
   ValueHandle closurePointer;
   ValueHandle returnValue;
 
+  // We expect the caller to have done the static type checks.
+
   Null prepareInstructions() {
     super.prepareInstructions();
     thisPointer.forceAllocation();
@@ -1312,6 +1320,7 @@ class CompiledScope extends Object {
   }
 
   Slot emitSubroutineCall(ValueHandle target, ValueHandleList arguments) {
+    // xxxx statically check arguments are the right type if the types are known
     if (target.value is SubroutineVot) {
       SlotNullable result = (target.value! as SubroutineVot).subroutine.inline(this, arguments);
       if (result != null) {
@@ -1535,7 +1544,7 @@ class ReturnInstruction extends JumpInstruction {
 }
 
 class CompiledSubroutine extends CompiledStackFrameScope {
-  AbstractSubroutineType type;
+  AbstractSubroutineType type; // subroutine signature
   String label;
   String epilogLabel;
 
@@ -1781,6 +1790,83 @@ class BuiltInLenSubroutine extends BuiltInSubroutine {
         false,
       ),
       'len',
+    );
+  }
+}
+
+class CompilerIntrinsic extends BuiltInSubroutine {
+  Slot inlineBody(CompiledScope scope, ValueHandleList arguments) {
+    abstract();
+  }
+
+  Boolean verifyArguments(ValueHandleList arguments, TypeList parameters) {
+    assert(len(parameters) == len(arguments), 'unexpected number of arguments');
+    Integer index = 0;
+    while (index < len(arguments)) {
+      assert(
+        arguments[index].source.staticType.isSubtypeOf(parameters[index]),
+        concat('argument ', index, ' has unexpected type (wanted ', arguments[index].source.staticType, ' but got ', parameters[index], ')'),
+      );
+      index += 1;
+    }
+    return true;
+  }
+
+  SlotNullable inline(CompiledScope scope, ValueHandleList arguments) {
+    SubroutineTypeWithSpecificParameters signature = type as SubroutineTypeWithSpecificParameters;
+    assert(verifyArguments(arguments, signature.parameterTypes), 'unexpected arguments');
+    Slot result = inlineBody(scope, arguments);
+    assert(result.staticType == signature.returnType, concat(this, ' returned slot of wrong type (expected ', signature.returnType, ' but got ', result.staticType, ')'));
+    return result;
+  }
+}
+
+class BuiltInReadFromAddressIntrinsicInstruction extends Instruction {
+  ValueHandle address;
+  Slot returnValue;
+
+  Null prepareInstructions() {
+    super.prepareInstructions();
+    returnValue.forceAllocation(); // TODO: can we allow this to use a register...?
+  }
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    if (returnValue.location == null) {
+      // value isn't read, so no need to do anything
+      return;
+    }
+    assembler.addMov(blockId, r10, address.value!.asOperand(), concat('value of ', address.source.debugName));
+    assembler.addMov(blockId, returnValue.location!.asOperand(), r10Dereference, concat('dereference ', address.source.debugName, ' and put result in ', returnValue.debugName));
+    assembler.addMov(blockId, returnValue.location!.dynamicType().asOperand(), returnValue.staticType.asOperand(), concat('type of ', returnValue.debugName));
+  }
+
+  Null constructor(CompiledScope scopeArg, ValueHandle addressArg, Slot returnValueArg) {
+    super.constructor(scopeArg);
+    address = addressArg;
+    returnValue = returnValueArg;
+  }
+}
+
+class BuiltInReadFromAddressIntrinsic extends CompilerIntrinsic {
+  Slot inlineBody(CompiledScope scope, ValueHandleList arguments) {
+    Slot returnValue = scope.registerDynamicValue(
+      environment().intrinsicsLibrary!.coreIntegerType,
+      concat('address of ', arguments[0].source.debugName),
+    );
+    scope.emitInstruction(BuiltInReadFromAddressIntrinsicInstruction(scope, arguments[0], returnValue));
+    return returnValue;
+  }
+
+  Null constructor(CompiledIntrinsicsLibraryNullable parentArg) { 
+    super.constructor(
+      parentArg,
+      createOrFindSubroutineType(
+        parentArg!.environment(),
+        parentArg!.coreIntegerType,
+        [ parentArg!.coreIntegerType ]:Type,
+        false,
+      ),
+      '__readFromAddress',
     );
   }
 }

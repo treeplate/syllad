@@ -790,7 +790,7 @@ class SubroutineDeclarationStatement extends Statement {
       (subroutine as CompiledVarArgsSubroutine).registerVarArgsParameter(name, type);
       (subroutine as CompiledVarArgsSubroutine).emitVarArgsParameterChecks(type);
     } else {
-      subroutine = CompiledSubroutine(scope, subroutineType, identifier);
+      subroutine = CompiledSubroutineWithSpecificParameters(scope, subroutineType, identifier);
       SlotList parameterSlots = []:Slot;
       Integer index = 0;
       for (parameter in parameters) {

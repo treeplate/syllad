@@ -338,7 +338,7 @@ class ValueHandle extends Object {
 
   Null assign(ValueVot valueArg) {
     assert(value == null, 'cannot assign a value handle twice');
-    assert(valueArg.staticType.isSubtypeOf(source.staticType), concat('cannot assign ', valueArg.staticType, ' to ', source.staticType, ' debugName ', source.debugName));
+    assert(valueArg.staticType.isSubtypeOf(source.staticType), concat('cannot assign ', valueArg.staticType, ' to ', source.debugName, ' (which has type ', source.staticType, ')'));
     value = valueArg;
     type.assign(valueArg.dynamicType());
   }

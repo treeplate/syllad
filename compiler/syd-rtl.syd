@@ -1,10 +1,8 @@
 // TODO:
-//  - implement __as__
-//  - implement __writeToAddress(a, x): copies integer x to memory at address a
-//  - implement __readFromAddress(a): returns integer at memory at address a
-//  - implement __moveBytes(a, b, length): copy length bytes from a to b
-//  - implement __heap
+//  - implement heap
 //  - implement __alloc (and free)
+//  - implement __moveBytes(a, b, length): copy length bytes from a to b
+//  - implement __writeToAddress(a, x): copies integer x to memory at address a
 //  - implement string ref counting
 
 /*
