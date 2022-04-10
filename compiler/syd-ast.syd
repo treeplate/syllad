@@ -536,7 +536,7 @@ class OperatorDivisionExpression extends NumericOperatorExpression {
   }
 
   Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(DivisonInstruction(scope, lhsValue, rhsValue, result, rax, intrinsics.coreIntegerType, len((scope.stackFrame() as CompiledStackFrameScope).nonvolatileRegistersUsed()), concat(describeOperator(), ' operator')));
+    scope.emitInstruction(DivisonInstruction(scope, lhsValue, rhsValue, result, rax, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
   }
 }
 
@@ -546,7 +546,7 @@ class OperatorModulusExpression extends NumericOperatorExpression {
   }
 
   Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(DivisonInstruction(scope, lhsValue, rhsValue, result, rdx, intrinsics.coreIntegerType, len((scope.stackFrame() as CompiledStackFrameScope).nonvolatileRegistersUsed()), concat(describeOperator(), ' operator')));
+    scope.emitInstruction(DivisonInstruction(scope, lhsValue, rhsValue, result, rdx, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
   }
 }
 
@@ -985,7 +985,7 @@ class AssignmentStatement extends Statement {
   Expression rValue;
 
   String describeOperator() { abstract(); }
-  ValueHandle computeResult(CompiledScope scope) { abstract(); }
+  ValueHandle computeResult(CompiledScope scope, Slot lSlot, Slot rSlot) { abstract(); }
 
   String toStringIndent(Integer indent) {
     return concat(
@@ -1000,8 +1000,9 @@ class AssignmentStatement extends Statement {
 
   Null generateInstructions(CompiledScope scope) {
     // xxxx static type check
-    Slot slot = lValue.generateInstructions(scope);
-    slot.write(scope, computeResult(scope));
+    Slot lSlot = lValue.generateInstructions(scope);
+    Slot rSlot = rValue.generateInstructions(scope);
+    lSlot.write(scope, computeResult(scope, lSlot, rSlot));
   }
 
   Null walk(NullFunction callback, Anything context) {
@@ -1022,14 +1023,50 @@ class StraightAssignmentStatement extends AssignmentStatement {
     return '=';
   }
 
-  ValueHandle computeResult(CompiledScope scope) {
-    return rValue.generateInstructions(scope).read(scope);
+  ValueHandle computeResult(CompiledScope scope, Slot lSlot, Slot rSlot) {
+    return rSlot.read(scope);
   }
 }
 
-class PlusAssignmentStatement extends AssignmentStatement {
+class OperatorAssignmentStatement extends AssignmentStatement {
+  Null generateTypeCheckInstructions(ValueHandle lhsValue, ValueHandle rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    abstract();
+    // e.g.:
+    // scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(lhsValue.source));
+    // scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhsValue.source));
+  }
+
+  Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    abstract();
+    // e.g.:
+    // scope.emitInstruction(AdditionInstruction(scope, lhsValue, rhsValue, result, concat(describeOperator(), ' operator')));
+  }
+
+  ValueHandle computeResult(CompiledScope scope, Slot lSlot, Slot rSlot) {
+    CompiledIntrinsicsLibrary intrinsics = scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary;
+    ValueHandle lhsValue = lSlot.read(scope);
+    ValueHandle rhsValue = rSlot.read(scope);
+    Slot result = scope.registerDynamicValue(lSlot.staticType, concat(describeOperator(), ' operator result'));
+    generateTypeCheckInstructions(lhsValue, rhsValue, scope, intrinsics);
+    generateExpressionInstructions(lhsValue, rhsValue, result.prepareWrite(scope), scope, intrinsics);
+    return result.read(scope);
+  }
+}
+
+class NumericOperatorAssignmentStatement extends OperatorAssignmentStatement {
+  Null generateTypeCheckInstructions(ValueHandle lhsValue, ValueHandle rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(lhsValue.source));
+    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhsValue.source));
+  }
+}
+
+class PlusAssignmentStatement extends NumericOperatorAssignmentStatement {
   String describeOperator() {
     return '+=';
+  }
+
+  Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(BiOperandInstruction(scope, 'add', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
   }
 }
 

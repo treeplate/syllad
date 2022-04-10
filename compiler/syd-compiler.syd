@@ -66,6 +66,8 @@ fwdclass BuiltInPrintSubroutine extends BuiltInSubroutine;
 fwdclassprop NullFunction BuiltInPrintSubroutine.constructor;
 fwdclass BuiltInExitSubroutine extends BuiltInSubroutine;
 fwdclassprop NullFunction BuiltInExitSubroutine.constructor;
+fwdclass KernelGetProcessHeapSubroutine extends BuiltInSubroutine;
+fwdclassprop NullFunction KernelGetProcessHeapSubroutine.constructor;
 fwdclass BuiltInLenSubroutine extends BuiltInSubroutine;
 fwdclassprop NullFunction BuiltInLenSubroutine.constructor;
 fwdclass CompilerIntrinsic extends BuiltInSubroutine;
@@ -142,9 +144,8 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
   Slot coreTrue;
   Slot coreFalse;
 
-  Slot corePrint;
+  Slot corePrint; // actually __print; the real print is in the rtl
   Slot coreExit;
-  Slot coreLen;
 
   Slot parameterCountCheckFailureMessage;
   Slot parameterTypeCheckFailureMessage;
@@ -196,8 +197,10 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
     // built-in functions
     corePrint = registerSubroutine(BuiltInPrintSubroutine(this));
     coreExit = registerSubroutine(BuiltInExitSubroutine(this));
-    coreLen = registerSubroutine(BuiltInLenSubroutine(this));
-    // intrinsics (no need to keep a reference to them, we'll never use them directly)
+    // built-in functions not used from compiler
+    registerSubroutine(BuiltInLenSubroutine(this));
+    registerSubroutine(KernelGetProcessHeapSubroutine(this));
+    // intrinsics (functions that only work when inlined)
     registerSubroutine(BuiltInReadFromAddressIntrinsic(this));
     // messages
     parameterCountCheckFailureMessage = registerStringConstant(
@@ -434,6 +437,22 @@ class Instruction extends Object {
   Null prepareInstructions() {}
 
   Null generateAssembler(Assembler assembler, Integer blockId) {}
+
+  Null saveVolatileRegisters(Assembler assembler, Integer blockId) {
+    Integer savedRegisterCount = len(scope.stackFrame().nonvolatileRegistersUsed());
+    assembler.addMov(blockId, rcxShadow(savedRegisterCount), rcx, 'save rcx in shadow space');
+    assembler.addMov(blockId, rdxShadow(savedRegisterCount), rdx, 'save rdx in shadow space');
+    assembler.addMov(blockId, r8Shadow(savedRegisterCount), r8, 'save r8 in shadow space');
+    assembler.addMov(blockId, r9Shadow(savedRegisterCount), r9, 'save r9 in shadow space');
+  }
+
+  Null restoreVolatileRegisters(Assembler assembler, Integer blockId) {
+    Integer savedRegisterCount = len(scope.stackFrame().nonvolatileRegistersUsed());
+    assembler.addMov(blockId, rcx, rcxShadow(savedRegisterCount), 'restore rcx from shadow space');
+    assembler.addMov(blockId, rdx, rdxShadow(savedRegisterCount), 'restore rdx from shadow space');
+    assembler.addMov(blockId, r8, r8Shadow(savedRegisterCount), 'restore r8 from shadow space');
+    assembler.addMov(blockId, r9, r9Shadow(savedRegisterCount), 'restore r9 from shadow space');
+  }
 
   Null constructor(CompiledScope scopeArg) {
     super.constructor();
@@ -814,7 +833,6 @@ class DivisonInstruction extends Instruction {
   ValueHandle result;
   Operand resultSource;
   Type resultType;
-  Integer savedRegisterCount;
   String comment;
 
   Null prepareInstructions() {
@@ -825,7 +843,8 @@ class DivisonInstruction extends Instruction {
   Null generateAssembler(Assembler assembler, Integer blockId) {
     assert(resultSource == rdx || resultSource == rax, 'invalid result source for idiv');
     // TODO: optimize power-of-two divisions to shifts
-    // TODO: move the responsibility for saving rdx into shadow space to the stack frame
+    // TODO: move the responsibility for saving rdx into shadow space (and generally tracking register use) to the stack frame
+    Integer savedRegisterCount = len(scope.stackFrame().nonvolatileRegistersUsed());
     assembler.addMov(blockId, rdxShadow(savedRegisterCount), rdx, 'save rdx');
     assembler.addMov(blockId, rax, lhs.value!.asOperand(), 'prepare dividend');
     assembler.addZero(blockId, rdx, 'zero-extend dividend');
@@ -841,14 +860,13 @@ class DivisonInstruction extends Instruction {
     assembler.addMov(blockId, rdx, rdxShadow(savedRegisterCount), 'restore rdx');
   }
 
-  Null constructor(CompiledScope scopeArg, ValueHandle lhsArg, ValueHandle rhsArg, ValueHandle resultArg, Operand resultSourceArg, Type resultTypeArg, Integer savedRegisterCountArg, String commentArg) {
+  Null constructor(CompiledScope scopeArg, ValueHandle lhsArg, ValueHandle rhsArg, ValueHandle resultArg, Operand resultSourceArg, Type resultTypeArg, String commentArg) {
     super.constructor(scopeArg);
     lhs = lhsArg;
     rhs = rhsArg;
     result = resultArg;
     resultSource = resultSourceArg;
     resultType = resultTypeArg;
-    savedRegisterCount = savedRegisterCountArg;
     comment = commentArg;
   }
 }
@@ -1082,11 +1100,7 @@ class SubroutineCallInstruction extends Instruction {
   }
 
   Null generateAssembler(Assembler assembler, Integer blockId) {
-    Integer savedRegisterCount = len(scope.stackFrame().nonvolatileRegistersUsed());
-    assembler.addMov(blockId, rcxShadow(savedRegisterCount), rcx, 'save rcx in shadow space');
-    assembler.addMov(blockId, rdxShadow(savedRegisterCount), rdx, 'save rdx in shadow space');
-    assembler.addMov(blockId, r8Shadow(savedRegisterCount), r8, 'save r8 in shadow space');
-    assembler.addMov(blockId, r9Shadow(savedRegisterCount), r9, 'save r9 in shadow space');
+    saveVolatileRegisters(assembler, blockId);
     Integer argumentIndex = len(arguments) - 1;
     while (argumentIndex >= 0) {
       assembler.addPush(blockId, arguments[argumentIndex].value!.asOperand(), concat('value of argument #', argumentIndex + 1));
@@ -1104,10 +1118,7 @@ class SubroutineCallInstruction extends Instruction {
     assembler.addCode(blockId, 'sub rsp, 20h', 'allocate shadow space');
     assembler.addCode(blockId, concat('call ', target.value!.asOperand().value), 'jump to subroutine');
     assembler.addCode(blockId, concat('add rsp, ', hex8(32 + 8 * 2 * len(arguments) + 8)), 'release shadow space and arguments');
-    assembler.addMov(blockId, rcx, rcxShadow(savedRegisterCount), 'restore rcx from shadow space');
-    assembler.addMov(blockId, rdx, rdxShadow(savedRegisterCount), 'restore rdx from shadow space');
-    assembler.addMov(blockId, r8, r8Shadow(savedRegisterCount), 'restore r8 from shadow space');
-    assembler.addMov(blockId, r9, r9Shadow(savedRegisterCount), 'restore r9 from shadow space');
+    restoreVolatileRegisters(assembler, blockId);
   }  
 
   Null constructor(CompiledScope scopeArg, ValueHandle targetArg, ValueHandleList argumentsArg, ValueHandle thisPointerArg, ValueHandle closurePointerArg, ValueHandle returnValueArg) {
@@ -1290,7 +1301,7 @@ class CompiledScope extends Object {
   }
 
   Slot registerVariable(String name, Type type, ValueHandle initialValue) {
-    assert(!isIdentifierDeclaredInLocalScope(name), 'tried to redeclare an identifier within a scope');
+    assert(!isIdentifierDeclaredInLocalScope(name), concat('tried to redeclare an identifier (', name, ') within a scope'));
     Slot slot = Slot(type, this, name, false, false); // named, mutable
     registerSlot(slot);
     identifiers.set(name, slot);
@@ -1299,7 +1310,7 @@ class CompiledScope extends Object {
   }
 
   Slot registerConstant(String name, ValueVot value) {
-    assert(!isIdentifierDeclaredInLocalScope(name), 'tried to redeclare an identifier within a scope');
+    assert(!isIdentifierDeclaredInLocalScope(name), concat('tried to redeclare an identifier (', name, ') within a scope'));
     Slot slot = Slot(value.staticType, this, name, false, true); // named, immutable
     globalScope().registerSlot(slot);
     identifiers.set(name, slot);
@@ -1309,7 +1320,7 @@ class CompiledScope extends Object {
   }
 
   Slot registerSubroutine(CompiledSubroutine subroutine) { 
-    assert(!isIdentifierDeclaredInLocalScope(subroutine.name), 'tried to redeclare an identifier within a scope');
+    assert(!isIdentifierDeclaredInLocalScope(subroutine.name), concat('tried to redeclare an identifier (', subroutine.name, ') within a scope'));
     Slot slot = Slot(subroutine.type, this, subroutine.name, false, true); // named, immutable
     registerSlot(slot);
     identifiers.set(subroutine.name, slot);
@@ -1683,7 +1694,7 @@ class BuiltInPrintSubroutineInstructions extends Instruction {
     assembler.addIncludeLib('kernel32.lib');
     assembler.addExternProc('GetStdHandle');
     assembler.addExternProc('WriteConsoleA');
-    // TODO: save rcx
+    saveVolatileRegisters(assembler, blockId);
     assembler.addComment(blockId, 'Calling GetStdHandle');
     assembler.addCode(blockId, 'mov rcx, -11', 'argument #1: STD_OUTPUT_HANDLE');
     assembler.addCode(blockId, 'call GetStdHandle', 'handle returned in rax');
@@ -1697,7 +1708,7 @@ class BuiltInPrintSubroutineInstructions extends Instruction {
     assembler.addCode(blockId, 'sub rsp, 20h', 'allocate shadow space');
     assembler.addCode(blockId, 'call WriteConsoleA', 'returns boolean representing success in rax');
     assembler.addCode(blockId, 'add rsp, 28h', 'release shadow space and arguments');
-    // TODO: restore rcx
+    restoreVolatileRegisters(assembler, blockId);
   }
 
   Null constructor(CompiledScope scopeArg, ValueHandle lpNumberOfCharsWrittenArg, ValueHandle parameterArg) {
@@ -1722,7 +1733,7 @@ class BuiltInPrintSubroutine extends BuiltInSubroutine {
     super.constructor(
       parentArg,
       SubroutineTypeWithSpecificParameters(parentArg!.environment(), parentArg!.coreNullType, [parentArg!.coreStringType]:Type),
-      'print',
+      '__print',
     );
   }
 }
@@ -1733,13 +1744,13 @@ class BuiltInExitSubroutineInstructions extends Instruction {
   Null generateAssembler(Assembler assembler, Integer blockId) {
     assembler.addIncludeLib('kernel32.lib');
     assembler.addExternProc('ExitProcess');
-    // TODO: save rcx
+    saveVolatileRegisters(assembler, blockId);
     assembler.addComment(blockId, 'Calling ExitProcess');
     assembler.addMov(blockId, rcx, exitCode.value!.asOperand(), 'exit code');
     assembler.addCode(blockId, 'sub rsp, 20h', 'allocate shadow space');
     assembler.addCode(blockId, 'call ExitProcess', 'process should terminate at this point');
     assembler.addCode(blockId, 'add rsp, 20h', 'release shadow space');
-    // TODO: restore rcx
+    restoreVolatileRegisters(assembler, blockId);
   }
 
   Null constructor(CompiledScope scopeArg, ValueHandle exitCodeArg) {
@@ -1766,6 +1777,41 @@ class BuiltInExitSubroutine extends BuiltInSubroutine {
   }
 }
 
+class KernelGetProcessHeapInstruction extends Instruction {
+  ValueHandle result;
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addIncludeLib('kernel32.lib');
+    assembler.addExternProc('GetProcessHeap');
+    saveVolatileRegisters(assembler, blockId);
+    assembler.addComment(blockId, 'Calling GetProcessHeap');
+    assembler.addCode(blockId, 'call GetProcessHeap', 'handle returned in rax');
+    assembler.addMov(blockId, result.value!.asOperand(), rax, 'heap handle');
+    assembler.addMov(blockId, result.type.type!.asOperand(), scope.environment().intrinsicsLibrary!.coreIntegerType.asOperand(), 'heap handle is an integer');
+    restoreVolatileRegisters(assembler, blockId);
+  }
+
+  Null constructor(CompiledScope scopeArg, ValueHandle resultArg) {
+    super.constructor(scopeArg);
+    result = resultArg;
+  }
+}
+
+class KernelGetProcessHeapSubroutine extends BuiltInSubroutine {
+  Null prepareInstructions() {
+    emitInstruction(KernelGetProcessHeapInstruction(this, returnValue.prepareWrite(this)));
+    super.prepareInstructions();
+  }
+
+  Null constructor(CompiledIntrinsicsLibraryNullable parentArg) { 
+    super.constructor(
+      parentArg,
+      SubroutineTypeWithSpecificParameters(parentArg!.environment(), parentArg!.coreIntegerType, []:Type),
+      '__getProcessHeap',
+    );
+  }
+}
+
 class BuiltInLenSubroutine extends BuiltInSubroutine {
   SlotNullable inline(CompiledScope scope, ValueHandleList arguments) {
     if (len(arguments) == 1 && arguments[0].value is VarArgsParameterVot) {
@@ -1778,6 +1824,7 @@ class BuiltInLenSubroutine extends BuiltInSubroutine {
   Null prepareInstructions() {
     super.prepareInstructions();
     // TODO: implement
+    emitInstruction(CommentInstruction(this, 'TODO: implement "len" function'));
   }
 
   Null constructor(CompiledIntrinsicsLibraryNullable parentArg) { 
@@ -1853,6 +1900,7 @@ class BuiltInReadFromAddressIntrinsic extends CompilerIntrinsic {
       environment().intrinsicsLibrary!.coreIntegerType,
       concat('address of ', arguments[0].source.debugName),
     );
+    // TODO: tell the instruction stream that we're writing to the slot...
     scope.emitInstruction(BuiltInReadFromAddressIntrinsicInstruction(scope, arguments[0], returnValue));
     return returnValue;
   }

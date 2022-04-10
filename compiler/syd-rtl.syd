@@ -79,8 +79,9 @@ String intToStr(Integer value) {
   }
   return buffer;
 }
+*/
 
-String stringify(Anything arg) {
+String _stringify(Anything arg) {
   if (arg is String) {
     return arg;
   }
@@ -93,23 +94,36 @@ String stringify(Anything arg) {
   if (arg is Null) {
     return 'null';
   }
-  if (arg is Integer) {
-    return intToStr(arg as Integer);
-  }
-  print('Cannot stringify a value\n');
+  //if (arg is Integer) {
+  //  return intToStr(arg as Integer);
+  //}
+  __print('value cannot be stringified\n');
   exit(1);
+}
+
+Null print(String... parts) { 
+  Boolean first = true;
+  Integer index = 0;
+  while (index < len(parts)) {
+    if (first == false) {
+      __print(' ');
+    }
+    __print(_stringify(parts[index]));
+    first = false;
+    index += 1;
+  }
 }
 
 Null println(String... parts) { 
   Boolean first = true;
-  int index = 0;
-  for (part in parts) {
+  Integer index = 0;
+  while (index < len(parts)) {
     if (first == false) {
-      print(' ');
+      __print(' ');
     }
-    print(part);
+    __print(_stringify(parts[index]));
     first = false;
+    index += 1;
   }
-  print('\n');
+  __print('\n');
 }
-*/
