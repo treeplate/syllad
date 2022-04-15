@@ -528,7 +528,6 @@ ValueType basicTypes(
     String name, ValueType? parent, int line, int col, String file) {
   switch (name) {
     case 'Null':
-    case 'Dog':
     case 'Whatever':
     case '~class_methods':
     case 'unassigned':

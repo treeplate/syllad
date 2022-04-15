@@ -64,8 +64,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
       if (tokens.currentChar == TokenType.openSquare) {
         tokens.moveNext();
         List<Expression> elements = [];
-        ValueType type = ValueType(
-            null, "Dog", tokens.current.line, tokens.current.col, tokens.file);
+        ValueType? type = null;
         while (tokens.current is! CharToken ||
             tokens.currentChar != TokenType.closeSquare) {
           Expression expr = parseExpression(tokens, scope);
@@ -73,9 +72,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
             tokens.expectChar(TokenType.comma);
           }
           elements.add(expr);
-          if (type ==
-              ValueType(null, "Dog", tokens.current.line, tokens.current.col,
-                  tokens.file)) {
+          if (type == null) {
             type = expr.type;
           } else if (expr.type.name == "Whatever") {
             // has been cast()-ed
@@ -83,9 +80,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
             type = sharedSupertype;
           }
         }
-        if (type ==
-            ValueType(null, "Dog", tokens.current.line, tokens.current.col,
-                tokens.file)) {
+        if (type == null) {
           type = sharedSupertype;
         }
         tokens.moveNext();

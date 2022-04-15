@@ -1,6 +1,4 @@
-// should print "<function (foo function)>" or other implementation-specific toString
-// currently fails because "println" is not implemented as stringifying
-// currently fails because no stringification of function references
+// expected output: <function (foo function)>
 
 Null foo() {}
 println(foo);

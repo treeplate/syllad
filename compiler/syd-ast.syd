@@ -775,14 +775,13 @@ class SubroutineDeclarationStatement extends Statement {
     for (entry in parameters) {
       append(compiledParameterTypes, (entry[0] as TypeIdentifier).generateInstructions(scope));
     }
-    AbstractSubroutineType subroutineType = createOrFindSubroutineType(
-      scope.environment(),
-      compiledReturnType,
-      compiledParameterTypes,
-      isVarArgs,
-    );
     CompiledSubroutine subroutine;
     if (isVarArgs) {
+      SubroutineTypeWithVarArgs subroutineType = createOrFindSubroutineTypeWithVarArgs(
+        scope.environment(),
+        compiledReturnType,
+        compiledParameterTypes,
+      );
       subroutine = CompiledVarArgsSubroutine(scope, subroutineType, identifier);
       assert(len(compiledParameterTypes) == 1, 'unexpected number of parameters to varargs function');
       String name = parameters[0][1] as String;
@@ -790,6 +789,11 @@ class SubroutineDeclarationStatement extends Statement {
       (subroutine as CompiledVarArgsSubroutine).registerVarArgsParameter(name, type);
       (subroutine as CompiledVarArgsSubroutine).emitVarArgsParameterChecks(type);
     } else {
+      SubroutineTypeWithSpecificParameters subroutineType = createOrFindSubroutineTypeWithSpecificParameters(
+        scope.environment(),
+        compiledReturnType,
+        compiledParameterTypes,
+      );
       subroutine = CompiledSubroutineWithSpecificParameters(scope, subroutineType, identifier);
       SlotList parameterSlots = []:Slot;
       Integer index = 0;

@@ -1,4 +1,4 @@
-// should either fail to compile or not print anything
+// expected error: error: integer literal too big
 
 Integer n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 if (n == 0xFFFFFFFFFFFFFFFF) {

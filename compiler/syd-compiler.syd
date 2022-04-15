@@ -68,8 +68,16 @@ fwdclass BuiltInExitSubroutine extends BuiltInSubroutine;
 fwdclassprop NullFunction BuiltInExitSubroutine.constructor;
 fwdclass KernelGetProcessHeapSubroutine extends BuiltInSubroutine;
 fwdclassprop NullFunction KernelGetProcessHeapSubroutine.constructor;
+fwdclass KernelHeapAllocSubroutine extends BuiltInSubroutine;
+fwdclassprop NullFunction KernelHeapAllocSubroutine.constructor;
+fwdclass KernelHeapFreeSubroutine extends BuiltInSubroutine;
+fwdclassprop NullFunction KernelHeapFreeSubroutine.constructor;
+fwdclass KernelGetLastErrorSubroutine extends BuiltInSubroutine;
+fwdclassprop NullFunction KernelGetLastErrorSubroutine.constructor;
 fwdclass BuiltInLenSubroutine extends BuiltInSubroutine;
 fwdclassprop NullFunction BuiltInLenSubroutine.constructor;
+fwdclass BuiltInDebuggerSubroutine extends BuiltInSubroutine;
+fwdclassprop NullFunction BuiltInDebuggerSubroutine.constructor;
 fwdclass CompilerIntrinsic extends BuiltInSubroutine;
 fwdclassprop NullFunction CompilerIntrinsic.constructor;
 fwdclass BuiltInReadFromAddressIntrinsic extends CompilerIntrinsic;
@@ -77,7 +85,7 @@ fwdclassprop NullFunction BuiltInReadFromAddressIntrinsic.constructor;
 fwdclass CompiledVarArgsSubroutine extends CompiledSubroutine;
 fwdclassprop NullFunction CompiledVarArgsSubroutine.constructor;
 
-fwdclassprop Boolean Slot.isStatic;
+fwdclassprop Boolean Slot.isImmutable;
 fwdclassprop ValueVotNullable Slot.location;
 fwdclassprop NullFunction Slot.assignLocation;
 fwdclassprop NullFunction Slot.write;
@@ -102,7 +110,7 @@ fwdclassprop NullFunction CompiledStackFrameScope.prepareSlots;
 fwdclassprop NullFunction CompiledStackFrameScope.generateAssemblerBlock;
 fwdclassprop String CompiledSubroutine.label;
 fwdclassprop String CompiledSubroutine.epilogLabel;
-fwdclassprop AbstractSubroutineType CompiledSubroutine.type;
+fwdclassprop AbstractSubroutineTypeWithSpecificParameters CompiledSubroutine.type;
 fwdclassprop SlotNullableFunction CompiledSubroutine.inline;
 fwdclassprop CompilationEnvironment CompiledLibrary.compilationEnvironment;
 fwdclassprop TypeNullableFunction CompiledLibrary.lookupType;
@@ -199,7 +207,11 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
     coreExit = registerSubroutine(BuiltInExitSubroutine(this));
     // built-in functions not used from compiler
     registerSubroutine(BuiltInLenSubroutine(this));
+    registerSubroutine(BuiltInDebuggerSubroutine(this));
     registerSubroutine(KernelGetProcessHeapSubroutine(this));
+    registerSubroutine(KernelHeapAllocSubroutine(this));
+    registerSubroutine(KernelHeapFreeSubroutine(this));
+    registerSubroutine(KernelGetLastErrorSubroutine(this));
     // intrinsics (functions that only work when inlined)
     registerSubroutine(BuiltInReadFromAddressIntrinsic(this));
     // messages
@@ -706,9 +718,9 @@ class DoIfVarArgsTypeMismatchInstruction extends TypeCheckInstruction {
                    + 0x20 /* shadow space */
                    + 0x08 /* return address */
                    + 0x08 * len(scope.stackFrame().nonvolatileRegistersUsed()); /* saved registers */
-    assembler.addCode(blockId, concat('lea rsi, [rbp+', hex64(offset), ']'), 'initial index pointing to value of first argument');
+    assembler.addCode(blockId, concat('lea rsi, [rbp+', hex8(offset), ']'), 'initial index pointing to value of first argument');
     assembler.addCode(blockId, 'mov rdi, rcx', 'end of loop is the number of arguments...');
-    assembler.addCode(blockId, 'shl rdi, 5', '...times the width of each argument (010h)...');
+    assembler.addCode(blockId, 'shl rdi, 4', '...times the width of each argument (010h)...');
     assembler.addCode(blockId, 'add rdi, rsi', '...offset from the initial index');
     assembler.addCode(blockId, concat(loopTopLabel, ':'), null);
     assembler.indent(blockId, generateInnerAssembler);
@@ -981,7 +993,7 @@ class PopulateValueHandleInstruction extends SlotInstruction {
   Null constructor(CompiledScope scopeArg, Slot slotArg, ValueHandle handleArg) {
     super.constructor(scopeArg, slotArg);
     handle = handleArg;
-    if (slot.location != null && slot.isStatic) {
+    if (slot.location != null && slot.isImmutable) {
       // we aggressively do this if possible, so that constants et al can be inlined
       handle.assign(slot.location!);
       inlined = true;
@@ -1001,7 +1013,7 @@ class WriteStaticSlotInstruction extends SlotInstruction {
   Null generateAssembler(Assembler assembler, Integer blockId) {
     if (!inlined) {
       if (slot.location != null) {
-        assert(!slot.isStatic, 'cannot change a static slot\'s value');
+        assert(!slot.isImmutable, 'cannot change a static slot\'s value');
         assembler.addMov(blockId, slot.location!.asOperand(), value.asOperand(), concat('value of ', slot.debugName));
         if (slot.staticType.hasDynamicType()) {
           assert(value.staticType.hasDynamicType(), concat('unexpectedly tried to map value of normal type ', slot.staticType, ' to non-dynamic-supporting type ', value.staticType));
@@ -1016,7 +1028,7 @@ class WriteStaticSlotInstruction extends SlotInstruction {
   Null constructor(CompiledScope scopeArg, Slot slotArg, ValueVot valueArg) {
     super.constructor(scopeArg, slotArg);
     value = valueArg;
-    if (slot.isStatic) {
+    if (slot.isImmutable) {
       slot.assignLocation(value);
       inlined = true;
     } else {
@@ -1094,8 +1106,6 @@ class SubroutineCallInstruction extends Instruction {
 
   Null prepareInstructions() {
     super.prepareInstructions();
-    thisPointer.forceAllocation();
-    closurePointer.forceAllocation();
     returnValue.forceAllocation();
   }
 
@@ -1111,9 +1121,9 @@ class SubroutineCallInstruction extends Instruction {
     assembler.addLea(blockId, r10, returnValue.value!.asOperand(), 'pointer to return value (and type, 8 bytes earlier)');
     assembler.addPush(blockId, r10, '(that pointer is the last value pushed to the stack)');
     // TODO: assembler.addCode(blockId, 'sub rsp, 8h', 'align to 16 byte boundary'); XXX need to also implement this on callee side
-    assembler.addLea(blockId, r9, thisPointer.value!.asOperand(), 'pointer to this');
+    assembler.addMov(blockId, r9, thisPointer.value!.asOperand(), 'pointer to this');
     assembler.addMov(blockId, r8, thisPointer.value!.dynamicType().asOperand(), 'type of this');
-    assembler.addLea(blockId, rdx, closurePointer.value!.asOperand(), 'pointer to closure');
+    assembler.addMov(blockId, rdx, closurePointer.value!.asOperand(), 'pointer to closure');
     assembler.addCode(blockId, concat('mov rcx, ', len(arguments)), 'number of arguments');
     assembler.addCode(blockId, 'sub rsp, 20h', 'allocate shadow space');
     assembler.addCode(blockId, concat('call ', target.value!.asOperand().value), 'jump to subroutine');
@@ -1137,27 +1147,20 @@ class SubroutineCallInstruction extends Instruction {
 
 class Slot extends VotSource {
   Boolean isAnonymous;
-  Boolean isStatic; // if true, this slot is immutable (can only be written once)
+  Boolean isImmutable; // if true, this slot is immutable (can only be written once)
 
   CompiledScope homeScope; 
   Set referencingStackFrames = Set(); // of CompiledStackFrameScope
-  Boolean needsAllocation = false;
+  Boolean forcedAllocation = false;
   Boolean isRead = false;
-  Boolean isInitialized = false;
-  Boolean isWritten = false;
+  Boolean hasSpecificLocation = true;
 
   Null forceAllocation() {
-    needsAllocation = true;
+    forcedAllocation = true;
   }
 
-  Null recordWrite() {
-    if (!isInitialized) {
-      isInitialized = true;
-    } else if (!isWritten) {
-      assert(!isStatic, 'cannot write to an immutable slot');
-      isWritten = true;
-      needsAllocation = true; // TODO: support using registers instead
-    }
+  Null recordWrite(Boolean hasSpecificLocation) {
+    hasSpecificLocation = hasSpecificLocation && hasSpecificLocation;
   }
 
   ValueHandle read(CompiledScope currentScope) {
@@ -1171,32 +1174,35 @@ class Slot extends VotSource {
   Null writeStatic(CompiledScope currentScope, ValueVot newValue) { 
     referencingStackFrames.add(currentScope.stackFrame());
     currentScope.emitInstruction(WriteStaticSlotInstruction(currentScope, this, newValue));
-    recordWrite();
+    recordWrite(true);
   }
 
   Null write(CompiledScope currentScope, ValueHandle newValue) { 
     referencingStackFrames.add(currentScope.stackFrame());
     currentScope.emitInstruction(WriteDynamicSlotInstruction(currentScope, this, newValue));
-    recordWrite();
+    recordWrite(false);
   }
 
   ValueHandle prepareWrite(CompiledScope currentScope) { 
     ValueHandle result = ValueHandle(this, null);
     referencingStackFrames.add(currentScope.stackFrame());
     currentScope.emitInstruction(PopulateValueHandleInstruction(currentScope, this, result));
-    recordWrite();
+    recordWrite(false);
     return result;
   }
 
   Null writeReinterpret(CompiledScope currentScope, ValueHandle value, Type type) { 
     referencingStackFrames.add(currentScope.stackFrame());
     currentScope.emitInstruction(WriteReinterpretAsInstruction(currentScope, this, value, type));
-    recordWrite();
+    recordWrite(false);
+  }
+
+  Boolean needsAllocation() {
+    return isRead && (!isImmutable || forcedAllocation || !hasSpecificLocation);
   }
 
   Boolean isGlobal() {
-    return homeScope.className == 'CompiledLibrary' // XXX should use is
-        || homeScope.className == 'CompiledIntrinsicsLibrary';
+    return homeScope is CompiledLibrary;
   }
 
   Boolean canBeGloballyAllocated() {
@@ -1207,7 +1213,7 @@ class Slot extends VotSource {
     AnythingList stackFrames = referencingStackFrames.values();
     return (len(stackFrames) == 1)
         && (stackFrames[0] == homeScope.stackFrame())
-        && (isAnonymous || (!isGlobal()));
+        && (isAnonymous || !isGlobal());
   }
 
   Boolean canBeHeapAllocated() {
@@ -1217,19 +1223,27 @@ class Slot extends VotSource {
   ValueVotNullable location = null;
 
   Null assignLocation(ValueVot locationArg) {
-    assert(location == null || !isStatic, 'cannot assign multiple locations to a static slot');
+    assert(location == null || !isImmutable, concat('tried to assign a second location to static slot ', this));
     location = locationArg;
   }
 
   String toString() {
-    return concat('<', debugName, ': ', staticType, ' at ', location, '>');
+    String constant = '';
+    if (hasSpecificLocation) {
+      constant = '; compile-time constant';
+    }
+    String forced = '';
+    if (forcedAllocation) {
+      forced = '; forced allocation';
+    }
+    return concat('<', debugName, ': ', staticType, ' at ', location, constant, forced, '>');
   }
 
-  Null constructor(Type staticTypeArg, CompiledScope homeScopeArg, String debugNameArg, Boolean isAnonymousArg, Boolean isStaticArg) { 
+  Null constructor(Type staticTypeArg, CompiledScope homeScopeArg, String debugNameArg, Boolean isAnonymousArg, Boolean isImmutableArg) { 
     super.constructor(staticTypeArg, debugNameArg);
     homeScope = homeScopeArg;
     isAnonymous = isAnonymousArg;
-    isStatic = isStaticArg;
+    isImmutable = isImmutableArg;
   }
 }
 
@@ -1285,10 +1299,11 @@ class CompiledScope extends Object {
 
   Null registerSlot(Slot slot) {
     stackFrame().registerSlot(slot);
+    // subclasses override this to add more behaviour
   }
 
   Slot registerDynamicValue(Type type, String debugName) {
-    Slot slot = Slot(type, this, debugName, true, false); // anonymous, mutable
+    Slot slot = Slot(type, this, debugName, true, true); // anonymous, immutable
     registerSlot(slot);
     return slot;
   }
@@ -1470,25 +1485,23 @@ class CompiledStackFrameScope extends CompiledScope {
 
   Null prepareSlots() {
     for (slot in slots) {
-      //stderr(concat(slot, ' read:', slot.isRead, ' needs:', slot.needsAllocation, ' stack?:', slot.canBeStackAllocated(), ' heap?:', slot.needsHeapAllocation()));
-      if (slot.isRead) {
-        if (slot.needsAllocation) {
-          if (slot.canBeStackAllocated()) {
-            // TODO emit a comment giving the stack layout for this stack frame
-            slot.assignLocation(StackAllocatedVot(slot.staticType, stackSize));
-            if (slot.staticType.hasDynamicType()) {
-              stackSize += 0x10;
-            } else {
-              stackSize += 0x08;
-            }
-          } else if (slot.canBeGloballyAllocated()) {
-            String valueLabel = environment().generateLabel(concat('global', len(bssSlots), 'Value'));
-            String typeLabel = environment().generateLabel(concat('global', len(bssSlots), 'Type'));
-            slot.assignLocation(GlobalVariableVot(slot.staticType, valueLabel, typeLabel));
-            append(bssSlots, slot);
+      //stderr(concat(slot, ' read:', slot.isRead, ' needsAllocation:', slot.needsAllocation(), ' stack?:', slot.canBeStackAllocated(), ' heap?:', slot.canBeHeapAllocated(), ' global?:', slot.canBeGloballyAllocated()));
+      if (slot.needsAllocation()) {
+        if (slot.canBeStackAllocated()) {
+          // TODO emit a comment giving the stack layout for this stack frame
+          slot.assignLocation(StackAllocatedVot(slot.staticType, stackSize));
+          if (slot.staticType.hasDynamicType()) {
+            stackSize += 0x10;
           } else {
-            throw(concat('not sure what to do with ', slot, ' in terms of allocation'));
+            stackSize += 0x08;
           }
+        } else if (slot.canBeGloballyAllocated()) {
+          String valueLabel = environment().generateLabel(concat('global', len(bssSlots), 'Value'));
+          String typeLabel = environment().generateLabel(concat('global', len(bssSlots), 'Type'));
+          slot.assignLocation(GlobalVariableVot(slot.staticType, valueLabel, typeLabel));
+          append(bssSlots, slot);
+        } else {
+          throw(concat('not sure what to do with ', slot, ' in terms of allocation'));
         }
       }
     }
@@ -1555,7 +1568,7 @@ class ReturnInstruction extends JumpInstruction {
 }
 
 class CompiledSubroutine extends CompiledStackFrameScope {
-  AbstractSubroutineType type; // subroutine signature
+  AbstractSubroutineTypeWithSpecificParameters type; // subroutine signature
   String label;
   String epilogLabel;
 
@@ -1601,13 +1614,13 @@ class CompiledSubroutine extends CompiledStackFrameScope {
     scope.emitInstruction(ReturnInstruction(this, 'return'));
   }
 
-  Null constructor(CompiledScopeNullable parentArg, AbstractSubroutineType typeArg, String nameArg) {
+  Null constructor(CompiledScopeNullable parentArg, AbstractSubroutineTypeWithSpecificParameters typeArg, String nameArg) {
     super.constructor(parentArg, nameArg);
     type = typeArg;
     label = environment().generateLabel(labelPrefix());
     epilogLabel = environment().generateLabel(concat(labelPrefix(), '$epilog'));
     returnValue = registerDynamicValue(type.returnType, 'return value');
-    returnValue.writeStatic(this, OperandPairVot(type.returnType, Operand('r15-08h', otIndirect), Operand('r15', otIndirect)));
+    returnValue.assignLocation(OperandPairVot(type.returnType, Operand('r15-08h', otIndirect), Operand('r15', otIndirect)));
   }
 
   String toStringIndent(Integer indent) {
@@ -1647,6 +1660,10 @@ class CompiledSubroutineWithSpecificParameters extends CompiledSubroutine {
       index += 1;
     }
   }
+
+  Null constructor(CompiledScope parentArg, SubroutineTypeWithSpecificParameters signature, String name) { 
+    super.constructor(parentArg, signature, name);
+  }
 }
 
 class CompiledVarArgsSubroutine extends CompiledSubroutine {
@@ -1673,10 +1690,40 @@ class CompiledVarArgsSubroutine extends CompiledSubroutine {
     CompiledScope block = createErrorHandlerBlock(environment().intrinsicsLibrary!.parameterTypeCheckFailureMessage, 'vararg types');
     emitInstruction(DoIfVarArgsTypeMismatchInstruction(this, parameterType, concat(labelPrefix(), '$varargTypeChecks'), block, 'vararg types'));
   }
+
+  Null constructor(CompiledScope parentArg, SubroutineTypeWithVarArgs signature, String name) { 
+    super.constructor(parentArg, signature, name);
+  }
 }
 
 class BuiltInSubroutine extends CompiledSubroutineWithSpecificParameters {
-  Null constructor(CompiledIntrinsicsLibraryNullable parentArg, AbstractSubroutineType signature, String name) { 
+  SlotList parameters;
+
+  StringList parameterDescriptions() {
+    return []:String;
+  }
+
+  Null generateInstructions() { }
+
+  Null prepareInstructions() {
+    parameters = []:Slot;
+    SubroutineTypeWithSpecificParameters signature = type as SubroutineTypeWithSpecificParameters;
+    StringList descriptions = parameterDescriptions();
+    assert(len(descriptions) == len(signature.parameterTypes), concat(className, '.parameterDescriptions() returned an unexpected number of descriptions (descriptions were ', descriptions, '; parameter types were ', signature.parameterTypes, ')'));
+    Integer index = 0;
+    while (index < len(signature.parameterTypes)) {
+      append(parameters, registerStaticValue(
+        ParameterVot(signature.parameterTypes[index], len(nonvolatileRegistersUsed()), index),
+        descriptions[index],
+      ));
+      index += 1;
+    }
+    emitParameterChecks(parameters);
+    generateInstructions();
+    super.prepareInstructions();
+  }
+
+  Null constructor(CompiledIntrinsicsLibrary parentArg, SubroutineTypeWithSpecificParameters signature, String name) { 
     super.constructor(parentArg, signature, name);
   }
 }
@@ -1697,7 +1744,9 @@ class BuiltInPrintSubroutineInstructions extends Instruction {
     saveVolatileRegisters(assembler, blockId);
     assembler.addComment(blockId, 'Calling GetStdHandle');
     assembler.addCode(blockId, 'mov rcx, -11', 'argument #1: STD_OUTPUT_HANDLE');
+    assembler.addCode(blockId, 'sub rsp, 20h', 'allocate shadow space');
     assembler.addCode(blockId, 'call GetStdHandle', 'handle returned in rax');
+    assembler.addCode(blockId, 'add rsp, 20h', 'release shadow space');
     assembler.addComment(blockId, 'Calling WriteConsoleA');
     assembler.addCode(blockId, 'push 0', 'argument #5: Reserved, must be NULL (lpReserved)');
     assembler.addLea(blockId, r9, lpNumberOfCharsWritten.value!.asOperand(), 'argument #4: Number of characters written (lpNumberOfCharsWritten)');
@@ -1719,20 +1768,22 @@ class BuiltInPrintSubroutineInstructions extends Instruction {
 }
 
 class BuiltInPrintSubroutine extends BuiltInSubroutine {
-  Null prepareInstructions() {
-    Slot lpNumberOfCharsWritten = registerDynamicValue((parent! as CompiledIntrinsicsLibrary).coreSystemType as Type, 'lpNumberOfCharsWritten, out param of WriteConsoleA');
-    ValueHandle lpNumberOfCharsWrittenPointer = lpNumberOfCharsWritten.read(this);
-    Slot parameter = registerStaticValue(ParameterVot((parent! as CompiledIntrinsicsLibrary).coreStringType as Type, len(nonvolatileRegistersUsed()), 0), 'message to print to console'); // (unnamed parameter)
-    emitParameterChecks([parameter]);
-    ValueHandle parameterValue = parameter.read(this);
-    emitInstruction(BuiltInPrintSubroutineInstructions(this, lpNumberOfCharsWrittenPointer, parameterValue));
-    super.prepareInstructions();
+  StringList parameterDescriptions() {
+    return ['message to print to console'];
   }
 
-  Null constructor(CompiledIntrinsicsLibraryNullable parentArg) { 
+  Null generateInstructions() {
+    Slot lpNumberOfCharsWritten = registerDynamicValue((parent! as CompiledIntrinsicsLibrary).coreSystemType as Type, 'lpNumberOfCharsWritten, out param of WriteConsoleA');
+    ValueHandle lpNumberOfCharsWrittenPointer = lpNumberOfCharsWritten.read(this);
+    ValueHandle parameterValue = parameters[0].read(this);
+    emitInstruction(BuiltInPrintSubroutineInstructions(this, lpNumberOfCharsWrittenPointer, parameterValue));
+    super.generateInstructions();
+  }
+
+  Null constructor(CompiledIntrinsicsLibrary parentArg) { 
     super.constructor(
       parentArg,
-      SubroutineTypeWithSpecificParameters(parentArg!.environment(), parentArg!.coreNullType, [parentArg!.coreStringType]:Type),
+      SubroutineTypeWithSpecificParameters(parentArg.environment(), parentArg.coreNullType, [parentArg.coreStringType]:Type),
       '__print',
     );
   }
@@ -1760,18 +1811,21 @@ class BuiltInExitSubroutineInstructions extends Instruction {
 }
 
 class BuiltInExitSubroutine extends BuiltInSubroutine {
-  Null prepareInstructions() {
-    Slot exitCode = registerStaticValue(ParameterVot((parent! as CompiledIntrinsicsLibrary).coreIntegerType, len(nonvolatileRegistersUsed()), 0), 'exit code parameter'); // (unnamed parameter)
-    emitParameterChecks([exitCode]);
-    ValueHandle exitCodeValue = exitCode.read(this);
-    emitInstruction(BuiltInExitSubroutineInstructions(this, exitCodeValue));
-    super.prepareInstructions();
+  StringList parameterDescriptions() {
+    return ['exit code parameter'];
   }
 
-  Null constructor(CompiledIntrinsicsLibraryNullable parentArg) { 
+  Null generateInstructions() {
+    Slot exitCode = parameters[0];
+    ValueHandle exitCodeValue = exitCode.read(this);
+    emitInstruction(BuiltInExitSubroutineInstructions(this, exitCodeValue));
+    super.generateInstructions();
+  }
+
+  Null constructor(CompiledIntrinsicsLibrary parentArg) { 
     super.constructor(
       parentArg,
-      createOrFindSubroutineType(parentArg!.environment(), parentArg!.coreNullType, [ parentArg!.coreIntegerType ]:Type, false),
+      createOrFindSubroutineTypeWithSpecificParameters(parentArg.environment(), parentArg.coreNullType, [ parentArg.coreIntegerType ]:Type),
       'exit',
     );
   }
@@ -1785,7 +1839,9 @@ class KernelGetProcessHeapInstruction extends Instruction {
     assembler.addExternProc('GetProcessHeap');
     saveVolatileRegisters(assembler, blockId);
     assembler.addComment(blockId, 'Calling GetProcessHeap');
+    assembler.addCode(blockId, 'sub rsp, 20h', 'allocate shadow space');
     assembler.addCode(blockId, 'call GetProcessHeap', 'handle returned in rax');
+    assembler.addCode(blockId, 'add rsp, 20h', 'release shadow space');
     assembler.addMov(blockId, result.value!.asOperand(), rax, 'heap handle');
     assembler.addMov(blockId, result.type.type!.asOperand(), scope.environment().intrinsicsLibrary!.coreIntegerType.asOperand(), 'heap handle is an integer');
     restoreVolatileRegisters(assembler, blockId);
@@ -1798,21 +1854,170 @@ class KernelGetProcessHeapInstruction extends Instruction {
 }
 
 class KernelGetProcessHeapSubroutine extends BuiltInSubroutine {
-  Null prepareInstructions() {
+  Null generateInstructions() {
     emitInstruction(KernelGetProcessHeapInstruction(this, returnValue.prepareWrite(this)));
-    super.prepareInstructions();
+    super.generateInstructions();
   }
 
-  Null constructor(CompiledIntrinsicsLibraryNullable parentArg) { 
+  Null constructor(CompiledIntrinsicsLibrary parentArg) { 
     super.constructor(
       parentArg,
-      SubroutineTypeWithSpecificParameters(parentArg!.environment(), parentArg!.coreIntegerType, []:Type),
+      SubroutineTypeWithSpecificParameters(parentArg.environment(), parentArg.coreIntegerType, []:Type),
       '__getProcessHeap',
     );
   }
 }
 
+class KernelHeapAllocInstruction extends Instruction {
+  ValueHandle heapHandle;
+  ValueHandle flags;
+  ValueHandle size;
+  ValueHandle result;
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addIncludeLib('kernel32.lib');
+    assembler.addExternProc('HeapAlloc');
+    saveVolatileRegisters(assembler, blockId);
+    assembler.addComment(blockId, 'Calling HeapAlloc');
+    assembler.addMov(blockId, rcx, heapHandle.value!.asOperand(), 'hHeap argument');
+    assembler.addMov(blockId, rdx, flags.value!.asOperand(), 'dwFlags argument');
+    assembler.addMov(blockId, r8, size.value!.asOperand(), 'dwBytes argument');
+    assembler.addCode(blockId, 'sub rsp, 20h', 'allocate shadow space');
+    assembler.addCode(blockId, 'call HeapAlloc', 'pointer returned in rax');
+    assembler.addCode(blockId, 'add rsp, 20h', 'release shadow space');
+    assembler.addMov(blockId, result.value!.asOperand(), rax, 'pointer');
+    assembler.addMov(blockId, result.type.type!.asOperand(), scope.environment().intrinsicsLibrary!.coreIntegerType.asOperand(), 'pointer is an integer');
+    restoreVolatileRegisters(assembler, blockId);
+  }
+
+  Null constructor(CompiledScope scopeArg, ValueHandle heapHandleArg, ValueHandle flagsArg, ValueHandle sizeArg, ValueHandle resultArg) {
+    super.constructor(scopeArg);
+    heapHandle = heapHandleArg;
+    flags = flagsArg;
+    size = sizeArg;
+    result = resultArg;
+  }
+}
+
+class KernelHeapAllocSubroutine extends BuiltInSubroutine {
+  StringList parameterDescriptions() {
+    return ['heapHandle', 'flags', 'size'];
+  }
+
+  Null generateInstructions() {
+    emitInstruction(KernelHeapAllocInstruction(this, parameters[0].read(this), parameters[1].read(this), parameters[2].read(this), returnValue.prepareWrite(this)));
+    super.generateInstructions();
+  }
+
+  Null constructor(CompiledIntrinsicsLibrary parentArg) { 
+    super.constructor(
+      parentArg,
+      SubroutineTypeWithSpecificParameters(
+        parentArg.environment(),
+        parentArg.coreIntegerType,
+        [ parentArg.coreIntegerType, parentArg.coreIntegerType, parentArg.coreIntegerType ]:Type,
+      ),
+      '__heapAlloc',
+    );
+  }
+}
+
+class KernelHeapFreeInstruction extends Instruction {
+  ValueHandle heapHandle;
+  ValueHandle flags;
+  ValueHandle pointer;
+  ValueHandle result;
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addIncludeLib('kernel32.lib');
+    assembler.addExternProc('HeapFree');
+    saveVolatileRegisters(assembler, blockId);
+    assembler.addComment(blockId, 'Calling HeapFree');
+    assembler.addMov(blockId, rcx, heapHandle.value!.asOperand(), 'hHeap argument');
+    assembler.addMov(blockId, rdx, flags.value!.asOperand(), 'dwFlags argument');
+    assembler.addMov(blockId, r8, pointer.value!.asOperand(), 'lpMem argument');
+    assembler.addCode(blockId, 'sub rsp, 20h', 'allocate shadow space');
+    assembler.addCode(blockId, 'call HeapFree', 'result (positive for success, zero for failure) is in rax');
+    assembler.addCode(blockId, 'add rsp, 20h', 'release shadow space');
+    assembler.addMov(blockId, result.value!.asOperand(), rax, 'result (positive for success, zero for failure)');
+    assembler.addMov(blockId, result.type.type!.asOperand(), scope.environment().intrinsicsLibrary!.coreIntegerType.asOperand(), 'result is an integer');
+    restoreVolatileRegisters(assembler, blockId);
+  }
+
+  Null constructor(CompiledScope scopeArg, ValueHandle heapHandleArg, ValueHandle flagsArg, ValueHandle pointerArg, ValueHandle resultArg) {
+    super.constructor(scopeArg);
+    heapHandle = heapHandleArg;
+    flags = flagsArg;
+    pointer = pointerArg;
+    result = resultArg;
+  }
+}
+
+class KernelHeapFreeSubroutine extends BuiltInSubroutine {
+  StringList parameterDescriptions() {
+    return ['heapHandle', 'flags', 'pointer'];
+  }
+
+  Null generateInstructions() {
+    emitInstruction(KernelHeapFreeInstruction(this, parameters[0].read(this), parameters[1].read(this), parameters[2].read(this), returnValue.prepareWrite(this)));
+    super.generateInstructions();
+  }
+
+  Null constructor(CompiledIntrinsicsLibrary parentArg) { 
+    super.constructor(
+      parentArg,
+      SubroutineTypeWithSpecificParameters(
+        parentArg.environment(),
+        parentArg.coreIntegerType,
+        [ parentArg.coreIntegerType, parentArg.coreIntegerType, parentArg.coreIntegerType ]:Type,
+      ),
+      '__heapFree',
+    );
+  }
+}
+
+class KernelGetLastErrorInstruction extends Instruction {
+  ValueHandle result;
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addIncludeLib('kernel32.lib');
+    assembler.addExternProc('GetLastError');
+    saveVolatileRegisters(assembler, blockId);
+    assembler.addComment(blockId, 'Calling GetLastError');
+    assembler.addCode(blockId, 'sub rsp, 20h', 'allocate shadow space');
+    assembler.addCode(blockId, 'call GetLastError', 'error code returned in rax');
+    assembler.addCode(blockId, 'add rsp, 20h', 'release shadow space');
+    assembler.addMov(blockId, result.value!.asOperand(), rax, 'error code');
+    assembler.addMov(blockId, result.type.type!.asOperand(), scope.environment().intrinsicsLibrary!.coreIntegerType.asOperand(), 'error code is an integer');
+    restoreVolatileRegisters(assembler, blockId);
+  }
+
+  Null constructor(CompiledScope scopeArg, ValueHandle resultArg) {
+    super.constructor(scopeArg);
+    result = resultArg;
+  }
+}
+
+class KernelGetLastErrorSubroutine extends BuiltInSubroutine {
+  Null generateInstructions() {
+    emitInstruction(KernelGetLastErrorInstruction(this, returnValue.prepareWrite(this)));
+    super.generateInstructions();
+  }
+
+  Null constructor(CompiledIntrinsicsLibrary parentArg) { 
+    super.constructor(
+      parentArg,
+      SubroutineTypeWithSpecificParameters(parentArg.environment(), parentArg.coreIntegerType, []:Type),
+      '__getLastError',
+    );
+  }
+}
+
 class BuiltInLenSubroutine extends BuiltInSubroutine {
+  StringList parameterDescriptions() {
+    return ['list'];
+  }
+
   SlotNullable inline(CompiledScope scope, ValueHandleList arguments) {
     if (len(arguments) == 1 && arguments[0].value is VarArgsParameterVot) {
       return scope.registerStaticValue(OperandVot(environment().intrinsicsLibrary!.coreIntegerType as Type, rcx), 'parameter count');
@@ -1821,22 +2026,56 @@ class BuiltInLenSubroutine extends BuiltInSubroutine {
     return null;
   }
 
-  Null prepareInstructions() {
-    super.prepareInstructions();
+  Null generateInstructions() {
+    super.generateInstructions();
     // TODO: implement
     emitInstruction(CommentInstruction(this, 'TODO: implement "len" function'));
   }
 
-  Null constructor(CompiledIntrinsicsLibraryNullable parentArg) { 
+  Null constructor(CompiledIntrinsicsLibrary parentArg) { 
     super.constructor(
       parentArg,
-      createOrFindSubroutineType(
-        parentArg!.environment(),
-        parentArg!.coreIntegerType,
-        [ createOrFindReadOnlyListType(parentArg!.environment(), parentArg!.coreWhateverType) ]:Type,
-        false,
+      createOrFindSubroutineTypeWithSpecificParameters(
+        parentArg.environment(),
+        parentArg.coreIntegerType,
+        [ createOrFindReadOnlyListType(parentArg.environment(), parentArg.coreWhateverType) ]:Type,
       ),
       'len',
+    );
+  }
+}
+
+class Interrupt3Instruction extends Instruction {
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addCode(blockId, 'int 3', 'call debugger');
+  }
+}
+
+class BuiltInDebuggerSubroutine extends BuiltInSubroutine {
+  SlotNullable inline(CompiledScope scope, ValueHandleList arguments) {
+    if (len(arguments) == 0) {
+      scope.emitInstruction(Interrupt3Instruction(scope));
+      return environment().intrinsicsLibrary!.coreNull;
+    }
+    assert(false, 'non-inline debugger() not yet implemented');
+    return null;
+  }
+
+  Null generateInstructions() {
+    super.generateInstructions();
+    // TODO: implement
+    emitInstruction(CommentInstruction(this, 'TODO: implement "debugger" function'));
+  }
+
+  Null constructor(CompiledIntrinsicsLibrary parentArg) { 
+    super.constructor(
+      parentArg,
+      createOrFindSubroutineTypeWithSpecificParameters(
+        parentArg.environment(),
+        parentArg.coreNullType,
+        [ ]:Type,
+      ),
+      '__debugger',
     );
   }
 }
@@ -1895,6 +2134,10 @@ class BuiltInReadFromAddressIntrinsicInstruction extends Instruction {
 }
 
 class BuiltInReadFromAddressIntrinsic extends CompilerIntrinsic {
+  StringList parameterDescriptions() {
+    return ['address'];
+  }
+
   Slot inlineBody(CompiledScope scope, ValueHandleList arguments) {
     Slot returnValue = scope.registerDynamicValue(
       environment().intrinsicsLibrary!.coreIntegerType,
@@ -1905,14 +2148,13 @@ class BuiltInReadFromAddressIntrinsic extends CompilerIntrinsic {
     return returnValue;
   }
 
-  Null constructor(CompiledIntrinsicsLibraryNullable parentArg) { 
+  Null constructor(CompiledIntrinsicsLibrary parentArg) { 
     super.constructor(
       parentArg,
-      createOrFindSubroutineType(
-        parentArg!.environment(),
-        parentArg!.coreIntegerType,
-        [ parentArg!.coreIntegerType ]:Type,
-        false,
+      createOrFindSubroutineTypeWithSpecificParameters(
+        parentArg.environment(),
+        parentArg.coreIntegerType,
+        [ parentArg.coreIntegerType ]:Type,
       ),
       '__readFromAddress',
     );

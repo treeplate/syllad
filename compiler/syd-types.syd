@@ -376,17 +376,30 @@ class SubroutineTypeWithSpecificParameters extends AbstractSubroutineTypeWithSpe
   }
 }
 
-AbstractSubroutineTypeWithSpecificParameters createOrFindSubroutineType(TypeRegistry typeRegistry, Type returnType, TypeList parameterTypes, Boolean isVarArgs) {
+AbstractSubroutineTypeWithSpecificParametersNullable findSubroutineType(TypeRegistry typeRegistry, Type returnType, TypeList parameterTypes, Boolean isVarArgs) {
   for (entry in typeRegistry.typesOfSubroutinesWithSpecificParameters) {
     if (entry.equals(returnType, parameterTypes, isVarArgs)) {
       return entry;
     }
   }
-  if (isVarArgs) {
-    assert(len(parameterTypes) == 1, 'varargs must have exactly one parameter type');
+  return null;
+}
+
+SubroutineTypeWithVarArgs createOrFindSubroutineTypeWithVarArgs(TypeRegistry typeRegistry, Type returnType, TypeList parameterTypes) {
+  assert(len(parameterTypes) == 1, 'varargs must have exactly one parameter type');
+  AbstractSubroutineTypeWithSpecificParametersNullable result = findSubroutineType(typeRegistry, returnType, parameterTypes, true);
+  if (result == null) {
     return SubroutineTypeWithVarArgs(typeRegistry, returnType, parameterTypes[0]);
   }
-  return SubroutineTypeWithSpecificParameters(typeRegistry, returnType, parameterTypes);
+  return result as SubroutineTypeWithVarArgs;
+}
+
+SubroutineTypeWithSpecificParameters createOrFindSubroutineTypeWithSpecificParameters(TypeRegistry typeRegistry, Type returnType, TypeList parameterTypes) {
+  AbstractSubroutineTypeWithSpecificParametersNullable result = findSubroutineType(typeRegistry, returnType, parameterTypes, false);
+  if (result == null) {
+    return SubroutineTypeWithSpecificParameters(typeRegistry, returnType, parameterTypes);
+  }
+  return result as SubroutineTypeWithSpecificParameters;
 }
 
 // xxx ListLiteral
