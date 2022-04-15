@@ -1,16 +1,37 @@
 // TODO:
-//  - implement heap
-//  - implement __alloc (and free)
+//  - fix duplicates in type table
 //  - implement __moveBytes(a, b, length): copy length bytes from a to b
 //  - implement __writeToAddress(a, x): copies integer x to memory at address a
 //  - implement string ref counting
 
-/*
+Integer _heapHandle = __getProcessHeap();
+
+/// Allocates a block on the heap.
+///
+/// Block must be freed with [_free].
+Integer _alloc(Integer size) {
+  return __heapAlloc(_heapHandle, 0x00, size);
+}
+
+/// Frees a heap allocation obtained from [_alloc].
+///
+/// Return true if successful.
+///
+/// If false, use [_getLastError] (not yet implemented) to find error code.
+Boolean _free(Integer pointer) {
+  if (__heapFree(_heapHandle, 0x00, pointer) == 0) {
+    println('failed to free pointer, error code: ', __getLastError());
+    exit(1);
+  }
+  return true;
+}
+
 String _stringAllocLength(String data) {
   Integer pointer = data __as__ Integer;
   return __readFromAddress(pointer + 8);
 }
 
+/*
 String concat(String... arguments) {
   Integer length = 0;
   Integer index = 0;
@@ -101,7 +122,7 @@ String _stringify(Anything arg) {
   exit(1);
 }
 
-Null print(String... parts) { 
+Null print(Anything... parts) { 
   Boolean first = true;
   Integer index = 0;
   while (index < len(parts)) {
@@ -114,7 +135,7 @@ Null print(String... parts) {
   }
 }
 
-Null println(String... parts) { 
+Null println(Anything... parts) { 
   Boolean first = true;
   Integer index = 0;
   while (index < len(parts)) {
