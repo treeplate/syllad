@@ -1,7 +1,5 @@
 // TODO:
-//  - fix duplicates in type table
 //  - implement __moveBytes(a, b, length): copy length bytes from a to b
-//  - implement __writeToAddress(a, x): copies integer x to memory at address a
 //  - implement string ref counting
 
 Integer _heapHandle = __getProcessHeap();
@@ -11,19 +9,6 @@ Integer _heapHandle = __getProcessHeap();
 /// Block must be freed with [_free].
 Integer _alloc(Integer size) {
   return __heapAlloc(_heapHandle, 0x00, size);
-}
-
-/// Frees a heap allocation obtained from [_alloc].
-///
-/// Return true if successful.
-///
-/// If false, use [_getLastError] (not yet implemented) to find error code.
-Boolean _free(Integer pointer) {
-  if (__heapFree(_heapHandle, 0x00, pointer) == 0) {
-    println('failed to free pointer, error code: ', __getLastError());
-    exit(1);
-  }
-  return true;
 }
 
 String _stringAllocLength(String data) {
@@ -147,4 +132,17 @@ Null println(Anything... parts) {
     index += 1;
   }
   __print('\n');
+}
+
+/// Frees a heap allocation obtained from [_alloc].
+///
+/// Return true if successful.
+///
+/// If false, use [_getLastError] (not yet implemented) to find error code.
+Boolean _free(Integer pointer) {
+  if (__heapFree(_heapHandle, 0x00, pointer) == 0) {
+    println('failed to free pointer, error code: ', __getLastError());
+    exit(1);
+  }
+  return true;
 }

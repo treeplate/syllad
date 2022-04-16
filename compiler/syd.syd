@@ -1,4 +1,12 @@
 /*
+Null throw(String t) {
+  println('hi', t);
+}
+
+Integer x;
+println(x);
+*/
+/*
 IntegerList x = [3,2]:Integer;
 append(x as AnythingList, "h");
 println(x);
@@ -113,7 +121,6 @@ stderr('syllad self-hosting compiler');
 //     - returns are "not really type safe"
 //     - functions without returns aren't statically checked
 //     - toString returning non-string isn't checked for either
-//     - currently not true with uninitialized variables (they start as a sentinel of type 'uninitialized' instead)
 //     - shadow rules are weird: class A { } class B extends A { Null println() { } }
 //   function types with signatures
 //   string interpolation

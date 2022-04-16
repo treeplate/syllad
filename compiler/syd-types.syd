@@ -327,6 +327,11 @@ class AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineTyp
   Boolean equals(Type returnTypeArg, TypeList parameterTypesArg, Boolean isVarArgsArg) {
     abstract();
   }
+
+  Null constructor(TypeRegistry typeRegistryArg, Type returnTypeArg) {
+    super.constructor(typeRegistryArg, returnTypeArg);
+    append(typeRegistryArg.typesOfSubroutinesWithSpecificParameters, this);
+  }
 }
 
 class SubroutineTypeWithVarArgs extends AbstractSubroutineTypeWithSpecificParameters {
@@ -446,6 +451,7 @@ class ReadOnlyListType extends AbstractListType {
 
   Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
     super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'ReadOnlyList'), elementTypeArg);
+    append(typeRegistryArg.typesOfReadOnlyLists, this);
   }
 }
 

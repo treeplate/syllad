@@ -82,6 +82,8 @@ fwdclass CompilerIntrinsic extends BuiltInSubroutine;
 fwdclassprop NullFunction CompilerIntrinsic.constructor;
 fwdclass BuiltInReadFromAddressIntrinsic extends CompilerIntrinsic;
 fwdclassprop NullFunction BuiltInReadFromAddressIntrinsic.constructor;
+fwdclass BuiltInWriteToAddressIntrinsic extends CompilerIntrinsic;
+fwdclassprop NullFunction BuiltInWriteToAddressIntrinsic.constructor;
 fwdclass CompiledVarArgsSubroutine extends CompiledSubroutine;
 fwdclassprop NullFunction CompiledVarArgsSubroutine.constructor;
 
@@ -214,6 +216,7 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
     registerSubroutine(KernelGetLastErrorSubroutine(this));
     // intrinsics (functions that only work when inlined)
     registerSubroutine(BuiltInReadFromAddressIntrinsic(this));
+    registerSubroutine(BuiltInWriteToAddressIntrinsic(this));
     // messages
     parameterCountCheckFailureMessage = registerStringConstant(
       'parameterCountCheckFailureMessage',
@@ -1783,7 +1786,7 @@ class BuiltInPrintSubroutine extends BuiltInSubroutine {
   Null constructor(CompiledIntrinsicsLibrary parentArg) { 
     super.constructor(
       parentArg,
-      SubroutineTypeWithSpecificParameters(parentArg.environment(), parentArg.coreNullType, [parentArg.coreStringType]:Type),
+      createOrFindSubroutineTypeWithSpecificParameters(parentArg.environment(), parentArg.coreNullType, [parentArg.coreStringType]:Type),
       '__print',
     );
   }
@@ -1862,7 +1865,7 @@ class KernelGetProcessHeapSubroutine extends BuiltInSubroutine {
   Null constructor(CompiledIntrinsicsLibrary parentArg) { 
     super.constructor(
       parentArg,
-      SubroutineTypeWithSpecificParameters(parentArg.environment(), parentArg.coreIntegerType, []:Type),
+      createOrFindSubroutineTypeWithSpecificParameters(parentArg.environment(), parentArg.coreIntegerType, []:Type),
       '__getProcessHeap',
     );
   }
@@ -1912,7 +1915,7 @@ class KernelHeapAllocSubroutine extends BuiltInSubroutine {
   Null constructor(CompiledIntrinsicsLibrary parentArg) { 
     super.constructor(
       parentArg,
-      SubroutineTypeWithSpecificParameters(
+      createOrFindSubroutineTypeWithSpecificParameters(
         parentArg.environment(),
         parentArg.coreIntegerType,
         [ parentArg.coreIntegerType, parentArg.coreIntegerType, parentArg.coreIntegerType ]:Type,
@@ -1966,7 +1969,7 @@ class KernelHeapFreeSubroutine extends BuiltInSubroutine {
   Null constructor(CompiledIntrinsicsLibrary parentArg) { 
     super.constructor(
       parentArg,
-      SubroutineTypeWithSpecificParameters(
+      createOrFindSubroutineTypeWithSpecificParameters(
         parentArg.environment(),
         parentArg.coreIntegerType,
         [ parentArg.coreIntegerType, parentArg.coreIntegerType, parentArg.coreIntegerType ]:Type,
@@ -2007,7 +2010,7 @@ class KernelGetLastErrorSubroutine extends BuiltInSubroutine {
   Null constructor(CompiledIntrinsicsLibrary parentArg) { 
     super.constructor(
       parentArg,
-      SubroutineTypeWithSpecificParameters(parentArg.environment(), parentArg.coreIntegerType, []:Type),
+      createOrFindSubroutineTypeWithSpecificParameters(parentArg.environment(), parentArg.coreIntegerType, []:Type),
       '__getLastError',
     );
   }
@@ -2157,6 +2160,45 @@ class BuiltInReadFromAddressIntrinsic extends CompilerIntrinsic {
         [ parentArg.coreIntegerType ]:Type,
       ),
       '__readFromAddress',
+    );
+  }
+}
+
+class BuiltInWriteToAddressIntrinsicInstruction extends Instruction {
+  ValueHandle address;
+  ValueHandle value;
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addMov(blockId, r10, address.value!.asOperand(), concat('value of ', address.source.debugName));
+    assembler.addMov(blockId, r10Dereference, value.value!.asOperand(), concat('put ', value.source.debugName, ' in ', address.source.debugName));
+  }
+
+  Null constructor(CompiledScope scopeArg, ValueHandle addressArg, ValueHandle valueArg) {
+    super.constructor(scopeArg);
+    address = addressArg;
+    value = valueArg;
+  }
+}
+
+class BuiltInWriteToAddressIntrinsic extends CompilerIntrinsic {
+  StringList parameterDescriptions() {
+    return ['address', 'value'];
+  }
+
+  Slot inlineBody(CompiledScope scope, ValueHandleList arguments) {
+    scope.emitInstruction(BuiltInWriteToAddressIntrinsicInstruction(scope, arguments[0], arguments[1]));
+    return scope.environment().intrinsicsLibrary!.coreNull;
+  }
+
+  Null constructor(CompiledIntrinsicsLibrary parentArg) { 
+    super.constructor(
+      parentArg,
+      createOrFindSubroutineTypeWithSpecificParameters(
+        parentArg.environment(),
+        parentArg.coreNullType,
+        [ parentArg.coreIntegerType, parentArg.coreIntegerType ]:Type,
+      ),
+      '__writeToAddress',
     );
   }
 }
