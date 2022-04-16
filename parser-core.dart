@@ -166,15 +166,51 @@ class TypeValidator {
   }
 }
 
-class ValueWrapper {
-  final ValueType type;
-  final dynamic value;
-  final String debugCreationDescription;
+void throwWithStack(Scope scope, List<String> stack, String value) {
+  ValueWrapper thrower = scope.getVar('throw', -2, 0, 'while throwing $value');
+  thrower._value([ValueWrapper(stringType, value, 'string to throw')], stack);
+}
 
-  ValueWrapper(this.type, this.value, this.debugCreationDescription);
+class ValueWrapper {
+  final ValueType? _type;
+  final dynamic _value;
+  final String debugCreationDescription;
+  final bool canBeRead;
+  ValueType typeC(Scope? scope, List<String> stack) {
+    if (canBeRead) {
+      return _type!;
+    } else {
+      return valueC(scope, stack);
+    }
+  }
+
+  dynamic valueC(Scope? scope, List<String> stack, [bool readingType = false]) {
+    if (canBeRead) {
+      return _value;
+    } else {
+      scope == null
+          ? (throw FileInvalid(
+              "$debugCreationDescription was attempted to be read while unititalized (reading type: $readingType)\n${stack.reversed.join('\n')}"))
+          : throwWithStack(
+              scope,
+              stack,
+              "$debugCreationDescription was attempted to be read while unititalized (reading type: $readingType)",
+            );
+      assert(false, 'throw did not exit');
+    }
+  }
+
+  ValueWrapper(this._type, this._value, this.debugCreationDescription,
+      [this.canBeRead = true]);
 
   String toString() =>
-      value is Function ? "<function ($debugCreationDescription)>" : "$value";
+      toStringWithStack(['internal error: ValueWrapper.toString() called']);
+
+  String toStringWithStack(List<String> s) {
+    return _value is Function
+        ? "<function ($debugCreationDescription)>"
+        : toStringWithStacker(this, s);
+  }
 }
 
 Map<String, int> fileTypes = {};
@@ -404,8 +440,6 @@ class StrWrapper {
   StrWrapper(this.x);
 }
 
-StrWrapper startingValueOfVar = StrWrapper("<uninitialized>");
-
 class Scope {
   Scope({this.parent, required this.stack, this.declaringClass});
 
@@ -427,10 +461,11 @@ class Scope {
   String toStringWithStack(List<String> stack2) {
     return values.containsKey('toString')
         ? values['toString']!
-            .value(<ValueWrapper>[], stack2 + ["implicit toString"])
+            .valueC(this, stack2 + ["implicit toString"])
+            (<ValueWrapper>[], stack2 + ["implicit toString"])
             .value
-            .value
-        : "<${values['className']?.value ?? '(instance of class: stack: $stack)'}>";
+            .valueC(this, stack2 + ["implicit toString"])
+        : "<${values['className']?.valueC(this, stack2) ?? '(instance of class: stack: $stack)'}>";
   }
 
   Map<String, ValueWrapper> values = {};
@@ -446,9 +481,9 @@ class Scope {
       if (!values.containsKey(name))
         throw FileInvalid(
             "attempted $name${subscripts.map((e) => '[$e]').join()} = $value but $name did not exist");
-      List<ValueWrapper> list = values[name]!.value;
+      List<ValueWrapper> list = values[name]!.valueC(this, stack);
       while (subscripts.length > 1) {
-        list = list[subscripts.first].value;
+        list = list[subscripts.first].valueC(this, stack);
         subscripts.removeAt(0);
       }
       list[subscripts.single] = value;
@@ -712,5 +747,13 @@ class InfiniteIterator<T> extends Iterator<T> {
   @override
   bool moveNext() {
     return true;
+  }
+}
+
+String toStringWithStacker(ValueWrapper x, List<String> s) {
+  if (x.typeC(null, s) is ClassValueType) {
+    return x.valueC(null, s).toStringWithStack(s);
+  } else {
+    return x.valueC(null, s).toString();
   }
 }

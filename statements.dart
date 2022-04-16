@@ -16,8 +16,10 @@ class SetStatement extends Statement {
   @override
   StatementResult run(Scope scope) {
     var right = val.eval(scope);
-    List<int> list =
-        subscripts.map((e) => e.eval(scope).value).cast<int>().toList();
+    List<int> list = subscripts
+        .map((e) => e.eval(scope).valueC(scope, scope.stack))
+        .cast<int>()
+        .toList();
     scope.setVar(
       name,
       list,
@@ -53,7 +55,7 @@ class ImportStatement extends Statement {
 class NewVarStatement extends Statement {
   final String name;
 
-  final Expression val;
+  final Expression? val;
 
   String toString() => "var $name = $val";
 
@@ -61,7 +63,8 @@ class NewVarStatement extends Statement {
 
   @override
   StatementResult run(Scope scope) {
-    scope.values[name] = val.eval(scope);
+    scope.values[name] =
+        val?.eval(scope) ?? ValueWrapper(null, null, name, false);
     return StatementResult(StatementResultType.nothing);
   }
 }
@@ -130,9 +133,11 @@ class FunctionStatement extends Statement {
           case StatementResultType.nothing:
             break;
           case StatementResultType.returnFunction:
-            if (value.value!.type.isSubtypeOf(returnType)) return value;
+            if (value.value!
+                .typeC(funscope, funscope.stack)
+                .isSubtypeOf(returnType)) return value;
             throw FileInvalid(
-                "You cannot return a ${value.value!.type} (${value.value!.value}) from $fromClass$name, which is supposed to return a $returnType!     ${formatCursorPosition(line, col, file)}\n${funscope.stack.reversed.join('\n')} ");
+                "You cannot return a ${value.value!.typeC(funscope, funscope.stack)} (${value.value!.valueC(funscope, funscope.stack)}) from $fromClass$name, which is supposed to return a $returnType!     ${formatCursorPosition(line, col, file)}\n${funscope.stack.reversed.join('\n')} ");
           case StatementResultType.breakWhile:
             throw FileInvalid("Break outside while");
           case StatementResultType.continueWhile:
@@ -166,7 +171,7 @@ class WhileStatement extends Statement {
   StatementResult run(Scope scope) {
     Scope whileScope =
         createParentScope ? Scope(parent: scope, stack: scope.stack) : scope;
-    while (cond.eval(scope).value) {
+    while (cond.eval(scope).valueC(whileScope, whileScope.stack)) {
       block:
       for (Statement statement in body) {
         StatementResult statementResult = statement.run(whileScope);
@@ -174,11 +179,13 @@ class WhileStatement extends Statement {
           case StatementResultType.nothing:
             break;
           case StatementResultType.breakWhile:
-            if (statementResult.value!.value || catchReturns)
+            if (statementResult.value!.valueC(whileScope, whileScope.stack) ||
+                catchReturns)
               return StatementResult(StatementResultType.nothing);
             return statementResult;
           case StatementResultType.continueWhile:
-            if (statementResult.value!.value || catchReturns) break block;
+            if (statementResult.value!.valueC(whileScope, whileScope.stack) ||
+                catchReturns) break block;
             return statementResult;
           case StatementResultType.returnFunction:
           case StatementResultType.unwindAndThrow:
@@ -321,7 +328,7 @@ class ClassStatement extends Statement {
             [],
             scope
                 .getVar('~$superclass~methods', line, col, 'TODO TODO')
-                .value
+                .valueC(scope, scope.stack)
                 .getVar('constructor', line, col, 'TODO TODO'));
       }
     }
@@ -333,16 +340,16 @@ class ClassStatement extends Statement {
         (List<ValueWrapper> args, List<String> stack, Scope thisScope,
             ValueType thisType) {
           if (superclass != null) {
-            scope.getVar('~$superclass', line, col, 'TODO').value(
-                <ValueWrapper>[],
-                stack + ['~$superclass'],
-                thisScope,
-                thisType);
+            scope
+                    .getVar('~$superclass', line, col, 'TODO')
+                    .valueC(scope, scope.stack)(<ValueWrapper>[],
+                stack + ['~$superclass'], thisScope, thisType);
           }
-          for (MapEntry<String, ValueWrapper> x in methods.values.entries) {
-            thisScope.values[x.key] = ValueWrapper(x.value.type,
-                (List<ValueWrapper> args2, List<String> stack2) {
-              return (x.value.value as Function)(
+          for (MapEntry<String, ValueWrapper?> x in methods.values.entries) {
+            thisScope.values[x.key] =
+                ValueWrapper(x.value!.typeC(scope, scope.stack),
+                    (List<ValueWrapper> args2, List<String> stack2) {
+              return (x.value!.valueC(scope, scope.stack) as Function)(
                   args2, stack2, thisScope, thisType);
             }, 'method $name.${x.key}');
           }
@@ -383,9 +390,9 @@ class ClassStatement extends Statement {
                     ? []
                     : scope
                         .internal_getVar('~$superclass~methods')!
-                        .value
+                        .valueC(scope, scope.stack)
                         .internal_getVar('constructor')
-                        .type
+                        .typeC(scope, scope.stack)
                         .parameters,
             file),
         (List<ValueWrapper> args, List<String> stack) {
@@ -393,16 +400,17 @@ class ClassStatement extends Statement {
               Scope(parent: scope, stack: stack + ['$name-instance']);
           thisScope.values['className'] =
               ValueWrapper(stringType, name, 'className');
-          scope
-              .getVar('~$name', line, col, 'TODO')
-              .value(<ValueWrapper>[], stack + ['~$name'], thisScope, type);
-          (thisScope.internal_getVar('constructor')?.value ??
+          scope.getVar('~$name', line, col, 'TODO').valueC(scope, scope.stack)(
+              <ValueWrapper>[], stack + ['~$name'], thisScope, type);
+          (thisScope
+                  .internal_getVar('constructor')
+                  ?.valueC(scope, scope.stack) ??
               (superclass == null
                       ? (List<ValueWrapper> args, List<String> stack,
                           Scope thisScope) {}
                       : scope
                           .internal_getVar('~$superclass~methods')!
-                          .value
+                          .valueC(scope, scope.stack)
                           .getVar('constructor'))
                   .value)(args, stack + ['$name.constructor']);
           return ValueWrapper(type, thisScope, 'instance of $name');

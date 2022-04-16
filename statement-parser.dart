@@ -329,10 +329,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         }
         return NewVarStatement(
           ident2,
-          BoringExpr(
-              startingValueOfVar,
-              ValueType(sharedSupertype, 'unassigned', tokens.current.line,
-                  tokens.current.col, tokens.file)),
+          null,
           tokens.current.line,
           tokens.current.col,
         );

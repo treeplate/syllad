@@ -539,7 +539,7 @@ class TokenIterator extends Iterator<Token> {
   }
 
   void expectChar(TokenType char) {
-    if (char != currentChar) {
+    if (current is! CharToken || char != currentChar) {
       throw FileInvalid(
           "Expected $char, got $current on line ${current.line} column ${current.col} file $file");
     }
