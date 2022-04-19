@@ -164,8 +164,6 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
   Slot asOperatorFailureMessage;
   Slot boundsFailureMessage;
 
-  Slot readOnlyListCount;
-
   Slot registerStringConstant(String labelBase, String value, Integer line, Integer col, String file) {
     String label = compilationEnvironment.generateLabel(labelBase);
     emitInstruction(StringConstantInstruction(
@@ -248,8 +246,6 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
       'error: subscript index out of range (%d is not in range %d..%d)\n',
       __LINE__, __COL__, __FILE__,
     );
-    readOnlyListCount = registerDynamicValue(coreIntegerType, 'read-only list count');
-    readOnlyListCount.write(this, ValueHandle(integers, LiteralIntegerVot(coreIntegerType, 0)));
   }
 }
 
@@ -811,6 +807,103 @@ class StoreTypeCheckInstruction extends TypeCheckInstruction {
   }
 }
 
+class MonoOperandInstruction extends Instruction {
+  String opcode;
+  ValueHandle rhs;
+  ValueHandle result;
+  Type resultType;
+  String comment;
+
+  Null prepareInstructions() {
+    super.prepareInstructions();
+    result.forceAllocation(); // TODO: can we allow this to use a register...?
+  }
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addMov(blockId, result.value!.asOperand(), rhs.value!.asOperand(), concat('move operand into location for result of ', opcode));
+    assembler.addCode(blockId, concat('not qword ptr', result.value!.asOperand().value), comment);
+    assembler.addMov(blockId, result.type.type!.asOperand(), resultType.asOperand(), 'store type');
+  }
+
+  Null constructor(CompiledScope scopeArg, String opcodeArg, ValueHandle rhsArg, ValueHandle resultArg, Type resultTypeArg, String commentArg) {
+    super.constructor(scopeArg);
+    opcode = opcodeArg;
+    rhs = rhsArg;
+    result = resultArg;
+    resultType = resultTypeArg;
+    comment = commentArg;
+  }
+}
+
+class LogicalNotInstruction extends Instruction {
+  ValueHandle rhs;
+  ValueHandle result;
+  Type resultType;
+  String comment;
+
+  Null prepareInstructions() {
+    super.prepareInstructions();
+    result.forceAllocation(); // TODO: can we allow this to use a register...?
+  }
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addZero(blockId, r10, 'zero r10');
+    assembler.addTest(blockId, rhs.value!.asOperand(), rhs.value!.asOperand(), rhs.source.debugName, rhs.source.debugName);
+    assembler.addCode(blockId, 'sete byte ptr r10b', comment);
+    assembler.addMov(blockId, result.value!.asOperand(), r10, 'store result');
+    assembler.addMov(blockId, result.type.type!.asOperand(), resultType.asOperand(), 'store type');
+  }
+
+  Null constructor(CompiledScope scopeArg, ValueHandle rhsArg, ValueHandle resultArg, Type resultTypeArg, String commentArg) {
+    super.constructor(scopeArg);
+    rhs = rhsArg;
+    result = resultArg;
+    resultType = resultTypeArg;
+    comment = commentArg;
+  }
+}
+
+class ShiftInstruction extends Instruction {
+  String opcode;
+  ValueHandle lhs;
+  ValueHandle rhs;
+  ValueHandle result;
+  Type resultType;
+  String comment;
+
+  Null prepareInstructions() {
+    super.prepareInstructions();
+    result.forceAllocation(); // TODO: can we allow this to use a register...?
+  }
+
+  Null generateAssembler(Assembler assembler, Integer blockId) {
+    assembler.addMov(blockId, r10, lhs.value!.asOperand(), concat(opcode, ' mutates first operand, so indirect via register'));
+    if (!rhs.value!.asOperand().isImmediate()) {
+      Integer savedRegisterCount = len(scope.stackFrame().nonvolatileRegistersUsed());
+      // TODO: move the responsibility for saving rcx into shadow space (and generally tracking register use) to the stack frame
+      assembler.addMov(blockId, rcxShadow(savedRegisterCount), rcx, 'save rcx');
+      assembler.addMov(blockId, rcx, rhs.value!.asOperand(), concat(opcode, ' uses rcx'));
+      assembler.addMov(blockId, r10, lhs.value!.asOperand(), concat(opcode, ' mutates first operand, so indirect via register'));
+      assembler.addOpcode(blockId, opcode, [r10, Operand("cl", otRegister) /* cl is rcx */]:Operand, comment);
+      assembler.addMov(blockId, rcx, rcxShadow(savedRegisterCount), 'restore rcx');
+    } else {
+      assembler.addOpcode(blockId, opcode, [r10, rhs.value!.asOperand()]:Operand, comment);
+    }
+    assembler.addMov(blockId, result.value!.asOperand(), r10, 'store result');
+    assembler.addMov(blockId, result.type.type!.asOperand(), resultType.asOperand(), 'store type');
+  }
+
+  Null constructor(CompiledScope scopeArg, String opcodeArg, ValueHandle lhsArg, ValueHandle rhsArg, ValueHandle resultArg, Type resultTypeArg, String commentArg) {
+    super.constructor(scopeArg);
+    opcode = opcodeArg;
+    lhs = lhsArg;
+    rhs = rhsArg;
+    result = resultArg;
+    resultType = resultTypeArg;
+    comment = commentArg;
+  }
+}
+
 class BiOperandInstruction extends Instruction {
   String opcode;
   ValueHandle lhs;
@@ -1010,19 +1103,19 @@ class WriteStaticSlotInstruction extends SlotInstruction {
   ValueVot value;
   Boolean inlined;
 
-  // XXX when assembling, defer to slot.type
-  // e.g. for ref counting management of Strings, GC of lists and objects
-
   Null generateAssembler(Assembler assembler, Integer blockId) {
     if (!inlined) {
       if (slot.location != null) {
         assert(!slot.isImmutable, 'cannot change a static slot\'s value');
+        // XXX call incref, decref
         assembler.addMov(blockId, slot.location!.asOperand(), value.asOperand(), concat('value of ', slot.debugName));
         if (slot.staticType.hasDynamicType()) {
           assert(value.staticType.hasDynamicType(), concat('unexpectedly tried to map value of normal type ', slot.staticType, ' to non-dynamic-supporting type ', value.staticType));
           assembler.addMov(blockId, slot.location!.dynamicType().asOperand(), value.dynamicType().asOperand(), concat('type of ', slot.debugName));
         }
       } else {
+        assert(false, 'dynamic slot assignment for static slots not supported');
+        // before enabling this code, think hard about how it affects string reference counting
         slot.assignLocation(value);
       }
     }
@@ -1033,6 +1126,7 @@ class WriteStaticSlotInstruction extends SlotInstruction {
     value = valueArg;
     if (slot.isImmutable) {
       slot.assignLocation(value);
+      // XXX need to exempt slot from incref and decref
       inlined = true;
     } else {
       inlined = false;
@@ -1043,16 +1137,16 @@ class WriteStaticSlotInstruction extends SlotInstruction {
 class WriteDynamicSlotInstruction extends SlotInstruction {
   ValueHandle value;
 
-  // XXX when assembling, defer to slot.type
-  // e.g. for ref counting management of Strings, GC of lists and objects
-
   Null generateAssembler(Assembler assembler, Integer blockId) {
     if (slot.location != null) {
+      // XXX call incref, decref
       assembler.addMov(blockId, slot.location!.asOperand(), value.value!.asOperand(), concat('value of ', slot.debugName));
       if ((slot.staticType as Type).hasDynamicType()) {
         assembler.addMov(blockId, slot.location!.dynamicType().asOperand(), value.type.type!.asOperand(), concat('type of ', slot.debugName));
       }
     } else {
+      assert(false, concat('dynamic slot assignment for dynamic slots not supported (slot: ', slot.debugName, ')'));
+      // before enabling this code, think hard about how it affects string reference counting
       slot.assignLocation(value.value!);
     }
   }
@@ -1535,6 +1629,7 @@ class CompiledStackFrameScope extends CompiledScope {
   }
 
   Null generateEpilogAssembler(Assembler assembler, Integer blockId) {
+    //xxx add string decrefs
     assembler.addComment(blockId, 'Epilog');
     if (stackSize > 0) {
       assembler.addCode(blockId, concat('add rsp, ', hex8(stackSize)), 'free space for stack');
@@ -1624,6 +1719,7 @@ class CompiledSubroutine extends CompiledStackFrameScope {
     epilogLabel = environment().generateLabel(concat(labelPrefix(), '$epilog'));
     returnValue = registerDynamicValue(type.returnType, 'return value');
     returnValue.assignLocation(OperandPairVot(type.returnType, Operand('r15-08h', otIndirect), Operand('r15', otIndirect)));
+    // XXX need to exempt returnValue from decreffing (but it SHOULD incref)
   }
 
   String toStringIndent(Integer indent) {

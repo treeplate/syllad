@@ -294,6 +294,7 @@ Iterable<Token> lex(String file, String filename) sync* {
         break;
       case _LexerState.and:
         if (rune == 0x26) {
+          // &
           yield CharToken(TokenType.andand, line, col);
           state = _LexerState.top;
         } else {
@@ -305,6 +306,7 @@ Iterable<Token> lex(String file, String filename) sync* {
         break;
       case _LexerState.or:
         if (rune == 0x7c) {
+          // |
           yield CharToken(TokenType.oror, line, col);
           state = _LexerState.top;
         } else {
@@ -315,9 +317,11 @@ Iterable<Token> lex(String file, String filename) sync* {
         break;
       case _LexerState.greaterThan:
         if (rune == 0x3d) {
+          // =
           yield CharToken(TokenType.greaterEqual, line, col);
           state = _LexerState.top;
         } else if (rune == 0x3e) {
+          // >
           yield CharToken(TokenType.rightShift, line, col);
           state = _LexerState.top;
         } else {

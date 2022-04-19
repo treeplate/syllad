@@ -386,6 +386,24 @@ class UnaryExpression extends Expression {
 
   String describeOperator() { abstract(); }
 
+  Null generateTypeCheckInstructions(ValueHandle rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    abstract();
+    // e.g.:
+    // scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs));
+  }
+
+  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
+    abstract();
+    // e.g.:
+    // return intrinsics.coreIntegerType;
+  }
+
+  Null generateExpressionInstructions(ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    abstract();
+    // e.g.:
+    // scope.emitInstruction(AdditionInstruction(scope, rhsValue, result, concat(describeOperator(), ' operator')));
+  }
+  
   String toStringIndent(Integer indent) {
     return concat(
       describeOperator(),
@@ -395,6 +413,16 @@ class UnaryExpression extends Expression {
 
   Null walk(NullFunction callback, Anything context) {
     callback(rhs, context);
+  }
+
+  Slot generateInstructions(CompiledScope scope) {
+    // xxxx static type checks
+    CompiledIntrinsicsLibrary intrinsics = scope.environment().intrinsicsLibrary! as CompiledIntrinsicsLibrary;
+    ValueHandle rhsValue = rhs.generateInstructions(scope).read(scope);
+    generateTypeCheckInstructions(rhsValue, scope, intrinsics);
+    Slot result = scope.registerDynamicValue(returnType(intrinsics), concat(describeOperator(), ' unary operator result'));
+    generateExpressionInstructions(rhsValue, result.prepareWrite(scope), scope, intrinsics);
+    return result;
   }
 
   Null constructor(Expression rhsArg, SourceLocation sourceLocationArg) {
@@ -407,11 +435,36 @@ class IntegerNegationExpression extends UnaryExpression {
   String describeOperator() {
     return '-';
   }
+
+  Null generateTypeCheckInstructions(ValueHandle rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs));
+  }
+
+  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
+    return intrinsics.coreIntegerType;
+  }
+
+  Null generateExpressionInstructions(ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(MonoOperandInstruction(scope, 'neg', rhsValue, result, returnType(intrinsics), concat(describeOperator(), ' unary operator')));
+  }
 }
 
 class PlusExpression extends UnaryExpression {
   String describeOperator() {
     return '+';
+  }
+
+  Null generateTypeCheckInstructions(ValueHandle rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs));
+  }
+
+  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
+    return intrinsics.coreIntegerType;
+  }
+
+  Null generateExpressionInstructions(ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    // TODO: hmm
+    abstract();
   }
 }
 
@@ -419,11 +472,35 @@ class BooleanNotExpression extends UnaryExpression {
   String describeOperator() {
     return '!';
   }
+
+  Null generateTypeCheckInstructions(ValueHandle rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitTypeCheck(rhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(rhs));
+  }
+
+  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
+    return intrinsics.coreBooleanType;
+  }
+
+  Null generateExpressionInstructions(ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(LogicalNotInstruction(scope, rhsValue, result, intrinsics.coreBooleanType, concat(describeOperator(), ' unary operator')));
+  }
 }
 
 class BitwiseNotExpression extends UnaryExpression {
   String describeOperator() {
     return '~';
+  }
+
+  Null generateTypeCheckInstructions(ValueHandle rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs));
+  }
+
+  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
+    return intrinsics.coreIntegerType;
+  }
+
+  Null generateExpressionInstructions(ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(MonoOperandInstruction(scope, 'not', rhsValue, result, returnType(intrinsics), concat(describeOperator(), ' unary operator')));
   }
 }
 
@@ -586,7 +663,7 @@ class OperatorLeftShiftExpression extends NumericOperatorExpression {
   }
 
   Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(BiOperandInstruction(scope, 'shl', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
+    scope.emitInstruction(ShiftInstruction(scope, 'shl', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
   }
 }
 
@@ -596,7 +673,7 @@ class OperatorRightShiftExpression extends NumericOperatorExpression {
   }
 
   Null generateExpressionInstructions(ValueHandle lhsValue, ValueHandle rhsValue, ValueHandle result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(BiOperandInstruction(scope, 'shr', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
+    scope.emitInstruction(ShiftInstruction(scope, 'shr', lhsValue, rhsValue, result, intrinsics.coreIntegerType, concat(describeOperator(), ' operator')));
   }
 }
 

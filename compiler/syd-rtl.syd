@@ -2,6 +2,15 @@
 //  - implement __moveBytes(a, b, length): copy length bytes from a to b
 //  - implement string ref counting
 
+// TODO: this should be a compiler intrinsic so that the message evaluation can be lazy and so it can be skipped in release builds
+Null assert(Boolean condition, String message) {
+  if (!condition) {
+    __print(message);
+    __print('\n');
+    exit(1);
+  }
+}
+
 Integer _heapHandle = __getProcessHeap();
 
 /// Allocates a block on the heap.
@@ -11,36 +20,78 @@ Integer _alloc(Integer size) {
   return __heapAlloc(_heapHandle, 0x00, size);
 }
 
-String _stringAllocLength(String data) {
+/// Frees a heap allocation obtained from [_alloc].
+///
+/// Return true if successful.
+///
+/// If false, use [_getLastError] (not yet implemented) to find error code.
+Boolean _free(Integer pointer) {
+  if (__heapFree(_heapHandle, 0x00, pointer) == 0) {
+    //println('failed to free pointer, error code: ', __getLastError());
+    exit(1);
+  }
+  return true;
+}
+
+Null _moveBytes(Integer from, Integer to, Integer length) {
+  // TODO: move this to inlined assembler for performance
+  assert(length > 0, '_moveBytes expects positive number of bytes to copy');
+  Integer fromCursor = from;
+  Integer toCursor = to;
+  Integer end = from + (length / 8) * 8;
+  while (fromCursor < end) {
+    Integer value = __readFromAddress(fromCursor);
+    __writeToAddress(toCursor, value);
+    fromCursor += 8;
+    toCursor += 8;
+  }
+  end = from + length;
+  if (fromCursor < end) {
+    Integer newValue = __readFromAddress(fromCursor);
+    Integer oldValue = __readFromAddress(toCursor);
+    Integer extraBytes = end - fromCursor;
+    assert(extraBytes > 0, 'internal error: zero extra bytes but fromCursor is before end');
+    assert(extraBytes < 8, 'internal error: more than 7 extra bytes');
+    Integer mask = 0xFFFFFFFFFFFFFFFF << (extraBytes * 8);
+    Integer finalValue = (newValue & ~mask) | (oldValue & mask);
+    __writeToAddress(toCursor, finalValue);
+  }
+}
+
+Integer _stringByteLength(String data) {
   Integer pointer = data __as__ Integer;
   return __readFromAddress(pointer + 8);
 }
 
-/*
 String concat(String... arguments) {
   Integer length = 0;
   Integer index = 0;
   while (index < len(arguments)) {
-    length += stringAllocLength(arguments[index]);
+    length += _stringByteLength(arguments[index]);
     index += 1;
   }
-  Integer resultPointer = __alloc(16 + length);
+  Integer resultPointer = _alloc(16 + length);
   __writeToAddress(resultPointer, 1); // ref count
   __writeToAddress(resultPointer + 8, length);
-  Integer cursor = 16;
+  Integer cursor = resultPointer + 16;
   index = 0;
   while (index < len(arguments)) {
     String segment = arguments[index];
-    Integer segmentPointer = segment __as__ Integer;
-    Integer segmentLength = stringAllocLength(segment);
-    __moveBytes(cursor, segmentPointer + 8, segmentLength);
-    cursor += segmentLength;
+    Integer segmentLength = _stringByteLength(segment);
+    if (segmentLength > 0) {
+      Integer segmentPointer = segment __as__ Integer;
+      _moveBytes(segmentPointer + 16, cursor, segmentLength);
+      cursor += segmentLength;
+    }
     index += 1;
   }
   return resultPointer __as__ String;
 }
 
 String digitToStr(Integer digit) {
+  if (digit == 0) {
+    return '0';
+  }
   if (digit == 1) {
     return '1';
   }
@@ -68,8 +119,8 @@ String digitToStr(Integer digit) {
   if (digit == 9) {
     return '9';
   }
-  print("Invalid digit passed to digitToStr\n");
-  exit(1);
+  __print("Invalid digit passed to digitToStr (digit as exit code) \n");
+  exit(digit);
 }
 
 String intToStr(Integer value) {
@@ -85,7 +136,7 @@ String intToStr(Integer value) {
   }
   return buffer;
 }
-*/
+
 
 String _stringify(Anything arg) {
   if (arg is String) {
@@ -100,9 +151,9 @@ String _stringify(Anything arg) {
   if (arg is Null) {
     return 'null';
   }
-  //if (arg is Integer) {
-  //  return intToStr(arg as Integer);
-  //}
+  if (arg is Integer) {
+    return intToStr(arg as Integer);
+  }
   __print('value cannot be stringified\n');
   exit(1);
 }
@@ -120,7 +171,7 @@ Null print(Anything... parts) {
   }
 }
 
-Null println(Anything... parts) { 
+Null println(Anything... parts) {
   Boolean first = true;
   Integer index = 0;
   while (index < len(parts)) {
@@ -132,17 +183,4 @@ Null println(Anything... parts) {
     index += 1;
   }
   __print('\n');
-}
-
-/// Frees a heap allocation obtained from [_alloc].
-///
-/// Return true if successful.
-///
-/// If false, use [_getLastError] (not yet implemented) to find error code.
-Boolean _free(Integer pointer) {
-  if (__heapFree(_heapHandle, 0x00, pointer) == 0) {
-    println('failed to free pointer, error code: ', __getLastError());
-    exit(1);
-  }
-  return true;
 }

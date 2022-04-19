@@ -274,6 +274,7 @@ class Assembler extends Object {
   }
 
   Null addCmp(Integer blockId, Operand a, Operand b, String aWhat, String bWhat) {
+    assert(a != b, 'cannot cmp with two identical operands');
     // TODO: refactor to avoid so much code duplication
     if (a.isImmediate() && b.isImmediate()) {
       // TODO: should optimize call sites and make this an assert instead
@@ -290,6 +291,29 @@ class Assembler extends Object {
       addCode(blockId, concat('cmp r11, ', b.value), concat('...to ', bWhat));
     } else {
       addCode(blockId, concat('cmp ', a.value, ', ', b.value), concat('compare ', aWhat, ' to ', bWhat));
+    }
+  }
+
+  Null addTest(Integer blockId, Operand a, Operand b, String aWhat, String bWhat) {
+    // TODO: refactor to avoid so much code duplication
+    if (a == b && (!a.isImmediate() && !a.isMemory)) {
+      addCode(blockId, concat('mov r11, ', a.value), concat('compare ', aWhat, '...'));
+      addCode(blockId, 'test r11, r11', concat('...to itself'));
+    } else if (a.isImmediate() && b.isImmediate()) {
+      // TODO: should optimize call sites and make this an assert instead
+      // call sites can either use STC/CLC or (preferred) actually skip the offending code
+      addCode(blockId, concat('mov r11, ', a.value), concat('compare ', aWhat, '...'));
+      addCode(blockId, concat('test r11, ', b.value), concat('...to ', bWhat));
+    } else if (b.isImmediate64()) {
+      addCode(blockId, concat('mov r11, ', b.value), concat('compare ', aWhat, '...'));
+      addCode(blockId, concat('test ', a.value, ', r11'), concat('...to ', bWhat));
+    } else if (b.isImmediate()) {
+      addCode(blockId, concat('test qword ptr ', a.value, ', ', b.value), concat('compare ', aWhat, ' to ', bWhat));
+    } else if (a.isMemory() && b.isMemory()) {
+      addCode(blockId, concat('mov r11, ', a.value), concat('compare ', aWhat, '...'));
+      addCode(blockId, concat('test r11, ', b.value), concat('...to ', bWhat));
+    } else {
+      addCode(blockId, concat('test ', a.value, ', ', b.value), concat('compare ', aWhat, ' to ', bWhat));
     }
   }
 
