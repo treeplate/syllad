@@ -12,7 +12,7 @@ import 'syd-assembler.syd';
      *     FFFF :    FFFF :
      *      ... :     ... :
      *  rsp+58h : rbp+48h : (local variable from previous stack frame)
-    *                       (maybe arg 2 here)
+     *                      (maybe arg 2 here)
      *  rsp+50h : rbp+40h : value of arg 1 (e.g. pointer to string structure)     
      *  rsp+48h : rbp+38h : type of arg 1
      *  rsp+40h : rbp+30h : pointer to return value (and type), to be filled in
@@ -105,6 +105,7 @@ fwdclassprop SlotFunction CompiledScope.registerDynamicValue;
 fwdclassprop SlotFunction CompiledScope.registerStaticValue;
 fwdclassprop SlotFunction CompiledScope.registerConstant;
 fwdclassprop SlotFunction CompiledScope.registerSubroutine;
+fwdclassprop StringFunction CompiledScope.labelPrefix;
 fwdclassprop StringListFunction CompiledStackFrameScope.nonvolatileRegistersUsed;
 fwdclassprop NullFunction CompiledStackFrameScope.registerSlot;
 fwdclassprop NullFunction CompiledStackFrameScope.declareType;
@@ -423,6 +424,7 @@ class CompilationEnvironment extends TypeRegistry {
   }
 
   Null compile(Assembler assembler) {
+    // the phase before this is Library.generateScopes() in syd_ast.syd
     typeTableLabel = generateLabel('typeTable');
     prepareInstructions();
     assignTypeCodes();
@@ -465,6 +467,44 @@ class Instruction extends Object {
     assembler.addMov(blockId, r9, r9Shadow(savedRegisterCount), 'restore r9 from shadow space');
   }
 
+  // this treats r10 as volatile
+  Null incref(Assembler assembler, Integer blockId, ValueHandle string, Type staticType) {
+    Type stringType = scope.environment().intrinsicsLibrary!.coreStringType;
+    if (stringType.isSubtypeOf(staticType)) {
+      assembler.addComment(blockId, concat('increment reference count for ', string.source.debugName, ' if necessary'));
+      String increfEndLabel = scope.environment().generateLabel(concat(scope.labelPrefix(), '$AfterIncref'));
+      if (staticType != stringType) {
+        assembler.addCmp(blockId, string.type.type!.asOperand(), stringType.asOperand(), concat('dynamic type of ', string.source.debugName), 'string type');
+        assembler.addCode(blockId, concat('jne ', increfEndLabel), 'if not a string, skip incref');
+      }
+      assembler.addMov(blockId, r10, string.value!.asOperand(), 'get address of string structure');
+      assembler.addMov(blockId, r10, r10Dereference, 'dereference string structure');
+      assembler.addCode(blockId, 'and r10, r10', 'check sign of ref count');
+      assembler.addCode(blockId, concat('js ', increfEndLabel), 'if ref count is negative (constant strings), skip incref');
+      assembler.addCode(blockId, concat('add ', string.value!.asOperand(), ', 1'), 'increment ref count');
+      assembler.addCode(blockId, concat(increfEndLabel, ':'), 'after incref');
+    }
+  }
+  /* 
+  Null decref(Assembler assembler, Integer blockId, ValueHandle string, Type staticType) {
+    Type stringType = scope.environment().intrinsicsLibrary!.coreStringType;
+    if (stringType.isSubtypeOf(staticType)) {
+      assembler.addComment(blockId, concat('decrement reference count for ', string.source.debugName, ' if necessary'));
+      String decrefEndLabel = scope.environment().generateLabel(concat(scope.labelPrefix(), '$AfterDecref'));
+      if (staticType != stringType) {
+        assembler.addCmp(blockId, string.type.type!.asOperand(), stringType.asOperand(), concat('dynamic type of ', string.source.debugName), 'string type');
+        assembler.addCode(blockId, concat('jne ', decrefEndLabel), 'if not a string, skip decref');
+      }
+      assembler.addMov(blockId, r10, string.value!.asOperand(), 'get address of string structure');
+      assembler.addMov(blockId, r10, r10Dereference, 'dereference string structure');
+      assembler.addCode(blockId, 'and r10, r10', 'check sign of ref count');
+      assembler.addCode(blockId, concat('js ', decrefEndLabel), 'if ref count is negative (constant strings), skip decref');
+      assembler.addCode(blockId, concat('sub ', string.value!.asOperand(), ', 1'), 'decrement ref count');
+      xxxxx if zero, call free
+      assembler.addCode(blockId, concat(decrefEndLabel, ':'), 'after decref');
+    }
+  }
+  */
   Null constructor(CompiledScope scopeArg) {
     super.constructor();
     scope = scopeArg;
@@ -1245,8 +1285,10 @@ class SubroutineCallInstruction extends Instruction {
 class Slot extends VotSource {
   Boolean isAnonymous;
   Boolean isImmutable; // if true, this slot is immutable (can only be written once)
-
   CompiledScope homeScope; 
+
+  // These are only valid after instructions have been prepared (q.v. prepareInstructions)
+  // and should never be accessed from outside this class.
   Set referencingStackFrames = Set(); // of CompiledStackFrameScope
   Boolean forcedAllocation = false;
   Boolean isRead = false;
@@ -1570,6 +1612,11 @@ class CompiledStackFrameScope extends CompiledScope {
     return this;
   }
 
+  Null prepareInstructions() {
+    // xxx add string decrefs instruction
+    super.prepareInstructions();
+  }
+
   SlotList slots = []:Slot;
 
   Null registerSlot(Slot slot) {
@@ -1593,8 +1640,9 @@ class CompiledStackFrameScope extends CompiledScope {
             stackSize += 0x08;
           }
         } else if (slot.canBeGloballyAllocated()) {
-          String valueLabel = environment().generateLabel(concat('global', len(bssSlots), 'Value'));
-          String typeLabel = environment().generateLabel(concat('global', len(bssSlots), 'Type'));
+          //xxx maybe camelcase debugName
+          String valueLabel = environment().generateLabel(concat(slot.debugName, 'Value'));
+          String typeLabel = environment().generateLabel(concat(slot.debugName, 'Type'));
           slot.assignLocation(GlobalVariableVot(slot.staticType, valueLabel, typeLabel));
           append(bssSlots, slot);
         } else {
@@ -1629,7 +1677,6 @@ class CompiledStackFrameScope extends CompiledScope {
   }
 
   Null generateEpilogAssembler(Assembler assembler, Integer blockId) {
-    //xxx add string decrefs
     assembler.addComment(blockId, 'Epilog');
     if (stackSize > 0) {
       assembler.addCode(blockId, concat('add rsp, ', hex8(stackSize)), 'free space for stack');

@@ -147,23 +147,6 @@ class ImmediateAddressVot extends ValueVot {
   }
 }
 
-class DereferencedPointerVot extends ValueVot {
-  String label;
-
-  Operand asOperand() {
-    return Operand(label, otDereferencedPointerLabel);
-  }
-
-  Null constructor(Type typeArg, String labelArg) {
-    super.constructor(typeArg);
-    label = labelArg;
-  }
-
-  String toString() {
-    return concat("[", className, ":", label, "@", internalObjectId, "]");
-  }
-}
-
 class GlobalVariableVot extends ValueVot {
   String valueLabel;
   String typeLabel;

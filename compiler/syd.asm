@@ -28,9 +28,9 @@ extern GetLastError : proc
    ; 0 0 0 0 1 0   IntegerFunction(Integer)'7
    ; 0 0 0 0 1 0   NullFunction(Integer, Integer)'8
    ; 0 0 0 0 1 0   NullFunction(Boolean, String)'9
-   ; 0 0 0 0 1 0   IntegerFunction(String)'10
-   ; 0 0 0 0 1 0   BooleanFunction(Integer)'11
-   ; 0 0 0 0 1 0   NullFunction(Integer, Integer, Integer)'12
+   ; 0 0 0 0 1 0   BooleanFunction(Integer)'10
+   ; 0 0 0 0 1 0   NullFunction(Integer, Integer, Integer)'11
+   ; 0 0 0 0 1 0   IntegerFunction(String)'12
    ; 0 0 0 0 1 0   StringFunction(String...)'13
    ; 0 0 0 0 1 1   StringReadOnlyList'14
    ; 0 0 0 0 1 0   StringFunction(Integer)'15
@@ -44,43 +44,43 @@ extern GetLastError : proc
 
   parameterCountCheckFailureMessage dq -01h                      ; String constant (reference count)
                dq 88                                             ; Length
-               db "error: function call received the wrong number of parameters (expected %d, received %d)", 0ah ; line 222 column 25 in file syd-compiler.syd
+               db "error: function call received the wrong number of parameters (expected %d, received %d)", 0ah ; line 223 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   parameterTypeCheckFailureMessage dq -01h                       ; String constant (reference count)
                dq 71                                             ; Length
-               db "error: type mismatch for function %s parameter %d, expected %s, got %s", 0ah ; line 227 column 25 in file syd-compiler.syd
+               db "error: type mismatch for function %s parameter %d, expected %s, got %s", 0ah ; line 228 column 25 in file syd-compiler.syd
                db 00h                                            ; padding to align to 8-byte boundary
   returnValueTypeCheckFailureMessage dq -01h                     ; String constant (reference count)
                dq 68                                             ; Length
-               db "error: type mismatch for function return value, expected %s, got %s", 0ah ; line 232 column 25 in file syd-compiler.syd
+               db "error: type mismatch for function return value, expected %s, got %s", 0ah ; line 233 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   operandTypeCheckFailureMessage dq -01h                         ; String constant (reference count)
                dq 54                                             ; Length
-               db "error: type mismatch for operand, expected %s, got %s", 0ah ; line 237 column 25 in file syd-compiler.syd
+               db "error: type mismatch for operand, expected %s, got %s", 0ah ; line 238 column 25 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   asOperatorFailureMessage dq -01h                               ; String constant (reference count)
                dq 58                                             ; Length
-               db "error: type mismatch for as operator, expected %s, got %s", 0ah ; line 242 column 25 in file syd-compiler.syd
+               db "error: type mismatch for as operator, expected %s, got %s", 0ah ; line 243 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   boundsFailureMessage dq -01h                                   ; String constant (reference count)
                dq 64                                             ; Length
-               db "error: subscript index out of range (%d is not in range %d..%d)", 0ah ; line 247 column 25 in file syd-compiler.syd
+               db "error: subscript index out of range (%d is not in range %d..%d)", 0ah ; line 248 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   string       dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db 0ah                                            ; line 8 column 16 in file runtime library
+               db 0ah                                            ; line 9 column 16 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$1     dq -01h                                           ; String constant (reference count)
                dq 51                                             ; Length
-               db "_moveBytes expects positive number of bytes to copy" ; line 42 column 74 in file runtime library
+               db "_moveBytes expects positive number of bytes to copy" ; line 38 column 74 in file runtime library
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   string$2     dq -01h                                           ; String constant (reference count)
                dq 61                                             ; Length
-               db "internal error: zero extra bytes but fromCursor is before end" ; line 57 column 90 in file runtime library
+               db "internal error: zero extra bytes but fromCursor is before end" ; line 53 column 90 in file runtime library
                db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
   string$3     dq -01h                                           ; String constant (reference count)
                dq 39                                             ; Length
-               db "internal error: more than 7 extra bytes"      ; line 58 column 68 in file runtime library
+               db "internal error: more than 7 extra bytes"      ; line 54 column 68 in file runtime library
                db 00h                                            ; padding to align to 8-byte boundary
   string$4     dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
@@ -153,10 +153,10 @@ extern GetLastError : proc
 
 
 _BSS segment
-  global0Value dq ?                                              ; _heapHandle
-  global0Type dq ?                                               ; dynamic type of _heapHandle
-  global0Value$1 dq ?                                            ; ptr
-  global0Type$1 dq ?                                             ; dynamic type of ptr
+  _heapHandleValue dq ?                                          ; _heapHandle
+  _heapHandleType dq ?                                           ; dynamic type of _heapHandle
+  ptrValue dq ?                                                  ; ptr
+  ptrType dq ?                                                   ; dynamic type of ptr
 
 .code
 
@@ -176,7 +176,7 @@ main:
   push rbp                                                       ; save non-volatile registers
   sub rsp, 010h                                                  ; allocate space for stack
   lea rbp, [rsp+010h]                                            ; set up frame pointer
-  ; Line 13: Integer _heapHandle = __getProcessHeap();
+  ; Line 14: Integer _heapHandle = __getProcessHeap();
   mov [rbp+010h], rcx                                            ; save rcx in shadow space
   mov [rbp+018h], rdx                                            ; save rdx in shadow space
   mov [rbp+020h], r8                                             ; save r8 in shadow space
@@ -195,9 +195,9 @@ main:
   mov r8, [rbp+020h]                                             ; restore r8 from shadow space
   mov r9, [rbp+028h]                                             ; restore r9 from shadow space
   mov r11, [rbp-008h]                                            ; value of _heapHandle
-  mov global0Value, r11                                          ; (indirect via r11 because mov can't do memory-to-memory)
+  mov _heapHandleValue, r11                                      ; (indirect via r11 because mov can't do memory-to-memory)
   mov r11, [rbp-010h]                                            ; type of _heapHandle
-  mov global0Type, r11                                           ; (indirect via r11 because mov can't do memory-to-memory)
+  mov _heapHandleType, r11                                       ; (indirect via r11 because mov can't do memory-to-memory)
   ; Epilog
   add rsp, 010h                                                  ; free space for stack
   pop rbp                                                        ; restore non-volatile registers
@@ -229,18 +229,18 @@ main:
   mov r8, [rbp+020h]                                             ; restore r8 from shadow space
   mov r9, [rbp+028h]                                             ; restore r9 from shadow space
   mov r11, [rbp-008h]                                            ; value of ptr
-  mov global0Value$1, r11                                        ; (indirect via r11 because mov can't do memory-to-memory)
+  mov ptrValue, r11                                              ; (indirect via r11 because mov can't do memory-to-memory)
   mov r11, [rbp-010h]                                            ; type of ptr
-  mov global0Type$1, r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
+  mov ptrType, r11                                               ; (indirect via r11 because mov can't do memory-to-memory)
   ; Line 4: __writeToAddress(ptr, -1);
   mov qword ptr [rbp-038h], 000000001h                           ; move operand into location for result of neg
   not qword ptr[rbp-038h]                                        ; - unary operator
   mov qword ptr [rbp-040h], 000000015h                           ; store type
-  mov r10, global0Value$1                                        ; value of ptr
+  mov r10, ptrValue                                              ; value of ptr
   mov r11, [rbp-038h]                                            ; put - unary operator result in ptr
   mov [r10], r11                                                 ; (indirect via r11 because mov can't do memory-to-memory)
   ; Line 5: __writeToAddress(ptr + 8, 6);
-  mov rax, global0Type$1                                         ; load the dynamic type of ptr into rax
+  mov rax, ptrType                                               ; load the dynamic type of ptr into rax
   lea r10, typeTable                                             ; move type table offset into r10
   add rax, r10                                                   ; adjust rax to point to the type table
   bt qword ptr [rax], 2                                          ; check that ptr is Integer'21
@@ -288,14 +288,14 @@ main:
     mov r8, [rbp+020h]                                           ; restore r8 from shadow space
     mov r9, [rbp+028h]                                           ; restore r9 from shadow space
   tempSyd$ptr$TypeMatch:
-  mov r10, global0Value$1                                        ; add mutates first operand, so indirect via register
+  mov r10, ptrValue                                              ; add mutates first operand, so indirect via register
   add r10, 000000008h                                            ; + operator
   mov [rbp-088h], r10                                            ; store result
   mov qword ptr [rbp-090h], 000000015h                           ; store type
   mov r10, [rbp-088h]                                            ; value of + operator result
   mov qword ptr [r10], 000000006h                                ; put 6 in + operator result
   ; Line 6: __writeToAddress(ptr + 16 /* 0x10 */, 3472328296232149347 /* 0x3...
-  mov rax, global0Type$1                                         ; load the dynamic type of ptr into rax
+  mov rax, ptrType                                               ; load the dynamic type of ptr into rax
   lea r10, typeTable                                             ; move type table offset into r10
   add rax, r10                                                   ; adjust rax to point to the type table
   bt qword ptr [rax], 2                                          ; check that ptr is Integer'21
@@ -343,7 +343,7 @@ main:
     mov r8, [rbp+020h]                                           ; restore r8 from shadow space
     mov r9, [rbp+028h]                                           ; restore r9 from shadow space
   tempSyd$ptr$TypeMatch$1:
-  mov r10, global0Value$1                                        ; add mutates first operand, so indirect via register
+  mov r10, ptrValue                                              ; add mutates first operand, so indirect via register
   add r10, 000000010h                                            ; + operator
   mov [rbp-0d8h], r10                                            ; store result
   mov qword ptr [rbp-0e0h], 000000015h                           ; store type
@@ -351,7 +351,7 @@ main:
   mov r11, 03030303030746163h                                    ; put 3472328296232149347 /* 0x3030303030746163 */ in + operator result
   mov [r10], r11                                                 ; (indirect via r11 because "03030303030746163h" is an imm64)
   ; Line 7: _moveBytes(ptr + 16 /* 0x10 */, ptr + 19 /* 0x13 */, 3);
-  mov rax, global0Type$1                                         ; load the dynamic type of ptr into rax
+  mov rax, ptrType                                               ; load the dynamic type of ptr into rax
   lea r10, typeTable                                             ; move type table offset into r10
   add rax, r10                                                   ; adjust rax to point to the type table
   bt qword ptr [rax], 2                                          ; check that ptr is Integer'21
@@ -399,11 +399,11 @@ main:
     mov r8, [rbp+020h]                                           ; restore r8 from shadow space
     mov r9, [rbp+028h]                                           ; restore r9 from shadow space
   tempSyd$ptr$TypeMatch$2:
-  mov r10, global0Value$1                                        ; add mutates first operand, so indirect via register
+  mov r10, ptrValue                                              ; add mutates first operand, so indirect via register
   add r10, 000000010h                                            ; + operator
   mov [rbp-0128h], r10                                           ; store result
   mov qword ptr [rbp-0130h], 000000015h                          ; store type
-  mov rax, global0Type$1                                         ; load the dynamic type of ptr into rax
+  mov rax, ptrType                                               ; load the dynamic type of ptr into rax
   lea r10, typeTable                                             ; move type table offset into r10
   add rax, r10                                                   ; adjust rax to point to the type table
   bt qword ptr [rax], 2                                          ; check that ptr is Integer'21
@@ -451,7 +451,7 @@ main:
     mov r8, [rbp+020h]                                           ; restore r8 from shadow space
     mov r9, [rbp+028h]                                           ; restore r9 from shadow space
   tempSyd$ptr$TypeMatch$3:
-  mov r10, global0Value$1                                        ; add mutates first operand, so indirect via register
+  mov r10, ptrValue                                              ; add mutates first operand, so indirect via register
   add r10, 000000013h                                            ; + operator
   mov [rbp-0178h], r10                                           ; store result
   mov qword ptr [rbp-0180h], 000000015h                          ; store type
@@ -479,7 +479,7 @@ main:
   mov r8, [rbp+020h]                                             ; restore r8 from shadow space
   mov r9, [rbp+028h]                                             ; restore r9 from shadow space
   ; Line 8: println(ptr __as__ String);
-  mov r11, global0Value$1                                        ; value of force cast of ptr to String
+  mov r11, ptrValue                                              ; value of force cast of ptr to String
   mov [rbp-0198h], r11                                           ; (indirect via r11 because mov can't do memory-to-memory)
   mov qword ptr [rbp-01a0h], 000000016h                          ; new type of force cast of ptr to String
   mov [rbp+010h], rcx                                            ; save rcx in shadow space
@@ -506,8 +506,8 @@ main:
   mov [rbp+018h], rdx                                            ; save rdx in shadow space
   mov [rbp+020h], r8                                             ; save r8 in shadow space
   mov [rbp+028h], r9                                             ; save r9 in shadow space
-  push global0Value$1                                            ; value of argument #1
-  push global0Type$1                                             ; type of argument #1
+  push ptrValue                                                  ; value of argument #1
+  push ptrType                                                   ; type of argument #1
   lea r10, [rbp-01b8h]                                           ; pointer to return value (and type, 8 bytes earlier)
   push r10                                                       ; (that pointer is the last value pushed to the stack)
   mov qword ptr r9, 0h                                           ; pointer to this
@@ -2007,7 +2007,7 @@ func$assert:
     mov r8, [rbp+028h]                                           ; restore r8 from shadow space
     mov r9, [rbp+030h]                                           ; restore r9 from shadow space
   func$assert$message$TypeMatch:
-  ; Line 6: if (!condition) { ...
+  ; Line 7: if (!condition) { ...
   mov rax, [rbp+040h]                                            ; load the dynamic type of condition into rax
   lea r10, typeTable                                             ; move type table offset into r10
   add rax, r10                                                   ; adjust rax to point to the type table
@@ -2064,7 +2064,7 @@ func$assert:
   mov qword ptr [rbp-090h], 000000014h                           ; store type
   cmp qword ptr [rbp-088h], 000000000h                           ; compare ! unary operator result to false
   je func$assert$if$continuation                                 ; !condition
-    ; Line 7: __print(message);
+    ; Line 8: __print(message);
     mov [rbp+018h], rcx                                          ; save rcx in shadow space
     mov [rbp+020h], rdx                                          ; save rdx in shadow space
     mov [rbp+028h], r8                                           ; save r8 in shadow space
@@ -2084,7 +2084,7 @@ func$assert:
     mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
     mov r8, [rbp+028h]                                           ; restore r8 from shadow space
     mov r9, [rbp+030h]                                           ; restore r9 from shadow space
-    ; Line 8: __print('\n');
+    ; Line 9: __print('\n');
     mov [rbp+018h], rcx                                          ; save rcx in shadow space
     mov [rbp+020h], rdx                                          ; save rdx in shadow space
     mov [rbp+028h], r8                                           ; save r8 in shadow space
@@ -2105,7 +2105,7 @@ func$assert:
     mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
     mov r8, [rbp+028h]                                           ; restore r8 from shadow space
     mov r9, [rbp+030h]                                           ; restore r9 from shadow space
-    ; Line 9: exit(1);
+    ; Line 10: exit(1);
     mov [rbp+018h], rcx                                          ; save rcx in shadow space
     mov [rbp+020h], rdx                                          ; save rdx in shadow space
     mov [rbp+028h], r8                                           ; save r8 in shadow space
@@ -2237,7 +2237,7 @@ func$_alloc:
     mov r8, [rbp+028h]                                           ; restore r8 from shadow space
     mov r9, [rbp+030h]                                           ; restore r9 from shadow space
   func$_alloc$size$TypeMatch:
-  ; Line 19: return __heapAlloc(_heapHandle, 0, size);
+  ; Line 20: return __heapAlloc(_heapHandle, 0, size);
   mov [rbp+018h], rcx                                            ; save rcx in shadow space
   mov [rbp+020h], rdx                                            ; save rdx in shadow space
   mov [rbp+028h], r8                                             ; save r8 in shadow space
@@ -2246,8 +2246,8 @@ func$_alloc:
   push [rbp+040h]                                                ; type of argument #3
   push 000000000h                                                ; value of argument #2
   push 000000015h                                                ; type of argument #2
-  push global0Value                                              ; value of argument #1
-  push global0Type                                               ; type of argument #1
+  push _heapHandleValue                                          ; value of argument #1
+  push _heapHandleType                                           ; type of argument #1
   lea r10, [rbp-048h]                                            ; pointer to return value (and type, 8 bytes earlier)
   push r10                                                       ; (that pointer is the last value pushed to the stack)
   mov qword ptr r9, 0h                                           ; pointer to this
@@ -2318,235 +2318,6 @@ func$_alloc:
   mov rax, r15                                                   ; report address of return value
   ; Epilog
   add rsp, 070h                                                  ; free space for stack
-  pop r15                                                        ; restore non-volatile registers
-  pop rbp                                                        ; restore non-volatile registers
-  ret                                                            ; return from subroutine
-
-; _stringByteLength
-func$_stringByteLength:
-  ; Prolog
-  push rbp                                                       ; save non-volatile registers
-  push r15                                                       ; save non-volatile registers
-  sub rsp, 0e0h                                                  ; allocate space for stack
-  lea rbp, [rsp+0e0h]                                            ; set up frame pointer
-  mov r15, [rbp+038h]                                            ; prepare return value
-  ; Check parameter count
-  cmp qword ptr rcx, 000000001h                                  ; compare parameter count to integers
-  je func$_stringByteLength$parameterCount$continuation          ; check number of parameters is as expected
-    ; Error handling block for parameter count
-    ;  - print(parameterCountCheckFailureMessage)
-    mov [rbp+018h], rcx                                          ; save rcx in shadow space
-    mov [rbp+020h], rdx                                          ; save rdx in shadow space
-    mov [rbp+028h], r8                                           ; save r8 in shadow space
-    mov [rbp+030h], r9                                           ; save r9 in shadow space
-    mov r11, offset parameterCountCheckFailureMessage            ; value of argument #1
-    push r11                                                     ; (indirect via r11 because "parameterCountCheckFailureMessage" is an imm64)
-    push 000000016h                                              ; type of argument #1
-    lea r10, [rbp-008h]                                          ; pointer to return value (and type, 8 bytes earlier)
-    push r10                                                     ; (that pointer is the last value pushed to the stack)
-    mov qword ptr r9, 0h                                         ; pointer to this
-    mov qword ptr r8, 000000000h                                 ; type of this
-    mov qword ptr rdx, 0h                                        ; pointer to closure
-    mov rcx, 1                                                   ; number of arguments
-    sub rsp, 20h                                                 ; allocate shadow space
-    call offset func$__print                                     ; jump to subroutine
-    add rsp, 038h                                                ; release shadow space and arguments
-    mov rcx, [rbp+018h]                                          ; restore rcx from shadow space
-    mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
-    mov r8, [rbp+028h]                                           ; restore r8 from shadow space
-    mov r9, [rbp+030h]                                           ; restore r9 from shadow space
-    ;  - exit(1)
-    mov [rbp+018h], rcx                                          ; save rcx in shadow space
-    mov [rbp+020h], rdx                                          ; save rdx in shadow space
-    mov [rbp+028h], r8                                           ; save r8 in shadow space
-    mov [rbp+030h], r9                                           ; save r9 in shadow space
-    push 000000001h                                              ; value of argument #1
-    push 000000015h                                              ; type of argument #1
-    lea r10, [rbp-018h]                                          ; pointer to return value (and type, 8 bytes earlier)
-    push r10                                                     ; (that pointer is the last value pushed to the stack)
-    mov qword ptr r9, 0h                                         ; pointer to this
-    mov qword ptr r8, 000000000h                                 ; type of this
-    mov qword ptr rdx, 0h                                        ; pointer to closure
-    mov rcx, 1                                                   ; number of arguments
-    sub rsp, 20h                                                 ; allocate shadow space
-    call offset func$exit                                        ; jump to subroutine
-    add rsp, 038h                                                ; release shadow space and arguments
-    mov rcx, [rbp+018h]                                          ; restore rcx from shadow space
-    mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
-    mov r8, [rbp+028h]                                           ; restore r8 from shadow space
-    mov r9, [rbp+030h]                                           ; restore r9 from shadow space
-  func$_stringByteLength$parameterCount$continuation:            ; end of parameter count
-  ; Check type of parameter 0, data (expecting String)
-  mov rax, [rbp+040h]                                            ; load the dynamic type of data into rax
-  lea r10, typeTable                                             ; move type table offset into r10
-  add rax, r10                                                   ; adjust rax to point to the type table
-  bt qword ptr [rax], 3                                          ; check that data is String'22
-  jc func$_stringByteLength$data$TypeMatch                       ; skip next block if the type matches
-    ; Error handling block for data
-    ;  - print(parameterTypeCheckFailureMessage)
-    mov [rbp+018h], rcx                                          ; save rcx in shadow space
-    mov [rbp+020h], rdx                                          ; save rdx in shadow space
-    mov [rbp+028h], r8                                           ; save r8 in shadow space
-    mov [rbp+030h], r9                                           ; save r9 in shadow space
-    mov r11, offset parameterTypeCheckFailureMessage             ; value of argument #1
-    push r11                                                     ; (indirect via r11 because "parameterTypeCheckFailureMessage" is an imm64)
-    push 000000016h                                              ; type of argument #1
-    lea r10, [rbp-028h]                                          ; pointer to return value (and type, 8 bytes earlier)
-    push r10                                                     ; (that pointer is the last value pushed to the stack)
-    mov qword ptr r9, 0h                                         ; pointer to this
-    mov qword ptr r8, 000000000h                                 ; type of this
-    mov qword ptr rdx, 0h                                        ; pointer to closure
-    mov rcx, 1                                                   ; number of arguments
-    sub rsp, 20h                                                 ; allocate shadow space
-    call offset func$__print                                     ; jump to subroutine
-    add rsp, 038h                                                ; release shadow space and arguments
-    mov rcx, [rbp+018h]                                          ; restore rcx from shadow space
-    mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
-    mov r8, [rbp+028h]                                           ; restore r8 from shadow space
-    mov r9, [rbp+030h]                                           ; restore r9 from shadow space
-    ;  - exit(1)
-    mov [rbp+018h], rcx                                          ; save rcx in shadow space
-    mov [rbp+020h], rdx                                          ; save rdx in shadow space
-    mov [rbp+028h], r8                                           ; save r8 in shadow space
-    mov [rbp+030h], r9                                           ; save r9 in shadow space
-    push 000000001h                                              ; value of argument #1
-    push 000000015h                                              ; type of argument #1
-    lea r10, [rbp-038h]                                          ; pointer to return value (and type, 8 bytes earlier)
-    push r10                                                     ; (that pointer is the last value pushed to the stack)
-    mov qword ptr r9, 0h                                         ; pointer to this
-    mov qword ptr r8, 000000000h                                 ; type of this
-    mov qword ptr rdx, 0h                                        ; pointer to closure
-    mov rcx, 1                                                   ; number of arguments
-    sub rsp, 20h                                                 ; allocate shadow space
-    call offset func$exit                                        ; jump to subroutine
-    add rsp, 038h                                                ; release shadow space and arguments
-    mov rcx, [rbp+018h]                                          ; restore rcx from shadow space
-    mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
-    mov r8, [rbp+028h]                                           ; restore r8 from shadow space
-    mov r9, [rbp+030h]                                           ; restore r9 from shadow space
-  func$_stringByteLength$data$TypeMatch:
-  ; Line 23: Integer pointer = data __as__ Integer;
-  mov r11, [rbp+048h]                                            ; value of force cast of data to Integer
-  mov [rbp-048h], r11                                            ; (indirect via r11 because mov can't do memory-to-memory)
-  mov qword ptr [rbp-050h], 000000015h                           ; new type of force cast of data to Integer
-  mov r11, [rbp-048h]                                            ; value of pointer
-  mov [rbp-058h], r11                                            ; (indirect via r11 because mov can't do memory-to-memory)
-  mov r11, [rbp-050h]                                            ; type of pointer
-  mov [rbp-060h], r11                                            ; (indirect via r11 because mov can't do memory-to-memory)
-  ; Line 24: return __readFromAddress(pointer + 8);
-  mov rax, [rbp-060h]                                            ; load the dynamic type of pointer into rax
-  lea r10, typeTable                                             ; move type table offset into r10
-  add rax, r10                                                   ; adjust rax to point to the type table
-  bt qword ptr [rax], 2                                          ; check that pointer is Integer'21
-  jc func$_stringByteLength$pointer$TypeMatch                    ; skip next block if the type matches
-    ; Error handling block for pointer
-    ;  - print(operandTypeCheckFailureMessage)
-    mov [rbp+018h], rcx                                          ; save rcx in shadow space
-    mov [rbp+020h], rdx                                          ; save rdx in shadow space
-    mov [rbp+028h], r8                                           ; save r8 in shadow space
-    mov [rbp+030h], r9                                           ; save r9 in shadow space
-    mov r11, offset operandTypeCheckFailureMessage               ; value of argument #1
-    push r11                                                     ; (indirect via r11 because "operandTypeCheckFailureMessage" is an imm64)
-    push 000000016h                                              ; type of argument #1
-    lea r10, [rbp-068h]                                          ; pointer to return value (and type, 8 bytes earlier)
-    push r10                                                     ; (that pointer is the last value pushed to the stack)
-    mov qword ptr r9, 0h                                         ; pointer to this
-    mov qword ptr r8, 000000000h                                 ; type of this
-    mov qword ptr rdx, 0h                                        ; pointer to closure
-    mov rcx, 1                                                   ; number of arguments
-    sub rsp, 20h                                                 ; allocate shadow space
-    call offset func$__print                                     ; jump to subroutine
-    add rsp, 038h                                                ; release shadow space and arguments
-    mov rcx, [rbp+018h]                                          ; restore rcx from shadow space
-    mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
-    mov r8, [rbp+028h]                                           ; restore r8 from shadow space
-    mov r9, [rbp+030h]                                           ; restore r9 from shadow space
-    ;  - exit(1)
-    mov [rbp+018h], rcx                                          ; save rcx in shadow space
-    mov [rbp+020h], rdx                                          ; save rdx in shadow space
-    mov [rbp+028h], r8                                           ; save r8 in shadow space
-    mov [rbp+030h], r9                                           ; save r9 in shadow space
-    push 000000001h                                              ; value of argument #1
-    push 000000015h                                              ; type of argument #1
-    lea r10, [rbp-078h]                                          ; pointer to return value (and type, 8 bytes earlier)
-    push r10                                                     ; (that pointer is the last value pushed to the stack)
-    mov qword ptr r9, 0h                                         ; pointer to this
-    mov qword ptr r8, 000000000h                                 ; type of this
-    mov qword ptr rdx, 0h                                        ; pointer to closure
-    mov rcx, 1                                                   ; number of arguments
-    sub rsp, 20h                                                 ; allocate shadow space
-    call offset func$exit                                        ; jump to subroutine
-    add rsp, 038h                                                ; release shadow space and arguments
-    mov rcx, [rbp+018h]                                          ; restore rcx from shadow space
-    mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
-    mov r8, [rbp+028h]                                           ; restore r8 from shadow space
-    mov r9, [rbp+030h]                                           ; restore r9 from shadow space
-  func$_stringByteLength$pointer$TypeMatch:
-  mov r10, [rbp-058h]                                            ; add mutates first operand, so indirect via register
-  add r10, 000000008h                                            ; + operator
-  mov [rbp-0a8h], r10                                            ; store result
-  mov qword ptr [rbp-0b0h], 000000015h                           ; store type
-  mov r10, [rbp-0a8h]                                            ; value of + operator result
-  mov r11, [r10]                                                 ; dereference + operator result and put result in address of + operator result
-  mov [rbp-0b8h], r11                                            ; (indirect via r11 because mov can't do memory-to-memory)
-  mov qword ptr [rbp-0c0h], 000000015h                           ; type of address of + operator result
-  mov rax, [rbp-0c0h]                                            ; load the dynamic type of return value of _stringByteLength into rax
-  lea r10, typeTable                                             ; move type table offset into r10
-  add rax, r10                                                   ; adjust rax to point to the type table
-  bt qword ptr [rax], 2                                          ; check that return value of _stringByteLength is Integer'21
-  jc func$_stringByteLength$returnValueOfStringbytelength$TypeMatch ; skip next block if the type matches
-    ; Error handling block for return value of _stringByteLength
-    ;  - print(returnValueTypeCheckFailureMessage)
-    mov [rbp+018h], rcx                                          ; save rcx in shadow space
-    mov [rbp+020h], rdx                                          ; save rdx in shadow space
-    mov [rbp+028h], r8                                           ; save r8 in shadow space
-    mov [rbp+030h], r9                                           ; save r9 in shadow space
-    mov r11, offset returnValueTypeCheckFailureMessage           ; value of argument #1
-    push r11                                                     ; (indirect via r11 because "returnValueTypeCheckFailureMessage" is an imm64)
-    push 000000016h                                              ; type of argument #1
-    lea r10, [rbp-0c8h]                                          ; pointer to return value (and type, 8 bytes earlier)
-    push r10                                                     ; (that pointer is the last value pushed to the stack)
-    mov qword ptr r9, 0h                                         ; pointer to this
-    mov qword ptr r8, 000000000h                                 ; type of this
-    mov qword ptr rdx, 0h                                        ; pointer to closure
-    mov rcx, 1                                                   ; number of arguments
-    sub rsp, 20h                                                 ; allocate shadow space
-    call offset func$__print                                     ; jump to subroutine
-    add rsp, 038h                                                ; release shadow space and arguments
-    mov rcx, [rbp+018h]                                          ; restore rcx from shadow space
-    mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
-    mov r8, [rbp+028h]                                           ; restore r8 from shadow space
-    mov r9, [rbp+030h]                                           ; restore r9 from shadow space
-    ;  - exit(1)
-    mov [rbp+018h], rcx                                          ; save rcx in shadow space
-    mov [rbp+020h], rdx                                          ; save rdx in shadow space
-    mov [rbp+028h], r8                                           ; save r8 in shadow space
-    mov [rbp+030h], r9                                           ; save r9 in shadow space
-    push 000000001h                                              ; value of argument #1
-    push 000000015h                                              ; type of argument #1
-    lea r10, [rbp-0d8h]                                          ; pointer to return value (and type, 8 bytes earlier)
-    push r10                                                     ; (that pointer is the last value pushed to the stack)
-    mov qword ptr r9, 0h                                         ; pointer to this
-    mov qword ptr r8, 000000000h                                 ; type of this
-    mov qword ptr rdx, 0h                                        ; pointer to closure
-    mov rcx, 1                                                   ; number of arguments
-    sub rsp, 20h                                                 ; allocate shadow space
-    call offset func$exit                                        ; jump to subroutine
-    add rsp, 038h                                                ; release shadow space and arguments
-    mov rcx, [rbp+018h]                                          ; restore rcx from shadow space
-    mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
-    mov r8, [rbp+028h]                                           ; restore r8 from shadow space
-    mov r9, [rbp+030h]                                           ; restore r9 from shadow space
-  func$_stringByteLength$returnValueOfStringbytelength$TypeMatch:
-  mov r11, [rbp-0b8h]                                            ; value of return value
-  mov [r15], r11                                                 ; (indirect via r11 because mov can't do memory-to-memory)
-  mov r11, [rbp-0c0h]                                            ; type of return value
-  mov [r15-08h], r11                                             ; (indirect via r11 because mov can't do memory-to-memory)
-  jmp func$_stringByteLength$epilog                              ; return
-  func$_stringByteLength$epilog:
-  mov rax, r15                                                   ; report address of return value
-  ; Epilog
-  add rsp, 0e0h                                                  ; free space for stack
   pop r15                                                        ; restore non-volatile registers
   pop rbp                                                        ; restore non-volatile registers
   ret                                                            ; return from subroutine
@@ -2654,7 +2425,7 @@ func$_free:
     mov r8, [rbp+028h]                                           ; restore r8 from shadow space
     mov r9, [rbp+030h]                                           ; restore r9 from shadow space
   func$_free$pointer$TypeMatch:
-  ; Line 33: if (__heapFree(_heapHandle, 0, pointer) == 0) { ...
+  ; Line 29: if (__heapFree(_heapHandle, 0, pointer) == 0) { ...
   mov [rbp+018h], rcx                                            ; save rcx in shadow space
   mov [rbp+020h], rdx                                            ; save rdx in shadow space
   mov [rbp+028h], r8                                             ; save r8 in shadow space
@@ -2663,8 +2434,8 @@ func$_free:
   push [rbp+040h]                                                ; type of argument #3
   push 000000000h                                                ; value of argument #2
   push 000000015h                                                ; type of argument #2
-  push global0Value                                              ; value of argument #1
-  push global0Type                                               ; type of argument #1
+  push _heapHandleValue                                          ; value of argument #1
+  push _heapHandleType                                           ; type of argument #1
   lea r10, [rbp-048h]                                            ; pointer to return value (and type, 8 bytes earlier)
   push r10                                                       ; (that pointer is the last value pushed to the stack)
   mov qword ptr r9, 0h                                           ; pointer to this
@@ -2689,7 +2460,7 @@ func$_free:
   mov qword ptr [rbp-060h], 000000014h                           ; == operator result is a Boolean
   cmp qword ptr [rbp-058h], 000000000h                           ; compare == operator result to false
   je func$_free$if$continuation                                  ; __heapFree(_heapHandle, 0, pointer) == 0
-    ; Line 35: exit(1);
+    ; Line 31: exit(1);
     mov [rbp+018h], rcx                                          ; save rcx in shadow space
     mov [rbp+020h], rdx                                          ; save rdx in shadow space
     mov [rbp+028h], r8                                           ; save r8 in shadow space
@@ -2710,7 +2481,7 @@ func$_free:
     mov r8, [rbp+028h]                                           ; restore r8 from shadow space
     mov r9, [rbp+030h]                                           ; restore r9 from shadow space
   func$_free$if$continuation:                                    ; end of if
-  ; Line 37: return true;
+  ; Line 33: return true;
   mov qword ptr [r15], 000000001h                                ; value of return value
   mov qword ptr [r15-08h], 000000014h                            ; type of return value
   jmp func$_free$epilog                                          ; return
@@ -2923,7 +2694,7 @@ func$_moveBytes:
     mov r8, [rbp+028h]                                           ; restore r8 from shadow space
     mov r9, [rbp+030h]                                           ; restore r9 from shadow space
   func$_moveBytes$length$TypeMatch:
-  ; Line 42: assert(length > 0, '_moveBytes expects positive number of bytes ...
+  ; Line 38: assert(length > 0, '_moveBytes expects positive number of bytes ...
   mov rax, [rbp+060h]                                            ; load the dynamic type of length into rax
   lea r10, typeTable                                             ; move type table offset into r10
   add rax, r10                                                   ; adjust rax to point to the type table
@@ -2998,17 +2769,17 @@ func$_moveBytes:
   mov rdx, [rbp+020h]                                            ; restore rdx from shadow space
   mov r8, [rbp+028h]                                             ; restore r8 from shadow space
   mov r9, [rbp+030h]                                             ; restore r9 from shadow space
-  ; Line 43: Integer fromCursor = from;
+  ; Line 39: Integer fromCursor = from;
   mov r11, [rbp+048h]                                            ; value of fromCursor
   mov [rbp-0e8h], r11                                            ; (indirect via r11 because mov can't do memory-to-memory)
   mov r11, [rbp+040h]                                            ; type of fromCursor
   mov [rbp-0f0h], r11                                            ; (indirect via r11 because mov can't do memory-to-memory)
-  ; Line 44: Integer toCursor = to;
+  ; Line 40: Integer toCursor = to;
   mov r11, [rbp+058h]                                            ; value of toCursor
   mov [rbp-0f8h], r11                                            ; (indirect via r11 because mov can't do memory-to-memory)
   mov r11, [rbp+050h]                                            ; type of toCursor
   mov [rbp-0100h], r11                                           ; (indirect via r11 because mov can't do memory-to-memory)
-  ; Line 45: Integer end = from + length / 8 * 8;
+  ; Line 41: Integer end = from + length / 8 * 8;
   mov rax, [rbp+060h]                                            ; load the dynamic type of length into rax
   lea r10, typeTable                                             ; move type table offset into r10
   add rax, r10                                                   ; adjust rax to point to the type table
@@ -3221,7 +2992,7 @@ func$_moveBytes:
   mov [rbp-01f8h], r11                                           ; (indirect via r11 because mov can't do memory-to-memory)
   mov r11, [rbp-01f0h]                                           ; type of end
   mov [rbp-0200h], r11                                           ; (indirect via r11 because mov can't do memory-to-memory)
-  ; Line 46: while (fromCursor < end) { ...
+  ; Line 42: while (fromCursor < end) { ...
   func$_moveBytes$while$top:
     mov rax, [rbp-0f0h]                                          ; load the dynamic type of fromCursor into rax
     lea r10, typeTable                                           ; move type table offset into r10
@@ -3326,7 +3097,7 @@ func$_moveBytes:
     mov qword ptr [rbp-0250h], 000000014h                        ; < operator result is a Boolean
     cmp qword ptr [rbp-0248h], 000000000h                        ; compare < operator result to false
     je func$_moveBytes$while$bottom                              ; while condition
-    ; Line 47: Integer value = __readFromAddress(fromCursor);
+    ; Line 43: Integer value = __readFromAddress(fromCursor);
     mov r10, [rbp-0e8h]                                          ; value of fromCursor
     mov r11, [r10]                                               ; dereference fromCursor and put result in address of fromCursor
     mov [rbp-0258h], r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
@@ -3335,11 +3106,11 @@ func$_moveBytes:
     mov [rbp-0268h], r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
     mov r11, [rbp-0260h]                                         ; type of value
     mov [rbp-0270h], r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
-    ; Line 48: __writeToAddress(toCursor, value);
+    ; Line 44: __writeToAddress(toCursor, value);
     mov r10, [rbp-0f8h]                                          ; value of toCursor
     mov r11, [rbp-0268h]                                         ; put value in toCursor
     mov [r10], r11                                               ; (indirect via r11 because mov can't do memory-to-memory)
-    ; Line 49: fromCursor += 8;
+    ; Line 45: fromCursor += 8;
     mov rax, [rbp-0f0h]                                          ; load the dynamic type of <fromCursor: Integer at null; compile-time constant> into rax
     lea r10, typeTable                                           ; move type table offset into r10
     add rax, r10                                                 ; adjust rax to point to the type table
@@ -3396,7 +3167,7 @@ func$_moveBytes:
     mov [rbp-0e8h], r11                                          ; (indirect via r11 because mov can't do memory-to-memory)
     mov r11, [rbp-0280h]                                         ; type of fromCursor
     mov [rbp-0f0h], r11                                          ; (indirect via r11 because mov can't do memory-to-memory)
-    ; Line 50: toCursor += 8;
+    ; Line 46: toCursor += 8;
     mov rax, [rbp-0100h]                                         ; load the dynamic type of <toCursor: Integer at null; compile-time constant> into rax
     lea r10, typeTable                                           ; move type table offset into r10
     add rax, r10                                                 ; adjust rax to point to the type table
@@ -3455,7 +3226,7 @@ func$_moveBytes:
     mov [rbp-0100h], r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
     jmp func$_moveBytes$while$top                                ; return to top of while
   func$_moveBytes$while$bottom:
-  ; Line 52: end = from + length;
+  ; Line 48: end = from + length;
   mov rax, [rbp+040h]                                            ; load the dynamic type of from into rax
   lea r10, typeTable                                             ; move type table offset into r10
   add rax, r10                                                   ; adjust rax to point to the type table
@@ -3560,7 +3331,7 @@ func$_moveBytes:
   mov [rbp-01f8h], r11                                           ; (indirect via r11 because mov can't do memory-to-memory)
   mov r11, [rbp-0360h]                                           ; type of end
   mov [rbp-0200h], r11                                           ; (indirect via r11 because mov can't do memory-to-memory)
-  ; Line 53: if (fromCursor < end) { ...
+  ; Line 49: if (fromCursor < end) { ...
   mov rax, [rbp-0f0h]                                            ; load the dynamic type of fromCursor into rax
   lea r10, typeTable                                             ; move type table offset into r10
   add rax, r10                                                   ; adjust rax to point to the type table
@@ -3664,7 +3435,7 @@ func$_moveBytes:
   mov qword ptr [rbp-03b0h], 000000014h                          ; < operator result is a Boolean
   cmp qword ptr [rbp-03a8h], 000000000h                          ; compare < operator result to false
   je func$_moveBytes$if$continuation                             ; fromCursor < end
-    ; Line 54: Integer newValue = __readFromAddress(fromCursor);
+    ; Line 50: Integer newValue = __readFromAddress(fromCursor);
     mov r10, [rbp-0e8h]                                          ; value of fromCursor
     mov r11, [r10]                                               ; dereference fromCursor and put result in address of fromCursor
     mov [rbp-03b8h], r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
@@ -3673,7 +3444,7 @@ func$_moveBytes:
     mov [rbp-03c8h], r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
     mov r11, [rbp-03c0h]                                         ; type of newValue
     mov [rbp-03d0h], r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
-    ; Line 55: Integer oldValue = __readFromAddress(toCursor);
+    ; Line 51: Integer oldValue = __readFromAddress(toCursor);
     mov r10, [rbp-0f8h]                                          ; value of toCursor
     mov r11, [r10]                                               ; dereference toCursor and put result in address of toCursor
     mov [rbp-03d8h], r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
@@ -3682,7 +3453,7 @@ func$_moveBytes:
     mov [rbp-03e8h], r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
     mov r11, [rbp-03e0h]                                         ; type of oldValue
     mov [rbp-03f0h], r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
-    ; Line 56: Integer extraBytes = end - fromCursor;
+    ; Line 52: Integer extraBytes = end - fromCursor;
     mov rax, [rbp-0200h]                                         ; load the dynamic type of end into rax
     lea r10, typeTable                                           ; move type table offset into r10
     add rax, r10                                                 ; adjust rax to point to the type table
@@ -3787,7 +3558,7 @@ func$_moveBytes:
     mov [rbp-0448h], r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
     mov r11, [rbp-0440h]                                         ; type of extraBytes
     mov [rbp-0450h], r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
-    ; Line 57: assert(extraBytes > 0, 'internal error: zero extra bytes but fro...
+    ; Line 53: assert(extraBytes > 0, 'internal error: zero extra bytes but fro...
     mov rax, [rbp-0450h]                                         ; load the dynamic type of extraBytes into rax
     lea r10, typeTable                                           ; move type table offset into r10
     add rax, r10                                                 ; adjust rax to point to the type table
@@ -3862,7 +3633,7 @@ func$_moveBytes:
     mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
     mov r8, [rbp+028h]                                           ; restore r8 from shadow space
     mov r9, [rbp+030h]                                           ; restore r9 from shadow space
-    ; Line 58: assert(extraBytes < 8, 'internal error: more than 7 extra bytes'...
+    ; Line 54: assert(extraBytes < 8, 'internal error: more than 7 extra bytes'...
     mov rax, [rbp-0450h]                                         ; load the dynamic type of extraBytes into rax
     lea r10, typeTable                                           ; move type table offset into r10
     add rax, r10                                                 ; adjust rax to point to the type table
@@ -3937,7 +3708,7 @@ func$_moveBytes:
     mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
     mov r8, [rbp+028h]                                           ; restore r8 from shadow space
     mov r9, [rbp+030h]                                           ; restore r9 from shadow space
-    ; Line 59: Integer mask = -1 << extraBytes * 8;
+    ; Line 55: Integer mask = -1 << extraBytes * 8;
     mov rax, [rbp-0450h]                                         ; load the dynamic type of extraBytes into rax
     lea r10, typeTable                                           ; move type table offset into r10
     add rax, r10                                                 ; adjust rax to point to the type table
@@ -4050,7 +3821,7 @@ func$_moveBytes:
     mov [rbp-05b8h], r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
     mov r11, [rbp-05b0h]                                         ; type of mask
     mov [rbp-05c0h], r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
-    ; Line 60: Integer finalValue = newValue & ~mask | oldValue & mask;
+    ; Line 56: Integer finalValue = newValue & ~mask | oldValue & mask;
     mov rax, [rbp-05c0h]                                         ; load the dynamic type of mask into rax
     lea r10, typeTable                                           ; move type table offset into r10
     add rax, r10                                                 ; adjust rax to point to the type table
@@ -4407,7 +4178,7 @@ func$_moveBytes:
     mov [rbp-06e8h], r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
     mov r11, [rbp-06e0h]                                         ; type of finalValue
     mov [rbp-06f0h], r11                                         ; (indirect via r11 because mov can't do memory-to-memory)
-    ; Line 61: __writeToAddress(toCursor, finalValue);
+    ; Line 57: __writeToAddress(toCursor, finalValue);
     mov r10, [rbp-0f8h]                                          ; value of toCursor
     mov r11, [rbp-06e8h]                                         ; put finalValue in toCursor
     mov [r10], r11                                               ; (indirect via r11 because mov can't do memory-to-memory)
@@ -4416,6 +4187,235 @@ func$_moveBytes:
   mov rax, r15                                                   ; report address of return value
   ; Epilog
   add rsp, 06f0h                                                 ; free space for stack
+  pop r15                                                        ; restore non-volatile registers
+  pop rbp                                                        ; restore non-volatile registers
+  ret                                                            ; return from subroutine
+
+; _stringByteLength
+func$_stringByteLength:
+  ; Prolog
+  push rbp                                                       ; save non-volatile registers
+  push r15                                                       ; save non-volatile registers
+  sub rsp, 0e0h                                                  ; allocate space for stack
+  lea rbp, [rsp+0e0h]                                            ; set up frame pointer
+  mov r15, [rbp+038h]                                            ; prepare return value
+  ; Check parameter count
+  cmp qword ptr rcx, 000000001h                                  ; compare parameter count to integers
+  je func$_stringByteLength$parameterCount$continuation          ; check number of parameters is as expected
+    ; Error handling block for parameter count
+    ;  - print(parameterCountCheckFailureMessage)
+    mov [rbp+018h], rcx                                          ; save rcx in shadow space
+    mov [rbp+020h], rdx                                          ; save rdx in shadow space
+    mov [rbp+028h], r8                                           ; save r8 in shadow space
+    mov [rbp+030h], r9                                           ; save r9 in shadow space
+    mov r11, offset parameterCountCheckFailureMessage            ; value of argument #1
+    push r11                                                     ; (indirect via r11 because "parameterCountCheckFailureMessage" is an imm64)
+    push 000000016h                                              ; type of argument #1
+    lea r10, [rbp-008h]                                          ; pointer to return value (and type, 8 bytes earlier)
+    push r10                                                     ; (that pointer is the last value pushed to the stack)
+    mov qword ptr r9, 0h                                         ; pointer to this
+    mov qword ptr r8, 000000000h                                 ; type of this
+    mov qword ptr rdx, 0h                                        ; pointer to closure
+    mov rcx, 1                                                   ; number of arguments
+    sub rsp, 20h                                                 ; allocate shadow space
+    call offset func$__print                                     ; jump to subroutine
+    add rsp, 038h                                                ; release shadow space and arguments
+    mov rcx, [rbp+018h]                                          ; restore rcx from shadow space
+    mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
+    mov r8, [rbp+028h]                                           ; restore r8 from shadow space
+    mov r9, [rbp+030h]                                           ; restore r9 from shadow space
+    ;  - exit(1)
+    mov [rbp+018h], rcx                                          ; save rcx in shadow space
+    mov [rbp+020h], rdx                                          ; save rdx in shadow space
+    mov [rbp+028h], r8                                           ; save r8 in shadow space
+    mov [rbp+030h], r9                                           ; save r9 in shadow space
+    push 000000001h                                              ; value of argument #1
+    push 000000015h                                              ; type of argument #1
+    lea r10, [rbp-018h]                                          ; pointer to return value (and type, 8 bytes earlier)
+    push r10                                                     ; (that pointer is the last value pushed to the stack)
+    mov qword ptr r9, 0h                                         ; pointer to this
+    mov qword ptr r8, 000000000h                                 ; type of this
+    mov qword ptr rdx, 0h                                        ; pointer to closure
+    mov rcx, 1                                                   ; number of arguments
+    sub rsp, 20h                                                 ; allocate shadow space
+    call offset func$exit                                        ; jump to subroutine
+    add rsp, 038h                                                ; release shadow space and arguments
+    mov rcx, [rbp+018h]                                          ; restore rcx from shadow space
+    mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
+    mov r8, [rbp+028h]                                           ; restore r8 from shadow space
+    mov r9, [rbp+030h]                                           ; restore r9 from shadow space
+  func$_stringByteLength$parameterCount$continuation:            ; end of parameter count
+  ; Check type of parameter 0, data (expecting String)
+  mov rax, [rbp+040h]                                            ; load the dynamic type of data into rax
+  lea r10, typeTable                                             ; move type table offset into r10
+  add rax, r10                                                   ; adjust rax to point to the type table
+  bt qword ptr [rax], 3                                          ; check that data is String'22
+  jc func$_stringByteLength$data$TypeMatch                       ; skip next block if the type matches
+    ; Error handling block for data
+    ;  - print(parameterTypeCheckFailureMessage)
+    mov [rbp+018h], rcx                                          ; save rcx in shadow space
+    mov [rbp+020h], rdx                                          ; save rdx in shadow space
+    mov [rbp+028h], r8                                           ; save r8 in shadow space
+    mov [rbp+030h], r9                                           ; save r9 in shadow space
+    mov r11, offset parameterTypeCheckFailureMessage             ; value of argument #1
+    push r11                                                     ; (indirect via r11 because "parameterTypeCheckFailureMessage" is an imm64)
+    push 000000016h                                              ; type of argument #1
+    lea r10, [rbp-028h]                                          ; pointer to return value (and type, 8 bytes earlier)
+    push r10                                                     ; (that pointer is the last value pushed to the stack)
+    mov qword ptr r9, 0h                                         ; pointer to this
+    mov qword ptr r8, 000000000h                                 ; type of this
+    mov qword ptr rdx, 0h                                        ; pointer to closure
+    mov rcx, 1                                                   ; number of arguments
+    sub rsp, 20h                                                 ; allocate shadow space
+    call offset func$__print                                     ; jump to subroutine
+    add rsp, 038h                                                ; release shadow space and arguments
+    mov rcx, [rbp+018h]                                          ; restore rcx from shadow space
+    mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
+    mov r8, [rbp+028h]                                           ; restore r8 from shadow space
+    mov r9, [rbp+030h]                                           ; restore r9 from shadow space
+    ;  - exit(1)
+    mov [rbp+018h], rcx                                          ; save rcx in shadow space
+    mov [rbp+020h], rdx                                          ; save rdx in shadow space
+    mov [rbp+028h], r8                                           ; save r8 in shadow space
+    mov [rbp+030h], r9                                           ; save r9 in shadow space
+    push 000000001h                                              ; value of argument #1
+    push 000000015h                                              ; type of argument #1
+    lea r10, [rbp-038h]                                          ; pointer to return value (and type, 8 bytes earlier)
+    push r10                                                     ; (that pointer is the last value pushed to the stack)
+    mov qword ptr r9, 0h                                         ; pointer to this
+    mov qword ptr r8, 000000000h                                 ; type of this
+    mov qword ptr rdx, 0h                                        ; pointer to closure
+    mov rcx, 1                                                   ; number of arguments
+    sub rsp, 20h                                                 ; allocate shadow space
+    call offset func$exit                                        ; jump to subroutine
+    add rsp, 038h                                                ; release shadow space and arguments
+    mov rcx, [rbp+018h]                                          ; restore rcx from shadow space
+    mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
+    mov r8, [rbp+028h]                                           ; restore r8 from shadow space
+    mov r9, [rbp+030h]                                           ; restore r9 from shadow space
+  func$_stringByteLength$data$TypeMatch:
+  ; Line 62: Integer pointer = data __as__ Integer;
+  mov r11, [rbp+048h]                                            ; value of force cast of data to Integer
+  mov [rbp-048h], r11                                            ; (indirect via r11 because mov can't do memory-to-memory)
+  mov qword ptr [rbp-050h], 000000015h                           ; new type of force cast of data to Integer
+  mov r11, [rbp-048h]                                            ; value of pointer
+  mov [rbp-058h], r11                                            ; (indirect via r11 because mov can't do memory-to-memory)
+  mov r11, [rbp-050h]                                            ; type of pointer
+  mov [rbp-060h], r11                                            ; (indirect via r11 because mov can't do memory-to-memory)
+  ; Line 63: return __readFromAddress(pointer + 8);
+  mov rax, [rbp-060h]                                            ; load the dynamic type of pointer into rax
+  lea r10, typeTable                                             ; move type table offset into r10
+  add rax, r10                                                   ; adjust rax to point to the type table
+  bt qword ptr [rax], 2                                          ; check that pointer is Integer'21
+  jc func$_stringByteLength$pointer$TypeMatch                    ; skip next block if the type matches
+    ; Error handling block for pointer
+    ;  - print(operandTypeCheckFailureMessage)
+    mov [rbp+018h], rcx                                          ; save rcx in shadow space
+    mov [rbp+020h], rdx                                          ; save rdx in shadow space
+    mov [rbp+028h], r8                                           ; save r8 in shadow space
+    mov [rbp+030h], r9                                           ; save r9 in shadow space
+    mov r11, offset operandTypeCheckFailureMessage               ; value of argument #1
+    push r11                                                     ; (indirect via r11 because "operandTypeCheckFailureMessage" is an imm64)
+    push 000000016h                                              ; type of argument #1
+    lea r10, [rbp-068h]                                          ; pointer to return value (and type, 8 bytes earlier)
+    push r10                                                     ; (that pointer is the last value pushed to the stack)
+    mov qword ptr r9, 0h                                         ; pointer to this
+    mov qword ptr r8, 000000000h                                 ; type of this
+    mov qword ptr rdx, 0h                                        ; pointer to closure
+    mov rcx, 1                                                   ; number of arguments
+    sub rsp, 20h                                                 ; allocate shadow space
+    call offset func$__print                                     ; jump to subroutine
+    add rsp, 038h                                                ; release shadow space and arguments
+    mov rcx, [rbp+018h]                                          ; restore rcx from shadow space
+    mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
+    mov r8, [rbp+028h]                                           ; restore r8 from shadow space
+    mov r9, [rbp+030h]                                           ; restore r9 from shadow space
+    ;  - exit(1)
+    mov [rbp+018h], rcx                                          ; save rcx in shadow space
+    mov [rbp+020h], rdx                                          ; save rdx in shadow space
+    mov [rbp+028h], r8                                           ; save r8 in shadow space
+    mov [rbp+030h], r9                                           ; save r9 in shadow space
+    push 000000001h                                              ; value of argument #1
+    push 000000015h                                              ; type of argument #1
+    lea r10, [rbp-078h]                                          ; pointer to return value (and type, 8 bytes earlier)
+    push r10                                                     ; (that pointer is the last value pushed to the stack)
+    mov qword ptr r9, 0h                                         ; pointer to this
+    mov qword ptr r8, 000000000h                                 ; type of this
+    mov qword ptr rdx, 0h                                        ; pointer to closure
+    mov rcx, 1                                                   ; number of arguments
+    sub rsp, 20h                                                 ; allocate shadow space
+    call offset func$exit                                        ; jump to subroutine
+    add rsp, 038h                                                ; release shadow space and arguments
+    mov rcx, [rbp+018h]                                          ; restore rcx from shadow space
+    mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
+    mov r8, [rbp+028h]                                           ; restore r8 from shadow space
+    mov r9, [rbp+030h]                                           ; restore r9 from shadow space
+  func$_stringByteLength$pointer$TypeMatch:
+  mov r10, [rbp-058h]                                            ; add mutates first operand, so indirect via register
+  add r10, 000000008h                                            ; + operator
+  mov [rbp-0a8h], r10                                            ; store result
+  mov qword ptr [rbp-0b0h], 000000015h                           ; store type
+  mov r10, [rbp-0a8h]                                            ; value of + operator result
+  mov r11, [r10]                                                 ; dereference + operator result and put result in address of + operator result
+  mov [rbp-0b8h], r11                                            ; (indirect via r11 because mov can't do memory-to-memory)
+  mov qword ptr [rbp-0c0h], 000000015h                           ; type of address of + operator result
+  mov rax, [rbp-0c0h]                                            ; load the dynamic type of return value of _stringByteLength into rax
+  lea r10, typeTable                                             ; move type table offset into r10
+  add rax, r10                                                   ; adjust rax to point to the type table
+  bt qword ptr [rax], 2                                          ; check that return value of _stringByteLength is Integer'21
+  jc func$_stringByteLength$returnValueOfStringbytelength$TypeMatch ; skip next block if the type matches
+    ; Error handling block for return value of _stringByteLength
+    ;  - print(returnValueTypeCheckFailureMessage)
+    mov [rbp+018h], rcx                                          ; save rcx in shadow space
+    mov [rbp+020h], rdx                                          ; save rdx in shadow space
+    mov [rbp+028h], r8                                           ; save r8 in shadow space
+    mov [rbp+030h], r9                                           ; save r9 in shadow space
+    mov r11, offset returnValueTypeCheckFailureMessage           ; value of argument #1
+    push r11                                                     ; (indirect via r11 because "returnValueTypeCheckFailureMessage" is an imm64)
+    push 000000016h                                              ; type of argument #1
+    lea r10, [rbp-0c8h]                                          ; pointer to return value (and type, 8 bytes earlier)
+    push r10                                                     ; (that pointer is the last value pushed to the stack)
+    mov qword ptr r9, 0h                                         ; pointer to this
+    mov qword ptr r8, 000000000h                                 ; type of this
+    mov qword ptr rdx, 0h                                        ; pointer to closure
+    mov rcx, 1                                                   ; number of arguments
+    sub rsp, 20h                                                 ; allocate shadow space
+    call offset func$__print                                     ; jump to subroutine
+    add rsp, 038h                                                ; release shadow space and arguments
+    mov rcx, [rbp+018h]                                          ; restore rcx from shadow space
+    mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
+    mov r8, [rbp+028h]                                           ; restore r8 from shadow space
+    mov r9, [rbp+030h]                                           ; restore r9 from shadow space
+    ;  - exit(1)
+    mov [rbp+018h], rcx                                          ; save rcx in shadow space
+    mov [rbp+020h], rdx                                          ; save rdx in shadow space
+    mov [rbp+028h], r8                                           ; save r8 in shadow space
+    mov [rbp+030h], r9                                           ; save r9 in shadow space
+    push 000000001h                                              ; value of argument #1
+    push 000000015h                                              ; type of argument #1
+    lea r10, [rbp-0d8h]                                          ; pointer to return value (and type, 8 bytes earlier)
+    push r10                                                     ; (that pointer is the last value pushed to the stack)
+    mov qword ptr r9, 0h                                         ; pointer to this
+    mov qword ptr r8, 000000000h                                 ; type of this
+    mov qword ptr rdx, 0h                                        ; pointer to closure
+    mov rcx, 1                                                   ; number of arguments
+    sub rsp, 20h                                                 ; allocate shadow space
+    call offset func$exit                                        ; jump to subroutine
+    add rsp, 038h                                                ; release shadow space and arguments
+    mov rcx, [rbp+018h]                                          ; restore rcx from shadow space
+    mov rdx, [rbp+020h]                                          ; restore rdx from shadow space
+    mov r8, [rbp+028h]                                           ; restore r8 from shadow space
+    mov r9, [rbp+030h]                                           ; restore r9 from shadow space
+  func$_stringByteLength$returnValueOfStringbytelength$TypeMatch:
+  mov r11, [rbp-0b8h]                                            ; value of return value
+  mov [r15], r11                                                 ; (indirect via r11 because mov can't do memory-to-memory)
+  mov r11, [rbp-0c0h]                                            ; type of return value
+  mov [r15-08h], r11                                             ; (indirect via r11 because mov can't do memory-to-memory)
+  jmp func$_stringByteLength$epilog                              ; return
+  func$_stringByteLength$epilog:
+  mov rax, r15                                                   ; report address of return value
+  ; Epilog
+  add rsp, 0e0h                                                  ; free space for stack
   pop r15                                                        ; restore non-volatile registers
   pop rbp                                                        ; restore non-volatile registers
   ret                                                            ; return from subroutine
