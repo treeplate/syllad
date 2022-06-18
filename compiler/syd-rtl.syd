@@ -1,5 +1,4 @@
 // TODO:
-//  - implement __moveBytes(a, b, length): copy length bytes from a to b
 //  - implement string ref counting
 
 // TODO: this should be a compiler intrinsic so that the message evaluation can be lazy and so it can be skipped in release builds
@@ -11,7 +10,13 @@ Null assert(Boolean condition, String message) {
   }
 }
 
+Integer __getLastError() __extern 'kernel32.lib' 'GetLastError';
+
+Integer __getProcessHeap() __extern 'kernel32.lib' 'GetProcessHeap';
+
 Integer _heapHandle = __getProcessHeap();
+
+Integer __heapAlloc(Integer hHeap, Integer dwFlags, Integer dwBytes) __extern 'kernel32.lib' 'HeapAlloc';
 
 /// Allocates a block on the heap.
 ///
@@ -19,6 +24,9 @@ Integer _heapHandle = __getProcessHeap();
 Integer _alloc(Integer size) {
   return __heapAlloc(_heapHandle, 0x00, size);
 }
+
+// returns positive for success, zero for failure
+Integer __heapFree(Integer hHeap, Integer dwFlags, Integer lpMem) __extern 'kernel32.lib' 'HeapFree';
 
 /// Frees a heap allocation obtained from [_alloc].
 ///
@@ -34,11 +42,15 @@ Boolean _free(Integer pointer) {
 }
 
 Null _moveBytes(Integer from, Integer to, Integer length) {
-  // TODO: move this to inlined assembler for performance
+  // TODO: move this to inlined assembler (using the string-copy instructions) for performance
+  // (or optimize the compiler enough that it generates good code somehow!)
   assert(length > 0, '_moveBytes expects positive number of bytes to copy');
   Integer fromCursor = from;
   Integer toCursor = to;
   Integer end = from + (length / 8) * 8;
+  // TODO: implement || (then uncomment these asserts)
+  // assert(fromCursor != end || length < 8, 'inconsistency');
+  // assert(fromCursor != end || length > 0, 'inconsistency');
   while (fromCursor < end) {
     Integer value = __readFromAddress(fromCursor);
     __writeToAddress(toCursor, value);
@@ -46,6 +58,7 @@ Null _moveBytes(Integer from, Integer to, Integer length) {
     toCursor += 8;
   }
   end = from + length;
+  // assert((fromCursor < end) || (from < fromCursor), 'no moves on either side');
   if (fromCursor < end) {
     Integer newValue = __readFromAddress(fromCursor);
     Integer oldValue = __readFromAddress(toCursor);
@@ -119,7 +132,7 @@ String digitToStr(Integer digit) {
   if (digit == 9) {
     return '9';
   }
-  __print("Invalid digit passed to digitToStr (digit as exit code) \n");
+  __print('Invalid digit passed to digitToStr (digit as exit code)\n');
   exit(digit);
 }
 
@@ -136,7 +149,6 @@ String intToStr(Integer value) {
   }
   return buffer;
 }
-
 
 String _stringify(Anything arg) {
   if (arg is String) {

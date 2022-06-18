@@ -1,3 +1,12 @@
+String formatCursorPosition(int line, int col, String file) {
+  return "./compiler/$file:$line:$col";
+}
+
+String formatCursorPositionFromTokens(TokenIterator tokens) {
+  return formatCursorPosition(
+      tokens.current.line, tokens.current.col, tokens.file);
+}
+
 enum TokenType {
   endOfStatement, // ;
   endOfFile, // EOF
@@ -219,7 +228,7 @@ Iterable<Token> lex(String file, String filename) sync* {
         } else {
           throw FileInvalid(
             //print(
-            "Unrecognized ${String.fromCharCode(rune)} at line $line column $col (U+${rune.toRadixString(16)} in Unicode)",
+            "Unrecognized ${String.fromCharCode(rune)} at ${formatCursorPosition(line, col, filename)} (U+${rune.toRadixString(16)} in Unicode)",
             //);
           );
         }
@@ -457,7 +466,7 @@ Iterable<Token> lex(String file, String filename) sync* {
           yield CharToken(TokenType.ellipsis, line, col);
           state = _LexerState.top;
         } else {
-          print("TWO PERIODS $line $col $filename");
+          print("TWO PERIODS ${formatCursorPosition(line, col, filename)}");
           yield CharToken(TokenType.period, line, col);
           yield CharToken(TokenType.period, line, col);
           state = _LexerState.top;
@@ -500,13 +509,13 @@ class TokenIterator extends Iterator<Token> {
       return (current as IdentToken).ident;
     }
     throw FileInvalid(
-        "Expected identifier, got $current on line ${current.line} column ${current.col} file $file");
+        "Expected identifier, got $current on ${formatCursorPositionFromTokens(this)}");
   }
 
   TokenType get currentChar {
     if (current is! CharToken) {
       throw FileInvalid(
-          "Expected character, got $current on line ${current.line} column ${current.col} file $file");
+          "Expected character, got $current on ${formatCursorPositionFromTokens(this)}");
     }
     return (current as CharToken).type;
   }
@@ -516,7 +525,7 @@ class TokenIterator extends Iterator<Token> {
       return (current as IntToken).integer;
     }
     throw FileInvalid(
-        "Expected integer, got $current on line ${current.line} column ${current.col} file $file");
+        "Expected integer, got $current on ${formatCursorPositionFromTokens(this)}");
   }
 
   String get string {
@@ -524,7 +533,7 @@ class TokenIterator extends Iterator<Token> {
       return (current as StringToken).str;
     }
     throw FileInvalid(
-        "Expected string, got $current on line ${current.line} column ${current.col} file $file");
+        "Expected string, got $current on ${formatCursorPositionFromTokens(this)}");
   }
 
   Token? previous = null;
@@ -545,7 +554,7 @@ class TokenIterator extends Iterator<Token> {
   void expectChar(TokenType char) {
     if (current is! CharToken || char != currentChar) {
       throw FileInvalid(
-          "Expected $char, got $current on line ${current.line} column ${current.col} file $file");
+          "Expected $char, got $current on ${formatCursorPositionFromTokens(this)}");
     }
     moveNext();
   }

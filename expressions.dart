@@ -11,11 +11,52 @@ abstract class Expression {
   Expression get internal => this;
 }
 
+class AssertExpression extends Expression {
+  final Expression condition;
+  final Expression comment;
+
+  @override
+  ValueType get type => nullType;
+
+  String toString() => "assert($condition, $comment)";
+
+  AssertExpression(this.condition, this.comment, int line, int col, String file)
+      : super(line, col, file);
+  @override
+  ValueWrapper eval(Scope scope) {
+    ValueWrapper conditionEval = condition.eval(scope);
+    if (!conditionEval
+        .typeC(scope, scope.stack, line, col, file)
+        .isSubtypeOf(booleanType)) {
+      throw FileInvalid(
+        "argument 0 of assert, $conditionEval ($condition), of wrong type (${conditionEval.typeC(scope, scope.stack, line, col, file)}) expected boolean ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}",
+      );
+    }
+    if (!conditionEval.valueC(scope, scope.stack, line, col, file)) {
+      ValueWrapper commentEval = comment.eval(scope);
+      if (!commentEval
+          .typeC(scope, scope.stack, line, col, file)
+          .isSubtypeOf(stringType)) {
+        throw FileInvalid(
+          "argument 1 of assert, $commentEval ($comment), of wrong type (${commentEval.typeC(scope, scope.stack, line, col, file)}) expected string ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}",
+        );
+      }
+      throw FileInvalid(
+        commentEval.valueC(scope, scope.stack, line, col, file) +
+            ' ($condition was not true) ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}',
+      );
+    }
+    return ValueWrapper(nullType, null, 'rtv of assert');
+  }
+}
+
 class GetExpr<T> extends Expression {
   final String name;
 
   GetExpr(this.name, this.typeValidator, int line, int col, String file)
-      : super(line, col, file);
+      : super(line, col, file) {
+    typeValidator.getVar(name, 0, line, col, file, 'getexpr constructor');
+  }
 
   final TypeValidator typeValidator;
 
@@ -42,8 +83,10 @@ class EqualsExpression extends Expression {
     ValueWrapper eb = b.eval(scope);
     ValueWrapper result = ValueWrapper(
         booleanType,
-        ea.typeC(scope, scope.stack) == eb.typeC(scope, scope.stack) &&
-            ea.valueC(scope, scope.stack) == eb.valueC(scope, scope.stack),
+        ea.typeC(scope, scope.stack, line, col, file) ==
+                eb.typeC(scope, scope.stack, line, col, file) &&
+            ea.valueC(scope, scope.stack, line, col, file) ==
+                eb.valueC(scope, scope.stack, line, col, file),
         '$this result');
     return result;
   }
@@ -61,12 +104,25 @@ class BitAndExpression extends Expression {
       : super(line, col, file);
   @override
   ValueWrapper eval(Scope scope) {
+    ValueWrapper av = a.eval(scope);
+    ValueWrapper bv = b.eval(scope);
+    if (!(av
+            .typeC(scope, scope.stack, line, col, file)
+            .isSubtypeOf(integerType) &&
+        bv
+            .typeC(scope, scope.stack, line, col, file)
+            .isSubtypeOf(integerType))) {
+      throw FileInvalid(
+          "$av ($a) or $bv ($b) is not an integer; attempted $a (a ${av.typeC(scope, scope.stack, line, col, file)}) & $b (a ${bv.typeC(scope, scope.stack, line, col, file)}) ${formatCursorPosition(line, col, file)}\n ${scope.stack.reversed.join('\n')}");
+    }
     return ValueWrapper(
         integerType,
-        a.eval(scope).valueC(scope, scope.stack) &
-            b.eval(scope).valueC(scope, scope.stack),
+        av.valueC(scope, scope.stack, line, col, file) &
+            bv.valueC(scope, scope.stack, line, col, file),
         '$this result');
   }
+
+  String toString() => "$a & $b";
 
   ValueType get type => integerType;
 }
@@ -81,10 +137,12 @@ class BitXorExpression extends Expression {
   ValueWrapper eval(Scope scope) {
     return ValueWrapper(
         integerType,
-        a.eval(scope).valueC(scope, scope.stack) ^
-            b.eval(scope).valueC(scope, scope.stack),
+        a.eval(scope).valueC(scope, scope.stack, line, col, file) ^
+            b.eval(scope).valueC(scope, scope.stack, line, col, file),
         '$this result');
   }
+
+  String toString() => "$a ^ $b";
 
   ValueType get type => integerType;
 }
@@ -105,28 +163,31 @@ class SubscriptExpression extends Expression {
   eval(Scope scope) {
     ValueWrapper list = a.eval(scope);
     ValueWrapper iV = b.eval(scope);
-    if (iV.valueC(scope, scope.stack) is! int)
+    if (iV.valueC(scope, scope.stack, line, col, file) is! int)
       throw FileInvalid(
-          '$b is not integer, is ${iV.typeC(scope, scope.stack)} ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}');
-    int index = iV.valueC(scope, scope.stack);
+          '$b is not integer, is ${iV.typeC(scope, scope.stack, line, col, file)} ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}');
+    int index = iV.valueC(scope, scope.stack, line, col, file);
     return fancySubscript(list, index, scope);
   }
 
   ValueWrapper fancySubscript(ValueWrapper list, int index, Scope scope) {
-    if (list.valueC(scope, scope.stack) is! List) {
+    if (list.valueC(scope, scope.stack, line, col, file) is! List) {
       throw FileInvalid(
         "$a is not list ${formatCursorPosition(line, col, file)}",
       );
     }
-    if (list.valueC(scope, scope.stack).length <= index || index < 0) {
+    if (list.valueC(scope, scope.stack, line, col, file).length <= index ||
+        index < 0) {
       throw FileInvalid(
-        "RangeError: $list ($a) has ${list.valueC(scope, scope.stack).length} elements, but it was subscripted with element $index. ${formatCursorPosition(line, col, file)}",
+        "RangeError: $list ($a) has ${list.valueC(scope, scope.stack, line, col, file).length} elements, but it was subscripted with element $index. ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}",
       );
     }
-    return list.typeC(scope, scope.stack) == stringType
-        ? ValueWrapper(stringType, list.valueC(scope, scope.stack)[index],
+    return list.typeC(scope, scope.stack, line, col, file) == stringType
+        ? ValueWrapper(
+            stringType,
+            list.valueC(scope, scope.stack, line, col, file)[index],
             'subscript expr result')
-        : list.valueC(scope, scope.stack)[index];
+        : list.valueC(scope, scope.stack, line, col, file)[index];
   }
 }
 
@@ -143,11 +204,13 @@ class MemberAccessExpression extends Expression {
   @override
   eval(Scope scope) {
     ValueWrapper thisScopeWrapper = a.eval(scope);
-    if (thisScopeWrapper.typeC(scope, scope.stack) is! ClassValueType) {
+    if (thisScopeWrapper.typeC(scope, scope.stack, line, col, file)
+        is! ClassValueType) {
       throw FileInvalid(
-          "$thisScopeWrapper ($a) is not an instance of a class, it's a ${thisScopeWrapper.typeC(scope, scope.stack)} ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}");
+          "$thisScopeWrapper ($a) is not an instance of a class, it's a ${thisScopeWrapper.typeC(scope, scope.stack, line, col, file)} ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}");
     }
-    Scope thisScope = thisScopeWrapper.valueC(scope, scope.stack);
+    Scope thisScope =
+        thisScopeWrapper.valueC(scope, scope.stack, line, col, file);
     return thisScope.getVar(b, line, col, file);
   }
 
@@ -166,7 +229,8 @@ class IsExpr extends Expression {
 
   @override
   ValueWrapper eval(Scope scope) {
-    ValueType possibleChildType = operand.eval(scope).typeC(scope, scope.stack);
+    ValueType possibleChildType =
+        operand.eval(scope).typeC(scope, scope.stack, line, col, file);
     return ValueWrapper(
         booleanType, possibleChildType.isSubtypeOf(isType), '$this result');
   }
@@ -185,20 +249,22 @@ class AsExpr extends Expression {
   @override
   ValueWrapper eval(Scope scope) {
     ValueWrapper op = operand.eval(scope);
-    ValueType possibleChildType = op.typeC(scope, scope.stack);
+    ValueType possibleChildType = op.typeC(scope, scope.stack, line, col, file);
     if (possibleChildType is IterableValueType &&
         isType is IterableValueType &&
         !possibleChildType.isSubtypeOf(isType)) {
-      for (ValueWrapper x in op.valueC(scope, scope.stack)) {
+      for (ValueWrapper x in op.valueC(scope, scope.stack, line, col, file)) {
         if (!x
-            .typeC(scope, scope.stack)
+            .typeC(scope, scope.stack, line, col, file)
             .isSubtypeOf((isType as IterableValueType).genericParameter)) {
           throw FileInvalid(
-              "${operand.type} as ${isType} had invalid element type; expected ${(isType as IterableValueType).genericParameter} got $x (a ${x.typeC(scope, scope.stack)}) ${formatCursorPosition(line, col, file)}");
+              "${operand.type} as ${isType} had invalid element type; expected ${(isType as IterableValueType).genericParameter} got $x (a ${x.typeC(scope, scope.stack, line, col, file)}) ${formatCursorPosition(line, col, file)}");
         }
       }
       return ValueWrapper(
-          isType, op.valueC(scope, scope.stack), 'as (list.cast style)');
+          isType,
+          op.valueC(scope, scope.stack, line, col, file),
+          'as (list.cast style)');
     }
     if (!possibleChildType.isSubtypeOf(isType)) {
       throw FileInvalid(
@@ -213,10 +279,14 @@ class NotExpression extends Expression {
 
   NotExpression(this.a, int line, int col, String file)
       : super(line, col, file);
+
+  String toString() => '!$a';
   @override
   ValueWrapper eval(Scope scope) {
     return ValueWrapper(
-        booleanType, !a.eval(scope).valueC(scope, scope.stack), '$this result');
+        booleanType,
+        !a.eval(scope).valueC(scope, scope.stack, line, col, file),
+        '$this result');
   }
 
   ValueType get type => booleanType;
@@ -230,8 +300,12 @@ class BitNotExpression extends Expression {
   @override
   ValueWrapper eval(Scope scope) {
     return ValueWrapper(
-        integerType, ~a.eval(scope).valueC(scope, scope.stack), '$this result');
+        integerType,
+        ~a.eval(scope).valueC(scope, scope.stack, line, col, file),
+        '$this result');
   }
+
+  String toString() => "~$a";
 
   ValueType get type => integerType;
 }
@@ -246,8 +320,8 @@ class MultiplyExpression extends Expression {
   ValueWrapper eval(Scope scope) {
     return ValueWrapper(
         integerType,
-        a.eval(scope).valueC(scope, scope.stack) *
-            b.eval(scope).valueC(scope, scope.stack),
+        a.eval(scope).valueC(scope, scope.stack, line, col, file) *
+            b.eval(scope).valueC(scope, scope.stack, line, col, file),
         '$this result');
   }
 
@@ -264,14 +338,19 @@ class DivideExpression extends Expression {
   ValueWrapper eval(Scope scope) {
     ValueWrapper av = a.eval(scope);
     ValueWrapper bv = b.eval(scope);
-    if (!(av.typeC(scope, scope.stack).isSubtypeOf(integerType) &&
-        bv.typeC(scope, scope.stack).isSubtypeOf(integerType))) {
+    if (!(av
+            .typeC(scope, scope.stack, line, col, file)
+            .isSubtypeOf(integerType) &&
+        bv
+            .typeC(scope, scope.stack, line, col, file)
+            .isSubtypeOf(integerType))) {
       throw FileInvalid(
           "$av ($a) or $bv ($b) is not an integer; attempted $a/$b ${formatCursorPosition(line, col, file)}\n ${scope.stack.reversed.join('\n')}");
     }
     return ValueWrapper(
         integerType,
-        av.valueC(scope, scope.stack) ~/ bv.valueC(scope, scope.stack),
+        av.valueC(scope, scope.stack, line, col, file) ~/
+            bv.valueC(scope, scope.stack, line, col, file),
         '$this result');
   }
 
@@ -288,18 +367,23 @@ class RemainderExpression extends Expression {
   ValueWrapper eval(Scope scope) {
     ValueWrapper av = a.eval(scope);
     ValueWrapper bv = b.eval(scope);
-    if (!(av.typeC(scope, scope.stack).isSubtypeOf(integerType) &&
-        bv.typeC(scope, scope.stack).isSubtypeOf(integerType))) {
+    if (!(av
+            .typeC(scope, scope.stack, line, col, file)
+            .isSubtypeOf(integerType) &&
+        bv
+            .typeC(scope, scope.stack, line, col, file)
+            .isSubtypeOf(integerType))) {
       throw FileInvalid(
           "$av ($a) or $bv ($b) is not an integer; attempted $a%$b ${formatCursorPosition(line, col, file)}\n ${scope.stack.reversed.join('\n')}");
     }
-    if (bv.valueC(scope, scope.stack) == 0) {
+    if (bv.valueC(scope, scope.stack, line, col, file) == 0) {
       throw FileInvalid(
-          "$a (${av.valueC(scope, scope.stack)}) % $b (0) attempted ${formatCursorPosition(line, col, file)} stack ${scope.stack.join('\n')}");
+          "$a (${av.valueC(scope, scope.stack, line, col, file)}) % $b (0) attempted ${formatCursorPosition(line, col, file)} stack ${scope.stack.join('\n')}");
     }
     return ValueWrapper(
         integerType,
-        av.valueC(scope, scope.stack) % bv.valueC(scope, scope.stack),
+        av.valueC(scope, scope.stack, line, col, file) %
+            bv.valueC(scope, scope.stack, line, col, file),
         '$this result');
   }
 
@@ -316,14 +400,19 @@ class SubtractExpression extends Expression {
   ValueWrapper eval(Scope scope) {
     ValueWrapper av = a.eval(scope);
     ValueWrapper bv = b.eval(scope);
-    if (!(av.typeC(scope, scope.stack).isSubtypeOf(integerType) &&
-        bv.typeC(scope, scope.stack).isSubtypeOf(integerType))) {
+    if (!(av
+            .typeC(scope, scope.stack, line, col, file)
+            .isSubtypeOf(integerType) &&
+        bv
+            .typeC(scope, scope.stack, line, col, file)
+            .isSubtypeOf(integerType))) {
       throw FileInvalid(
           "$av ($a) or $bv ($b) is not an integer; attempted $a-$b ${formatCursorPosition(line, col, file)}\n ${scope.stack.reversed.join('\n')}");
     }
     return ValueWrapper(
         integerType,
-        av.valueC(scope, scope.stack) - bv.valueC(scope, scope.stack),
+        av.valueC(scope, scope.stack, line, col, file) -
+            bv.valueC(scope, scope.stack, line, col, file),
         '$this result');
   }
 
@@ -342,14 +431,19 @@ class AddExpression extends Expression {
   ValueWrapper eval(Scope scope) {
     ValueWrapper av = a.eval(scope);
     ValueWrapper bv = b.eval(scope);
-    if (!(av.typeC(scope, scope.stack).isSubtypeOf(integerType) &&
-        bv.typeC(scope, scope.stack).isSubtypeOf(integerType))) {
+    if (!(av
+            .typeC(scope, scope.stack, line, col, file)
+            .isSubtypeOf(integerType) &&
+        bv
+            .typeC(scope, scope.stack, line, col, file)
+            .isSubtypeOf(integerType))) {
       throw FileInvalid(
           "$av ($a) or $bv ($b) is not an integer; attempted $a+$b ${formatCursorPosition(line, col, file)}\n ${scope.stack.reversed.join('\n')}");
     }
     return ValueWrapper(
         integerType,
-        av.valueC(scope, scope.stack) + bv.valueC(scope, scope.stack),
+        av.valueC(scope, scope.stack, line, col, file) +
+            bv.valueC(scope, scope.stack, line, col, file),
         '$this result');
   }
 
@@ -369,7 +463,7 @@ class SuperExpression extends Expression {
     ClassValueType classType = scope.currentClass;
     ValueWrapper thisScopeVW =
         scope.getVar('this', line, col, '<internal error: no this>');
-    Scope thisScope = thisScopeVW.valueC(scope, scope.stack);
+    Scope thisScope = thisScopeVW.valueC(scope, scope.stack, line, col, file);
     ClassValueType parent = classType;
     Scope superMethods;
     do {
@@ -377,14 +471,17 @@ class SuperExpression extends Expression {
       superMethods = scope
           .getVar('~${parent.name}~methods', line, col,
               '<internal error: no methods>')
-          .valueC(scope, scope.stack);
+          .valueC(scope, scope.stack, line, col, file);
     } while (!superMethods.values.containsKey(member));
     ValueWrapper x = superMethods.getVar(member, line, col, 'TODO');
     return ValueWrapper(
-        x.typeC(scope, scope.stack),
-        (List<ValueWrapper> args2, List<String> stack2) => (x.valueC(
-                scope, scope.stack) as Function)(
-            args2, stack2, thisScope, thisScopeVW.typeC(scope, scope.stack)),
+        x.typeC(scope, scope.stack, line, col, file),
+        (List<ValueWrapper> args2, List<String> stack2) =>
+            (x.valueC(scope, scope.stack, line, col, file) as Function)(
+                args2,
+                stack2,
+                thisScope,
+                thisScopeVW.typeC(scope, scope.stack, line, col, file)),
         '${classType.name}.super.$member');
   }
 
@@ -440,7 +537,7 @@ class UnwrapExpression extends Expression {
   @override
   ValueWrapper eval(Scope scope) {
     ValueWrapper aval = a.eval(scope);
-    if (aval.valueC(scope, scope.stack) == null) {
+    if (aval.valueC(scope, scope.stack, line, col, file) == null) {
       throw FileInvalid(
           "Failed unwrap of $aval ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}");
     }
@@ -471,20 +568,30 @@ class FunctionCallExpr extends Expression {
       : super(line, col, file);
   @override
   ValueWrapper eval(Scope scope) {
+    //print("calling $a...");
     List<ValueWrapper> args = b.map((x) => x.eval(scope)).toList();
     for (int i = 0; i < args.length; i++) {
       if (a.type is FunctionValueType &&
-          !args[i].typeC(scope, scope.stack).isSubtypeOf(
+          !args[i].typeC(scope, scope.stack, line, col, file).isSubtypeOf(
               (a.type as FunctionValueType).parameters.elementAt(i))) {
         throw FileInvalid(
-            "argument #$i of $a, ${args[i]} (${b[i]}), of wrong type (${args[i].typeC(scope, scope.stack)}) expected ${(a.type as FunctionValueType).parameters.elementAt(i)} ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}");
+            "argument #$i of $a, ${args[i]} (${b[i]}), of wrong type (${args[i].typeC(scope, scope.stack, line, col, file)}) expected ${(a.type as FunctionValueType).parameters.elementAt(i)} ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}");
       }
     }
+    //print("evaluated arguments...");
     List<String> newStack = scope.stack.toList();
     newStack[newStack.length - 1] +=
         " ${formatCursorPosition(line, col, file)}";
-    dynamic result =
-        (a.eval(scope).valueC(scope, scope.stack) as Function)(args, newStack);
+    ValueWrapper aEval = a.eval(scope);
+    if (!aEval
+        .typeC(scope, scope.stack, line, col, file)
+        .isSubtypeOf(GenericFunctionValueType(sharedSupertype, '__test'))) {
+      throw FileInvalid(
+          'tried to call non-function: $aEval, ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}');
+    }
+    dynamic result = (aEval.valueC(scope, scope.stack, line, col, file)
+        as Function)(args, newStack);
+    //print("finished calling $a.");
     if (result is StatementResult) {
       switch (result.type) {
         case StatementResultType.nothing:
@@ -525,8 +632,8 @@ class ShiftRightExpression extends Expression {
   ValueWrapper eval(Scope scope) {
     return ValueWrapper(
         integerType,
-        a.eval(scope).valueC(scope, scope.stack) >>
-            b.eval(scope).valueC(scope, scope.stack),
+        a.eval(scope).valueC(scope, scope.stack, line, col, file) >>
+            b.eval(scope).valueC(scope, scope.stack, line, col, file),
         '$this result');
   }
 
@@ -543,8 +650,8 @@ class ShiftLeftExpression extends Expression {
   ValueWrapper eval(Scope scope) {
     return ValueWrapper(
         integerType,
-        a.eval(scope).valueC(scope, scope.stack) <<
-            b.eval(scope).valueC(scope, scope.stack),
+        a.eval(scope).valueC(scope, scope.stack, line, col, file) <<
+            b.eval(scope).valueC(scope, scope.stack, line, col, file),
         '$this result');
   }
 
@@ -561,14 +668,19 @@ class GreaterExpression extends Expression {
   ValueWrapper eval(Scope scope) {
     ValueWrapper av = a.eval(scope);
     ValueWrapper bv = b.eval(scope);
-    if (!(av.typeC(scope, scope.stack).isSubtypeOf(integerType) &&
-        bv.typeC(scope, scope.stack).isSubtypeOf(integerType))) {
+    if (!(av
+            .typeC(scope, scope.stack, line, col, file)
+            .isSubtypeOf(integerType) &&
+        bv
+            .typeC(scope, scope.stack, line, col, file)
+            .isSubtypeOf(integerType))) {
       throw FileInvalid(
           "$av ($a) or $bv ($b) is not an integer; attempted $a>$b ${formatCursorPosition(line, col, file)}\n ${scope.stack.reversed.join('\n')}");
     }
     return ValueWrapper(
         booleanType,
-        av.valueC(scope, scope.stack) > bv.valueC(scope, scope.stack),
+        av.valueC(scope, scope.stack, line, col, file) >
+            bv.valueC(scope, scope.stack, line, col, file),
         '$this result');
   }
 
@@ -587,8 +699,8 @@ class LessExpression extends Expression {
   ValueWrapper eval(Scope scope) {
     return ValueWrapper(
         booleanType,
-        a.eval(scope).valueC(scope, scope.stack) <
-            b.eval(scope).valueC(scope, scope.stack),
+        a.eval(scope).valueC(scope, scope.stack, line, col, file) <
+            b.eval(scope).valueC(scope, scope.stack, line, col, file),
         '$this result');
   }
 
@@ -601,14 +713,16 @@ class BitOrExpression extends Expression {
 
   ValueType type = integerType;
 
+  String toString() => "$a | $b";
+
   BitOrExpression(this.a, this.b, int line, int col, String file)
       : super(line, col, file);
   @override
   ValueWrapper eval(Scope scope) {
     return ValueWrapper(
         integerType,
-        a.eval(scope).valueC(scope, scope.stack) |
-            b.eval(scope).valueC(scope, scope.stack),
+        a.eval(scope).valueC(scope, scope.stack, line, col, file) |
+            b.eval(scope).valueC(scope, scope.stack, line, col, file),
         '$this result');
   }
 }
@@ -617,14 +731,16 @@ class AndExpression extends Expression {
   final Expression a;
   final Expression b;
 
+  String toString() => '$a && $b';
+
   AndExpression(this.a, this.b, int line, int col, String file)
       : super(line, col, file);
   @override
   ValueWrapper eval(Scope scope) {
     return ValueWrapper(
         booleanType,
-        a.eval(scope).valueC(scope, scope.stack) &&
-            b.eval(scope).valueC(scope, scope.stack),
+        a.eval(scope).valueC(scope, scope.stack, line, col, file) &&
+            b.eval(scope).valueC(scope, scope.stack, line, col, file),
         '$this result');
   }
 
@@ -639,11 +755,24 @@ class OrExpression extends Expression {
       : super(line, col, file);
   @override
   ValueWrapper eval(Scope scope) {
-    return ValueWrapper(
-        booleanType,
-        a.eval(scope).valueC(scope, scope.stack) ||
-            b.eval(scope).valueC(scope, scope.stack),
-        '$this result');
+    ValueWrapper av = a.eval(scope);
+    if (!av
+        .typeC(scope, scope.stack, line, col, file)
+        .isSubtypeOf(booleanType)) {
+      throw FileInvalid(
+          "$av ($a) is not an boolean; attempted $a||$b ${formatCursorPosition(line, col, file)}\n ${scope.stack.reversed.join('\n')}");
+    }
+    if (av.valueC(scope, scope.stack, line, col, file)) {
+      return av;
+    }
+    ValueWrapper bv = b.eval(scope);
+    if (!bv
+        .typeC(scope, scope.stack, line, col, file)
+        .isSubtypeOf(booleanType)) {
+      throw FileInvalid(
+          "$bv ($b) is not an boolean; attempted $a||$b ${formatCursorPosition(line, col, file)}\n ${scope.stack.reversed.join('\n')}");
+    }
+    return bv;
   }
 
   String toString() => "$a || $b";

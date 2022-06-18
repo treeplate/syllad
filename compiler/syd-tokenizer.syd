@@ -88,10 +88,6 @@ enum tt {
   Eof
 }
 
-Integer tkType = 0;
-Integer tkSourceLocation = 1;
-Integer tkData = 2;
-
 class Token extends Object {
   tt type;
   SourceLocation sourceLocation;

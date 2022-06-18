@@ -1,7 +1,19 @@
 // Standard Library
 //stderr('Syllad core library 1.0 loaded.');
 
-Anything sentinel;
+Integer min(Integer a, Integer b) {
+  if (a > b) {
+    return b;
+  }
+  return a;
+}
+
+Integer max(Integer a, Integer b) {
+  if (a < b) {
+    return b;
+  }
+  return a;
+}
 
 String intToStr(Integer value) {
   if (value == 0) {
@@ -101,11 +113,14 @@ Integer hashString(String data) {
 }
 
 Integer hashAnything(Anything data) {
+  if (data is Object) {
+    return (data as Object).internalObjectId;
+  }
   return hashString(concat(data));
 }
 
-// Map has set, get, keys, values
-class Map {
+// Map has set, get, remove, keys, values
+class Map extends Object {
   // outer list is indexed by hash mod length
   // it is a sparse list (hence nullable)
   // each entry is a list of the things at that that hash code
@@ -135,6 +150,32 @@ class Map {
     }
     append(entry!, [key, value]);
     length += 1;
+  }
+
+  Null remove(Anything key) {
+    assert(len(table) > 0, 'Cannot remove from an empty Map.');
+    Integer hashCode = hashAnything(key);
+    Integer entryIndex = hashCode % len(table);
+    AnythingListListNullable entry = table[entryIndex];
+    assert(entry != null, 'Cannot remove something not in the map.');
+    for (record in entry!) {
+      if (record[0] == key) {
+        length -= 1;
+        if (len(entry!) > 1) {
+          AnythingListList newRecord = []:AnythingList;
+          for (item in entry!) {
+            if (item[0] != key) {
+              append(newRecord, item);
+            }
+          }
+          table[entryIndex] = newRecord;
+        } else {
+          table[entryIndex] = null;
+        }
+        return;
+      }
+    }
+    assert(false, 'Cannot remove something not in the set.');
   }
 
   // protected
@@ -226,18 +267,15 @@ class Map {
   }
 }
 
-class Set {
+class Set extends Object {
   AnythingListNullableList table = []:AnythingListNullable;
   Integer length = 0;
-
-  Null constructor() { }
 
   // protected
   Null nonGrowingAdd(Anything key) {
     assert(len(table) > 0, 'Cannot set without growing in an empty Set.');
     Integer hashCode = hashAnything(key);
     Integer entryIndex = hashCode % len(table);
-    AnythingListNullableList table = table;
     AnythingListNullable entry = table[entryIndex];
     if (entry == null) {
       table[entryIndex] = [key];
@@ -253,6 +291,32 @@ class Set {
     length += 1;
   }
 
+  Null remove(Anything key) {
+    assert(len(table) > 0, 'Cannot remove from an empty Set.');
+    Integer hashCode = hashAnything(key);
+    Integer entryIndex = hashCode % len(table);
+    AnythingListNullable entry = table[entryIndex];
+    assert(entry != null, 'Cannot remove something not in the set.');
+    for (record in entry!) {
+      if (record == key) {
+        length -= 1;
+        if (len(entry!) > 1) {
+          AnythingList newRecord = []:Anything;
+          for (item in entry!) {
+            if (item != key) {
+              append(newRecord, item);
+            }
+          }
+          table[entryIndex] = newRecord;
+        } else {
+          table[entryIndex] = null;
+        }
+        return;
+      }
+    }
+    assert(false, 'Cannot remove something not in the set.');
+  }
+
   // protected
   Null grow() {
     AnythingListNullableList oldTable = table;
@@ -264,6 +328,7 @@ class Set {
       append(newTable, null);
       index += 1;
     }
+    length = 0; // gets reset by nonGrowingAdd
     table = newTable;
     for (entry in oldTable) {
       if (entry != null) {

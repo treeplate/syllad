@@ -1,4 +1,4 @@
-// expected exit code is 1
+// expected error: error: type mismatch for function foo parameter 1, expected Integer, got String 
 
 Null foo(Integer value) { }
 

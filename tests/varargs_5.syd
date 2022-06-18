@@ -2,6 +2,6 @@
 // expected exit code is 1
 
 Null test(Integer... args) {
-  print(test[-1]);
+  print(args[-1]);
 }
 test();

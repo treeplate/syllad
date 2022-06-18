@@ -25,6 +25,8 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
   if (tokens.current is IdentToken && tokens.currentIdent == 'extends') {
     tokens.moveNext();
     superclass = tokens.currentIdent;
+    scope.getVar(superclass, 0, tokens.current.line, tokens.current.col,
+        tokens.file, 'for subclassing');
     tokens.moveNext();
   }
   tokens.expectChar(TokenType.openBrace);
@@ -42,8 +44,8 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
         "$superclass nonexistent while trying to have $name extend it. ${formatCursorPositionFromTokens(tokens)}");
   }
   TypeValidator newScope = superclass == null
-      ? (TypeValidator())
-      : (TypeValidator()
+      ? (TypeValidator(scope))
+      : (TypeValidator(scope)
         ..types.addAll(Map.of(scope.classes[superclass]!.types))
         ..nonconst.addAll(List.of(scope.classes[superclass]!.nonconst)));
   ClassValueType type =
@@ -144,6 +146,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
                 tokens.current.line,
                 tokens.current.col,
                 tokens.file,
+                'plus-equals or plus-plus',
               )
               .isSubtypeOf(integerType)) {
             throw FileInvalid(
@@ -172,6 +175,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
               subscripts,
               tokens.current.line,
               tokens.current.col,
+              tokens.file,
             );
           }
           tokens.expectChar(TokenType.plus);
@@ -190,18 +194,14 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
             subscripts,
             tokens.current.line,
             tokens.current.col,
+            tokens.file,
           );
         }
         if (tokens.currentChar == TokenType.minus) {
           tokens.expectChar(TokenType.minus);
           if (!scope
-              .getVar(
-                ident1,
-                subscripts.length,
-                tokens.current.line,
-                tokens.current.col,
-                tokens.file,
-              )
+              .getVar(ident1, subscripts.length, tokens.current.line,
+                  tokens.current.col, tokens.file, '-= or --')
               .isSubtypeOf(integerType)) {
             throw FileInvalid(
                 "Attempted $ident1 (not an integer!) -... ${formatCursorPositionFromTokens(tokens)}");
@@ -228,6 +228,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
               subscripts,
               tokens.current.line,
               tokens.current.col,
+              tokens.file,
             );
           }
           tokens.expectChar(TokenType.minus);
@@ -251,6 +252,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
             subscripts,
             tokens.current.line,
             tokens.current.col,
+            tokens.file,
           );
         }
         if (tokens.currentChar == TokenType.set) {
@@ -271,6 +273,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
             subscripts,
             tokens.current.line,
             tokens.current.col,
+            tokens.file,
           );
         }
         tokens.getPrevious();
@@ -298,7 +301,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         );
         if (subscripts.isNotEmpty) {
           throw FileInvalid(
-              "type $ident1${subscripts.map((e) => '[$e]')} contains square brackets line ${formatCursorPositionFromTokens(tokens)}");
+              "type $ident1${subscripts.map((e) => '[$e]')} contains square brackets ${formatCursorPositionFromTokens(tokens)}");
         }
         tokens.expectChar(TokenType.endOfStatement);
         return NewVarStatement(
@@ -325,7 +328,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         );
         if (subscripts.isNotEmpty) {
           throw FileInvalid(
-              "type $ident1${subscripts.map((e) => '[$e]')} contains square brackets line ${formatCursorPositionFromTokens(tokens)}");
+              "type $ident1${subscripts.map((e) => '[$e]')} contains square brackets ${formatCursorPositionFromTokens(tokens)}");
         }
         return NewVarStatement(
           ident2,
@@ -334,11 +337,9 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           tokens.current.col,
         );
       }
-      tokens.expectChar(TokenType.openParen);
-      Iterable<Parameter> params = [];
       bool isVararg = false;
-      while (tokens.current is! CharToken ||
-          tokens.currentChar != TokenType.closeParen) {
+      bool isNormal = false;
+      Iterable<Parameter> params = parseArgList(tokens, (TokenIterator tokens) {
         String type = tokens.currentIdent;
         tokens.moveNext();
         if (tokens.current is CharToken &&
@@ -346,24 +347,28 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           tokens.moveNext();
           if (isVararg) {
             throw FileInvalid(
-                "$ident2 had 2 varargs line ${formatCursorPositionFromTokens(tokens)}");
+                "$ident2 had 2 varargs ${formatCursorPositionFromTokens(tokens)}");
           }
-          if (params.isNotEmpty) {
+          if (isNormal) {
             throw FileInvalid(
                 "$ident2 had regular arguments before a vararg ${formatCursorPositionFromTokens(tokens)}");
           }
           isVararg = true;
+        } else {
+          isNormal = true;
         }
         String name = tokens.currentIdent;
         tokens.moveNext();
-        if (tokens.currentChar != TokenType.closeParen) {
-          tokens.expectChar(TokenType.comma);
-        }
-        (params as List<Parameter>).add(Parameter(
-            ValueType(null, type, tokens.current.line, tokens.current.col,
-                tokens.file),
-            name));
-      }
+        return Parameter(
+            ValueType(
+              null,
+              type,
+              tokens.current.line,
+              tokens.current.col,
+              tokens.file,
+            ),
+            name);
+      });
       if (isVararg && params.length > 1) {
         throw FileInvalid(
             "$ident2 had ${params.length - 1} regular arguments and a vararg ${formatCursorPositionFromTokens(tokens)}");
@@ -371,12 +376,11 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       if (isVararg) {
         params = InfiniteIterable(params.single);
       }
-      tokens.expectChar(TokenType.closeParen);
       tokens.expectChar(TokenType.openBrace);
       Iterable<ValueType> typeParams = isVararg
           ? InfiniteIterable(params.first.type)
           : params.map((e) => e.type);
-      TypeValidator tv = TypeValidator()
+      TypeValidator tv = TypeValidator(scope)
         ..types.addAll(scope.types)
         ..nonconst.addAll(scope.nonconst)
         ..types.addAll(isVararg
@@ -452,9 +456,19 @@ MapEntry<List<Statement>, TypeValidator> parse(
       file);
 
   tokens.moveNext();
-  TypeValidator validator = TypeValidator();
+  TypeValidator validator = TypeValidator(null);
 
   List<Statement> ast = parseBlock(tokens, validator, false);
+  if (file == 'syd.syd') {
+    List<String> unusedGlobalscopeVars = validator.types.keys
+        .where((element) =>
+            !validator.usedVars.contains(element) &&
+            !TypeValidator(null).types.containsKey(element))
+        .toList();
+    if (!unusedGlobalscopeVars.isEmpty) {
+      stderr.writeln("Unused vars:\n  ${unusedGlobalscopeVars.join('\n  ')}");
+    }
+  }
   return MapEntry(ast, validator);
 }
 
@@ -471,7 +485,7 @@ WhileStatement parseWhile(TokenIterator tokens, TypeValidator scope) {
   tokens.expectChar(TokenType.openBrace);
   List<Statement> body = parseBlock(
       tokens,
-      TypeValidator()
+      TypeValidator(scope)
         ..types = scope.types
         ..nonconst = scope.nonconst);
   tokens.expectChar(TokenType.closeBrace);
@@ -480,6 +494,7 @@ WhileStatement parseWhile(TokenIterator tokens, TypeValidator scope) {
     body,
     tokens.current.line,
     tokens.current.col,
+    tokens.file,
     'while',
     true,
   );
@@ -490,14 +505,14 @@ List<String> filesStartedLoading = [];
 ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
   if (tokens.doneImports) {
     throw FileInvalid(
-      "cannot have import statement after non-import line ${formatCursorPositionFromTokens(tokens)}",
+      "cannot have import statement after non-import ${formatCursorPositionFromTokens(tokens)}",
     );
   }
   tokens.moveNext();
   String str = tokens.string;
   if (filesStartedLoading.contains(str)) {
     throw FileInvalid(
-      "Import loop detected at line ${formatCursorPositionFromTokens(tokens)}",
+      "Import loop detected at ${formatCursorPositionFromTokens(tokens)}",
     );
   }
   filesStartedLoading.add(str);
@@ -517,6 +532,7 @@ ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
   filesStartedLoading.remove(str);
   scope.types.addAll(result.value.types);
   scope.classes.addAll(result.value.classes);
+  scope.usedVars.addAll(result.value.usedVars);
   tokens.getPrevious();
   return ImportStatement(result.key, str, tokens.current.line,
       tokens.current.col, (tokens..moveNext()).file);
@@ -532,6 +548,22 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       String cln = tokens.currentIdent;
       tokens.moveNext();
+      FunctionValueType? constructorType;
+      if (tokens.current is CharToken) {
+        List<ValueType> parameters =
+            parseArgList(tokens, (TokenIterator tokens) {
+          ValueType result = ValueType(
+            null,
+            tokens.currentIdent,
+            tokens.current.line,
+            tokens.current.col,
+            tokens.file,
+          );
+          tokens.moveNext();
+          return result;
+        });
+        constructorType = FunctionValueType(nullType, parameters, tokens.file);
+      }
       if (tokens.currentIdent != 'extends') {
         throw FileInvalid(
             "Invalid fwdclass: expected 'extends' got ${tokens.currentIdent} ${formatCursorPositionFromTokens(tokens)}");
@@ -542,11 +574,19 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
           tokens.current.line,
           tokens.current.col,
           tokens.file) as ClassValueType;
-      ClassValueType x =
-          ClassValueType(cln, spt, spt.properties.copy(), tokens.file);
+      TypeValidator props = TypeValidator(scope)
+        ..types.addAll(spt.properties.types)
+        ..usedVars.addAll(spt.properties.usedVars)
+        ..nonconst.addAll(spt.properties.nonconst);
+      if (constructorType != null) {
+        props.types['constructor'] = constructorType;
+      }
+      ClassValueType x = ClassValueType(cln, spt, props, tokens.file);
       spt.subtypes.add(x);
       x.properties.types['this'] = x;
-      scope.types[cln] = GenericFunctionValueType(x, tokens.file);
+      scope.types[cln] =
+          (constructorType ?? spt.properties.types['constructor']!)
+              .withReturnType(x, tokens.file);
       tokens.moveNext();
       tokens.expectChar(TokenType.endOfStatement);
       scope.classes[cln] = x.properties;
@@ -643,13 +683,17 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope) {
     throw FileInvalid(
         "no 'in' after name of new variable in the for loop ${formatCursorPositionFromTokens(tokens)}");
   }
-  int __itn = _itn++;
   tokens.moveNext();
   Expression iterable = parseExpression(
     tokens,
     scope,
   );
-  TypeValidator innerScope = TypeValidator()
+  if (!iterable.type.isSubtypeOf(ValueType(null, "WhateverIterable",
+      tokens.current.line, tokens.current.col, tokens.file))) {
+    throw FileInvalid(
+        "tried to for loop over non-iterable (iterated over ${iterable.type}) ${formatCursorPositionFromTokens(tokens)}");
+  }
+  TypeValidator innerScope = TypeValidator(scope)
     ..types.addAll(scope.types)
     ..nonconst.addAll(scope.nonconst);
   innerScope.newVar(
@@ -665,62 +709,13 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope) {
   tokens.expectChar(TokenType.openBrace);
   List<Statement> body = parseBlock(tokens, innerScope);
   tokens.expectChar(TokenType.closeBrace);
-  return WhileStatement(
-    BoringExpr(true, booleanType),
-    [
-      SetStatement(
-        '~iter$__itn',
-        FunctionCallExpr(
-          GetExpr('iterator', scope, -2, 0, tokens.file),
-          [iterable],
-          innerScope,
-          tokens.current.line,
-          tokens.current.col,
-          tokens.file,
-        ),
-        [],
-        -2,
-        0,
-      ),
-      WhileStatement(
-        FunctionCallExpr(
-          GetExpr('next', scope, -2, 0, tokens.file),
-          [GetExpr('~iter$__itn', scope, -2, 0, tokens.file)],
-          innerScope,
-          tokens.current.line,
-          tokens.current.col,
-          tokens.file,
-        ),
-        <Statement>[
-              NewVarStatement(
-                currentName,
-                FunctionCallExpr(
-                    GetExpr('current', innerScope, -2, 0, tokens.file),
-                    [GetExpr('~iter$__itn', innerScope, -2, 0, tokens.file)],
-                    innerScope,
-                    -2,
-                    0,
-                    '_int'),
-                -2,
-                0,
-              ),
-            ] +
-            body,
-        -2,
-        0,
-        'for-in inner',
-        true,
-      ),
-      BreakStatement(
-        true,
-        -2,
-        0,
-      )
-    ],
-    -2,
-    0,
-    'for-in outer',
-    false,
+  return ForStatement(
+    iterable,
+    body,
+    tokens.current.line,
+    tokens.current.col,
+    currentName,
+    tokens.file,
   );
 }
 
@@ -743,15 +738,20 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
     );
     body.add(
       SetStatement(
-        name + tokens.currentIdent,
-        BoringExpr(
-            name + tokens.currentIdent,
-            ValueType(sharedSupertype, name, tokens.current.line,
-                tokens.current.col, tokens.file)),
-        [],
-        -2,
-        0,
-      ),
+          name + tokens.currentIdent,
+          BoringExpr(
+              name + tokens.currentIdent,
+              ValueType(
+                sharedSupertype,
+                name,
+                tokens.current.line,
+                tokens.current.col,
+                tokens.file,
+              )),
+          [],
+          -2,
+          0,
+          'todox'),
     );
     tokens.moveNext();
   }
@@ -766,6 +766,7 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
     body,
     -2,
     0,
+    tokens.file,
     'enum',
     true,
     false,
@@ -774,7 +775,7 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
 
 int elseN = 0;
 
-WhileStatement parseIf(TokenIterator tokens, TypeValidator scope) {
+IfStatement parseIf(TokenIterator tokens, TypeValidator scope) {
   tokens.moveNext();
   tokens.expectChar(TokenType.openParen);
   Expression value = parseExpression(tokens, scope);
@@ -785,86 +786,34 @@ WhileStatement parseIf(TokenIterator tokens, TypeValidator scope) {
   }
   tokens.expectChar(TokenType.closeParen);
   tokens.expectChar(TokenType.openBrace);
-  int localElseN = elseN++;
-  List<Statement> body = [
-    SetStatement(
-      "~else$localElseN",
-      GetExpr("false", scope, -2, 0, 'false was overriden'),
-      [],
-      -2,
-      0,
-    ),
-    ...parseBlock(
-        tokens,
-        TypeValidator()
-          ..types.addAll(scope.types)
-          ..nonconst.addAll(scope.nonconst)),
-    BreakStatement(
-      true,
-      -2,
-      0,
-    ),
-  ];
+  List<Statement> body = parseBlock(
+      tokens,
+      TypeValidator(scope)
+        ..types.addAll(scope.types)
+        ..nonconst.addAll(scope.nonconst));
   List<Statement> elseBody = [];
   tokens.expectChar(TokenType.closeBrace);
   if (tokens.current is IdentToken && tokens.currentIdent == "else") {
     tokens.moveNext();
     if (tokens.current is IdentToken && tokens.currentIdent == "if") {
-      var parsedIf = parseIf(tokens, scope);
-      elseBody = parsedIf.body;
+      IfStatement parsedIf = parseIf(tokens, scope);
+      elseBody = [parsedIf];
     } else {
       tokens.expectChar(TokenType.openBrace);
       elseBody = parseBlock(
           tokens,
-          TypeValidator()
+          TypeValidator(scope)
             ..types.addAll(scope.types)
             ..nonconst.addAll(scope.nonconst));
       tokens.expectChar(TokenType.closeBrace);
     }
   }
-  elseBody.add(BreakStatement(
-    true,
-    -2,
-    0,
-  ));
-  scope.types["~else$localElseN"] = booleanType;
-  return WhileStatement(
-    BoringExpr(true, booleanType),
-    [
-      SetStatement(
-        "~else$localElseN",
-        BoringExpr(true, booleanType),
-        [],
-        -2,
-        0,
-      ),
-      WhileStatement(
-        value,
-        body,
-        -2,
-        0,
-        'if-a',
-        false,
-      ),
-      WhileStatement(
-        GetExpr("~else$localElseN", scope, -2, 0, 'interr-if statement'),
-        elseBody,
-        -2,
-        0,
-        'if-b',
-        false,
-      ),
-      BreakStatement(
-        true,
-        -2,
-        0,
-      ),
-    ],
-    -2,
-    0,
-    'if-c',
-    false,
+  return IfStatement(
+    value,
+    body,
+    elseBody,
+    tokens.current.line,
+    tokens.current.col,
+    tokens.file,
   );
 }
-
-int _itn = 0;

@@ -1,0 +1,183 @@
+import 'core.syd';
+import 'syd-types.syd';
+import 'syd-operands.syd';
+
+class SlotContext extends Object {
+  SlotContextNullable getParent() {
+    abstract();
+  }
+
+  SlotContext slotScope() {
+    abstract();
+  }
+}
+
+class Slot extends Object {
+  Type staticType;
+  String debugName;
+
+  Null willRead(SlotContext scope) { }
+
+  Null willWrite(SlotContext scope) { }
+  
+  Null didRead(SlotContext scope) { }
+
+  Null didWrite(SlotContext scope) { }
+
+  Operand value() {
+    abstract();
+  }
+
+  Operand dynamicType() {
+    return staticType.asOperand();
+  }
+
+  Boolean canStaticallyProveTypeCompatibilityWith(Type type) {
+    return staticType.isSubtypeOf(type);
+  }
+
+  String toString() {
+    return concat('<', className, ':', staticType, ' ("', debugName, '")>');
+  }
+
+  Null constructor(Type staticTypeArg, String debugNameArg) {
+    super.constructor();
+    staticType = staticTypeArg;
+    debugName = debugNameArg;
+  }
+}
+
+class ParameterSlot extends Slot {
+  Integer offset;
+
+  Operand value() {
+    return AddressComputationOperand(rbp, null, 1, offset);
+  }
+
+  Operand dynamicType() {
+    return AddressComputationOperand(rbp, null, 1, offset - 0x08);
+  }
+
+  Null constructor(Type staticTypeArg, Integer parameterNumber, String debugNameArg) {
+    super.constructor(staticTypeArg, debugNameArg);
+    offset = parameterNumber * 0x10 + 0x08
+           + 0x10  // return value pointer (and type) 
+           + 0x20  // shadow space 
+           + 0x08; // return address
+  }
+}
+
+class ReturnValuePointerSlot extends Slot {
+  Operand value() {
+    return AddressComputationOperand(rbp, null, 1, 0x20 /* shadow space */ + 0x08 /* return address */ + 0x08 /* return value type pointer */);
+  }
+}
+
+class ReturnValueTypePointerSlot extends Slot {
+  Operand value() {
+    return AddressComputationOperand(rbp, null, 1, 0x20 /* shadow space */ + 0x08 /* return address */);
+  }
+}
+
+class OperandSlot extends Slot {
+  Operand operand;
+
+  Operand value() {
+    return operand;
+  }
+
+  Null constructor(Type typeArg, Operand operandArg, String debugNameArg) {
+    super.constructor(typeArg, debugNameArg);
+    operand = operandArg;
+  }
+}
+
+class VarArgsParameterSlot extends Slot {
+  Integer offset;
+  Slot argumentCount;
+
+  Operand value() {
+    throw('cannot dereference a varargs parameter');
+  }
+
+  Slot baseAddress(IntegerType integerType) {
+    return OperandSlot(integerType, AddressComputationOperand(rbp, null, 1, offset), concat(debugName, ' base address'));
+  }
+
+  Slot length() {
+    return argumentCount;
+  }
+
+  Null constructor(ReadOnlyListType staticTypeArg, Slot argumentCountArg, String debugNameArg) {
+    super.constructor(staticTypeArg, debugNameArg);
+    offset = 0x08 // return value pointer 
+           + 0x08 // return type pointer
+           + 0x08 // type of first value 
+           + 0x20 // shadow space 
+           + 0x08; // return address
+    argumentCount = argumentCountArg;
+  }
+}
+
+// subclasses of ImmediateSlot must always return
+// compile-type constants (immediates) from asOperand
+class ImmediateSlot extends Slot { }
+
+class CompileTimeIntegerSlot extends ImmediateSlot {
+  Integer numericValue() {
+    abstract();
+  }
+
+  Operand value() {
+    return ImmediateIntegerOperand(numericValue());
+  }
+}
+
+class ImmediateIntegerSlot extends CompileTimeIntegerSlot {
+  Integer number;
+
+  Integer numericValue() {
+    return number;
+  }
+
+  Null constructor(Type typeArg, Integer numberArg, String debugNameArg) {
+    super.constructor(typeArg, debugNameArg);
+    number = numberArg;
+  }
+}
+
+class CompileTimeLabelSlot extends ImmediateSlot {
+  String labelValue() {
+    abstract();
+  }
+}
+
+class ImmediateDataLabelSlot extends CompileTimeLabelSlot {
+  String label;
+
+  String labelValue() {
+    return label;
+  }
+
+  Operand value() {
+    return DataAddressOperand(labelValue());
+  }
+
+  Null constructor(Type typeArg, String labelArg, String debugNameArg) {
+    super.constructor(typeArg, debugNameArg);
+    label = labelArg;
+  }
+}
+
+// Used to represent specific registers, e.g. rbp, when generating
+// instructions that are basically just hard-coded assembly. For
+// example, when generating the prolog.
+class RegisterSlot extends OperandSlot {
+  Integer bit() {
+    return (operand as Register64Operand).bit;
+  }
+
+  Null constructor(Type typeArg, Register64Operand operandArg, String debugNameArg) {
+    super.constructor(typeArg, operandArg, debugNameArg);
+  }
+}

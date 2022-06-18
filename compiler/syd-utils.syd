@@ -35,6 +35,100 @@ String truncateString(String value, Integer maxLength) {
   return joinList(buffer);
 }
 
+String hex8(Integer value) {
+  if (value < 0) {
+    return concat('-', hex8(-value));
+  }
+  return concat('0', padLeft(hex(value), 2, '0'), 'h');
+}
+
+String hex32(Integer value) {
+  if (value < 0) {
+    return concat('-', hex32(-value));
+  }
+  return concat('0', padLeft(hex(value), 8, '0'), 'h');
+}
+
+String hex64(Integer value) {
+  if (value < 0) {
+    return concat('-', hex64(-value));
+  }
+  return concat('0', padLeft(hex(value), 16, '0'), 'h');
+}
+
+String hexH(Integer value) {
+  if (value >= 0 && value <= 0xFF) {
+    return hex8(value);
+  }
+  if ((value <= -0xFFFFFFFF) || (value > 0xFFFFFFFF)) {
+    return hex64(value);
+  }
+  return hex32(value);
+}
+
+String stringLiteral(String value) {
+  assert(value != '', 'empty strings are not representable in assembler');
+  StringList buffer = []:String;
+  Boolean quoted = false;
+  for (char in scalarValues(value)) {
+    if (char == 0x22 && quoted) {
+      append(buffer, '""');
+    } else if (char < 0x20 || char > 0x7e || char == 0x22) {
+      if (quoted) {
+        append(buffer, '"');
+        quoted = false;
+      }
+      if (len(buffer) > 0) {
+        append(buffer, ', ');
+      }
+      append(buffer, concat(padLeft(hex(char), 2, '0'), 'h'));
+    } else {
+      if (!quoted) {
+        if (len(buffer) > 0) {
+          append(buffer, ', ');
+        }
+        append(buffer, '"');
+        quoted = true;
+      }
+      append(buffer, chr(char));
+    }
+  }
+  if (quoted) {
+    append(buffer, '"');
+  }
+  return joinList(buffer);
+}
+
+String camelCase(String value) {
+  StringList buffer = []:String;
+  Boolean needUpper = false;
+  for (char in scalarValues(value)) {
+    if (char >= 0x41 && char <= 0x5A) { // A-Z
+      if (needUpper) {
+        append(buffer, chr(char));
+      } else {
+        append(buffer, chr(char + 0x20));
+      }
+    } else if (char >= 0x61 && char <= 0x7A) {
+      if (needUpper) {
+        append(buffer, chr(char - 0x20));
+        needUpper = false;
+      } else {
+        append(buffer, chr(char));
+      }
+    } else if (char == 0x24) {
+      append(buffer, chr(char));
+      needUpper = false;
+    } else {
+      if (char >= 0x30 && char <= 0x39) {
+        append(buffer, chr(char));
+      }
+      needUpper = true;
+    }
+  }
+  return joinList(buffer);
+}
+
 class SourceLocation extends Object {
   Integer lineNo;
   Integer colNo;

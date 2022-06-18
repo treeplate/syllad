@@ -1,5 +1,6 @@
 import 'core.syd';
 import 'syd-assembler.syd';
+import 'syd-operands.syd';
 
 fwdclass Type extends Object;
 fwdclass AbstractSubroutineType extends Type;
@@ -21,18 +22,14 @@ class Type extends Object {
     abstract();
   }
 
-  Boolean isSubroutineType() {
-    return false;
-  }
-
   // XXX do we need this?
   Boolean literalValueIsAppropriate(Anything value) {
     return false;
   }
 
-  Operand asOperand() {
+  ImmediateOperand asOperand() {
     assert(code != null, concat('cannot read type operand (', name, ') before codes are assigned (did you forget to call markConstructed?)'));
-    return Operand(hex32(code!), otImm32);
+    return ImmediateIntegerOperand(code!);
   }
 
   Boolean hasDynamicType() {
@@ -57,7 +54,7 @@ class Type extends Object {
   Null constructor(TypeRegistry typeRegistryArg, String nameArg) {
     name = nameArg;
     super.constructor();
-    typeRegistryArg.registerType(this, isSubroutineType());
+    typeRegistryArg.registerType(this);
   }
 
   String toString() {
@@ -299,10 +296,6 @@ class AbstractSubroutineType extends Type {
         || (other is AbstractSubroutineType && returnType.isSubtypeOf((other as AbstractSubroutineType).returnType));
   }
 
-  Boolean isSubroutineType() {
-    return true;
-  }
-
   Boolean hasDynamicType() {
     return true;
   }
@@ -537,8 +530,7 @@ class SystemType extends Type {
 class TypeRegistry extends Object {
   TypeList types = []:Type;
 
-  Null registerType(Object type, Boolean isSubroutineType) { // XXX Object should be Type
-    assert(type is Type, concat('tried to registerType ', type));
+  Null registerType(Type type) {
     append(types, type);
   }
 

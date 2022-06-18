@@ -1,0 +1,271 @@
+import 'core.syd';
+import 'syd-types.syd';
+import 'syd-operands.syd';
+import 'syd-slots.syd';
+
+class Operation extends Object {
+  SlotContext scope;
+  Null constructor(SlotContext scopeArg) {
+    super.constructor();
+    scope = scopeArg;
+  }
+}
+class OperationRead extends Operation { }
+class OperationWrite extends Operation { }
+
+class DynamicSlot extends Slot {
+  StringNullable name;
+  OperandNullableList values = []:OperandNullable;
+  OperandNullableList dynamicTypes = []:OperandNullable;
+  Integer depth = -1;
+  SlotContext homeScope;
+
+  Boolean referencedFromMultipleStackFrames = false;
+  Boolean initializeScheduled = false;
+  OperationList operations = []:Operation;
+  Integer position = 0;
+
+  Boolean valuePinned = false;
+
+  Null pinValue() {
+    assert(!valuePinned, concat('tried to pin slot value twice: ', this));
+    valuePinned = true;
+  }
+
+  Null unpinValue() {
+    assert(valuePinned, concat('tried to unpin unpinned slot value: ', this));
+    valuePinned = false;
+  }
+
+  Boolean typePinned = false;
+
+  Null pinType() {
+    assert(!typePinned, concat('tried to pin slot type twice: ', this));
+    typePinned = true;
+  }
+
+  Null unpinType() {
+    assert(typePinned, concat('tried to unpin unpinned slot type: ', this));
+    typePinned = false;
+  }
+
+  Boolean expired = false;
+
+  Boolean stillAlive() {
+    return !expired;
+  }
+
+  Null recomputeExpired() {
+    expired = expired || ((position >= len(operations)) && depth <= 1);
+  }
+
+  Null willRead(SlotContext scope) {
+    assert(position == 0, 'willRead called out of order');
+    assert(depth == -1, 'willRead called on initalized slot');
+    if (scope.slotScope() != homeScope.slotScope()) {
+      referencedFromMultipleStackFrames = true;
+    }
+    append(operations, OperationRead(scope));
+  }
+
+  Null willWrite(SlotContext scope) {
+    assert(position == 0, 'willWrite called out of order');
+    assert(depth == -1, 'willRead called on initalized slot');
+    if (scope.slotScope() != homeScope.slotScope()) {
+      referencedFromMultipleStackFrames = true;
+    }
+    append(operations, OperationWrite(scope));
+  }
+
+  Null willInitialize() { // e.g. parameterCount, which gets initialized to rcx
+    assert(!initializeScheduled, 'Called willInitialize twice');
+    initializeScheduled = true;
+  }
+
+  Null didRead(SlotContext scope) {
+    assert(len(operations) > position, concat('unplanned read of ', this, '; operations were ', operations));
+    assert(operations[position] is OperationRead, concat('unplanned read of ', this, ' at position ', position, '; operations were ', operations));
+    assert(operations[position].scope == scope, concat('unplanned read of ', this, ' at position ', position, ' (scope mismatch)'));
+    position += 1;
+    recomputeExpired();
+  }
+
+  Null didWrite(SlotContext scope) {
+    assert(len(operations) > position, concat('unplanned write of ', this, '; operations were ', operations));
+    assert(operations[position] is OperationWrite, concat('unplanned write of ', this, ' at position ', position, '; operations were ', operations));
+    assert(operations[position].scope == scope, concat('unplanned write of ', this, ' at position ', position, ' (scope mismatch)'));
+    position += 1;
+    recomputeExpired();
+  }
+
+  // Whether the slot is going to be mutated in another scope
+  // before we next do anything with it in this scope.
+  Boolean needsToBeMutable(SlotContext scope) {
+    /*
+
+      Consider a case like this:
+    
+      |
+      | init as imm64 0h
+      | write imm
+      | read
+      | write imm
+      |
+      | <= entering scope (do not make mutable)
+      |
+      +-->--+
+            | read
+      +--<--+
+      |
+      | read
+      |
+      | <= entering scope (do make mutable)
+      |
+      +-->--+
+            | read
+            | write
+            |
+      +--<--+
+      |
+      | read
+    
+    */
+    Integer index = position;
+    while ((index < len(operations)) && (operations[index].scope != scope)) {
+      if (operations[index] is OperationWrite) {
+        return true;
+      }
+      index += 1;
+    }
+    return false;
+  }
+
+  Boolean debugWriteScheduled() {
+    Integer index = position;
+    while (index < len(operations)) {
+      if (operations[index] is OperationWrite) {
+        return true;
+      }
+      index += 1;
+    }
+    return false;
+  }
+
+  Null initialize(Operand valueArg, Operand dynamicTypeArg) {
+    assert(len(values) == len(dynamicTypes), 'DynamicSlot desync');
+    assert(depth == -1, concat('cannot initialize ', this, ' more than once (depth is ', depth, ')'));
+    assert(len(values) == 0, 'cannot initialize more than once');
+    assert(position == 0, 'initialize called out of order');
+    append(values, valueArg);
+    append(dynamicTypes, dynamicTypeArg);
+    depth = 1;
+    recomputeExpired();
+  }
+
+  Null enterNestedScope() {
+    assert(stillAlive(), 'cannot enter nested scope with expired slot');
+    assert(len(values) == len(dynamicTypes), 'DynamicSlot desync');
+    assert(depth > -1, concat('entered nested scope before initializing ', this));
+    assert(depth > 0, concat('entered nested scope after finalizing ', this));
+    assert(len(values) >= depth, 'depth desync');
+    if (len(values) == depth) {
+      append(values, values[depth - 1]);
+      append(dynamicTypes, dynamicTypes[depth - 1]);
+    } else {
+      values[depth] = values[depth - 1];
+      dynamicTypes[depth] = dynamicTypes[depth - 1];
+    }
+    depth += 1;
+  }
+
+  Null updateValue(OperandNullable newValue) {
+    assert(newValue != null || !stillAlive(), 'cannot discard living slot');
+    assert(!valuePinned, concat('cannot move pinned slot ', this));
+    assert(values[depth - 1] != null, 'cannot update discarded slot');
+    assert(len(values) == len(dynamicTypes), 'DynamicSlot desync');
+    assert(depth > -1, 'use initialize() to initialize a slot');
+    assert(depth > 0, 'cannot use finalized slot');
+    assert(depth == 1 || values[depth - 2]!.isMutable() || !debugWriteScheduled(), concat('cannot update ', this, '; would not be able to restore value after exit'));
+    values[depth - 1] = newValue;
+  }
+
+  Null updateDynamicType(OperandNullable newDynamicType) {
+    assert(newDynamicType != null || !stillAlive(), 'cannot discard living slot');
+    assert(!typePinned, concat('cannot move pinned slot ', this));
+    assert(dynamicTypes[depth - 1] != null, 'cannot update discarded slot');
+    assert(len(dynamicTypes) == len(dynamicTypes), 'DynamicSlot desync'); // XXX len(dynamicTypes) is equal to itself, always
+    assert(depth > -1, 'use initialize() to initialize a slot');
+    assert(depth > 0, 'cannot use finalized slot');
+    assert(depth == 1 || dynamicTypes[depth - 2]!.isMutable() || !debugWriteScheduled(), concat('cannot update ', this, '; would not be able to restore type after exit'));
+    dynamicTypes[depth - 1] = newDynamicType;
+  }
+
+  Null exitNestedScope() {
+    assert(len(values) == len(dynamicTypes), 'DynamicSlot desync');
+    assert(!valuePinned && !typePinned, 'cannot exit nested scope while pinned');
+    assert(depth > -1, concat('cannot exit nested scope of uninitialized slot ', this));
+    assert(depth > 0, 'cannot use finalized slot');
+    depth -= 1;
+    recomputeExpired();
+  }
+
+  Operand value() {
+    assert(len(values) == len(dynamicTypes), 'DynamicSlot desync');
+    assert(depth > -1, 'use initialize() to initialize a slot');
+    assert(depth > 0, 'cannot use finalized slot');
+    assert(values[depth - 1] != null || !stillAlive(), 'living slot was discarded');
+    assert(values[depth - 1] != null, 'called value() on discarded slot');
+    return values[depth - 1];
+  }
+
+  Operand dynamicType() {
+    assert(len(values) == len(dynamicTypes), 'DynamicSlot desync');
+    assert(depth > -1, 'use initialize() to initialize a slot');
+    assert(depth > 0, 'cannot use finalized slot');
+    assert(dynamicTypes[depth - 1] != null || !stillAlive(), 'living slot was discarded');
+    assert(dynamicTypes[depth - 1] != null, 'called dynamicType() on discarded slot');
+    return dynamicTypes[depth - 1];
+  }
+
+  Operand previousValue(Integer delta) {
+    assert(delta > 0, 'invalid delta');
+    assert(len(values) == len(dynamicTypes), 'DynamicSlot desync');
+    assert(depth > 1, concat(this, ' not in nested scope'));
+    return values[depth - (1 + delta)];
+  }
+
+  Operand previousDynamicType(Integer delta) {
+    assert(delta > 0, 'invalid delta');
+    assert(len(values) == len(dynamicTypes), 'DynamicSlot desync');
+    assert(depth > 1, concat(this, ' not in nested scope'));
+    return dynamicTypes[depth - (1 + delta)];
+  }
+
+  Operand firstValue() {
+    assert(len(values) == len(dynamicTypes), 'DynamicSlot desync');
+    assert(depth > 1, concat(this, ' not in nested scope'));
+    return values[0];
+  }
+
+  Operand firstDynamicType() {
+    assert(len(values) == len(dynamicTypes), 'DynamicSlot desync');
+    assert(depth > 1, concat(this, ' not in nested scope'));
+    return dynamicTypes[0];
+  }
+
+  String toString() {
+    if (depth == -1) {
+      return concat('<', className, ':', staticType, ' (uninitialized) ("', debugName, '")>');
+    }
+    if (depth == 0) {
+      return concat('<', className, ':', staticType, ' (finalized) ("', debugName, '")>');
+    }
+    return concat('<', className, ':', staticType, ' at ', sublist(values, 0, depth), '/', sublist(dynamicTypes, 0, depth), ' ("', debugName, '")>');
+  }
+
+  Null constructor(Type staticTypeArg, SlotContext homeScopeArg, StringNullable nameArg, String debugNameArg) {
+    super.constructor(staticTypeArg, debugNameArg);
+    name = nameArg;
+    homeScope = homeScopeArg;
+  }
+}

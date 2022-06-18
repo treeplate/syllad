@@ -1,4 +1,4 @@
-// expected exit code is 1
+// expected error: error: function call received the wrong number of parameters (expected 1, received 2)
 
 Null foo(Integer value) { }
 

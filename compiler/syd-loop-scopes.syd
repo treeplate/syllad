@@ -1,23 +1,26 @@
 import 'syd-compiler.syd';
 
+// TODO: need to figure out how to handle nested scopes in the slot manager here
+
 class CompiledLoopScope extends CompiledNestedScope {
   String loopTopLabel;
   String loopBottomLabel;
 
   Null prepareInstructions() {
-    emitInstruction(JumpInstruction(this, loopTopLabel, concat('return to top of ', name)));
     super.prepareInstructions();
-  }
-
-  Null generateAssembler(Assembler assembler, Integer blockId) {
-    assembler.addCode(blockId, concat(loopTopLabel, ':'), null);
-    super.generateAssembler(assembler, blockId);
-    assembler.addCode(blockId, concat(loopBottomLabel, ':'), null);
+    emitInstruction(SyntheticNestedScopeExitInstruction(this));
+    emitInstruction(JumpInstruction(loopTopLabel, concat('return to top of ', name)));
   }
 
   Null emitBreakInstructionFrom(CompiledScope scope) {
-    // jump to loopBottomLabel
-    scope.emitInstruction(JumpInstruction(this, loopBottomLabel, concat('break out of ', name)));
+    scope.emitInstruction(SyntheticNestedScopeExitInstruction(this));
+    scope.emitInstruction(JumpInstruction(loopBottomLabel, concat('break out of ', name)));
+  }
+
+  Null generateAssemblerBlock(AssemblerBlock block) {
+    block.addCode(concat(loopTopLabel, ':'), [], concat('top of ', name));
+    super.generateAssemblerBlock(block);
+    block.addCode(concat(loopBottomLabel, ':'), [], concat('bottom of ', name));
   }
 
   Null constructor(CompiledScope parentArg, String nameArg) {

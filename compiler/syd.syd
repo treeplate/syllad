@@ -1,3 +1,34 @@
+
+
+// slot a
+// slot b
+
+// read(a, anything)
+// enterNestedScope()
+// read(a, r12)
+// read(b, anything)
+// enterNestedScope()
+// write(a, anything)
+// write(b, anything)
+// emitAllNestedScopeExit()
+// exitNestedScope()
+// exitNestedScope()
+
+
+/*
+// NullFunction
+
+
+// Null0Function
+Null baz();
+
+// NullInteger1Function
+Null foo(Integer x) { }
+
+// NullIntegerInteger0Function2Function
+Null bar(Integer y, Integer0Function x) { }
+*/
+
 /*
 Null throw(String t) {
   println('hi', t);
@@ -37,7 +68,6 @@ print(b);
 
 //class Foo { Integer x; } Null bar(FooFunction a) { println(a().x); }
 //class Foo { String s; } Null bar(FooFunction a) { println(a().s); }
-
 
 // TODO
 // - verify that we keep the stack pointer 16-byte aligned
@@ -156,17 +186,14 @@ CompiledLibrary processFile(String filename, CompilationEnvironment compilationE
 }
 
 String mainProgramFileName = 'temp.syd';
-Assembler assembler = Assembler();
-//assembler.addCode(assembler.mainBlockId, 'int 3', 'debugger');
-CompilationEnvironment compilationEnvironment = CompilationEnvironment(assembler);
+CompilationEnvironment compilationEnvironment = CompilationEnvironment();
 compilationEnvironment.setRuntimeLibrary(
   parseTokens(tokenize(scalarValues(readFile('syd-rtl.syd')), 'runtime library'), 'runtime library', false).generateScopes(compilationEnvironment)
 );
 CompiledLibrary program = processFile(mainProgramFileName, compilationEnvironment, true);
 compilationEnvironment.defineLibrary(mainProgramFileName, program);
+Assembler assembler = Assembler();
 compilationEnvironment.compile(assembler);
-assembler.addComment(assembler.mainBlockId, 'End of global scope');
-assembler.addCode(assembler.mainBlockId, 'ret', 'exit application');
 stderr('Compilation finished!');
 stderr('Result:');
 println(assembler.serialize());

@@ -1,0 +1,8 @@
+// expected error: error: type mismatch for function test parameter 2, expected Integer, got String
+// expected exit code is 1
+
+Null test(Integer... args) {}
+
+Whatever a = 'a';
+Whatever two = 2;
+test(a, two);

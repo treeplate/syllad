@@ -383,6 +383,16 @@ Statement parseDeclaration(TokenConsumer source) {
       append(parameters, [ parameterType, parameterName ]);
     }
     source.expectPunctuation(ttCloseParen);
+    if (source.isNextIdentifier('__extern')) {
+      if (isVarArgs) {
+        throw(source.butFound('function body', '__extern keyword (which does not support varargs)'));
+      }
+      source.expectIdentifier('__extern');
+      String library = source.readString();
+      String externalName = source.readString();
+      source.expectPunctuation(ttSemicolon);
+      return GenericSystemSubroutineDeclarationStatement(type, identifier, parameters, library, externalName, location);
+    }
     StatementBlock block = parseBlock(source);
     return SubroutineDeclarationStatement(type, identifier, parameters, isVarArgs, block, location);
   }

@@ -1,0 +1,502 @@
+import 'core.syd';
+import 'syd-utils.syd';
+
+fwdclass Operand extends Object;
+fwdclassprop NullFunction Operand.constructor;
+fwdclass ImmediateOperand extends Operand;
+
+Integer stack = 0x00000001;
+Integer global = 0x00000002;
+Integer heap = 0x00000004; // dubious...
+Integer rcxShadow = 0x00000010;
+Integer rdxShadow = 0x00000020;
+Integer r8Shadow = 0x00000040;
+Integer r9Shadow = 0x00000080;
+Integer shadow = rcxShadow | rdxShadow | r8Shadow | r9Shadow;
+Integer memory = stack | shadow | global | heap;
+Integer immediate8 = 0x0000200;
+Integer immediate32 = 0x0000400;
+Integer immediate64 = 0x0000800;
+Integer immediate = immediate8 | immediate32 | immediate64;
+
+class Operand extends Object {
+  Boolean isMutable() {
+    abstract();
+  }
+
+  Boolean isOperandKind(Integer kind) {
+    abstract();
+  }
+
+  String toString() {
+    abstract();
+  }
+
+  Operand low8Bits() {
+    abstract();
+  }
+
+  Boolean equals(Operand other) {
+    abstract();
+  }
+
+  Anything snapshot() {
+    return this;
+  }
+}
+
+class ImmediateOperand extends Operand {
+  Boolean isMutable() {
+    return false;
+  }
+
+  Integer minBits() {
+    abstract();
+  }
+
+  Boolean isOperandKind(Integer kind) {
+    Integer bits = minBits();
+    if (bits > 8) {
+      if (bits > 32) {
+        // imm64
+        return (kind & immediate64) == immediate64;
+      }
+      // imm32
+      return (kind & immediate32) == immediate32;
+    }
+    // imm8
+    return (kind & immediate8) == immediate8;
+  }
+}
+
+fwdclass ImmediateIntegerOperand(Integer) extends ImmediateOperand;
+class ImmediateIntegerOperand extends ImmediateOperand {
+  Integer value;
+
+  Integer minBits() {
+    if (value < 0) {
+      return 64;
+    }
+    if (value <= 0xFF) {
+      return 8;
+    }
+    if (value <= 0xFFFFFFFF) {
+      return 32;
+    }
+    return 64;
+  }
+
+  String toString() {
+    return hexH(value);
+  }
+
+  Operand low8Bits() {
+    return ImmediateIntegerOperand(value & 0xFF);
+  }
+
+  Boolean equals(Operand other) {
+    return other is ImmediateIntegerOperand
+        && (other as ImmediateIntegerOperand).value == value;
+  }
+
+  Null constructor(Integer valueArg) {
+    super.constructor();
+    value = valueArg;
+  }
+}
+
+// Operand that represents the address of a given label.
+// This is an assemble-time constant.
+class DataAddressOperand extends ImmediateOperand {
+  String value;
+
+  Integer minBits() {
+    return 64;
+  }
+
+  String toString() {
+    return concat('offset ', value);
+  }
+
+  Operand low8Bits() {
+    throw('not available');
+  }
+
+  Boolean equals(Operand other) {
+    return other is DataAddressOperand
+        && (other as DataAddressOperand).value == value;
+  }
+
+  Null constructor(String valueArg) {
+    super.constructor();
+    value = valueArg;
+  }
+}
+
+// Operand that represents code with a given label.
+// This is an assemble-time constant.
+class CodeAddressOperand extends ImmediateOperand {
+  String value;
+
+  Integer minBits() {
+    return 64;
+  }
+
+  String toString() {
+    return value;
+  }
+
+  Operand low8Bits() {
+    throw('not available');
+  }
+
+  Boolean equals(Operand other) {
+    return other is CodeAddressOperand
+        && (other as CodeAddressOperand).value == value;
+  }
+
+  Null constructor(String valueArg) {
+    super.constructor();
+    value = valueArg;
+  }
+}
+
+class RegisterOperand extends Operand {
+  Boolean isMutable() {
+    return true;
+  }
+}
+
+fwdclass Register64Operand extends RegisterOperand;
+fwdclassprop String Register64Operand.r8;
+fwdclassprop Integer Register64Operand.bit;
+
+class Register8Operand extends RegisterOperand {
+  Register64Operand register;
+
+  Boolean isOperandKind(Integer kind) {
+    return (kind & register.bit) > 0;
+  }
+
+  String toString() {
+    return register.r8;
+  }
+
+  Operand low8Bits() {
+    return this;
+  }
+
+  Boolean equals(Operand other) {
+    return other is Register8Operand
+        && (other as Register8Operand).register.equals(register);
+  }
+
+  Null constructor(Register64Operand registerArg) {
+    super.constructor();
+    register = registerArg;
+  }
+}
+
+class Register64Operand extends RegisterOperand {
+  String r64;
+  String r32;
+  String r8;
+  Integer bit;
+
+  Boolean isOperandKind(Integer kind) {
+    return (kind & bit) > 0;
+  }
+
+  String toString() {
+    return r64;
+  }
+
+  Operand low8Bits() {
+    return Register8Operand(this);
+  }
+
+  Boolean equals(Operand other) {
+    return this == other;
+  }
+
+  Null constructor(String r64Arg, String r32Arg, String r8Arg, Integer bitArg) {
+    super.constructor();
+    r64 = r64Arg;
+    r32 = r32Arg;
+    r8 = r8Arg;
+    bit = bitArg;
+  }
+}
+
+class MemoryOperand extends Operand {
+  Boolean isMutable() {
+    return true;
+  }
+}
+
+// operands like [rax+rbx*2+010h]
+class AddressComputationOperand extends MemoryOperand {
+  RegisterOperandNullable base;
+  RegisterOperandNullable index;
+  Integer scale; // 1, 2, 4, 8
+  Integer displacement; // 32 bit value
+
+  Boolean isOperandKind(Integer kind) {
+    return (kind & heap) > 0; // ??? dubious
+  }
+
+  String toString() {
+    StringList parts = []:String;
+    if (base != null) {
+      append(parts, concat(base));
+    }
+    if (index != null) {
+      String scalePart = '';
+      if (scale != 1) {
+        scalePart = concat(' * ', scale);
+      }
+      if (len(parts) > 0) {
+        append(parts, ' + ');
+      }
+      append(parts, concat(index, scalePart));
+    }
+    if (displacement < 0) {
+      if (len(parts) > 0) {
+        append(parts, ' - ');
+      }
+      append(parts, concat(hexH(-displacement)));
+    } else if (displacement > 0) {
+      if (len(parts) > 0) {
+        append(parts, ' + ');
+      }
+      append(parts, concat(hexH(displacement)));
+    }
+    return concat('qword ptr [', joinList(parts), ']');
+  }
+
+  Operand low8Bits() {
+    throw('not available');
+  }
+
+  Boolean equals(Operand other) {
+    if (!(other is AddressComputationOperand)) {
+      return false;
+    }
+    if ((((other as AddressComputationOperand).base == null) != (base == null)) ||
+        (((other as AddressComputationOperand).index == null) != (index == null)) ||
+        ((other as AddressComputationOperand).scale != scale) ||
+        ((other as AddressComputationOperand).displacement != displacement)) {
+      return false;
+    }
+    if (base != null && !(other as AddressComputationOperand).base!.equals(base!)) {
+      return false;
+    }
+    if (index != null && !(other as AddressComputationOperand).index!.equals(index!)) {
+      return false;
+    }
+    return true;
+  }
+
+  Null constructor(RegisterOperandNullable baseArg, RegisterOperandNullable indexArg, Integer scaleArg, Integer displacementArg) {
+    super.constructor();
+    assert(scaleArg == 1 || scaleArg == 2 || scaleArg == 4 || scaleArg == 8, 'scale out of range');
+    assert((displacementArg >= -0xFFFFFFFF) && (displacementArg < 0xFFFFFFFF), 'displacement out of range');
+    base = baseArg;
+    index = indexArg;
+    scale = scaleArg;
+    displacement = displacementArg;
+  }
+}
+
+// Operand that represents the 64 bits of memory contents at a given label.
+class DereferenceLabelOperand extends MemoryOperand {
+  String value;
+
+  Integer minBits() {
+    return 64;
+  }
+
+  Boolean isOperandKind(Integer kind) {
+    return (kind & global) > 0;
+  }
+
+  String toString() {
+    return concat('qword ptr ', value);
+  }
+
+  Operand low8Bits() {
+    throw('not available');
+  }
+
+  Boolean equals(Operand other) {
+    return other is DereferenceLabelOperand
+        && (other as DereferenceLabelOperand).value == value;
+  }
+
+  Null constructor(String valueArg) {
+    super.constructor();
+    value = valueArg;
+  }
+}
+
+class StackMetrics {
+  // TODO: this is seperate from len(SlotManager.stackStatus), so we have multiple sources of truth 
+  Integer stackSize = 0;
+  Integer pushLevel = 0;
+
+  Null growStack() {
+    stackSize += 1;
+  }
+
+  Null push(Integer count) {
+    assert(count > 0, 'push wants positive integers');
+    pushLevel += count;
+  }
+
+  Null pop(Integer count) {
+    assert(count > 0, 'pop wants positive integers');
+    pushLevel -= count;
+    assert(pushLevel >= 0, concat('stack status is confused, pushLevel is now ', pushLevel)); 
+  }
+
+  String generateOperand(Integer index, Integer pushLevelArg) {
+    Integer frameSize = stackSize * 0x08 + pushLevelArg * 0x08;
+    return concat('qword ptr [rsp + ', hex8(frameSize - (index + 1) * 0x08), ']');
+  }
+}
+
+class SnapshotStackOperand extends Object {
+  Integer index;
+  Integer pushLevel;
+  StackMetrics stackMetrics;
+
+  String toString() {
+    return stackMetrics.generateOperand(index, pushLevel);
+  }
+
+  Null constructor(StackMetrics stackMetricsArg, Integer indexArg) {
+    super.constructor();
+    pushLevel = stackMetricsArg.pushLevel;
+    stackMetrics = stackMetricsArg;
+    index = indexArg;
+  }
+}
+
+// operands like [rsp + 010h]
+class StackOperand extends MemoryOperand {
+  Integer index;
+  StackMetrics stackMetrics;
+
+  Boolean isOperandKind(Integer kind) {
+    return (kind & stack) > 0;
+  }
+
+  String toString() {
+    return concat('stack operand #', index);
+  }
+
+  Operand low8Bits() {
+    throw('not available');
+  }
+
+  SnapshotStackOperand snapshot() {
+    return SnapshotStackOperand(stackMetrics, index);
+  }
+
+  Boolean equals(Operand other) {
+    return (other is StackOperand)
+        && (other as StackOperand).index == index
+        && (other as StackOperand).stackMetrics == stackMetrics;
+  }
+
+  Null constructor(StackMetrics stackMetricsArg, Integer indexArg) {
+    super.constructor();
+    stackMetrics = stackMetricsArg;
+    index = indexArg;
+  }
+}
+
+
+// 64 BIT INTEGER REGISTERS
+// non-volatile registers must be saved by CompiledStackFrameScope
+Register64Operand rax = Register64Operand('rax', 'eax',  'al',   0x00001000); // redundant return value in calling convention (volatile)
+Register64Operand rbx = Register64Operand('rbx', 'ebx',  'bl',   0x00002000); // (nonvolatile)
+Register64Operand rcx = Register64Operand('rcx', 'ecx',  'cl',   0x00004000); // used in function calling convention for number of arguments (volatile)
+Register64Operand rdx = Register64Operand('rdx', 'edx',  'dl',   0x00008000); // used in function calling convention for closure pointer (volatile)
+Register64Operand rsi = Register64Operand('rsi', 'esi',  'sil',  0x00010000); // (nonvolatile)
+Register64Operand rdi = Register64Operand('rdi', 'edi',  'dil',  0x00020000); // (nonvolatile)
+Register64Operand rbp = Register64Operand('rbp', 'ebp',  'bpl',  0x00040000); // stack frame pointer (nonvolatile)
+Register64Operand rsp = Register64Operand('rsp', 'esp',  'spl',  0x00080000); // stack pointer (nonvolatile)
+Register64Operand r8  = Register64Operand('r8',  'r8d',  'r8b',  0x00100000); // used in function calling convention for type of "this" object (volatile)
+Register64Operand r9  = Register64Operand('r9',  'r9d',  'r9b',  0x00200000); // used in function calling convention for pointer to "this" object (volatile)
+Register64Operand r10 = Register64Operand('r10', 'r10d', 'r10b', 0x00400000); // (volatile)
+Register64Operand r11 = Register64Operand('r11', 'r11d', 'r11b', 0x00800000); // scratch register used by slot manager (volatile)
+Register64Operand r12 = Register64Operand('r12', 'r12d', 'r12b', 0x01000000); // (nonvolatile)
+Register64Operand r13 = Register64Operand('r13', 'r13d', 'r13b', 0x02000000); // (nonvolatile)
+Register64Operand r14 = Register64Operand('r14', 'r14d', 'r14b', 0x04000000); // (nonvolatile)
+Register64Operand r15 = Register64Operand('r15', 'r15d', 'r15b', 0x08000000); // (nonvolatile)
+
+Register64OperandList allRegisters = [
+  rax,
+  rbx,
+  rcx,
+  rdx,
+  rsi,
+  rdi,
+  rbp,
+  rsp,
+  r8,
+  r9,
+  r10,
+  r11,
+  r12,
+  r13,
+  r14,
+  r15,
+];
+
+Integer register = rax.bit | rbx.bit | rcx.bit | rdx.bit | rsi.bit | rdi.bit | rbp.bit | rsp.bit | r8.bit | r9.bit | r10.bit | r11.bit | r12.bit | r13.bit | r14.bit | r15.bit;
+Integer volatileRegister = rax.bit | rcx.bit | rdx.bit | r8.bit | r9.bit | r10.bit | r11.bit;
+Integer nonvolatileRegister = register & ~volatileRegister;
+
+String describeOperandKinds(Integer kinds) {
+  StringList names = []:String;
+  Boolean consider(Integer kind, String name) {
+    if ((kinds & kind) == kind) {
+      append(names, name);
+      return true;
+    }
+    return false;
+  }
+  if (!consider(memory, 'memory')) {
+    consider(stack, 'stack');
+    consider(global, 'global');
+    consider(heap, 'heap');
+    if (!consider(shadow, 'shadow')) {
+      consider(rcxShadow, 'rcx shadow');
+      consider(rdxShadow, 'rdx shadow');
+      consider(r8Shadow, 'r8 shadow');
+      consider(r9Shadow, 'r9 shadow');
+    }
+  }
+  if (!consider(immediate, 'immediate')) {
+    consider(immediate8, 'immediate8');
+    consider(immediate32, 'immediate32');
+    consider(immediate64, 'immediate64');
+  }
+  if (!consider(register, 'register')) {
+    for (operand in allRegisters) {
+      consider(operand.bit, operand.r64);
+    }
+  }
+  if (len(names) == 0) {
+    return 'none';
+  }
+  if (len(names) == 1) {
+    return names[0];
+  }
+  if (len(names) == 2) {
+    return concat(names[0], ' and ', names[1]);
+  }
+  return join(names, ', ');
+}

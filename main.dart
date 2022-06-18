@@ -12,7 +12,8 @@ void main() {
                 'syd.syd',
                 false)
             .key,
-        'syd.syd');
+        'syd.syd',
+        null);
   } on FileInvalid catch (e) {
     print("$e");
     exit(1);

@@ -31,6 +31,23 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           tokens.current.col,
           tokens.file,
         );
+      } else if (tokens.currentIdent == 'assert') {
+        tokens.moveNext();
+        tokens.expectChar(TokenType.openParen);
+        Expression condition = parseExpression(tokens, scope);
+        tokens.expectChar(TokenType.comma);
+        Expression comment = parseExpression(tokens, scope);
+        if (tokens.currentChar == TokenType.comma) {
+          tokens.moveNext();
+        }
+        tokens.expectChar(TokenType.closeParen);
+        return AssertExpression(
+          condition,
+          comment,
+          tokens.current.line,
+          tokens.current.col,
+          tokens.file,
+        );
       } else if (tokens.currentIdent == '__LINE__') {
         tokens.moveNext();
         return IntLiteralExpression(tokens.current.line, tokens.current.line,
@@ -50,6 +67,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         tokens.current.line,
         tokens.current.col,
         tokens.file,
+        'as an expression',
       );
       String i = tokens.currentIdent;
       tokens.moveNext();
@@ -457,6 +475,12 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
     if (tokens.currentChar == TokenType.less) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
+      if (!operandA.type.isSubtypeOf(integerType)) {
+        throw FileInvalid("lhs of < is not an integer (is a $operandA)");
+      }
+      if (!operandB.type.isSubtypeOf(integerType)) {
+        throw FileInvalid("rhs of < is not an integer (is a $operandB)");
+      }
       return LessExpression(
         operandA,
         operandB,
@@ -467,6 +491,12 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
     } else if (tokens.currentChar == TokenType.lessEqual) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
+      if (!operandA.type.isSubtypeOf(integerType)) {
+        throw FileInvalid("lhs of <= is not an integer (is a $operandA)");
+      }
+      if (!operandB.type.isSubtypeOf(integerType)) {
+        throw FileInvalid("rhs of <= is not an integer (is a $operandB)");
+      }
       return OrExpression(
         LessExpression(
           operandA,
@@ -489,6 +519,12 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
     } else if (tokens.currentChar == TokenType.greater) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
+      if (!operandA.type.isSubtypeOf(integerType)) {
+        throw FileInvalid("lhs of > is not an integer (is a $operandA)");
+      }
+      if (!operandB.type.isSubtypeOf(integerType)) {
+        throw FileInvalid("rhs of > is not an integer (is a $operandB)");
+      }
       return GreaterExpression(
         operandA,
         operandB,
@@ -499,6 +535,13 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
     } else if (tokens.currentChar == TokenType.greaterEqual) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
+      if (!operandA.type.isSubtypeOf(integerType)) {
+        throw FileInvalid("lhs of >= is not an integer (is a $operandA)");
+      }
+      if (!operandB.type.isSubtypeOf(integerType)) {
+        throw FileInvalid(
+            "rhs of >= is not an integer (is a $operandB ${formatCursorPositionFromTokens(tokens)})");
+      }
       return OrExpression(
         GreaterExpression(
           operandA,
@@ -569,6 +612,14 @@ Expression parseBitAnd(TokenIterator tokens, TypeValidator scope) {
   if (tokens.current is CharToken && tokens.currentChar == TokenType.bitAnd) {
     tokens.moveNext();
     Expression operandB = parseBitAnd(tokens, scope);
+    if (!operandA.type.isSubtypeOf(integerType)) {
+      throw FileInvalid(
+          "lhs of & is not an integer (is $operandA, a ${operandA.type} ${formatCursorPositionFromTokens(tokens)})");
+    }
+    if (!operandB.type.isSubtypeOf(integerType)) {
+      throw FileInvalid(
+          "rhs of & is not an integer (is $operandB, a ${operandB.type} ${formatCursorPositionFromTokens(tokens)})");
+    }
     return BitAndExpression(
       operandA,
       operandB,
@@ -585,6 +636,14 @@ Expression parseBitXor(TokenIterator tokens, TypeValidator scope) {
   if (tokens.current is CharToken && tokens.currentChar == TokenType.bitXor) {
     tokens.moveNext();
     Expression operandB = parseBitXor(tokens, scope);
+    if (!operandA.type.isSubtypeOf(integerType)) {
+      throw FileInvalid(
+          "lhs of ^ is not an integer (is $operandA, a ${operandA.type} ${formatCursorPositionFromTokens(tokens)})");
+    }
+    if (!operandB.type.isSubtypeOf(integerType)) {
+      throw FileInvalid(
+          "rhs of ^ is not an integer (is $operandB, a ${operandB.type} ${formatCursorPositionFromTokens(tokens)})");
+    }
     return BitXorExpression(
       operandA,
       operandB,
