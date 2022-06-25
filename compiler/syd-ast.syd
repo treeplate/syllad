@@ -352,7 +352,7 @@ class ReinterpretAsOperatorExpression extends Expression {
     Slot exprSlot = expression.generateInstructions(scope);
     Type rhs = type.generateInstructions(scope);
     Slot result = scope.registerDynamicValue(rhs, concat('force cast of ', exprSlot.debugName, ' to ', rhs.name));
-    scope.emitInstruction(MoveInstruction(result, exprSlot, concat(result)));
+    scope.emitInstruction(MoveInstruction(result, exprSlot, result.debugName));
     scope.emitInstruction(SetTypeInstruction(result, rhs));
     return result;
   }

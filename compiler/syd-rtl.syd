@@ -29,16 +29,11 @@ Integer _alloc(Integer size) {
 Integer __heapFree(Integer hHeap, Integer dwFlags, Integer lpMem) __extern 'kernel32.lib' 'HeapFree';
 
 /// Frees a heap allocation obtained from [_alloc].
-///
-/// Return true if successful.
-///
-/// If false, use [_getLastError] (not yet implemented) to find error code.
-Boolean _free(Integer pointer) {
+Null _free(Integer pointer) {
   if (__heapFree(_heapHandle, 0x00, pointer) == 0) {
     //println('failed to free pointer, error code: ', __getLastError());
     exit(1);
   }
-  return true;
 }
 
 Null _moveBytes(Integer from, Integer to, Integer length) {

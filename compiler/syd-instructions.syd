@@ -105,7 +105,7 @@ class StoreCmpInstruction extends Instruction {
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    manager.assertAllReleased();
+    
     // TODO: hard-code result for literal comparisons
     String opcodeSuffix;
     if (flag == ccGreaterThan) {
@@ -153,7 +153,7 @@ class StoreCmpInstruction extends Instruction {
     if (targetOperand != aOperand && targetOperand != bOperand) { 
       targetOperand.release(); 
     }
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot aArg, Slot bArg, Slot targetArg, cc flagArg) { 
@@ -219,7 +219,6 @@ class ConditionalJumpInstruction extends Instruction {
       assert(false, concat('unknown check ', check));
     }
     block.addCode(concat('j', opcodeSuffix), [label], comment);
-    manager.assertAllReleased();
   }
 
   Null constructor(Slot aArg, SlotNullable bArg, cc checkArg, String labelArg, String commentArg) { 
@@ -284,7 +283,7 @@ class JumpIfDynamicTypeNotEqualStaticTypeInstruction extends Instruction {
     block.addCode('cmp', [operandA, operandB], comment);
     block.addCode('jne', [target], null);
     operandA.release();
-    manager.assertAllReleased();
+    
   }
   
   Null constructor(Slot aArg, Type bArg, String labelArg, String commentArg) {
@@ -355,7 +354,7 @@ class SetSlotIfEqualInstruction extends Instruction {
     Mop targetTypeOperand = manager.writeType(target, register | memory);
     emitMov(block, targetTypeOperand, targetType.asOperand(), concat(target.debugName, ' is a ', targetType));
     targetTypeOperand.release();
-    manager.assertAllReleased();
+    
   }
   
   Null constructor(Slot aArg, Slot bArg, Slot targetArg, Type targetTypeArg, String commentArg) {
@@ -402,7 +401,7 @@ class SetSlotIfTypesEqualInstruction extends Instruction {
     Mop targetTypeOperand = manager.writeType(target, register | memory);
     emitMov(block, targetTypeOperand, targetType.asOperand(), concat(target.debugName, ' is a ', targetType));
     targetTypeOperand.release();
-    manager.assertAllReleased();
+    
   }
   
   Null constructor(Slot aArg, Slot bArg, Slot targetArg, Type targetTypeArg, String commentArg) {
@@ -429,7 +428,7 @@ class PushInstruction extends Instruction {
     block.addCode('push', [sourceOperand], comment);
     manager.recordPushes(1);
     sourceOperand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot sourceArg, String commentArg) {
@@ -452,7 +451,7 @@ class PushTypeInstruction extends Instruction {
     block.addCode('push', [sourceOperand], comment);
     manager.recordPushes(1);
     sourceOperand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot sourceArg, String commentArg) {
@@ -474,13 +473,13 @@ class CallInstruction extends Instruction {
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    manager.assertAllReleased();
+    
     manager.save(volatileRegister);
     Mop targetOperand = manager.read(target, memory | nonvolatileRegister | immediate, concat('reading ', target.debugName, ' to call it'));
     block.addCode('call', [targetOperand], comment);
     targetOperand.release();
     manager.releaseOperands(volatileRegister);
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot targetArg, String commentArg) {
@@ -517,7 +516,7 @@ class CallSystemInstruction extends Instruction {
     }
     block.addCode('call', [target], comment);
     manager.releaseOperands(volatileRegister);
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(String libraryArg, String targetArg, SlotNullable returnValueArg, String commentArg) {
@@ -581,7 +580,7 @@ class ShiftInstruction extends Instruction {
     block.addCode(opcode, [mutatedValue, count.low8Bits()], comment); // low8Bits() ensures we use cl not rcx
     mutatedValue.release();
     count.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(String opcodeArg, Slot lhsArg, Slot rhsArg, Slot resultArg, String commentArg) {
@@ -622,7 +621,7 @@ class AndInstruction extends Instruction {
     block.addCode('and', [lhsOperand, rhsOperand], comment);
     lhsOperand.release();
     rhsOperand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot lhsArg, Slot rhsArg, Slot resultArg, String commentArg) {
@@ -668,7 +667,7 @@ class UnsignedMultiplyInstruction extends Instruction {
     // TODO: throw if overflow (i.e. if OF flag set)
     mutatedValue.release();
     operand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot lhsArg, Slot rhsArg, Slot resultArg, String commentArg) {
@@ -757,7 +756,7 @@ class SignedMultiplyInstruction extends Instruction {
       }
       current += 1;
     }
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot lhsArg, Slot rhsArg, Slot resultArg, String commentArg) {
@@ -865,7 +864,7 @@ class BiOperandInstruction extends Instruction {
     block.addCode(opcode, [lhsOperand, rhsOperand], comment);
     lhsOperand.release();
     rhsOperand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(String opcodeArg, Slot lhsArg, Slot rhsArg, Slot resultArg, String commentArg) {
@@ -901,7 +900,7 @@ class AddInstruction extends Instruction {
     //   a = b + a
     //   a = b + b
     //   a = a + a
-    manager.assertAllReleased();
+    
     Mop resultOperand;
     Mop otherOperand;
     if (lhs == result && rhs == result) {
@@ -928,7 +927,7 @@ class AddInstruction extends Instruction {
     if (otherOperand != resultOperand) {
       otherOperand.release();
     }
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot lhsArg, Slot rhsArg, Slot resultArg, String commentArg) {
@@ -965,7 +964,7 @@ class SubInstruction extends Instruction {
     block.addCode('sub', [lhsOperand, rhsOperand], comment);
     lhsOperand.release();
     rhsOperand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot lhsArg, Slot rhsArg, Slot resultArg, String commentArg) {
@@ -993,7 +992,7 @@ class MonoOperandInstruction extends Instruction {
     Mop operand = manager.readForMutation(source, target, register | memory, null);
     block.addCode(opcode, [operand], comment); // XXX we used to say "qword ptr" here
     operand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(String opcodeArg, Slot sourceArg, Slot targetArg, String commentArg) {
@@ -1017,7 +1016,7 @@ class MoveInstruction extends Instruction {
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     manager.readForMutation(source, target, memory | register, comment).release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot targetArg, Slot sourceArg, String commentArg) {
@@ -1042,7 +1041,6 @@ class MoveTypeToTypeInstruction extends Instruction {
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     manager.readTypeForMutation(source, target, memory | register, comment).release();
-    manager.assertAllReleased();
   }
 
   Null constructor(Slot targetArg, Slot sourceArg, String commentArg) {
@@ -1071,7 +1069,7 @@ class MoveTypeToValueInstruction extends Instruction {
     emitMov(block, result.operand, sourceOperand, comment);
     result.release();
     sourceOperand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot targetArg, Slot sourceArg, String commentArg) {
@@ -1096,7 +1094,7 @@ class SetTypeInstruction extends Instruction {
     Mop targetOperand = manager.writeType(target, memory | register);
     emitMov(block, targetOperand, source.asOperand(), concat(target.debugName, ' is of type ', source));
     targetOperand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot targetArg, Type sourceArg) {
@@ -1133,7 +1131,7 @@ class LeaInstruction extends Instruction {
     block.addCode('lea', [targetOperand, sourceOperand], comment);
     sourceOperand.release();
     targetOperand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot targetArg, Slot sourceArg, Boolean willReadArg, String commentArg) {
@@ -1174,7 +1172,7 @@ class LeaTypeInstruction extends Instruction {
     block.addCode('lea', [targetOperand, sourceOperand], comment);
     sourceOperand.release();
     targetOperand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot targetArg, Slot sourceArg, Boolean willReadArg, String commentArg) {
@@ -1207,7 +1205,7 @@ class MoveDerefInstruction extends Instruction {
     emitMov(block, targetOperand, sourceAddressComputationOperand, comment);
     targetOperand.release();
     sourceOperand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot targetArg, Slot sourceArg, Integer offsetArg, String commentArg) {
@@ -1241,7 +1239,7 @@ class MoveToDerefInstruction extends Instruction {
     emitMov(block, targetAddressComputationOperand, sourceOperand, comment);
     targetOperand.release();
     sourceOperand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot targetArg, Slot sourceArg, Integer offsetArg, String commentArg) {
@@ -1275,7 +1273,7 @@ class MoveTypeToDerefInstruction extends Instruction {
     emitMov(block, targetAddressComputationOperand, sourceOperand, comment);
     targetOperand.release();
     sourceOperand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot targetArg, Slot sourceArg, Integer offsetArg, String commentArg) {
@@ -1308,7 +1306,7 @@ class MoveDerefToTypeInstruction extends Instruction {
     emitMov(block, targetOperand, sourceAddressComputationOperand, comment);
     targetOperand.release();
     sourceOperand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot targetArg, Slot sourceArg, Integer offsetArg, String commentArg) {
@@ -1346,7 +1344,7 @@ class MoveToSpecificOperandInstruction extends Instruction {
     }
     assert(result.operand.isOperandKind(target), concat('SlotManager.read gave invalid operand (', result, ') NOT ', describeOperandKinds(target), ' for ', source));
     result.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Integer targetArg, Slot sourceArg, Boolean willReadArg, String commentArg) {
@@ -1384,7 +1382,7 @@ class MoveTypeToSpecificOperandInstruction extends Instruction {
     }
     assert(result.operand.isOperandKind(target), concat('SlotManager.read gave invalid operand (', result, ') NOT ', describeOperandKinds(target), ' for ', source));
     result.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Integer targetArg, Slot sourceArg, Boolean willReadArg, String commentArg) {
@@ -1415,7 +1413,7 @@ class BtDerefInstruction extends Instruction {
     block.addCode('bt', [lhsDerefOperand, rhsOperand], comment);
     lhsOperand.release();
     rhsOperand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot lhsArg, Slot rhsArg, String commentArg) {
@@ -1454,7 +1452,7 @@ class SetcInstruction extends Instruction {
     Mop targetOperand = manager.write(target, register); // TODO: really this should take memory, but StackOperand needs to implement low8Bits first
     block.addCode('setc', [targetOperand.low8Bits()], comment);
     targetOperand.release();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(Slot targetArg, String commentArg) {
@@ -1469,7 +1467,7 @@ class PinSlotValueInstruction extends Instruction {
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     target.pinValue();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(DynamicSlot targetArg) {
@@ -1485,7 +1483,7 @@ class UnpinSlotValueInstruction extends Instruction {
     if (target.stillAlive() || target.valuePinned) {
       target.unpinValue();
     }
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(DynamicSlot targetArg) {
@@ -1499,7 +1497,7 @@ class PinSlotTypeInstruction extends Instruction {
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     target.pinType();
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(DynamicSlot targetArg) {
@@ -1515,7 +1513,7 @@ class UnpinSlotTypeInstruction extends Instruction {
     if (target.stillAlive() || target.typePinned) {
       target.unpinType();
     }
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(DynamicSlot targetArg) {
@@ -1528,7 +1526,7 @@ class PinRegisterSlotInstruction extends Instruction {
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     manager.pin(slot);
-    manager.assertAllReleased();
+    
   }
 
   Null constructor(RegisterSlot slotArg) {

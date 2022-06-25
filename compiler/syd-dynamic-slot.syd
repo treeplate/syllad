@@ -214,7 +214,7 @@ class DynamicSlot extends Slot {
     assert(depth > -1, 'use initialize() to initialize a slot');
     assert(depth > 0, 'cannot use finalized slot');
     assert(values[depth - 1] != null || !stillAlive(), 'living slot was discarded');
-    assert(values[depth - 1] != null, 'called value() on discarded slot');
+    assert(values[depth - 1] != null, concat('called value() on discarded slot - ', debugName));
     return values[depth - 1];
   }
 
@@ -255,12 +255,12 @@ class DynamicSlot extends Slot {
 
   String toString() {
     if (depth == -1) {
-      return concat('<', className, ':', staticType, ' (uninitialized) ("', debugName, '")>');
+      return concat('<', className, ':', staticType, ' (uninitialized) ("', debugName, '") (living: ', stillAlive(), ')>');
     }
     if (depth == 0) {
-      return concat('<', className, ':', staticType, ' (finalized) ("', debugName, '")>');
+      return concat('<', className, ':', staticType, ' (finalized) ("', debugName, '") (living: ', stillAlive(), ')>');
     }
-    return concat('<', className, ':', staticType, ' at ', sublist(values, 0, depth), '/', sublist(dynamicTypes, 0, depth), ' ("', debugName, '")>');
+    return concat('<', className, ':', staticType, ' at ', sublist(values, 0, depth), '/', sublist(dynamicTypes, 0, depth), ' ("', debugName, '") (living: ', stillAlive(), ')>');
   }
 
   Null constructor(Type staticTypeArg, SlotContext homeScopeArg, StringNullable nameArg, String debugNameArg) {
