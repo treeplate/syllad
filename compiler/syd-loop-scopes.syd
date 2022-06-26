@@ -18,9 +18,9 @@ class CompiledLoopScope extends CompiledNestedScope {
   }
 
   Null generateAssemblerBlock(AssemblerBlock block) {
-    block.addCode(concat(loopTopLabel, ':'), [], concat('top of ', name));
+    block.addLabel(loopTopLabel, concat('top of ', name));
     super.generateAssemblerBlock(block);
-    block.addCode(concat(loopBottomLabel, ':'), [], concat('bottom of ', name));
+    block.addLabel(loopBottomLabel, concat('bottom of ', name));
   }
 
   Null constructor(CompiledScope parentArg, String nameArg) {

@@ -569,4 +569,11 @@ class TypeRegistry extends Object {
     }
     return len(constructedNotTypeChecked);
   }
+
+  String withConstantTypeParenthetical(String comment, Operand operand) {
+    if (operand is ImmediateIntegerOperand) {
+      return concat(comment, ' (', sortedTypes[(operand as ImmediateIntegerOperand).value], ')');
+    }
+    return comment;
+  }
 }

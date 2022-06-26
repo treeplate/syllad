@@ -21,7 +21,6 @@ class DynamicSlot extends Slot {
   SlotContext homeScope;
 
   Boolean referencedFromMultipleStackFrames = false;
-  Boolean initializeScheduled = false;
   OperationList operations = []:Operation;
   Integer position = 0;
 
@@ -77,9 +76,20 @@ class DynamicSlot extends Slot {
     append(operations, OperationWrite(scope));
   }
 
-  Null willInitialize() { // e.g. parameterCount, which gets initialized to rcx
+  Boolean initializeScheduled = false;
+
+  Null willInitialize() { // Currently only parameterCount, which gets initialized to rcx
     assert(!initializeScheduled, 'Called willInitialize twice');
     initializeScheduled = true;
+  }
+
+  Boolean readForDecrefScheduled = false;
+
+  Null willReadForDecref(SlotContext scope) {
+    assert(!readForDecrefScheduled, 'Called willReadForDecref twice');
+    assert(depth > -1, 'willReadForDecref called on uninitalized slot');
+    append(operations, OperationRead(scope));
+    readForDecrefScheduled = true;
   }
 
   Null didRead(SlotContext scope) {

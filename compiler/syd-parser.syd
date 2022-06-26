@@ -393,8 +393,13 @@ Statement parseDeclaration(TokenConsumer source) {
       source.expectPunctuation(ttSemicolon);
       return GenericSystemSubroutineDeclarationStatement(type, identifier, parameters, library, externalName, location);
     }
+    Boolean isIntrinsic = false;
+    if (source.isNextIdentifier('__intrinsic')) {
+      source.expectIdentifier('__intrinsic');
+      isIntrinsic = true;
+    }
     StatementBlock block = parseBlock(source);
-    return SubroutineDeclarationStatement(type, identifier, parameters, isVarArgs, block, location);
+    return SubroutineDeclarationStatement(type, identifier, parameters, isVarArgs, block, location, isIntrinsic);
   }
   if (source.isNext(ttSemicolon)) {
     SourceLocation location = source.lastLocation();

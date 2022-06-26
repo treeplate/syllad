@@ -74,7 +74,6 @@ fwdclassprop NullFunction CompiledScope.generateAssemblerBlock;
 fwdclassprop NullFunction CompiledScope.emitInstruction;
 fwdclassprop DynamicSlotFunction CompiledScope.registerDynamicValue;
 fwdclassprop SlotFunction CompiledScope.registerStaticValue;
-fwdclassprop ImmediateSlotFunction CompiledScope.registerConstant;
 fwdclassprop SlotFunction CompiledScope.registerSubroutine;
 fwdclassprop NullFunction CompiledScope.registerNestedScope;
 fwdclassprop StringFunction CompiledScope.labelPrefix;
@@ -241,6 +240,13 @@ class CompilationEnvironment extends TypeRegistry {
 
   CompiledSubroutineList subroutines = []:CompiledSubroutine; 
 
+  String freeIntrinsicName = '_free';
+  Map intrinsics = Map(); // String -> CompiledSubroutine
+
+  Null registerIntrinsic(CompiledSubroutine intrinsic) {
+    intrinsics.set(intrinsic.name, intrinsic);
+  }
+
   Null addSubroutine(CompiledSubroutine subroutine) { 
     append(subroutines, subroutine);
   }
@@ -361,12 +367,46 @@ class CompilationEnvironment extends TypeRegistry {
     typeTableOffset = offset;
     typeTableWidth = width;
   }
+  
+  Null generateDecrefIntrinsic(Assembler assembler, String label) {
+    AssemblerBlock block = assembler.createBlock();
+    String decrefEndLabel = generateLabel(concat(label, '$end'));
+    block.addComment('variable\'s type is in rdx');
+    block.addComment('variable\'s value is in rcx');
+    block.addComment('if variable is a string then it is actually a pointer to the reference count');
+    block.addCode('cmp', [rdx, intrinsicsLibrary.coreStringType.code], 'verify that the variable is a string');
+    block.addCode('jne', [decrefEndLabel], 'if not, abort');
+    block.addComment('check reference count is not negative');
+    block.addCode('cmp', [rcx.dereference(), 0], 'if the refcount is negative then this is a constant, not reference counted');
+    block.addCode('js', [decrefEndLabel], '...so abort');
+    block.addCode('dec', [rcx.dereference()], 'decrement the reference count');
+    block.addCode('jnz', [decrefEndLabel], 'if we did not reach zero, then the string is still in use; abort');
+    block.addComment('String reached zero reference count, so we must free it.');
+    block.addCode('push', [rcx], 'argument #1 value: pointer to block we want to free.');
+    block.addCode('push', [intrinsicsLibrary.coreIntegerType.code], 'argument #1 type: integer');
+    block.addCode('lea', [r11, AddressComputationOperand(rsp, null, 1, 0x18)], 'use rcx shadow space for the return value');
+    block.addCode('push', [r11], 'internal argument 6: pointer to return value\'s value');
+    block.addCode('lea', [r11, AddressComputationOperand(rsp, null, 1, 0x28)], 'use rdx shadow space for the return type');
+    block.addCode('push', [r11], 'internal argument 5: pointer to return value\'s type');
+    block.addCode('sub', [rsp, '020h'], 'allocate shadow space');
+    block.addCode('mov', [r9, '000h'], 'internal argument 4: "this" pointer');
+    block.addCode('mov', [r8, '000h'], 'internal argument 3: "this" pointer type');
+    block.addCode('mov', [rdx, '000h'], 'internal argument 2: closure pointer');
+    block.addCode('mov', [rcx, '001h'], 'internal argument 1: number of actual arguments');
+    CompiledSubroutine freeIntrinsic = intrinsics.get(freeIntrinsicName) as CompiledSubroutine;
+    block.addCode('call', [freeIntrinsic.label], 'jump to subroutine');
+    block.addCode('add', [rsp, '040h'], 'release shadow space and arguments (result in stack pointer)');
+    block.addLabel(decrefEndLabel, null);
+    block.addCode('ret', [], 'return from subroutine');
+    assembler.addLabeledBlock(label, block, 'decref intrinsic; used to decrement the reference count of string variables');
+  }
 
   Null compile(Assembler assembler) {
     // the phase before this is Library.generateScopes() in syd_ast.syd
     prepareInstructions();
     assignTypeCodes();
     generateTypeTable(assembler, typeTableLabel);
+    generateDecrefIntrinsic(assembler, decrefLabel);
     allocateSlots(assembler);
     generateAssembler(assembler);
   }
@@ -582,6 +622,8 @@ class CompiledScope extends SlotContext {
     emitInstruction(PendingCommentInstruction(concat('Line ', statement.sourceLocation.lineNo, ': ', truncateString(concat(statement), 64))));
   }
   
+  // does not set the type of target!
+  // caller is responsible for setting it to boolean!
   Null storeEquality(Slot a, Slot b, Slot target, Boolean negate) {
     // TODO: hard-code result for literal comparisons
     // TODO: make this work for strings
@@ -593,7 +635,21 @@ class CompiledScope extends SlotContext {
     if (negate) {
       emitInstruction(BiOperandInstruction('xor', target, environment().integer(1), target, concat('negating', target)));
     }
-    emitInstruction(SetTypeInstruction(target, environment().intrinsicsLibrary.coreBooleanType));
+  }
+
+  Null emitIncref(Slot string) {
+    Type stringType = environment().intrinsicsLibrary.coreStringType;
+    if (stringType.isSubtypeOf(string.staticType) && !(string is ImmediateDataLabelSlot)) {
+      append(instructions, CommentInstruction(concat('increment reference count for ', string.debugName, ' if necessary')));
+      String increfEndLabel = environment().generateLabel(concat(labelPrefix(), '$AfterIncref'));
+      append(instructions, JumpIfDynamicTypeNotEqualStaticTypeInstruction(string, stringType, increfEndLabel, 'if not a string, skip incref'));
+      Slot temp = registerDynamicValue(environment().intrinsicsLibrary.coreIntegerType, 'string refcount temporary');
+      append(instructions, MoveDerefInstruction(temp, string, 0, 'dereference string to get to ref count'));
+      append(instructions, ConditionalJumpInstruction(temp, null, ccNegative, increfEndLabel, 'if ref count is negative (constant strings), skip incref'));
+      append(instructions, AddInstruction(temp, environment().integer(1), temp, 'increment ref count'));
+      append(instructions, MoveToDerefInstruction(string, temp, 0, 'put it back in the string'));
+      append(instructions, LabelInstruction(increfEndLabel, 'after incref'));
+    }
   }
 
   // Emits an instruction that does the equivalent of "lhs is staticType", puts the result in the CF flag.
@@ -656,6 +712,7 @@ class CompiledScope extends SlotContext {
   
   Slot emitSubroutineCall(Slot target, SlotList arguments) {
     assert(target.staticType is AbstractSubroutineType, 'cannot call a non-function');
+    emitInstruction(CommentInstruction(concat('Call ', target.debugName, ' with ', len(arguments), ' arguments')));
     // xxxx statically check arguments are the right type if the types are known
     if (target is SubroutineSlot) {
       SlotNullable result = (target as SubroutineSlot).subroutine.inline(this, arguments);
@@ -670,7 +727,7 @@ class CompiledScope extends SlotContext {
     Integer argumentIndex = len(arguments) - 1;
     while (argumentIndex >= 0) {
       emitInstruction(PushInstruction(arguments[argumentIndex], concat('value of argument #', argumentIndex + 1, ' (', arguments[argumentIndex].debugName, ')')));
-      emitInstruction(PushTypeInstruction(arguments[argumentIndex], concat('type of argument #', argumentIndex + 1)));
+      emitInstruction(PushTypeInstruction(arguments[argumentIndex], environment(), concat('type of argument #', argumentIndex + 1)));
       argumentIndex -= 1;
     }
     DynamicSlot temporarySlot = registerDynamicValue(environment().intrinsicsLibrary.coreIntegerType, 'temporary slot');
@@ -719,9 +776,7 @@ class CompiledScope extends SlotContext {
     String continueLabelArg = concat(labelPrefix(), '$', camelCase(what));
     // TODO: xxxx we could also check if we can statically disprove compatibility
     // (or maybe assert that we can't, because if we can why is someone calling us)
-    if (trustSlotStaticType && value.canStaticallyProveTypeCompatibilityWith(staticType)) {
-      emitInstruction(CommentInstruction(concat('No need to type check ', what, ', we can statically prove it is ', staticType)));
-    } else {
+    if (!trustSlotStaticType || !value.canStaticallyProveTypeCompatibilityWith(staticType)) {
       CompilationEnvironment environment = environment();
       String continueLabel = environment.generateLabel(concat(continueLabelArg, '$TypeMatch'));
       emitIsOperatorCheck(staticType, value, what); // actual type check is here
@@ -767,6 +822,7 @@ class CompiledScope extends SlotContext {
       emitInstruction(AddInstruction(baseAddressSlot, shiftedIndex, resultPointer, 'get pointer to value'));
       emitInstruction(MoveDerefInstruction(target, resultPointer, 0, 'store value'));
       emitInstruction(MoveDerefToTypeInstruction(target, resultPointer, -0x08, 'store type'));
+      emitIncref(target);
     } else {
       throw('list subscript not implemented for this list type');
     }
@@ -787,6 +843,7 @@ class CompiledScope extends SlotContext {
     manager.enterNestedScope(this, block);
     for (instruction in instructions) {
       instruction.generateAssemblerBlock(block, manager);
+      manager.endOfInstruction();
     }
     manager.exitNestedScope(this);
   }
@@ -926,7 +983,7 @@ class CompiledStackFrameScope extends CompiledScope {
   }
 
   Null generateAssemblerBlock(AssemblerBlock block) {
-    slotManager = SlotManager();
+    slotManager = SlotManager(environment().intrinsicsLibrary.coreStringType);
     slotManager.pin(stackPointer);
     slotManager.pin(stackFramePointer);
     AssemblerBlock subblock = block.createBlock();
@@ -968,7 +1025,8 @@ class CompiledSubroutine extends CompiledStackFrameScope {
     // xxxx verify the type of value statically
     scope.emitTypeCheck(value, type.returnType, environment().intrinsicsLibrary.returnValueTypeCheckFailureMessage as Slot, concat(name, ' return value'), true);
     scope.emitInstruction(MoveToDerefInstruction(returnValuePointer, value, 0, concat(name, ' return value')));
-    scope.emitInstruction(MoveTypeToDerefInstruction(returnValueTypePointer, value, 0, concat('type of ', name, ' return value')));
+    scope.emitInstruction(MoveTypeToDerefInstruction(returnValueTypePointer, value, 0, environment(), concat('type of ', name, ' return value')));
+    scope.emitIncref(value);
     scope.emitInstruction(SyntheticNestedAllScopesExitInstruction(scope));
     scope.emitInstruction(JumpInstruction(epilogLabel, 'return'));
   }
@@ -999,7 +1057,7 @@ class CompiledSubroutine extends CompiledStackFrameScope {
 
   Null generateEpilogAssemblerBlock(AssemblerBlock block) {
     Integer stackSize = slotManager.stackSize();
-    block.addCode(concat(epilogLabel, ':'), [], null);
+    block.addLabel(epilogLabel, null);
     assert(stackSize == slotManager.stackSize(), concat('addCode changed the stack size of ', name, ' (was ', stackSize, ' now is ', slotManager.stackSize(), ')'));
     slotManager.enterNestedScope(this, block);
     assert(stackSize == slotManager.stackSize(), concat('enterNestedScope changed the stack size of ', name, ' (was ', stackSize, ' now is ', slotManager.stackSize(), ')'));

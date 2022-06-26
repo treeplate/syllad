@@ -57,13 +57,16 @@ String hex64(Integer value) {
 }
 
 String hexH(Integer value) {
-  if (value >= 0 && value <= 0xFF) {
+  if (value < 0) {
+    return concat('-', hexH(-value));
+  }
+  if (value <= 0xFF) {
     return hex8(value);
   }
-  if ((value <= -0xFFFFFFFF) || (value > 0xFFFFFFFF)) {
-    return hex64(value);
+  if (value <= 0xFFFFFFFF) {
+    return hex32(value);
   }
-  return hex32(value);
+  return hex64(value);
 }
 
 String stringLiteral(String value) {

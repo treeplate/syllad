@@ -26,7 +26,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
     tokens.moveNext();
     superclass = tokens.currentIdent;
     scope.getVar(superclass, 0, tokens.current.line, tokens.current.col,
-        tokens.file, 'for subclassing');
+        tokens.workspace, tokens.file, 'for subclassing');
     tokens.moveNext();
   }
   tokens.expectChar(TokenType.openBrace);
@@ -37,6 +37,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
           superclass,
           tokens.current.line,
           tokens.current.col,
+          tokens.workspace,
           tokens.file,
         );
   if (superclass != null && !scope.classes.containsKey(superclass)) {
@@ -68,6 +69,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
     type,
     tokens.current.line,
     tokens.current.col,
+    tokens.workspace,
     tokens.file,
   );
 
@@ -111,11 +113,12 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
         : GenericFunctionValueType(type, tokens.file),
     tokens.current.line,
     tokens.current.col,
+    tokens.workspace,
     tokens.file,
   );
   tokens.expectChar(TokenType.closeBrace);
   return ClassStatement(name, superclass, block, type, tokens.current.line,
-      tokens.current.col, tokens.file);
+      tokens.current.col, tokens.workspace, tokens.file);
 }
 
 Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
@@ -145,6 +148,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
                 subscripts.length,
                 tokens.current.line,
                 tokens.current.col,
+                tokens.workspace,
                 tokens.file,
                 'plus-equals or plus-plus',
               )
@@ -166,15 +170,17 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
               ident1,
               AddExpression(
                 subscriptsToExpr(ident1, subscripts, tokens.current.line,
-                    tokens.current.col, tokens.file, scope),
+                    tokens.current.col, tokens.workspace, tokens.file, scope),
                 value,
                 tokens.current.line,
                 tokens.current.col,
+                tokens.workspace,
                 tokens.file,
               ),
               subscripts,
               tokens.current.line,
               tokens.current.col,
+              tokens.workspace,
               tokens.file,
             );
           }
@@ -184,16 +190,18 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
             ident1,
             AddExpression(
               GetExpr(ident1, scope, tokens.current.line, tokens.current.col,
-                  tokens.file),
-              IntLiteralExpression(
-                  1, tokens.current.line, tokens.current.col, tokens.file),
+                  tokens.workspace, tokens.file),
+              IntLiteralExpression(1, tokens.current.line, tokens.current.col,
+                  tokens.workspace, tokens.file),
               tokens.current.line,
               tokens.current.col,
+              tokens.workspace,
               tokens.file,
             ),
             subscripts,
             tokens.current.line,
             tokens.current.col,
+            tokens.workspace,
             tokens.file,
           );
         }
@@ -201,7 +209,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           tokens.expectChar(TokenType.minus);
           if (!scope
               .getVar(ident1, subscripts.length, tokens.current.line,
-                  tokens.current.col, tokens.file, '-= or --')
+                  tokens.current.col, tokens.workspace, tokens.file, '-= or --')
               .isSubtypeOf(integerType)) {
             throw FileInvalid(
                 "Attempted $ident1 (not an integer!) -... ${formatCursorPositionFromTokens(tokens)}");
@@ -219,15 +227,17 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
               ident1,
               SubtractExpression(
                 subscriptsToExpr(ident1, subscripts, tokens.current.line,
-                    tokens.current.col, tokens.file, scope),
+                    tokens.current.col, tokens.workspace, tokens.file, scope),
                 value,
                 tokens.current.line,
                 tokens.current.col,
+                tokens.workspace,
                 tokens.file,
               ),
               subscripts,
               tokens.current.line,
               tokens.current.col,
+              tokens.workspace,
               tokens.file,
             );
           }
@@ -241,17 +251,20 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
                 scope,
                 tokens.current.line,
                 tokens.current.col,
+                tokens.workspace,
                 tokens.file,
               ),
-              IntLiteralExpression(
-                  1, tokens.current.line, tokens.current.col, tokens.file),
+              IntLiteralExpression(1, tokens.current.line, tokens.current.col,
+                  tokens.workspace, tokens.file),
               tokens.current.line,
               tokens.current.col,
+              tokens.workspace,
               tokens.file,
             ),
             subscripts,
             tokens.current.line,
             tokens.current.col,
+            tokens.workspace,
             tokens.file,
           );
         }
@@ -265,6 +278,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
             expr.type,
             tokens.current.line,
             tokens.current.col,
+            tokens.workspace,
             tokens.file,
           );
           return SetStatement(
@@ -273,6 +287,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
             subscripts,
             tokens.current.line,
             tokens.current.col,
+            tokens.workspace,
             tokens.file,
           );
         }
@@ -285,8 +300,14 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         tokens.expectChar(TokenType.set);
         Expression expr = parseExpression(tokens, scope);
         if (!expr.type.isSubtypeOf(
-          ValueType(null, ident1, tokens.current.line, tokens.current.col,
-              tokens.file),
+          ValueType(
+            null,
+            ident1,
+            tokens.current.line,
+            tokens.current.col,
+            tokens.workspace,
+            tokens.file,
+          ),
         )) {
           throw FileInvalid(
               "$expr is not of type $ident1, which is expected by $ident2. (it's a ${expr.type}) ${formatCursorPositionFromTokens(tokens)}");
@@ -294,9 +315,10 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         scope.newVar(
           ident2,
           ValueType(null, ident1, tokens.current.line, tokens.current.col,
-              tokens.file),
+              tokens.workspace, tokens.file),
           tokens.current.line,
           tokens.current.col,
+          tokens.workspace,
           tokens.file,
         );
         if (subscripts.isNotEmpty) {
@@ -320,10 +342,12 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
             ident1,
             tokens.current.line,
             tokens.current.col,
+            tokens.workspace,
             tokens.file,
           ),
           tokens.current.line,
           tokens.current.col,
+          tokens.workspace,
           tokens.file,
         );
         if (subscripts.isNotEmpty) {
@@ -365,6 +389,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
               type,
               tokens.current.line,
               tokens.current.col,
+              tokens.workspace,
               tokens.file,
             ),
             name);
@@ -392,6 +417,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
             ident1,
             tokens.current.line,
             tokens.current.col,
+            tokens.workspace,
             tokens.file,
           ),
           typeParams,
@@ -403,22 +429,24 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         ident2,
         FunctionValueType(
             ValueType(null, ident1, tokens.current.line, tokens.current.col,
-                tokens.file),
+                tokens.workspace, tokens.file),
             typeParams,
             tokens.file),
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
         true,
       );
       return FunctionStatement(
-        ValueType(
-            null, ident1, tokens.current.line, tokens.current.col, tokens.file),
+        ValueType(null, ident1, tokens.current.line, tokens.current.col,
+            tokens.workspace, tokens.file),
         ident2,
         params,
         body,
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     }
@@ -429,30 +457,35 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
 }
 
 Expression subscriptsToExpr(String ident1, List<Expression> subscripts,
-    int line, int col, String file, TypeValidator validator) {
+    int line, int col, String workspace, String file, TypeValidator validator) {
   return subscripts.length > 0
       ? SubscriptExpression(
           subscriptsToExpr(ident1, subscripts.toList()..removeLast(), line, col,
-              file, validator),
+              workspace, file, validator),
           subscripts.last,
           line,
           col,
+          workspace,
           file)
-      : GetExpr(ident1, validator, line, col, file);
+      : GetExpr(ident1, validator, line, col, workspace, file);
 }
 
 MapEntry<List<Statement>, TypeValidator> parse(
-    Iterable<Token> rtokens, String file, bool isRtl) {
+    Iterable<Token> rtokens, String workspace, String file, bool isRtl) {
   TokenIterator tokens = TokenIterator(
       (isRtl
               ? <Token>[]
               : [
                   IdentToken('import', -1, 6),
-                  StringToken('../rtl.syd', -1, 19),
+                  StringToken(
+                      ('../' * workspace.allMatches('/').length) + 'rtl.syd',
+                      -1,
+                      19),
                   CharToken(TokenType.endOfStatement, -1, 20)
                 ])
           .followedBy(rtokens)
           .iterator,
+      workspace,
       file);
 
   tokens.moveNext();
@@ -494,6 +527,7 @@ WhileStatement parseWhile(TokenIterator tokens, TypeValidator scope) {
     body,
     tokens.current.line,
     tokens.current.col,
+    tokens.workspace,
     tokens.file,
     'while',
     true,
@@ -516,7 +550,7 @@ ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
     );
   }
   filesStartedLoading.add(str);
-  if (!File('compiler/$str').existsSync()) {
+  if (!File('${tokens.workspace}/$str').existsSync()) {
     throw FileInvalid(
         "Attempted import of nonexistent file $str ${formatCursorPositionFromTokens(tokens)}");
   }
@@ -525,9 +559,11 @@ ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
 
   MapEntry<List<Statement>, TypeValidator> result = filesLoaded[str] ??
       (filesLoaded[str] = parse(
-          lex(File('compiler/$str').readAsStringSync(), str),
+          lex(File('${tokens.workspace}/$str').readAsStringSync(),
+              tokens.workspace, str),
+          tokens.workspace,
           str,
-          str == '../rtl.syd'));
+          str.contains('rtl.syd')));
   loadedGlobalScopes[str] = result.value;
   filesStartedLoading.remove(str);
   scope.types.addAll(result.value.types);
@@ -535,7 +571,7 @@ ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
   scope.usedVars.addAll(result.value.usedVars);
   tokens.getPrevious();
   return ImportStatement(result.key, str, tokens.current.line,
-      tokens.current.col, (tokens..moveNext()).file);
+      tokens.current.col, tokens.workspace, (tokens..moveNext()).file);
 }
 
 Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
@@ -557,6 +593,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
             tokens.currentIdent,
             tokens.current.line,
             tokens.current.col,
+            tokens.workspace,
             tokens.file,
           );
           tokens.moveNext();
@@ -573,6 +610,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
           (tokens..moveNext()).currentIdent,
           tokens.current.line,
           tokens.current.col,
+          tokens.workspace,
           tokens.file) as ClassValueType;
       TypeValidator props = TypeValidator(scope)
         ..types.addAll(spt.properties.types)
@@ -592,13 +630,19 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       scope.classes[cln] = x.properties;
       return NopStatement();
     case 'fwdclassprop':
-      ValueType type = ValueType(null, (tokens..moveNext()).currentIdent,
-          tokens.current.line, tokens.current.col, tokens.file);
+      ValueType type = ValueType(
+          null,
+          (tokens..moveNext()).currentIdent,
+          tokens.current.line,
+          tokens.current.col,
+          tokens.workspace,
+          tokens.file);
       ClassValueType cl = (ValueType(
           null,
           (tokens..moveNext()).currentIdent,
           tokens.current.line,
           tokens.current.col,
+          tokens.workspace,
           tokens.file) as ClassValueType);
       tokens.moveNext();
       tokens.expectChar(TokenType.period);
@@ -646,7 +690,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
 Statement parseConst(TokenIterator tokens, TypeValidator scope) {
   tokens.moveNext();
   ValueType type = ValueType(null, tokens.currentIdent, tokens.current.line,
-      tokens.current.col, tokens.file);
+      tokens.current.col, tokens.workspace, tokens.file);
   tokens.moveNext();
   String name = tokens.currentIdent;
   tokens.moveNext();
@@ -688,8 +732,13 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope) {
     tokens,
     scope,
   );
-  if (!iterable.type.isSubtypeOf(ValueType(null, "WhateverIterable",
-      tokens.current.line, tokens.current.col, tokens.file))) {
+  if (!iterable.type.isSubtypeOf(ValueType(
+      null,
+      "WhateverIterable",
+      tokens.current.line,
+      tokens.current.col,
+      tokens.workspace,
+      tokens.file))) {
     throw FileInvalid(
         "tried to for loop over non-iterable (iterated over ${iterable.type}) ${formatCursorPositionFromTokens(tokens)}");
   }
@@ -703,6 +752,7 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope) {
         : sharedSupertype,
     tokens.current.line,
     tokens.current.col,
+    tokens.workspace,
     tokens.file,
   );
   tokens.expectChar(TokenType.closeParen);
@@ -715,6 +765,7 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope) {
     tokens.current.line,
     tokens.current.col,
     currentName,
+    tokens.workspace,
     tokens.file,
   );
 }
@@ -731,9 +782,10 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
     scope.newVar(
       name + tokens.currentIdent,
       ValueType(sharedSupertype, name, tokens.current.line, tokens.current.col,
-          tokens.file),
+          tokens.workspace, tokens.file),
       tokens.current.line,
       tokens.current.col,
+      tokens.workspace,
       tokens.file,
     );
     body.add(
@@ -746,11 +798,13 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
                 name,
                 tokens.current.line,
                 tokens.current.col,
+                tokens.workspace,
                 tokens.file,
               )),
           [],
           -2,
           0,
+          tokens.workspace,
           'todox'),
     );
     tokens.moveNext();
@@ -767,6 +821,7 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
     -2,
     0,
     tokens.file,
+    tokens.workspace,
     'enum',
     true,
     false,
@@ -814,6 +869,7 @@ IfStatement parseIf(TokenIterator tokens, TypeValidator scope) {
     elseBody,
     tokens.current.line,
     tokens.current.col,
+    tokens.workspace,
     tokens.file,
   );
 }

@@ -26,28 +26,31 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
         "concat": (List<ValueWrapper> l, List<String> s) {
           return ValueWrapper(
               stringType,
-              l.map((x) => x.toStringWithStack(s, -2, 0, 'todo')).join(''),
+              l
+                  .map((x) => x.toStringWithStack(s, -2, 0, 'interr', 'todo'))
+                  .join(''),
               'concat rtv');
         },
         "addLists": (List<ValueWrapper> l, List<String> s) {
           return ValueWrapper(
               ListValueType(sharedSupertype, 'intrinsics'),
               l
-                  .expand((element) => element.valueC(null, s, -2, 0, 'interr'))
+                  .expand((element) =>
+                      element.valueC(null, s, -2, 0, 'interr', 'interr'))
                   .toList(),
               'addLists rtv');
         },
         "parseInt": (List<ValueWrapper> l, List<String> s) {
           return ValueWrapper(
             integerType,
-            int.parse(l.single.valueC(null, s, -2, 0, 'interr')),
+            int.parse(l.single.valueC(null, s, -2, 0, 'interr', 'interr')),
             'parseInt rtv',
           );
         },
         "charsOf": (List<ValueWrapper> l, List<String> s) {
           return ValueWrapper(
             IterableValueType(stringType, 'intrinsics'),
-            (l.single.valueC(null, s, -2, 0, 'interr') as String)
+            (l.single.valueC(null, s, -2, 0, 'interr', 'interr') as String)
                 .characters
                 .map((e) => ValueWrapper(stringType, e, 'charsOf char')),
             'charsOf rtv',
@@ -57,31 +60,35 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
           return ValueWrapper(
             IterableValueType(integerType, 'intrinsics'),
             l.single
-                .valueC(null, s, -2, 0, 'interr')
+                .valueC(null, s, -2, 0, 'interr', 'interr')
                 .runes
                 .map((e) => ValueWrapper(integerType, e, 'scalarValues char')),
             'scalarValues rtv',
           );
         },
         "len": (List<ValueWrapper> l, List<String> s) {
-          return ValueWrapper(integerType,
-              l.single.valueC(null, s, -2, 0, 'interr').length, 'len rtv');
+          return ValueWrapper(
+              integerType,
+              l.single.valueC(null, s, -2, 0, 'interr', 'interr').length,
+              'len rtv');
         },
         "input": (List<ValueWrapper> l, List<String> s) {
           return ValueWrapper(stringType, stdin.readLineSync(), 'input rtv');
         },
         "append": (List<ValueWrapper> l, List<String> s) {
-          if (!l.last.typeC(null, s, -2, 0, 'interr').isSubtypeOf(
-              (l.first.typeC(null, s, -2, 0, 'interr') as ListValueType)
+          if (!l.last.typeC(null, s, -2, 0, 'interr', 'interr').isSubtypeOf(
+              (l.first.typeC(null, s, -2, 0, 'interr', 'interr')
+                      as ListValueType)
                   .genericParameter)) {
             throw FileInvalid(
-                "You cannot append a ${l.last.typeC(null, s, -2, 0, 'interr')} to a ${l.first.typeC(null, s, -2, 0, 'interr')}!\n${s.reversed.join('\n')}");
+                "You cannot append a ${l.last.typeC(null, s, -2, 0, 'interr', 'interr')} to a ${l.first.typeC(null, s, -2, 0, 'interr', 'interr')}!\n${s.reversed.join('\n')}");
           }
-          l.first.valueC(null, s, -2, 0, 'interr').add(l.last);
+          l.first.valueC(null, s, -2, 0, 'interr', 'interr').add(l.last);
           return l.last;
         },
         "pop": (List<ValueWrapper> l, List<String> s) {
-          List<ValueWrapper> list = l.first.valueC(null, s, -2, 0, 'interr');
+          List<ValueWrapper> list =
+              l.first.valueC(null, s, -2, 0, 'interr', 'interr');
           if (list.isEmpty) {
             throw FileInvalid(
                 "Cannot pop from an empty list!\n${s.reversed.join('\n')}");
@@ -91,67 +98,72 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
         "iterator": (List<ValueWrapper> l, List<String> s) {
           return ValueWrapper(
               IteratorValueType(sharedSupertype, 'intrinsics'),
-              l.single.valueC(null, s, -2, 0, 'interr').iterator,
+              l.single.valueC(null, s, -2, 0, 'interr', 'interr').iterator,
               'iterator rtv');
         },
         "next": (List<ValueWrapper> l, List<String> s) {
-          return ValueWrapper(booleanType,
-              l.single.valueC(null, s, -2, 0, 'interr').moveNext(), 'next rtv');
+          return ValueWrapper(
+              booleanType,
+              l.single.valueC(null, s, -2, 0, 'interr', 'interr').moveNext(),
+              'next rtv');
         },
         "current": (List<ValueWrapper> l, List<String> s) {
-          return l.single.valueC(null, s, -2, 0, 'interr').current;
+          return l.single.valueC(null, s, -2, 0, 'interr', 'interr').current;
         },
         "stringTimes": (List<ValueWrapper> l, List<String> s) {
           return ValueWrapper(
             stringType,
-            l.first.valueC(null, s, -2, 0, 'interr') *
-                l.last.valueC(null, s, -2, 0, 'interr'),
+            l.first.valueC(null, s, -2, 0, 'interr', 'interr') *
+                l.last.valueC(null, s, -2, 0, 'interr', 'interr'),
             'stringTimes rtv',
           );
         },
         "copy": (List<ValueWrapper> l, List<String> s) {
           return ValueWrapper(
             ListValueType(sharedSupertype, 'intrinsics'),
-            l.single.valueC(null, s, -2, 0, 'interr').toList(),
+            l.single.valueC(null, s, -2, 0, 'interr', 'interr').toList(),
             'copy rtv',
           );
         },
         "first": (List<ValueWrapper> l, List<String> s) {
-          return l.single.valueC(null, s, -2, 0, 'interr').first;
+          return l.single.valueC(null, s, -2, 0, 'interr', 'interr').first;
         },
         "last": (List<ValueWrapper> l, List<String> s) {
-          return l.single.valueC(null, s, -2, 0, 'interr').last;
+          return l.single.valueC(null, s, -2, 0, 'interr', 'interr').last;
         },
         "single": (List<ValueWrapper> l, List<String> s) {
-          return l.single.valueC(null, s, -2, 0, 'interr').single;
+          return l.single.valueC(null, s, -2, 0, 'interr', 'interr').single;
         },
         "hex": (List<ValueWrapper> l, List<String> s) {
           return ValueWrapper(
               stringType,
-              l.single.valueC(null, s, -2, 0, 'interr').toRadixString(16),
+              l.single
+                  .valueC(null, s, -2, 0, 'interr', 'interr')
+                  .toRadixString(16),
               'hex rtv');
         },
         "chr": (List<ValueWrapper> l, List<String> s) {
           return ValueWrapper(
               stringType,
-              String.fromCharCode(l.single.valueC(null, s, -2, 0, 'interr')),
+              String.fromCharCode(
+                  l.single.valueC(null, s, -2, 0, 'interr', 'interr')),
               'chr rtv');
         },
         "exit": (List<ValueWrapper> l, List<String> s) {
-          exit(l.single.valueC(null, s, -2, 0, 'interr'));
+          exit(l.single.valueC(null, s, -2, 0, 'interr', 'interr'));
         },
         "readFile": (List<ValueWrapper> l, List<String> s) {
           return ValueWrapper(
               stringType,
-              File('compiler/${l.single.valueC(null, s, -2, 0, 'interr')}')
+              File('compiler/${l.single.valueC(null, s, -2, 0, 'interr', 'interr')}')
                   .readAsStringSync(),
               'readFile rtv');
         },
         "readFileBytes": (List<ValueWrapper> l, List<String> s) {
           if (l.length == 0)
             throw FileInvalid("readFileBytes called with no args");
-          File file =
-              File('compiler/${l.single.valueC(null, s, -2, 0, 'interr')}');
+          File file = File(
+              'compiler/${l.single.valueC(null, s, -2, 0, 'interr', 'interr')}');
           return file.existsSync()
               ? ValueWrapper(
                   stringType, file.readAsBytesSync(), 'readFileBytes rtv')
@@ -160,19 +172,24 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
         "println": (List<ValueWrapper> l, List<String> s) {
           stdout.writeln(l
               .map(((e) => e.toStringWithStack(
-                  s + ['println calling toString()'], -2, 0, 'interr')))
+                  s + ['println calling toString()'],
+                  -2,
+                  0,
+                  'interr',
+                  'interr')))
               .join(' '));
           return ValueWrapper(integerType, 0, 'println rtv');
         },
         "throw": (List<ValueWrapper> l, List<String> s) {
-          throw FileInvalid(l.single.valueC(null, s, -2, 0, 'interr') +
-              "\nstack:\n" +
-              s.reversed.join('\n'));
+          throw FileInvalid(
+              l.single.valueC(null, s, -2, 0, 'interr', 'interr') +
+                  "\nstack:\n" +
+                  s.reversed.join('\n'));
         },
         "joinList": (List<ValueWrapper> l, List<String> s) {
           return ValueWrapper(
               stringType,
-              l.single.valueC(null, s, -2, 0, 'interr').join(''),
+              l.single.valueC(null, s, -2, 0, 'interr', 'interr').join(''),
               'joinList rtv');
         },
         "cast": (List<ValueWrapper> l, List<String> s) {
@@ -181,22 +198,25 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
         "substring": (List<ValueWrapper> l, List<String> s) {
           return ValueWrapper(
               stringType,
-              (l[0].valueC(null, s, -2, 0, 'interr') as String).substring(
-                  l[1].valueC(null, s, -2, 0, 'interr') as int,
-                  l[2].valueC(null, s, -2, 0, 'interr') as int),
+              (l[0].valueC(null, s, -2, 0, 'interr', 'interr') as String)
+                  .substring(
+                      l[1].valueC(null, s, -2, 0, 'interr', 'interr') as int,
+                      l[2].valueC(null, s, -2, 0, 'interr', 'interr') as int),
               'substring rtv');
         },
         "sublist": (List<ValueWrapper> l, List<String> s) {
-          if (l[2].valueC(null, s, -2, 0, 'interr') <
-              l[1].valueC(null, s, -2, 0, 'interr')) {
+          if (l[2].valueC(null, s, -2, 0, 'interr', 'interr') <
+              l[1].valueC(null, s, -2, 0, 'interr', 'interr')) {
             throw FileInvalid(
                 "sublist called with ${l[2]} (end arg) < ${l[1]} (start arg) ${s.reversed.join('\n')}");
           }
           return ValueWrapper(
-              l.first.typeC(null, s, -2, 0, 'interr'),
-              (l[0].valueC(null, s, -2, 0, 'interr') as List<ValueWrapper>)
-                  .sublist(l[1].valueC(null, s, -2, 0, 'interr') as int,
-                      l[2].valueC(null, s, -2, 0, 'interr') as int),
+              l.first.typeC(null, s, -2, 0, 'interr', 'interr'),
+              (l[0].valueC(null, s, -2, 0, 'interr', 'interr')
+                      as List<ValueWrapper>)
+                  .sublist(
+                      l[1].valueC(null, s, -2, 0, 'interr', 'interr') as int,
+                      l[2].valueC(null, s, -2, 0, 'interr', 'interr') as int),
               'sublist rtv');
         },
         "stackTrace": (List<ValueWrapper> l, List<String> s) {

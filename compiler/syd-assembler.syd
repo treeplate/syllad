@@ -48,6 +48,7 @@ class AssemblerBlock extends Object {
   Integer currentIndent = 0;
   StringNullable pendingComment = null;
   LowLevelInstructionList lines = []:LowLevelInstruction;
+  Boolean deadCode = false;
 
   Null indent(NullFunction generateAssembler) {
     currentIndent += 2;
@@ -56,27 +57,42 @@ class AssemblerBlock extends Object {
   }
 
   Null addCode(String opcode, WhateverList operands, StringNullable comment) {
-    if (pendingComment != null) {
-      append(lines, LowLevelInstruction(null, [], pendingComment, currentIndent));
-      pendingComment = null;
-    }
-    AnythingList newList = [];
-    for (op in operands) {
-      if (op is Operand) {
-        append(newList, (op as Operand).snapshot());
-      } else {
-        append(newList, op);
+    assert(!contains(charsOf(opcode), ':'), 'use addLabel to add a label');
+    if (!deadCode) {
+      if (pendingComment != null) {
+        append(lines, LowLevelInstruction(null, [], pendingComment, currentIndent));
       }
+      AnythingList newList = [];
+      for (op in operands) {
+        if (op is Operand) {
+          append(newList, (op as Operand).snapshot());
+        } else {
+          append(newList, op);
+        }
+      }
+      append(lines, LowLevelInstruction(opcode, newList, comment, currentIndent));
     }
-    append(lines, LowLevelInstruction(opcode, newList, comment, currentIndent));
+    pendingComment = null;
+    if (opcode == 'jmp') {
+      deadCode = true;
+    }
+  }
+
+  Null addLabel(String label, StringNullable comment) {
+    assert(!contains(charsOf(label), ':'), 'addLabel adds the colon, so should not be given a label with a colon');
+    pendingComment = null;
+    append(lines, LowLevelInstruction(concat(label, ':'), [], comment, currentIndent));
+    deadCode = false;
   }
 
   Null addComment(String message) {
-    if (pendingComment != null) {
-      append(lines, LowLevelInstruction(null, [], pendingComment, currentIndent));
-      pendingComment = null;
+    if (!deadCode) {
+      if (pendingComment != null) {
+        append(lines, LowLevelInstruction(null, [], pendingComment, currentIndent));
+        pendingComment = null;
+      }
+      append(lines, LowLevelInstruction(null, [], message, currentIndent));
     }
-    append(lines, LowLevelInstruction(null, [], message, currentIndent));
   }
 
   Null addPendingComment(String message) {

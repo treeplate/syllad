@@ -1,10 +1,10 @@
-String formatCursorPosition(int line, int col, String file) {
-  return "./compiler/$file:$line:$col";
+String formatCursorPosition(int line, int col, String workspace, String file) {
+  return "$workspace/$file:$line:$col";
 }
 
 String formatCursorPositionFromTokens(TokenIterator tokens) {
   return formatCursorPosition(
-      tokens.current.line, tokens.current.col, tokens.file);
+      tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
 }
 
 enum TokenType {
@@ -118,7 +118,7 @@ enum _LexerState {
   multiLineCommentStar,
 }
 
-Iterable<Token> lex(String file, String filename) sync* {
+Iterable<Token> lex(String file, String workspace, String filename) sync* {
   // /* to (\\ or */) multi-line comment, # or // single-line comments (\\ to end comment)
   _LexerState state = _LexerState.top;
   StringBuffer intVal = StringBuffer();
@@ -228,7 +228,7 @@ Iterable<Token> lex(String file, String filename) sync* {
         } else {
           throw FileInvalid(
             //print(
-            "Unrecognized ${String.fromCharCode(rune)} at ${formatCursorPosition(line, col, filename)} (U+${rune.toRadixString(16)} in Unicode)",
+            "Unrecognized ${String.fromCharCode(rune)} at ${formatCursorPosition(line, col, workspace, filename)} (U+${rune.toRadixString(16)} in Unicode)",
             //);
           );
         }
@@ -466,7 +466,8 @@ Iterable<Token> lex(String file, String filename) sync* {
           yield CharToken(TokenType.ellipsis, line, col);
           state = _LexerState.top;
         } else {
-          print("TWO PERIODS ${formatCursorPosition(line, col, filename)}");
+          print(
+              "TWO PERIODS ${formatCursorPosition(line, col, workspace, filename)}");
           yield CharToken(TokenType.period, line, col);
           yield CharToken(TokenType.period, line, col);
           state = _LexerState.top;
@@ -495,11 +496,12 @@ class FileInvalid implements Exception {
 }
 
 class TokenIterator extends Iterator<Token> {
-  TokenIterator(this.tokens, this.file);
+  TokenIterator(this.tokens, this.workspace, this.file);
 
   final Iterator<Token> tokens;
   bool doneImports = false;
 
+  final String workspace;
   final String file;
 
   @override

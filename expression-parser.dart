@@ -8,7 +8,12 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
       int i = tokens.integer;
       tokens.moveNext();
       return IntLiteralExpression(
-          i, tokens.current.line, tokens.current.col, tokens.file);
+        i,
+        tokens.current.line,
+        tokens.current.col,
+        tokens.workspace,
+        tokens.file,
+      );
     case IdentToken:
       if (tokens.currentIdent == 'super') {
         tokens.moveNext();
@@ -29,6 +34,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           scope,
           tokens.current.line,
           tokens.current.col,
+          tokens.workspace,
           tokens.file,
         );
       } else if (tokens.currentIdent == 'assert') {
@@ -46,38 +52,46 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           comment,
           tokens.current.line,
           tokens.current.col,
+          tokens.workspace,
           tokens.file,
         );
       } else if (tokens.currentIdent == '__LINE__') {
         tokens.moveNext();
         return IntLiteralExpression(tokens.current.line, tokens.current.line,
-            tokens.current.col, tokens.file);
+            tokens.current.col, tokens.workspace, tokens.file);
       } else if (tokens.currentIdent == '__COL__') {
         tokens.moveNext();
         return IntLiteralExpression(tokens.current.col, tokens.current.line,
-            tokens.current.col, tokens.file);
+            tokens.current.col, tokens.workspace, tokens.file);
       } else if (tokens.currentIdent == '__FILE__') {
         tokens.moveNext();
-        return StringLiteralExpression(
-            tokens.file, tokens.current.line, tokens.current.col, tokens.file);
+        return StringLiteralExpression(tokens.file, tokens.current.line,
+            tokens.current.col, tokens.workspace, tokens.file);
       }
       scope.getVar(
         tokens.currentIdent,
         0,
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
         'as an expression',
       );
       String i = tokens.currentIdent;
       tokens.moveNext();
       return GetExpr(
-          i, scope, tokens.current.line, tokens.current.col, tokens.file);
+        i,
+        scope,
+        tokens.current.line,
+        tokens.current.col,
+        tokens.workspace,
+        tokens.file,
+      );
     case StringToken:
       String s = tokens.string;
       tokens.moveNext();
-      return StringLiteralExpression(
-          s, tokens.current.line, tokens.current.col, tokens.file);
+      return StringLiteralExpression(s, tokens.current.line, tokens.current.col,
+          tokens.workspace, tokens.file);
     case CharToken:
       if (tokens.currentChar == TokenType.openSquare) {
         tokens.moveNext();
@@ -105,8 +119,13 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         if (tokens.current is CharToken &&
             tokens.currentChar == TokenType.colon) {
           tokens.moveNext();
-          ValueType t = ValueType(null, tokens.currentIdent,
-              tokens.current.line, tokens.current.col, tokens.file);
+          ValueType t = ValueType(
+              null,
+              tokens.currentIdent,
+              tokens.current.line,
+              tokens.current.col,
+              tokens.workspace,
+              tokens.file);
           if (!type.isSubtypeOf(t) && elements.isNotEmpty)
             throw FileInvalid(
                 'Invalid explicit list type (inferred type $type, provided type $t) ${formatCursorPositionFromTokens(tokens)}');
@@ -118,6 +137,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           type,
           tokens.current.line,
           tokens.current.col,
+          tokens.workspace,
           tokens.file,
         );
       }
@@ -132,8 +152,8 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
       );
   }
   assert(false);
-  return IntLiteralExpression(
-      null as int, tokens.current.line, tokens.current.col, tokens.file);
+  return IntLiteralExpression(null as int, tokens.current.line,
+      tokens.current.col, tokens.workspace, tokens.file);
 }
 
 Expression parseBitOr(TokenIterator tokens, TypeValidator scope) {
@@ -146,6 +166,7 @@ Expression parseBitOr(TokenIterator tokens, TypeValidator scope) {
       operandB,
       tokens.current.line,
       tokens.current.col,
+      tokens.workspace,
       tokens.file,
     );
   }
@@ -162,6 +183,7 @@ Expression parseOr(TokenIterator tokens, TypeValidator scope) {
       operandB,
       tokens.current.line,
       tokens.current.col,
+      tokens.workspace,
       tokens.file,
     );
   }
@@ -178,6 +200,7 @@ Expression parseAnd(TokenIterator tokens, TypeValidator scope) {
       operandB,
       tokens.current.line,
       tokens.current.col,
+      tokens.workspace,
       tokens.file,
     );
   }
@@ -206,7 +229,8 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
           }
           tokens.expectChar(TokenType.closeSquare);
           if (!result.type.isSubtypeOf(ListValueType(
-              ValueType(null, "Whatever", -2, 0, 'internal'), 'internal'))) {
+              ValueType(null, "Whatever", -2, 0, 'interr', 'internal'),
+              'internal'))) {
             throw FileInvalid(
                 "tried to subscript ${result.type} ($result) ${formatCursorPositionFromTokens(tokens)}");
           }
@@ -215,6 +239,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             operandB,
             tokens.current.line,
             tokens.current.col,
+            tokens.workspace,
             tokens.file,
           );
         } else if (tokens.currentChar == TokenType.period) {
@@ -234,8 +259,14 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
                 "tried to access nonexistent member '$operandB' of ${result.type} ${formatCursorPositionFromTokens(tokens)}");
           }
           tokens.moveNext();
-          result = MemberAccessExpression(result, operandB, tokens.current.line,
-              tokens.current.col, tokens.file);
+          result = MemberAccessExpression(
+            result,
+            operandB,
+            tokens.current.line,
+            tokens.current.col,
+            tokens.workspace,
+            tokens.file,
+          );
         } else if (tokens.currentChar == TokenType.bang) {
           tokens.moveNext();
           if (result.type is! NullableValueType) {
@@ -243,7 +274,12 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
                 "Attempted unwrap of non-nullable type (${result.type}) ${formatCursorPositionFromTokens(tokens)}");
           }
           result = UnwrapExpression(
-              result, tokens.current.line, tokens.current.col, tokens.file);
+            result,
+            tokens.current.line,
+            tokens.current.col,
+            tokens.workspace,
+            tokens.file,
+          );
         } else {
           if (!result.type.isSubtypeOf(
               GenericFunctionValueType(sharedSupertype, tokens.file))) {
@@ -294,6 +330,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             scope,
             tokens.current.line,
             tokens.current.col,
+            tokens.workspace,
             tokens.file,
           );
         }
@@ -320,6 +357,7 @@ Expression parseMulDivRem(TokenIterator tokens, TypeValidator scope) {
         operandB,
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.divide) {
@@ -330,6 +368,7 @@ Expression parseMulDivRem(TokenIterator tokens, TypeValidator scope) {
         operandB,
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.remainder) {
@@ -340,6 +379,7 @@ Expression parseMulDivRem(TokenIterator tokens, TypeValidator scope) {
         operandB,
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     }
@@ -356,6 +396,7 @@ Expression parseNots(TokenIterator tokens, TypeValidator scope) {
         operandA,
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.tilde) {
@@ -365,17 +406,19 @@ Expression parseNots(TokenIterator tokens, TypeValidator scope) {
         operandA,
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.minus) {
       tokens.moveNext();
       Expression operand = parseNots(tokens, scope);
       return SubtractExpression(
-        IntLiteralExpression(
-            0, tokens.current.line, tokens.current.col, tokens.file),
+        IntLiteralExpression(0, tokens.current.line, tokens.current.col,
+            tokens.workspace, tokens.file),
         operand,
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.plus) {
@@ -387,26 +430,28 @@ Expression parseNots(TokenIterator tokens, TypeValidator scope) {
   if (tokens.current is IdentToken && tokens.currentIdent == 'is') {
     tokens.moveNext();
     ValueType type = ValueType(null, tokens.currentIdent, tokens.current.line,
-        tokens.current.col, tokens.file);
+        tokens.current.col, tokens.workspace, tokens.file);
     tokens.moveNext();
     return IsExpr(
       operand,
       type,
       tokens.current.line,
       tokens.current.col,
+      tokens.workspace,
       tokens.file,
     );
   }
   if (tokens.current is IdentToken && tokens.currentIdent == 'as') {
     tokens.moveNext();
     ValueType type = ValueType(null, tokens.currentIdent, tokens.current.line,
-        tokens.current.col, tokens.file);
+        tokens.current.col, tokens.workspace, tokens.file);
     tokens.moveNext();
     return AsExpr(
       operand,
       type,
       tokens.current.line,
       tokens.current.col,
+      tokens.workspace,
       tokens.file,
     );
   }
@@ -424,6 +469,7 @@ Expression parseAddSub(TokenIterator tokens, TypeValidator scope) {
         operandB,
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.minus) {
@@ -434,6 +480,7 @@ Expression parseAddSub(TokenIterator tokens, TypeValidator scope) {
         operandB,
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     }
@@ -452,6 +499,7 @@ Expression parseBitShifts(TokenIterator tokens, TypeValidator scope) {
         operandB,
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.rightShift) {
@@ -462,6 +510,7 @@ Expression parseBitShifts(TokenIterator tokens, TypeValidator scope) {
         operandB,
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     }
@@ -486,6 +535,7 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
         operandB,
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.lessEqual) {
@@ -503,6 +553,7 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
           operandB,
           tokens.current.line,
           tokens.current.col,
+          tokens.workspace,
           tokens.file,
         ),
         EqualsExpression(
@@ -510,10 +561,12 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
           operandB,
           tokens.current.line,
           tokens.current.col,
+          tokens.workspace,
           tokens.file,
         ),
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.greater) {
@@ -530,6 +583,7 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
         operandB,
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.greaterEqual) {
@@ -548,6 +602,7 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
           operandB,
           tokens.current.line,
           tokens.current.col,
+          tokens.workspace,
           tokens.file,
         ),
         EqualsExpression(
@@ -555,10 +610,12 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
           operandB,
           tokens.current.line,
           tokens.current.col,
+          tokens.workspace,
           tokens.file,
         ),
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     }
@@ -585,6 +642,7 @@ Expression parseEqNeq(TokenIterator tokens, TypeValidator scope) {
         operandB,
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.notEquals) {
@@ -596,10 +654,12 @@ Expression parseEqNeq(TokenIterator tokens, TypeValidator scope) {
           operandB,
           tokens.current.line,
           tokens.current.col,
+          tokens.workspace,
           tokens.file,
         ),
         tokens.current.line,
         tokens.current.col,
+        tokens.workspace,
         tokens.file,
       );
     }
@@ -625,6 +685,7 @@ Expression parseBitAnd(TokenIterator tokens, TypeValidator scope) {
       operandB,
       tokens.current.line,
       tokens.current.col,
+      tokens.workspace,
       tokens.file,
     );
   }
@@ -649,6 +710,7 @@ Expression parseBitXor(TokenIterator tokens, TypeValidator scope) {
       operandB,
       tokens.current.line,
       tokens.current.col,
+      tokens.workspace,
       tokens.file,
     );
   }

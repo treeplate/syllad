@@ -2,8 +2,12 @@ import 'core.syd';
 import 'syd-utils.syd';
 
 fwdclass Operand extends Object;
-fwdclassprop NullFunction Operand.constructor;
 fwdclass ImmediateOperand extends Operand;
+fwdclass RegisterOperand extends Operand;
+fwdclassprop BooleanFunction RegisterOperand.equals;
+fwdclass Register64Operand extends RegisterOperand;
+fwdclass MemoryOperand extends Operand;
+fwdclass AddressComputationOperand(Register64OperandNullable, Register64OperandNullable, Integer, Integer) extends MemoryOperand;
 
 Integer stack = 0x00000001;
 Integer global = 0x00000002;
@@ -167,7 +171,6 @@ class RegisterOperand extends Operand {
   }
 }
 
-fwdclass Register64Operand extends RegisterOperand;
 fwdclassprop String Register64Operand.r8;
 fwdclassprop Integer Register64Operand.bit;
 
@@ -217,6 +220,10 @@ class Register64Operand extends RegisterOperand {
 
   Boolean equals(Operand other) {
     return this == other;
+  }
+
+  AddressComputationOperand dereference() {
+    return AddressComputationOperand(this, null, 1, 0);
   }
 
   Null constructor(String r64Arg, String r32Arg, String r8Arg, Integer bitArg) {

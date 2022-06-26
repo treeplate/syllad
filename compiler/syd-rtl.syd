@@ -29,7 +29,7 @@ Integer _alloc(Integer size) {
 Integer __heapFree(Integer hHeap, Integer dwFlags, Integer lpMem) __extern 'kernel32.lib' 'HeapFree';
 
 /// Frees a heap allocation obtained from [_alloc].
-Null _free(Integer pointer) {
+Null _free(Integer pointer) __intrinsic {
   if (__heapFree(_heapHandle, 0x00, pointer) == 0) {
     //println('failed to free pointer, error code: ', __getLastError());
     exit(1);

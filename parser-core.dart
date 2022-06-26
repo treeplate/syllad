@@ -23,7 +23,8 @@ class TypeValidator {
     'addLists': FunctionValueType(
         ListValueType(sharedSupertype, 'intrinsics'),
         InfiniteIterable(ListValueType(
-            ValueType(null, "Whatever", -2, 0, 'intrinsics'), 'intrinsics')),
+            ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
+            'intrinsics')),
         'intrinsics'),
     'charsOf': FunctionValueType(IterableValueType(stringType, 'intrinsics'),
         [stringType], 'intrinsics'),
@@ -35,7 +36,8 @@ class TypeValidator {
         integerType,
         [
           ListValueType(
-              ValueType(null, "Whatever", -2, 0, 'intrinsics'), 'intrinsics')
+              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
+              'intrinsics')
         ],
         'intrinsics'),
     'input': FunctionValueType(stringType, [], 'intrinsics'),
@@ -43,7 +45,8 @@ class TypeValidator {
         sharedSupertype,
         [
           ListValueType(
-              ValueType(null, "Whatever", -2, 0, 'intrinsics'), 'intrinsics'),
+              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
+              'intrinsics'),
           sharedSupertype
         ],
         'intrinsics'),
@@ -51,7 +54,8 @@ class TypeValidator {
         IteratorValueType(sharedSupertype, 'intrinsics'),
         [
           IterableValueType(
-              ValueType(null, "Whatever", -2, 0, 'intrinsics'), 'intrinsics')
+              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
+              'intrinsics')
         ],
         'intrinsics'),
     'next': FunctionValueType(booleanType,
@@ -62,31 +66,36 @@ class TypeValidator {
         FunctionValueType(stringType, [stringType, integerType], 'intrinsics'),
     'copy': FunctionValueType(
         ListValueType(
-            ValueType(null, "Whatever", -2, 0, 'intrinsics'), 'intrinsics'),
+            ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
+            'intrinsics'),
         [
           IterableValueType(
-              ValueType(null, "Whatever", -2, 0, 'intrinsics'), 'intrinsics')
+              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
+              'intrinsics')
         ],
         'intrinsics'),
     'first': FunctionValueType(
         sharedSupertype,
         [
           IterableValueType(
-              ValueType(null, "Whatever", -2, 0, 'intrinsics'), 'intrinsics')
+              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
+              'intrinsics')
         ],
         'intrinsics'),
     'last': FunctionValueType(
         sharedSupertype,
         [
           IterableValueType(
-              ValueType(null, "Whatever", -2, 0, 'intrinsics'), 'intrinsics')
+              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
+              'intrinsics')
         ],
         'intrinsics'),
     'single': FunctionValueType(
         sharedSupertype,
         [
           IterableValueType(
-              ValueType(null, "Whatever", -2, 0, 'intrinsics'), 'intrinsics')
+              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
+              'intrinsics')
         ],
         'intrinsics'),
     'hex': FunctionValueType(stringType, [integerType], 'intrinsics'),
@@ -98,13 +107,16 @@ class TypeValidator {
     'println': FunctionValueType(
         integerType, InfiniteIterable(sharedSupertype), 'intrinsics'),
     'throw': FunctionValueType(nullType, [stringType], 'intrinsics'),
-    'cast': FunctionValueType(ValueType(null, "Whatever", -2, 0, 'intrinsics'),
-        [sharedSupertype], 'intrinsics'),
+    'cast': FunctionValueType(
+        ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
+        [sharedSupertype],
+        'intrinsics'),
     'joinList': FunctionValueType(
         stringType,
         [
           ListValueType(
-              ValueType(null, "Whatever", -2, 0, 'intrinsics'), 'intrinsics')
+              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
+              'intrinsics')
         ],
         'intrinsics'),
     'className': stringType,
@@ -113,10 +125,12 @@ class TypeValidator {
         stringType, [stringType, integerType, integerType], 'intrinsics'),
     'sublist': FunctionValueType(
         ListValueType(
-            ValueType(null, "Whatever", -2, 0, 'intrinsics'), 'intrinsics'),
+            ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
+            'intrinsics'),
         [
           ListValueType(
-              ValueType(null, "Whatever", -2, 0, 'intrinsics'), 'intrinsics'),
+              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
+              'intrinsics'),
           integerType,
           integerType
         ],
@@ -129,14 +143,14 @@ class TypeValidator {
   List<String> usedVars = [];
 
   void setVar(String name, int subscripts, ValueType value, int line, int col,
-      String file) {
+      String workspace, String file) {
     if (!types.containsKey(name)) {
       throw FileInvalid(
-          "Cannot assign to $name, an undeclared variable ${formatCursorPosition(line, col, file)}");
+          "Cannot assign to $name, an undeclared variable ${formatCursorPosition(line, col, workspace, file)}");
     }
     if (!nonconst.contains(name) && subscripts == 0) {
       throw FileInvalid(
-        "Cannot reassign $name ${formatCursorPosition(line, col, file)}",
+        "Cannot reassign $name ${formatCursorPosition(line, col, workspace, file)}",
       );
     }
     int oldSubs = subscripts;
@@ -144,7 +158,7 @@ class TypeValidator {
     while (subscripts > 0) {
       if (type is! ListValueType) {
         throw FileInvalid(
-          "Expected a list, got $type when trying to subscript $name ${formatCursorPosition(line, col, file)}",
+          "Expected a list, got $type when trying to subscript $name ${formatCursorPosition(line, col, workspace, file)}",
         );
       }
       type = type.genericParameter;
@@ -152,16 +166,17 @@ class TypeValidator {
     }
     if (!value.isSubtypeOf(type)) {
       throw FileInvalid(
-        "Expected $type, got $value while setting $name${"[...]" * oldSubs} to $value ${formatCursorPosition(line, col, file)}",
+        "Expected $type, got $value while setting $name${"[...]" * oldSubs} to $value ${formatCursorPosition(line, col, workspace, file)}",
       );
     }
   }
 
   void newVar(String name, ValueType type, int line, int col, String file,
+      String workspace,
       [bool constant = false]) {
     if (directVars.contains(name)) {
       throw FileInvalid(
-        'Attempted redeclare of existing variable $name ${formatCursorPosition(line, col, file)}',
+        'Attempted redeclare of existing variable $name ${formatCursorPosition(line, col, workspace, file)}',
       );
     }
     types[name] = type;
@@ -171,8 +186,8 @@ class TypeValidator {
     }
   }
 
-  ValueType getVar(String name, int subscripts, int line, int col, String file,
-      String context) {
+  ValueType getVar(String name, int subscripts, int line, int col,
+      String workspace, String file, String context) {
     ValueType? realtype = types[name];
     if (realtype == null) {
       String? filename;
@@ -182,17 +197,17 @@ class TypeValidator {
         }
       }
       throw FileInvalid(
-          "Attempted to retrieve $name ($context), which is undefined. ${filename == null ? '' : '(maybe you meant to import $filename?) '}${formatCursorPosition(line, col, file)}");
+          "Attempted to retrieve $name ($context), which is undefined. ${filename == null ? '' : '(maybe you meant to import $filename?) '}${formatCursorPosition(line, col, workspace, file)}");
     } else {
       usedVars.add(name);
       if (parent?.types.containsKey(name) ?? false) {
-        parent!.getVar(name, subscripts, line, col, file, 'error');
+        parent!.getVar(name, subscripts, line, col, workspace, file, 'error');
       }
     }
     while (subscripts > 0) {
       if (realtype is! ListValueType) {
         throw FileInvalid(
-          "Expected a list, but got $realtype when trying to subscript $name ${formatCursorPosition(line, col, file)}",
+          "Expected a list, but got $realtype when trying to subscript $name ${formatCursorPosition(line, col, workspace, file)}",
         );
       }
       realtype = realtype.genericParameter;
@@ -209,7 +224,8 @@ class TypeValidator {
 }
 
 void throwWithStack(Scope scope, List<String> stack, String value) {
-  ValueWrapper thrower = scope.getVar('throw', -2, 0, 'while throwing $value');
+  ValueWrapper thrower = scope.getVar(
+      'throw', -2, 0, 'in throwWithStack', 'while throwing $value');
   thrower._value([ValueWrapper(stringType, value, 'string to throw')], stack);
 }
 
@@ -218,27 +234,27 @@ class ValueWrapper {
   final dynamic _value;
   final String debugCreationDescription;
   final bool canBeRead;
-  ValueType typeC(
-      Scope? scope, List<String> stack, int line, int col, String filename) {
+  ValueType typeC(Scope? scope, List<String> stack, int line, int col,
+      String workspace, String filename) {
     if (canBeRead) {
       return _type!;
     } else {
-      return valueC(scope, stack, line, col, filename);
+      return valueC(scope, stack, line, col, workspace, filename);
     }
   }
 
-  dynamic valueC(
-      Scope? scope, List<String> stack, int line, int col, String filename) {
+  dynamic valueC(Scope? scope, List<String> stack, int line, int col,
+      String workspace, String filename) {
     if (canBeRead) {
       return _value;
     } else {
       scope == null
           ? (throw FileInvalid(
-              "$debugCreationDescription was attempted to be read while uninititalized ${formatCursorPosition(line, col, filename)}\n${stack.reversed.join('\n')}"))
+              "$debugCreationDescription was attempted to be read while uninititalized ${formatCursorPosition(line, col, workspace, filename)}\n${stack.reversed.join('\n')}"))
           : throwWithStack(
               scope,
               stack,
-              "$debugCreationDescription was attempted to be read while uninititalized ${formatCursorPosition(line, col, filename)}",
+              "$debugCreationDescription was attempted to be read while uninititalized ${formatCursorPosition(line, col, workspace, filename)}",
             );
       assert(false, 'throw did not exit');
     }
@@ -248,12 +264,17 @@ class ValueWrapper {
       [this.canBeRead = true]);
 
   String toString() => toStringWithStack(
-      ['internal error: ValueWrapper.toString() called'], -2, 0, 'interrr');
+      ['internal error: ValueWrapper.toString() called'],
+      -2,
+      0,
+      'interr',
+      'interrr');
 
-  String toStringWithStack(List<String> s, int line, int col, String file) {
+  String toStringWithStack(
+      List<String> s, int line, int col, String workspace, String file) {
     return _value is Function
         ? "<function ($debugCreationDescription)>"
-        : toStringWithStacker(this, s, line, col, file);
+        : toStringWithStacker(this, s, line, col, workspace, file);
   }
 }
 
@@ -282,7 +303,8 @@ class NamespaceScope implements Scope {
   ClassValueType? get declaringClass => deferTarget.declaringClass;
 
   @override
-  ValueWrapper getVar(String name, int line, int column, String file) {
+  ValueWrapper getVar(
+      String name, int line, int column, String workspace, String file) {
     ValueWrapper? val = internal_getVar(name);
     if (val == null) throw FileInvalid('TODO');
     return val;
@@ -304,7 +326,7 @@ class NamespaceScope implements Scope {
 
   @override
   void setVar(String name, List<int> subscripts, ValueWrapper value, int line,
-      int col, String file) {
+      int col, String workspace, String file) {
     // TODO: implement setVar
   }
 
@@ -314,7 +336,7 @@ class NamespaceScope implements Scope {
 
   @override
   String toStringWithStack(
-      List<String> stack2, int line, int col, String file) {
+      List<String> stack2, int line, int col, String workspace, String file) {
     // TODO: implement toStringWithStack
     throw UnimplementedError();
   }
@@ -338,8 +360,8 @@ class ValueType {
     fileTypes[file] = (fileTypes[file] ?? 0) + 1;
   }
   static final Map<String, ValueType> types = {};
-  factory ValueType(
-      ValueType? parent, String name, int line, int col, String file) {
+  factory ValueType(ValueType? parent, String name, int line, int col,
+      String workspace, String file) {
     return types[name] ??
         (name.endsWith("Iterable")
             ? IterableValueType(
@@ -348,6 +370,7 @@ class ValueType {
                   name.substring(0, name.length - 8),
                   line,
                   col,
+                  workspace,
                   file,
                 ),
                 file,
@@ -359,6 +382,7 @@ class ValueType {
                       name.substring(0, name.length - 8),
                       line,
                       col,
+                      workspace,
                       file,
                     ),
                     file,
@@ -370,6 +394,7 @@ class ValueType {
                           name.substring(0, name.length - 4),
                           line,
                           col,
+                          workspace,
                           file,
                         ),
                         file,
@@ -381,6 +406,7 @@ class ValueType {
                               name.substring(0, name.length - 8),
                               line,
                               col,
+                              workspace,
                               file,
                             ),
                             file,
@@ -393,10 +419,12 @@ class ValueType {
                                   name.substring(0, name.length - 8),
                                   line,
                                   col,
+                                  workspace,
                                   file,
                                 ),
                                 file)
-                            : basicTypes(name, parent, line, col, file));
+                            : basicTypes(
+                                name, parent, line, col, workspace, file));
   }
   bool isSubtypeOf(ValueType possibleParent) {
     var bool = name == possibleParent.name ||
@@ -581,27 +609,29 @@ class Scope {
     return node.declaringClass!;
   }
 
-  String toString() => toStringWithStack(['internal error'], -2, 0, 'interr');
+  String toString() =>
+      toStringWithStack(['internal error'], -2, 0, 'interr', 'interr');
 
   String toStringWithStack(
-      List<String> stack2, int line, int col, String file) {
+      List<String> stack2, int line, int col, String workspace, String file) {
     return values.containsKey('toString')
         ? values['toString']!
-            .valueC(this, stack2 + ["implicit toString"], line, col, file)
-            (<ValueWrapper>[], stack2 + ["implicit toString"])
+            .valueC(this, stack2 + ["implicit toString"], line, col, workspace,
+                file)(<ValueWrapper>[], stack2 + ["implicit toString"])
             .value
-            .valueC(this, stack2 + ["implicit toString"], line, col, file)
-        : "<${values['className']?.valueC(this, stack2, line, col, file) ?? '($debugName: stack: $stack)'}>";
+            .valueC(this, stack2 + ["implicit toString"], line, col, workspace,
+                file)
+        : "<${values['className']?.valueC(this, stack2, line, col, workspace, file) ?? '($debugName: stack: $stack)'}>";
   }
 
   final Map<String, ValueWrapper> values = {};
   static final Map<String, ValueType> tv_types = TypeValidator(null).types;
   void setVar(String name, List<int> subscripts, ValueWrapper value, int line,
-      int col, String file) {
+      int col, String workspace, String file) {
     if (!values.containsKey(name)) {
       for (Scope parent in parents) {
         if (parent.internal_getVar(name) != null) {
-          parent.setVar(name, subscripts, value, line, col, file);
+          parent.setVar(name, subscripts, value, line, col, workspace, file);
           return;
         }
       }
@@ -613,9 +643,10 @@ class Scope {
         throw FileInvalid(
             "attempted $name${subscripts.map((e) => '[$e]').join()} = $value but $name did not exist");
       List<ValueWrapper> list =
-          values[name]!.valueC(this, stack, line, col, file);
+          values[name]!.valueC(this, stack, line, col, workspace, file);
       while (subscripts.length > 1) {
-        list = list[subscripts.first].valueC(this, stack, line, col, file);
+        list = list[subscripts.first]
+            .valueC(this, stack, line, col, workspace, file);
         subscripts.removeAt(0);
       }
       list[subscripts.single] = value;
@@ -635,11 +666,12 @@ class Scope {
     return null;
   }
 
-  ValueWrapper getVar(String name, int line, int column, String file) {
+  ValueWrapper getVar(
+      String name, int line, int column, String workspace, String file) {
     var val = internal_getVar(name);
     return val ??
         (throw FileInvalid(
-            "$name nonexistent ${formatCursorPosition(line, column, file)}"));
+            "$name nonexistent ${formatCursorPosition(line, column, workspace, file)}"));
   }
 
   void addParent(Scope scope) {
@@ -706,15 +738,15 @@ final ValueType booleanType =
 final ValueType nullType =
     ValueType.internal(sharedSupertype, 'Null', 'intrinsics');
 
-ValueType basicTypes(
-    String name, ValueType? parent, int line, int col, String file) {
+ValueType basicTypes(String name, ValueType? parent, int line, int col,
+    String workspace, String file) {
   switch (name) {
     case 'Whatever':
     case '~class_methods':
       return ValueType.internal(parent, name, file);
     default:
       throw FileInvalid(
-          "'$name' type doesn't exist ${formatCursorPosition(line, col, file)}");
+          "'$name' type doesn't exist ${formatCursorPosition(line, col, workspace, file)}");
   }
 }
 
@@ -910,13 +942,13 @@ class InfiniteIterator<T> extends Iterator<T> {
   }
 }
 
-String toStringWithStacker(
-    ValueWrapper x, List<String> s, int line, int col, String file) {
-  if (x.typeC(null, s, line, col, file) is ClassValueType) {
+String toStringWithStacker(ValueWrapper x, List<String> s, int line, int col,
+    String workspace, String file) {
+  if (x.typeC(null, s, line, col, workspace, file) is ClassValueType) {
     return x
-        .valueC(null, s, line, col, file)
-        .toStringWithStack(s, line, col, file);
+        .valueC(null, s, line, col, workspace, file)
+        .toStringWithStack(s, line, col, workspace, file);
   } else {
-    return x.valueC(null, s, line, col, file).toString();
+    return x.valueC(null, s, line, col, workspace, file).toString();
   }
 }

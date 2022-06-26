@@ -809,8 +809,9 @@ class VariableDeclarationStatement extends DeclarationStatement {
     DynamicSlot lSlot = scope.registerVariable(identifier, type.generateInstructions(scope));
     Slot rSlot = rValue!.generateInstructions(scope);
     if (rValue != null) {
-      scope.emitInstruction(MoveInstruction(lSlot, rSlot, concat('variable declaration initializer (value): setting ', lSlot.debugName, ' to ', rSlot.debugName)));
-      scope.emitInstruction(MoveTypeToTypeInstruction(lSlot, rSlot, concat('variable declaration initializer (type): setting ', lSlot.debugName, ' to ', rSlot.debugName)));
+      scope.emitInstruction(MoveInstruction(lSlot, rSlot, concat('value initialization of variable declaration for ', lSlot.debugName, ' (', rSlot.debugName, ')')));
+      scope.emitInstruction(MoveTypeToTypeInstruction(lSlot, rSlot, scope.environment(), concat('type initialization of variable declaration for ', lSlot.debugName)));
+      scope.emitIncref(lSlot);
     }
   }
 
@@ -824,6 +825,7 @@ class SubroutineDeclarationStatement extends Statement {
   TypeIdentifier returnType;
   String identifier;
   AnythingListList parameters; // pairs of type (TypeIdentifier) and identifier (String)
+  Boolean isIntrinsic;
   Boolean isVarArgs;
   StatementBlock body;
 
@@ -868,6 +870,9 @@ class SubroutineDeclarationStatement extends Statement {
       (subroutine as CompiledSubroutineWithSpecificParameters).emitParameterChecks(parameterSlots);
     }
     scope.registerSubroutine(subroutine);
+    if (isIntrinsic) {
+      scope.environment().registerIntrinsic(subroutine);
+    }
     // TODO: declare slot for "this" and "closure"
     body.generateInstructions(subroutine);
   }
@@ -886,7 +891,7 @@ class SubroutineDeclarationStatement extends Statement {
     return concat(returnType.toStringIndent(indent), ' ', identifier, '(', joinList(parametersList), ') {\n', bodyString, '}\n');
   }
 
-  Null constructor(TypeIdentifier returnTypeArg, String identifierArg, AnythingListList parametersArg, Boolean isVarArgsArg, StatementBlock bodyArg, SourceLocation sourceLocationArg) {
+  Null constructor(TypeIdentifier returnTypeArg, String identifierArg, AnythingListList parametersArg, Boolean isVarArgsArg, StatementBlock bodyArg, SourceLocation sourceLocationArg, Boolean isIntrinsicArg) {
     assert(!isVarArgsArg || (len(parametersArg) == 1), 'varargs is only valid with a single parameter');
     super.constructor(sourceLocationArg);
     returnType = returnTypeArg;
@@ -894,6 +899,7 @@ class SubroutineDeclarationStatement extends Statement {
     parameters = parametersArg;
     isVarArgs = isVarArgsArg;
     body = bodyArg;
+    isIntrinsic = isIntrinsicArg;
   }
 }  
 
@@ -1118,8 +1124,10 @@ class AssignmentStatement extends Statement {
     Slot lSlot = lValue.generateInstructions(scope);
     Slot rSlot = rValue.generateInstructions(scope);
     Slot result = computeResult(scope, lSlot, rSlot);
+    scope.emitInstruction(DecrefInstruction(lSlot, scope.environment().intrinsicsLibrary.coreStringType));
     scope.emitInstruction(MoveInstruction(lSlot, result, 'store value'));
-    scope.emitInstruction(MoveTypeToTypeInstruction(lSlot, result, 'store type'));
+    scope.emitInstruction(MoveTypeToTypeInstruction(lSlot, result, scope.environment(), 'store type'));
+    scope.emitIncref(lSlot);
   }
 
   Null walk(NullFunction callback, Anything context) {
