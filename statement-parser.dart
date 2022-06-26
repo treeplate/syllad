@@ -478,7 +478,7 @@ MapEntry<List<Statement>, TypeValidator> parse(
               : [
                   IdentToken('import', -1, 6),
                   StringToken(
-                      ('../' * workspace.allMatches('/').length) + 'rtl.syd',
+                      ('../' * '/'.allMatches(workspace).length) + 'rtl.syd',
                       -1,
                       19),
                   CharToken(TokenType.endOfStatement, -1, 20)
