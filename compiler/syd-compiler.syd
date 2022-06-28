@@ -791,11 +791,22 @@ class CompiledScope extends SlotContext {
   }
 
   // runs block if a != b
-  Null emitConditionalBlock(CompiledNestedScope block, Slot a, Slot b, String what, String comment) {
-    String label = environment().generateLabel(concat(labelPrefix(), '$', camelCase(what), '$continuation'));
-    emitInstruction(JumpIfEqualInstruction(a, b, label, comment));
+  Null emitConditionalBlock(CompiledNestedScope block, CompiledNestedScopeNullable elseBlock, Slot a, Slot b, String what, String comment) {
+    String labelElse;
+    String labelEnd = environment().generateLabel(concat(labelPrefix(), '$', camelCase(what), '$continuation'));
+    if (elseBlock == null) {
+      labelElse = labelEnd;
+    } else {
+      labelElse = environment().generateLabel(concat(labelPrefix(), '$', camelCase(what), '$else'));
+    }
+    emitInstruction(JumpIfEqualInstruction(a, b, labelElse, comment));
     emitInstruction(DoBlockInstruction(block));
-    emitInstruction(LabelInstruction(label, concat('end of ', what,)));
+    if (elseBlock != null) {
+      emitInstruction(JumpInstruction(labelEnd, concat('jump past else part of ', what)));
+      emitInstruction(LabelInstruction(labelElse, concat('else of ', what)));
+      emitInstruction(DoBlockInstruction(elseBlock!));
+    }
+    emitInstruction(LabelInstruction(labelEnd, concat('end of ', what)));
   }
 
   // jumps to label if a == b
@@ -1109,7 +1120,7 @@ class CompiledSubroutineWithSpecificParameters extends CompiledSubroutine {
       environment().intrinsicsLibrary.parameterCountCheckFailureMessage,
       'parameter count',
     );
-    emitConditionalBlock(block, parameterCount, expectedParamCountValue, 'parameter count check', 'check number of parameters is as expected');
+    emitConditionalBlock(block, null, parameterCount, expectedParamCountValue, 'parameter count check', 'check number of parameters is as expected');
     Integer index = 0;
     for (parameter in parameters) {
       emitInstruction(CommentInstruction(concat('Check type of parameter ', index, ', ', parameter.debugName, ' (expecting ', parameter.staticType, ')')));

@@ -1196,9 +1196,14 @@ class PlusAssignmentStatement extends NumericOperatorAssignmentStatement {
   }
 }
 
-class MinusAssignmentStatement extends AssignmentStatement {
+class MinusAssignmentStatement extends NumericOperatorAssignmentStatement {
   String describeOperator() {
     return '-=';
+  }
+
+  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(BiOperandInstruction('sub', lhsValue, rhsValue, result, concat(describeOperator(), ' operator')));
+    scope.emitInstruction(SetTypeInstruction(result, intrinsics.coreIntegerType));
   }
 }
 
@@ -1238,7 +1243,11 @@ class BitwiseOrAssignmentStatement extends AssignmentStatement {
   }
 }
 
-class ElseClause extends AstNode { }
+class ElseClause extends AstNode {
+  Null generateInstructions(CompiledScope scope) {
+    abstract();
+  }
+}
 
 class IfStatement extends Statement {
   Expression expression;
@@ -1261,10 +1270,14 @@ class IfStatement extends Statement {
 
   Null generateInstructions(CompiledScope scope) {
     Slot expressionHandle = expression.generateInstructions(scope);
-    CompiledNestedScope blockScope = CompiledNestedScope(scope, scope.environment().generateLabel(concat(camelCase(scope.name), '$if$block')));
+    CompiledNestedScope blockScope = CompiledNestedScope(scope, scope.environment().generateLabel(concat(camelCase(scope.name), '$if')));
     block.generateInstructions(blockScope);
-    assert(elseClause == null, 'TODO: else clauses');
-    scope.emitConditionalBlock(blockScope, expressionHandle, (scope.environment().intrinsicsLibrary.coreFalse as Slot), 'if', concat(expression));
+    CompiledNestedScopeNullable elseBlockScope = null;
+    if (elseClause != null) {
+      elseBlockScope = CompiledNestedScope(scope, scope.environment().generateLabel(concat(camelCase(scope.name), '$else')));
+      elseClause!.generateInstructions(elseBlockScope!);
+    }
+    scope.emitConditionalBlock(blockScope, elseBlockScope, expressionHandle, (scope.environment().intrinsicsLibrary.coreFalse as Slot), 'if', concat(expression));
   }
 
   Null walk(NullFunction callback, Anything context) {
@@ -1298,6 +1311,10 @@ class DefaultElseClause extends ElseClause {
     callback(block, context);
   }
 
+  Null generateInstructions(CompiledScope scope) {
+    block.generateInstructions(scope);
+  }
+
   Null constructor(StatementBlock blockArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     block = blockArg;
@@ -1313,6 +1330,10 @@ class ElseIfClause extends ElseClause {
 
   Null walk(NullFunction callback, Anything context) {
     callback(ifClause, context);
+  }
+
+  Null generateInstructions(CompiledScope scope) {
+    ifClause.generateInstructions(scope);
   }
 
   Null constructor(IfStatement clauseArg, SourceLocation sourceLocationArg) {

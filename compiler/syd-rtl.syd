@@ -18,10 +18,13 @@ Integer _heapHandle = __getProcessHeap();
 
 Integer __heapAlloc(Integer hHeap, Integer dwFlags, Integer dwBytes) __extern 'kernel32.lib' 'HeapAlloc';
 
+Integer _blockCount = 0;
+
 /// Allocates a block on the heap.
 ///
 /// Block must be freed with [_free].
 Integer _alloc(Integer size) {
+  _blockCount += 1;
   return __heapAlloc(_heapHandle, 0x00, size);
 }
 
@@ -30,6 +33,7 @@ Integer __heapFree(Integer hHeap, Integer dwFlags, Integer lpMem) __extern 'kern
 
 /// Frees a heap allocation obtained from [_alloc].
 Null _free(Integer pointer) __intrinsic {
+  _blockCount -= 1;
   if (__heapFree(_heapHandle, 0x00, pointer) == 0) {
     //println('failed to free pointer, error code: ', __getLastError());
     exit(1);
