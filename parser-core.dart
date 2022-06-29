@@ -461,7 +461,7 @@ class ClassValueType extends ValueType {
       : super.internal(supertype ?? sharedSupertype, "$name", file);
   factory ClassValueType(String name, ClassValueType? supertype,
       TypeValidator properties, String file) {
-    return (ValueType.types["$name"] ??=
+    return (ValueType.types[name] ??=
             ClassValueType.internal(name, supertype, properties, file))
         as ClassValueType;
   }

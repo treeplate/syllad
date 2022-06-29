@@ -165,6 +165,10 @@ String _stringify(Anything arg) {
   if (arg is Integer) {
     return intToStr(arg as Integer);
   }
+  if (arg is AnythingFunction) {
+    __print('TODO: stringify functions\n');
+    exit(1);
+  }
   __print('value cannot be stringified\n');
   exit(1);
 }

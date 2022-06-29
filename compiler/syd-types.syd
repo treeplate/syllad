@@ -4,6 +4,7 @@ import 'syd-operands.syd';
 
 fwdclass Type extends Object;
 fwdclass AbstractSubroutineType extends Type;
+fwdclass SubroutineTypeWithAnyArguments extends AbstractSubroutineType;
 fwdclass AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineType;
 fwdclass AbstractListType extends Type;
 fwdclass ReadOnlyListType extends AbstractListType;
@@ -11,6 +12,7 @@ fwdclass TypeRegistry extends Object;
 
 fwdclassprop TypeList AbstractSubroutineTypeWithSpecificParameters.parameterTypes;
 fwdclassprop NullFunction TypeRegistry.registerType;
+fwdclassprop SubroutineTypeWithAnyArgumentsList TypeRegistry.typesOfSubroutinesWithAnyArguments;
 fwdclassprop AbstractSubroutineTypeWithSpecificParametersList TypeRegistry.typesOfSubroutinesWithSpecificParameters;
 fwdclassprop ReadOnlyListTypeList TypeRegistry.typesOfReadOnlyLists;
 
@@ -309,10 +311,15 @@ class AbstractSubroutineType extends Type {
 class SubroutineTypeWithAnyArguments extends AbstractSubroutineType {
   Null markConstructed() {
     assert(false, concat(name, ' type cannot be constructed.'));
+  } 
+  
+  Boolean equals(Type returnTypeArg) {
+    return returnType == returnTypeArg;
   }
 
   Null constructor(TypeRegistry typeRegistryArg, Type returnTypeArg) {
     super.constructor(typeRegistryArg, returnTypeArg);
+    append(typeRegistryArg.typesOfSubroutinesWithAnyArguments, this);
   }
 }
 
@@ -374,7 +381,24 @@ class SubroutineTypeWithSpecificParameters extends AbstractSubroutineTypeWithSpe
   }
 }
 
-AbstractSubroutineTypeWithSpecificParametersNullable findSubroutineType(TypeRegistry typeRegistry, Type returnType, TypeList parameterTypes, Boolean isVarArgs) {
+SubroutineTypeWithAnyArgumentsNullable findSubroutineTypeWithAnyArguments(TypeRegistry typeRegistry, Type returnType) {
+  for (entry in typeRegistry.typesOfSubroutinesWithAnyArguments) {
+    if (entry.equals(returnType)) {
+      return entry;
+    }
+  }
+  return null;
+}
+
+SubroutineTypeWithAnyArguments createOrFindSubroutineTypeWithAnyArgs(TypeRegistry typeRegistry, Type returnType) {
+  SubroutineTypeWithAnyArgumentsNullable result = findSubroutineTypeWithAnyArguments(typeRegistry, returnType);
+  if (result == null) {
+    return SubroutineTypeWithAnyArguments(typeRegistry, returnType);
+  }
+  return result!;
+}
+
+AbstractSubroutineTypeWithSpecificParametersNullable findSubroutineTypeWithSpecificParameters(TypeRegistry typeRegistry, Type returnType, TypeList parameterTypes, Boolean isVarArgs) {
   for (entry in typeRegistry.typesOfSubroutinesWithSpecificParameters) {
     if (entry.equals(returnType, parameterTypes, isVarArgs)) {
       return entry;
@@ -385,7 +409,7 @@ AbstractSubroutineTypeWithSpecificParametersNullable findSubroutineType(TypeRegi
 
 SubroutineTypeWithVarArgs createOrFindSubroutineTypeWithVarArgs(TypeRegistry typeRegistry, Type returnType, TypeList parameterTypes) {
   assert(len(parameterTypes) == 1, 'varargs must have exactly one parameter type');
-  AbstractSubroutineTypeWithSpecificParametersNullable result = findSubroutineType(typeRegistry, returnType, parameterTypes, true);
+  AbstractSubroutineTypeWithSpecificParametersNullable result = findSubroutineTypeWithSpecificParameters(typeRegistry, returnType, parameterTypes, true);
   if (result == null) {
     return SubroutineTypeWithVarArgs(typeRegistry, returnType, parameterTypes[0]);
   }
@@ -393,7 +417,7 @@ SubroutineTypeWithVarArgs createOrFindSubroutineTypeWithVarArgs(TypeRegistry typ
 }
 
 SubroutineTypeWithSpecificParameters createOrFindSubroutineTypeWithSpecificParameters(TypeRegistry typeRegistry, Type returnType, TypeList parameterTypes) {
-  AbstractSubroutineTypeWithSpecificParametersNullable result = findSubroutineType(typeRegistry, returnType, parameterTypes, false);
+  AbstractSubroutineTypeWithSpecificParametersNullable result = findSubroutineTypeWithSpecificParameters(typeRegistry, returnType, parameterTypes, false);
   if (result == null) {
     return SubroutineTypeWithSpecificParameters(typeRegistry, returnType, parameterTypes);
   }
@@ -538,6 +562,7 @@ class TypeRegistry extends Object {
   // TODO: right now managing this is O(N), could be made faster
   // e.g. keep the list sorted and binary search.
   AbstractSubroutineTypeWithSpecificParametersList typesOfSubroutinesWithSpecificParameters = []:AbstractSubroutineTypeWithSpecificParameters;
+  SubroutineTypeWithAnyArgumentsList typesOfSubroutinesWithAnyArguments = []:SubroutineTypeWithAnyArguments;
   ReadOnlyListTypeList typesOfReadOnlyLists = []:ReadOnlyListType;
 
   TypeList sortedTypes;
@@ -575,5 +600,22 @@ class TypeRegistry extends Object {
       return concat(comment, ' (', sortedTypes[(operand as ImmediateIntegerOperand).value], ')');
     }
     return comment;
+  }
+
+  Boolean isCompoundType(String name) {
+    Integer length = len(scalarValues(name));
+    return length >= 8 && substring(name, length-8, length) == 'Function';
+  }
+
+  TypeNullable parseType(String name, TypeNullableFunction lookupType) {
+    Integer length = len(scalarValues(name));
+    if (length >= 8 && substring(name, length-8, length) == 'Function') {
+      TypeNullable lhs = parseType(substring(name, 0, length-8), lookupType);
+      if (lhs == null) {
+        return null;
+      }
+      return createOrFindSubroutineTypeWithAnyArgs(this, lhs!);
+    }
+    return lookupType(name);
   }
 }

@@ -26,7 +26,7 @@ class TypeIdentifier extends AstNode {
   }
 
   Type generateInstructions(CompiledScope scope) {
-    TypeNullable result = scope.globalScope().lookupType(name);
+    TypeNullable result = scope.environment().parseType(name, scope.globalScope().lookupType);
     if (result == null) {
       throw(concat('Type "', name, '" not known at ', sourceLocation));
     }
@@ -850,7 +850,6 @@ class SubroutineDeclarationStatement extends Statement {
       assert(len(compiledParameterTypes) == 1, 'unexpected number of parameters to varargs function');
       String name = parameters[0][1] as String;
       Type type = compiledParameterTypes[0];
-      
       (subroutine as CompiledVarArgsSubroutine).emitVarArgsParameterChecks(type, (subroutine as CompiledVarArgsSubroutine).registerVarArgsParameter(name, type) as VarArgsParameterSlot);
     } else {
       SubroutineTypeWithSpecificParameters subroutineType = createOrFindSubroutineTypeWithSpecificParameters(
@@ -973,7 +972,11 @@ class EnumDeclaration extends Statement {
   Null generateInstructions(CompiledScope scope) {
     assert(scope is CompiledLibrary, 'found enum in non-global scope');
     CompiledLibrary globalScope = scope as CompiledLibrary;
+    if (scope.environment().isCompoundType(name)) {
+      throw(concat('"', name, '" is not a valid enum type name at ', sourceLocation));
+    }
     globalScope.declareType(EnumType(scope.environment(), name, values));
+    // TODO: register the identifiers
   }
 
   Null constructor(String nameArg, StringList valuesArg, SourceLocation sourceLocationArg) {

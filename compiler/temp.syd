@@ -1,44 +1,4 @@
-String plural(Integer n, String singular, String plural) {
-  if (n == 1) {
-    return singular;
-  }
-  return plural;
-}
+// expected output: <function (foo function)>
 
-String bottles(Integer count) {
-  if (count == 0) {
-    return 'No bottles of beer';
-  }
-  return concat(_stringify(count), ' ', plural(count, 'bottle', 'bottles'), ' of beer');
-}
-
-String wall(Integer count) {
-  return concat(bottles(count), ' on the wall');
-}
-
-Null stanza(Integer count) {
-  println(wall(count));
-  println(bottles(count));
-  if (count == 1) {
-    println('Take it down, pass it around');
-  } else {
-    println('Take one down, pass it around');
-  }
-  println(wall(count - 1));
-}
-
-Null allBottles() {
-  Integer count = 99;
-  while (count > 0) {
-    stanza(count);
-    count -= 1;
-    if (count > 0) {
-      println();
-    }
-  }
-}
-
-println('99 BOTTLES OF BEER ON THE WALL');
-println();
-allBottles();
-assert(_blockCount == 0, 'memory leak');
+Null foo() {}
+println(foo);

@@ -1494,6 +1494,7 @@ class CompiledLibrary extends CompiledStackFrameScope {
   Map types = Map(); // String -> Type
 
   Null declareType(Type type) {
+    assert(!environment().isCompoundType(type.name), 'tried to declare a type that ends with a generic suffix');
     assert(types.get(type.name) == null, 'tried to redefine a type name');
     types.set(type.name, type);
   }
