@@ -292,7 +292,7 @@ class CompilationEnvironment extends TypeRegistry {
     mainBlock.addBlankLine();
     mainBlock.addComment('End of global scope');
     mainBlock.addCode('ret', [], 'exit application');
-    assembler.addLabeledBlock('main', mainBlock, null);
+    assembler.addLabeledBlock('main', mainBlock, null, null);
     for (subroutine in subroutines) {
       subroutine.generateAssembler(assembler);
     }
@@ -398,7 +398,7 @@ class CompilationEnvironment extends TypeRegistry {
     block.addCode('add', [rsp, '040h'], 'release shadow space and arguments (result in stack pointer)');
     block.addLabel(decrefEndLabel, null);
     block.addCode('ret', [], 'return from subroutine');
-    assembler.addLabeledBlock(label, block, 'decref intrinsic; used to decrement the reference count of string variables');
+    assembler.addLabeledBlock(label, block, 'decref intrinsic; used to decrement the reference count of string variables', null);
   }
 
   Null compile(Assembler assembler) {
@@ -1043,10 +1043,16 @@ class CompiledSubroutine extends CompiledStackFrameScope {
   }
 
   DynamicSlot parameterCount;
+  ImmediateDataLabelSlot nameConstant;
 
   Null prepareSlots() {
+    label = environment().generateLabel(labelPrefix());
+    epilogLabel = environment().generateLabel(concat(labelPrefix(), '$epilog'));
+    returnValuePointer = ReturnValuePointerSlot(environment().intrinsicsLibrary.coreIntegerType, concat('pointer to return value of ', name));
+    returnValueTypePointer = ReturnValueTypePointerSlot(environment().intrinsicsLibrary.coreIntegerType, concat('pointer to return value type of ', name));
     parameterCount = registerDynamicValue(environment().intrinsicsLibrary.coreIntegerType, concat('parameter count of ', name));
     parameterCount.willInitialize();
+    nameConstant = environment().registerStringConstant(concat(label, '$annotation'), name, __LINE__, __COL__, __FILE__) as ImmediateDataLabelSlot;
     super.prepareSlots();
   }
 
@@ -1083,16 +1089,12 @@ class CompiledSubroutine extends CompiledStackFrameScope {
   Null generateAssembler(Assembler assembler) {
     AssemblerBlock block = assembler.createBlock();
     generateAssemblerBlock(block);
-    assembler.addLabeledBlock(label, block, name);
+    assembler.addLabeledBlock(label, block, name, nameConstant.label);
   }
 
   Null constructor(CompiledScopeNullable parentArg, AbstractSubroutineTypeWithSpecificParameters typeArg, String nameArg) {
     super.constructor(parentArg, nameArg);
     type = typeArg;
-    label = environment().generateLabel(labelPrefix());
-    epilogLabel = environment().generateLabel(concat(labelPrefix(), '$epilog'));
-    returnValuePointer = ReturnValuePointerSlot(environment().intrinsicsLibrary.coreIntegerType, concat('pointer to return value of ', name));
-    returnValueTypePointer = ReturnValueTypePointerSlot(environment().intrinsicsLibrary.coreIntegerType, concat('pointer to return value type of ', name));
   }
 
   String toStringIndent(Integer indent) {

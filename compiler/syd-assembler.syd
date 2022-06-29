@@ -194,12 +194,15 @@ class Assembler extends Object {
     );
   }
 
-  Null addLabeledBlock(String label, AssemblerBlock block, StringNullable comment) {
+  Null addLabeledBlock(String label, AssemblerBlock block, StringNullable comment, StringNullable annotation) {
     if (len(code) > 0) {
       append(code, '');
     }
     if (comment != null && comment != label) {
       append(code, concat('; ', comment));
+    }
+    if (annotation != null) {
+      append(code, concat('dq ', annotation));
     }
     append(code, concat(label, ':'));
     for (line in block.lines) {

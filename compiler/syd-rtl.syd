@@ -166,8 +166,9 @@ String _stringify(Anything arg) {
     return intToStr(arg as Integer);
   }
   if (arg is AnythingFunction) {
-    __print('TODO: stringify functions\n');
-    exit(1);
+    Integer func = arg __as__ Integer;
+    Integer annotation = __readFromAddress(func - 8);
+    return concat('<function (', annotation __as__ String, ')>');
   }
   __print('value cannot be stringified\n');
   exit(1);

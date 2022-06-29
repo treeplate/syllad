@@ -41,34 +41,90 @@ extern HeapFree : proc
    ; 0 0 1 0 1 0 0   Integer'20
    ; 0 0 0 1 1 0 0   String'21
 
+  func$__print$annotation dq -01h                                ; String constant (reference count)
+               dq 7                                              ; Length
+               db "__print"                                      ; line 1055 column 111 in file syd-compiler.syd
+               db 00h                                            ; padding to align to 8-byte boundary
+  func$exit$annotation dq -01h                                   ; String constant (reference count)
+               dq 4                                              ; Length
+               db "exit"                                         ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
+  func$len$annotation dq -01h                                    ; String constant (reference count)
+               dq 3                                              ; Length
+               db "len"                                          ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
+  func$__debugger$annotation dq -01h                             ; String constant (reference count)
+               dq 10                                             ; Length
+               db "__debugger"                                   ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
+  func$__readFromAddress$annotation dq -01h                      ; String constant (reference count)
+               dq 17                                             ; Length
+               db "__readFromAddress"                            ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  func$__writeToAddress$annotation dq -01h                       ; String constant (reference count)
+               dq 16                                             ; Length
+               db "__writeToAddress"                             ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   parameterCountCheckFailureMessage dq -01h                      ; String constant (reference count)
                dq 88                                             ; Length
-               db "error: function call received the wrong number of parameters (expected %d, received %d)", 0ah ; line 1630 column 25 in file syd-compiler.syd
+               db "error: function call received the wrong number of parameters (expected %d, received %d)", 0ah ; line 1632 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   parameterTypeCheckFailureMessage dq -01h                       ; String constant (reference count)
                dq 71                                             ; Length
-               db "error: type mismatch for function %s parameter %d, expected %s, got %s", 0ah ; line 1635 column 25 in file syd-compiler.syd
+               db "error: type mismatch for function %s parameter %d, expected %s, got %s", 0ah ; line 1637 column 25 in file syd-compiler.syd
                db 00h                                            ; padding to align to 8-byte boundary
   returnValueTypeCheckFailureMessage dq -01h                     ; String constant (reference count)
                dq 68                                             ; Length
-               db "error: type mismatch for function return value, expected %s, got %s", 0ah ; line 1640 column 25 in file syd-compiler.syd
+               db "error: type mismatch for function return value, expected %s, got %s", 0ah ; line 1642 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   operandTypeCheckFailureMessage dq -01h                         ; String constant (reference count)
                dq 54                                             ; Length
-               db "error: type mismatch for operand, expected %s, got %s", 0ah ; line 1645 column 25 in file syd-compiler.syd
+               db "error: type mismatch for operand, expected %s, got %s", 0ah ; line 1647 column 25 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   asOperatorFailureMessage dq -01h                               ; String constant (reference count)
                dq 58                                             ; Length
-               db "error: type mismatch for as operator, expected %s, got %s", 0ah ; line 1650 column 25 in file syd-compiler.syd
+               db "error: type mismatch for as operator, expected %s, got %s", 0ah ; line 1652 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   boundsFailureMessage dq -01h                                   ; String constant (reference count)
                dq 64                                             ; Length
-               db "error: subscript index out of range (%d is not in range %d..%d)", 0ah ; line 1655 column 25 in file syd-compiler.syd
+               db "error: subscript index out of range (%d is not in range %d..%d)", 0ah ; line 1657 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
+  func$assert$annotation dq -01h                                 ; String constant (reference count)
+               dq 6                                              ; Length
+               db "assert"                                       ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h                                       ; padding to align to 8-byte boundary
   string       dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
                db 0ah                                            ; line 8 column 16 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  func$__getLastError$annotation dq -01h                         ; String constant (reference count)
+               dq 14                                             ; Length
+               db "__getLastError"                               ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h                                       ; padding to align to 8-byte boundary
+  func$__getProcessHeap$annotation dq -01h                       ; String constant (reference count)
+               dq 16                                             ; Length
+               db "__getProcessHeap"                             ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
+  func$__heapAlloc$annotation dq -01h                            ; String constant (reference count)
+               dq 11                                             ; Length
+               db "__heapAlloc"                                  ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
+  func$_alloc$annotation dq -01h                                 ; String constant (reference count)
+               dq 6                                              ; Length
+               db "_alloc"                                       ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h                                       ; padding to align to 8-byte boundary
+  func$__heapFree$annotation dq -01h                             ; String constant (reference count)
+               dq 10                                             ; Length
+               db "__heapFree"                                   ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
+  func$_free$annotation dq -01h                                  ; String constant (reference count)
+               dq 5                                              ; Length
+               db "_free"                                        ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
+  func$_moveBytes$annotation dq -01h                             ; String constant (reference count)
+               dq 10                                             ; Length
+               db "_moveBytes"                                   ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   string$1     dq -01h                                           ; String constant (reference count)
                dq 51                                             ; Length
                db "_moveBytes expects positive number of bytes to copy" ; line 46 column 74 in file runtime library
@@ -81,6 +137,18 @@ extern HeapFree : proc
                dq 39                                             ; Length
                db "internal error: more than 7 extra bytes"      ; line 66 column 68 in file runtime library
                db 00h                                            ; padding to align to 8-byte boundary
+  func$_stringByteLength$annotation dq -01h                      ; String constant (reference count)
+               dq 17                                             ; Length
+               db "_stringByteLength"                            ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  func$concat$annotation dq -01h                                 ; String constant (reference count)
+               dq 6                                              ; Length
+               db "concat"                                       ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h                                       ; padding to align to 8-byte boundary
+  func$digitToStr$annotation dq -01h                             ; String constant (reference count)
+               dq 10                                             ; Length
+               db "digitToStr"                                   ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   string$4     dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
                db "0"                                            ; line 105 column 14 in file runtime library
@@ -125,8 +193,16 @@ extern HeapFree : proc
                dq 56                                             ; Length
                db "Invalid digit passed to digitToStr (digit as exit code)", 0ah ; line 134 column 69 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
+  func$intToStr$annotation dq -01h                               ; String constant (reference count)
+               dq 8                                              ; Length
+               db "intToStr"                                     ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   string$15    dq -01h                                           ; String constant (reference count)
                dq 0                                              ; Length
+  func$_stringify$annotation dq -01h                             ; String constant (reference count)
+               dq 10                                             ; Length
+               db "_stringify"                                   ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   string$16    dq -01h                                           ; String constant (reference count)
                dq 4                                              ; Length
                db "true"                                         ; line 158 column 19 in file runtime library
@@ -140,17 +216,33 @@ extern HeapFree : proc
                db "null"                                         ; line 163 column 17 in file runtime library
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   string$19    dq -01h                                           ; String constant (reference count)
-               dq 26                                             ; Length
-               db "TODO: stringify functions", 0ah               ; line 169 column 41 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
+               dq 11                                             ; Length
+               db "<function ("                                  ; line 171 column 31 in file runtime library
+               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   string$20    dq -01h                                           ; String constant (reference count)
-               dq 28                                             ; Length
-               db "value cannot be stringified", 0ah             ; line 172 column 41 in file runtime library
-               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
+               dq 2                                              ; Length
+               db ")>"                                           ; line 171 column 63 in file runtime library
+               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   string$21    dq -01h                                           ; String constant (reference count)
+               dq 28                                             ; Length
+               db "value cannot be stringified", 0ah             ; line 173 column 41 in file runtime library
+               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
+  func$print$annotation dq -01h                                  ; String constant (reference count)
+               dq 5                                              ; Length
+               db "print"                                        ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
+  string$22    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db " "                                            ; line 181 column 17 in file runtime library
+               db " "                                            ; line 182 column 17 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  func$println$annotation dq -01h                                ; String constant (reference count)
+               dq 7                                              ; Length
+               db "println"                                      ; line 1055 column 111 in file syd-compiler.syd
+               db 00h                                            ; padding to align to 8-byte boundary
+  func$foo$annotation dq -01h                                    ; String constant (reference count)
+               dq 3                                              ; Length
+               db "foo"                                          ; line 1055 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
 
 .data
 
@@ -281,6 +373,7 @@ main:
   ret                                                            ; exit application
 
 ; __print
+dq func$__print$annotation
 func$__print:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -414,6 +507,7 @@ func$__print:
   ret                                                            ; return from subroutine
 
 ; exit
+dq func$exit$annotation
 func$exit:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -536,6 +630,7 @@ func$exit:
   ret                                                            ; return from subroutine
 
 ; len
+dq func$len$annotation
 func$len:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -697,6 +792,7 @@ func$len:
   ret                                                            ; return from subroutine
 
 ; __debugger
+dq func$__debugger$annotation
 func$__debugger:
   ; Prolog
   push rbx                                                       ; save non-volatile registers
@@ -761,6 +857,7 @@ func$__debugger:
   ret                                                            ; return from subroutine
 
 ; __readFromAddress
+dq func$__readFromAddress$annotation
 func$__readFromAddress:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -921,6 +1018,7 @@ func$__readFromAddress:
   ret                                                            ; return from subroutine
 
 ; __writeToAddress
+dq func$__writeToAddress$annotation
 func$__writeToAddress:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -1082,6 +1180,7 @@ func$__writeToAddress:
   ret                                                            ; return from subroutine
 
 ; assert
+dq func$assert$annotation
 func$assert:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -1300,6 +1399,7 @@ func$assert:
   ret                                                            ; return from subroutine
 
 ; __getLastError
+dq func$__getLastError$annotation
 func$__getLastError:
   ; Prolog
   push rbx                                                       ; save non-volatile registers
@@ -1370,6 +1470,7 @@ func$__getLastError:
   ret                                                            ; return from subroutine
 
 ; __getProcessHeap
+dq func$__getProcessHeap$annotation
 func$__getProcessHeap:
   ; Prolog
   push rbx                                                       ; save non-volatile registers
@@ -1440,6 +1541,7 @@ func$__getProcessHeap:
   ret                                                            ; return from subroutine
 
 ; __heapAlloc
+dq func$__heapAlloc$annotation
 func$__heapAlloc:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -1654,6 +1756,7 @@ func$__heapAlloc:
   ret                                                            ; return from subroutine
 
 ; _alloc
+dq func$_alloc$annotation
 func$_alloc:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -1797,6 +1900,7 @@ func$_alloc:
   ret                                                            ; return from subroutine
 
 ; __heapFree
+dq func$__heapFree$annotation
 func$__heapFree:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -2011,6 +2115,7 @@ func$__heapFree:
   ret                                                            ; return from subroutine
 
 ; _free
+dq func$_free$annotation
 func$_free:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -2182,6 +2287,7 @@ func$_free:
   ret                                                            ; return from subroutine
 
 ; _moveBytes
+dq func$_moveBytes$annotation
 func$_moveBytes:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -2600,6 +2706,7 @@ func$_moveBytes:
   ret                                                            ; return from subroutine
 
 ; _stringByteLength
+dq func$_stringByteLength$annotation
 func$_stringByteLength:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -2727,6 +2834,7 @@ func$_stringByteLength:
   ret                                                            ; return from subroutine
 
 ; concat
+dq func$concat$annotation
 func$concat:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -3181,6 +3289,7 @@ func$concat:
   ret                                                            ; return from subroutine
 
 ; digitToStr
+dq func$digitToStr$annotation
 func$digitToStr:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -3591,6 +3700,7 @@ func$digitToStr:
   ret                                                            ; return from subroutine
 
 ; intToStr
+dq func$intToStr$annotation
 func$intToStr:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -3804,16 +3914,16 @@ func$intToStr:
     add rsi, 001h                                                ; increment ref count (result in string refcount temporary)
     mov qword ptr [rbx], rsi                                     ; put it back in the string
     func$intToStr$while$AfterIncref:                             ; after incref
-    ; Calling decref on digitToStr return value (static type: String'21)
-    sub rsp, 20h                                                 ; allocate shadow space for decref
-    mov rdx, qword ptr [rsp + 038h]                              ; arg #2: type of potential string
-    mov rcx, qword ptr [rsp + 048h]                              ; arg #1: value of potential string
-    call intrinsic$decref                                        ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
     ; Calling decref on concat return value (static type: String'21)
     sub rsp, 20h                                                 ; allocate shadow space for decref
     mov rdx, qword ptr [rsp + 020h]                              ; arg #2: type of potential string
     mov rcx, qword ptr [rsp + 028h]                              ; arg #1: value of potential string
+    call intrinsic$decref                                        ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    ; Calling decref on digitToStr return value (static type: String'21)
+    sub rsp, 20h                                                 ; allocate shadow space for decref
+    mov rdx, qword ptr [rsp + 038h]                              ; arg #2: type of potential string
+    mov rcx, qword ptr [rsp + 048h]                              ; arg #1: value of potential string
     call intrinsic$decref                                        ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
     mov r8, qword ptr [rsp + 020h]                               ; restoring slots to previous scope state
@@ -3860,6 +3970,7 @@ func$intToStr:
   ret                                                            ; return from subroutine
 
 ; _stringify
+dq func$_stringify$annotation
 func$_stringify:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -4200,49 +4311,82 @@ func$_stringify:
   mov r9, 013h                                                   ; is expression result is of type Boolean'19
   cmp rsi, 000h                                                  ; compare is expression result to false
   je func$_stringify$if$continuation$4                           ; arg is AnythingFunction
-    ; Line 169: __print('TODO: stringify functions\n');
-    ; Call __print with 1 arguments
+    ; Line 169: Integer func = arg __as__ Integer;
+    mov r8, qword ptr [rbp + 040h]                               ; force cast of arg to Integer
+    mov rdx, 014h                                                ; force cast of arg to Integer is of type Integer'20
+    mov qword ptr [rsp + 010h], rcx                              ; move parameter count of _stringify value out of rcx
+    mov rcx, r8                                                  ; value initialization of variable declaration for func variable (force cast of arg to Integer)
+    mov rdi, rdx                                                 ; type initialization of variable declaration for func variable
+    ; Line 170: Integer annotation = __readFromAddress(func - 8);
+    mov r12, rcx                                                 ; assign value of func variable to value of - operator result
+    sub r12, 008h                                                ; compute (func variable) - (8)
+    mov r13, 014h                                                ; - operator result is of type Integer'20
+    ; Call __readFromAddress with 1 arguments
+    mov r14, qword ptr [r12]                                     ; dereference first argument of __readFromAddress
+    mov r15, 014h                                                ; dereferenced - operator result is of type Integer'20
+    mov rax, r14                                                 ; value initialization of variable declaration for annotation variable (dereferenced - operator result)
+    mov r10, r15                                                 ; type initialization of variable declaration for annotation variable
+    ; Line 171: return concat('<function (', annotation __as__ String, ')>');
+    mov rbx, rax                                                 ; force cast of annotation variable to String
+    mov rsi, 015h                                                ; force cast of annotation variable to String is of type String'21
+    ; Call concat with 3 arguments
+    mov r9, offset string$20                                     ; reading string for push
+    push r9                                                      ; value of argument #3 (string)
+    push 015h                                                    ; type of argument #3 (String'21)
+    push rbx                                                     ; value of argument #2 (force cast of annotation variable to String)
+    push rsi                                                     ; type of argument #2
     mov r8, offset string$19                                     ; reading string for push
     push r8                                                      ; value of argument #1 (string)
     push 015h                                                    ; type of argument #1 (String'21)
-    lea rdx, qword ptr [rsp + 020h]                              ; load address of return value's value
+    lea rdx, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rdx                                                     ; internal argument 6: pointer to return value slot's value
-    lea rdx, qword ptr [rsp + 020h]                              ; load address of return value's type
+    lea rdx, qword ptr [rsp + 038h]                              ; load address of return value's type
     push rdx                                                     ; internal argument 5: pointer to return value slot's type
     sub rsp, 020h                                                ; allocate shadow space
     mov r9, 000h                                                 ; internal argument 4: "this" pointer
     mov r8, 000h                                                 ; internal argument 3: "this" pointer type
     mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of _stringify value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ; Line 170: exit(1);
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1)
-    push 014h                                                    ; type of argument #1 (Integer'20)
-    lea rdi, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rdi                                                     ; internal argument 6: pointer to return value slot's value
-    lea rdi, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rdi                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
+    mov rcx, 003h                                                ; internal argument 1: number of actual arguments
+    call func$concat                                             ; jump to subroutine
+    add rsp, 060h                                                ; release shadow space and arguments (result in stack pointer)
+    mov rdi, qword ptr [rsp + 008h]                              ; read second operand of mov (concat return value) for MoveToDerefInstruction
+    mov r12, qword ptr [rbp + 030h]                              ; get pointer to return value of _stringify into register to dereference it
+    mov qword ptr [r12], rdi                                     ; _stringify return value
+    mov r13, qword ptr [rsp + 000h]                              ; reading type of concat return value
+    mov r14, qword ptr [rbp + 028h]                              ; get pointer to return value type of _stringify into register to dereference it
+    mov qword ptr [r14], r13                                     ; type of _stringify return value
+    ; increment reference count for concat return value if necessary
+    cmp r13, 015h                                                ; if not a string, skip incref
+    jne func$_stringify$Stringify$if$4$AfterIncref
+    mov r15, qword ptr [rdi]                                     ; dereference string to get to ref count
+    cmp r15, 0                                                   ; compare string refcount temporary to 0
+    js func$_stringify$Stringify$if$4$AfterIncref                ; if ref count is negative (constant strings), skip incref
+    add r15, 001h                                                ; increment ref count (result in string refcount temporary)
+    mov qword ptr [rdi], r15                                     ; put it back in the string
+    func$_stringify$Stringify$if$4$AfterIncref:                  ; after incref
+    ; Calling decref on force cast of annotation variable to String (static type: String'21)
+    sub rsp, 20h                                                 ; allocate shadow space for decref
+    mov rdx, rsi                                                 ; arg #2: type of potential string
+    mov rcx, rbx                                                 ; arg #1: value of potential string
+    call intrinsic$decref                                        ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    ; Calling decref on concat return value (static type: String'21)
+    sub rsp, 20h                                                 ; allocate shadow space for decref
+    mov rdx, r13                                                 ; arg #2: type of potential string
+    mov rcx, rdi                                                 ; arg #1: value of potential string
+    call intrinsic$decref                                        ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    jmp func$_stringify$epilog                                   ; return
   func$_stringify$if$continuation$4:                             ; end of if
-  ; Line 172: __print('value cannot be stringified\n');
+  ; Line 173: __print('value cannot be stringified\n');
   ; Call __print with 1 arguments
-  mov r12, offset string$20                                      ; reading string for push
-  push r12                                                       ; value of argument #1 (string)
+  mov rax, offset string$21                                      ; reading string for push
+  push rax                                                       ; value of argument #1 (string)
   push 015h                                                      ; type of argument #1 (String'21)
-  lea r13, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push r13                                                       ; internal argument 6: pointer to return value slot's value
-  lea r13, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push r13                                                       ; internal argument 5: pointer to return value slot's type
+  lea r10, qword ptr [rsp + 020h]                                ; load address of return value's value
+  push r10                                                       ; internal argument 6: pointer to return value slot's value
+  lea r10, qword ptr [rsp + 020h]                                ; load address of return value's type
+  push r10                                                       ; internal argument 5: pointer to return value slot's type
   sub rsp, 020h                                                  ; allocate shadow space
   mov r9, 000h                                                   ; internal argument 4: "this" pointer
   mov r8, 000h                                                   ; internal argument 3: "this" pointer type
@@ -4251,14 +4395,14 @@ func$_stringify:
   mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
   call func$__print                                              ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 173: exit(1);
+  ; Line 174: exit(1);
   ; Call exit with 1 arguments
   push 001h                                                      ; value of argument #1 (1)
   push 014h                                                      ; type of argument #1 (Integer'20)
-  lea r14, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push r14                                                       ; internal argument 6: pointer to return value slot's value
-  lea r14, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push r14                                                       ; internal argument 5: pointer to return value slot's type
+  lea rbx, qword ptr [rsp + 020h]                                ; load address of return value's value
+  push rbx                                                       ; internal argument 6: pointer to return value slot's value
+  lea rbx, qword ptr [rsp + 020h]                                ; load address of return value's type
+  push rbx                                                       ; internal argument 5: pointer to return value slot's type
   sub rsp, 020h                                                  ; allocate shadow space
   mov r9, 000h                                                   ; internal argument 4: "this" pointer
   mov r8, 000h                                                   ; internal argument 3: "this" pointer type
@@ -4267,25 +4411,25 @@ func$_stringify:
   call func$exit                                                 ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
   ; Implicit return from _stringify
-  mov r15, 012h                                                  ; move type of null to testByte
-  mov rax, r15                                                   ; move testByte to testByte
-  mov r10, 001h                                                  ; read operand of mul (type table width in bytes) 
-  mul r10                                                        ; adjust to the relative start of that type's entry in the type table
+  mov rsi, 012h                                                  ; move type of null to testByte
+  mov rax, rsi                                                   ; move testByte to testByte
+  mov rdi, 001h                                                  ; read operand of mul (type table width in bytes) 
+  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
   add rax, 000h                                                  ; adjust to the byte containing the bit to check against (result in testByte)
-  mov rbx, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, rbx                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
+  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
+  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
   bt qword ptr [rax], 003h                                       ; check that _stringify return value is String
   jc func$_stringify$StringifyReturnValue$TypeMatch              ; skip next block if the type matches
     ; Error handling block for _stringify return value
     ;  - print(returnValueTypeCheckFailureMessage)
     ; Call __print with 1 arguments
-    mov rsi, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
-    push rsi                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
+    mov r13, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
+    push r13                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
     push 015h                                                    ; type of argument #1 (String'21)
-    lea rdi, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rdi                                                     ; internal argument 6: pointer to return value slot's value
-    lea rdi, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rdi                                                     ; internal argument 5: pointer to return value slot's type
+    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
+    push r14                                                     ; internal argument 6: pointer to return value slot's value
+    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
+    push r14                                                     ; internal argument 5: pointer to return value slot's type
     sub rsp, 020h                                                ; allocate shadow space
     mov r9, 000h                                                 ; internal argument 4: "this" pointer
     mov r8, 000h                                                 ; internal argument 3: "this" pointer type
@@ -4297,10 +4441,10 @@ func$_stringify:
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
     push 014h                                                    ; type of argument #1 (Integer'20)
-    lea r12, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r12                                                     ; internal argument 6: pointer to return value slot's value
-    lea r12, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r12                                                     ; internal argument 5: pointer to return value slot's type
+    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
+    push r15                                                     ; internal argument 6: pointer to return value slot's value
+    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
+    push r15                                                     ; internal argument 5: pointer to return value slot's type
     sub rsp, 020h                                                ; allocate shadow space
     mov r9, 000h                                                 ; internal argument 4: "this" pointer
     mov r8, 000h                                                 ; internal argument 3: "this" pointer type
@@ -4309,10 +4453,10 @@ func$_stringify:
     call func$exit                                               ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
   func$_stringify$StringifyReturnValue$TypeMatch:                ; after block
-  mov r13, qword ptr [rbp + 030h]                                ; get pointer to return value of _stringify into register to dereference it
-  mov qword ptr [r13], 000h                                      ; _stringify return value
-  mov r14, qword ptr [rbp + 028h]                                ; get pointer to return value type of _stringify into register to dereference it
-  mov qword ptr [r14], 012h                                      ; type of _stringify return value (Null'18)
+  mov r10, qword ptr [rbp + 030h]                                ; get pointer to return value of _stringify into register to dereference it
+  mov qword ptr [r10], 000h                                      ; _stringify return value
+  mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of _stringify into register to dereference it
+  mov qword ptr [rbx], 012h                                      ; type of _stringify return value (Null'18)
   jmp func$_stringify$epilog                                     ; return
   func$_stringify$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
@@ -4329,6 +4473,7 @@ func$_stringify:
   ret                                                            ; return from subroutine
 
 ; print
+dq func$print$annotation
 func$print:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -4404,10 +4549,10 @@ func$print:
     jmp func$print$varargTypeChecks$Loop                         ; return to top of loop
     func$print$varargTypeChecks$TypesAllMatch:                   ; after loop
     mov rax, qword ptr [rsp + 040h]                              ; restoring slots to previous scope state
-  ; Line 177: Boolean first = true;
+  ; Line 178: Boolean first = true;
   mov rbx, 001h                                                  ; value initialization of variable declaration for first variable (true)
   mov rsi, 013h                                                  ; type initialization of variable declaration for first variable (Boolean'19)
-  ; Line 178: Integer index = 0;
+  ; Line 179: Integer index = 0;
   mov rdi, 000h                                                  ; value initialization of variable declaration for index variable (0)
   mov rax, 014h                                                  ; type initialization of variable declaration for index variable (Integer'20)
   func$print$while$top:                                          ; top of while
@@ -4420,7 +4565,7 @@ func$print:
     jne func$print$while$body                                    ; while condition
     jmp func$print$while$bottom                                  ; break out of while
     func$print$while$body:                                       ; start of while
-    ; Line 180: if (first == false) { ...
+    ; Line 181: if (first == false) { ...
     xor r14, r14                                                 ; zero value result of == (testing first variable and false) to put the boolean in
     cmp rbx, 000h                                                ; values equal?
     sete r14b                                                    ; put result in value result of == (testing first variable and false)
@@ -4434,10 +4579,10 @@ func$print:
     mov rdx, 013h                                                ; == operator result is of type Boolean'19
     cmp r8, 000h                                                 ; compare == operator result to false
     je func$print$while$if$continuation                          ; first == false
-      ; Line 181: __print(' ');
+      ; Line 182: __print(' ');
       ; Call __print with 1 arguments
       mov qword ptr [rsp + 048h], rcx                            ; move parameter count of print value out of rcx
-      mov rcx, offset string$21                                  ; reading string for push
+      mov rcx, offset string$22                                  ; reading string for push
       push rcx                                                   ; value of argument #1 (string)
       push 015h                                                  ; type of argument #1 (String'21)
       mov qword ptr [rsp + 048h], rbx                            ; move first variable value out of rbx
@@ -4457,7 +4602,7 @@ func$print:
       mov rbx, qword ptr [rsp + 038h]                            ; restoring slots to previous scope state
       mov rcx, qword ptr [rsp + 048h]                            ; restoring slots to previous scope state
     func$print$while$if$continuation:                            ; end of if
-    ; Line 183: __print(_stringify(parts[index]));
+    ; Line 184: __print(_stringify(parts[index]));
     cmp rdi, rcx                                                 ; compare index variable to parameter count of print
     jge func$print$while$subscript$boundsError                   ; index out of range (too high)
     cmp rdi, 000h                                                ; compare index variable to 0 (integer)
@@ -4554,25 +4699,25 @@ func$print:
     mov rcx, 001h                                                ; internal argument 1: number of actual arguments
     call func$__print                                            ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ; Line 184: first = false;
+    ; Line 185: first = false;
     mov qword ptr [rsp + 048h], 000h                             ; store value
     mov qword ptr [rsp + 038h], 013h                             ; store type (Boolean'19)
-    ; Line 185: index += 1;
+    ; Line 186: index += 1;
     mov rax, qword ptr [rsp + 008h]                              ; assign value of index variable to value of += operator result
     add rax, 001h                                                ; += operator
     mov r12, 014h                                                ; += operator result is of type Integer'20
     mov qword ptr [rsp + 008h], rax                              ; store value
     mov qword ptr [rsp + 018h], r12                              ; store type
-    ; Calling decref on parts[index] (static type: Anything'22)
-    sub rsp, 20h                                                 ; allocate shadow space for decref
-    mov rdx, qword ptr [rsp + 040h]                              ; arg #2: type of potential string
-    mov rcx, r15                                                 ; arg #1: value of potential string
-    call intrinsic$decref                                        ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
     ; Calling decref on _stringify return value (static type: String'21)
     sub rsp, 20h                                                 ; allocate shadow space for decref
     mov rdx, qword ptr [rsp + 050h]                              ; arg #2: type of potential string
     mov rcx, qword ptr [rsp + 060h]                              ; arg #1: value of potential string
+    call intrinsic$decref                                        ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    ; Calling decref on parts[index] (static type: Anything'22)
+    sub rsp, 20h                                                 ; allocate shadow space for decref
+    mov rdx, qword ptr [rsp + 040h]                              ; arg #2: type of potential string
+    mov rcx, r15                                                 ; arg #1: value of potential string
     call intrinsic$decref                                        ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
     mov rax, qword ptr [rsp + 018h]                              ; restoring slots to previous scope state
@@ -4603,6 +4748,7 @@ func$print:
   ret                                                            ; return from subroutine
 
 ; println
+dq func$println$annotation
 func$println:
   ; Prolog
   push r15                                                       ; save non-volatile registers
@@ -4678,10 +4824,10 @@ func$println:
     jmp func$println$varargTypeChecks$Loop                       ; return to top of loop
     func$println$varargTypeChecks$TypesAllMatch:                 ; after loop
     mov rax, qword ptr [rsp + 040h]                              ; restoring slots to previous scope state
-  ; Line 190: Boolean first = true;
+  ; Line 191: Boolean first = true;
   mov rbx, 001h                                                  ; value initialization of variable declaration for first variable (true)
   mov rsi, 013h                                                  ; type initialization of variable declaration for first variable (Boolean'19)
-  ; Line 191: Integer index = 0;
+  ; Line 192: Integer index = 0;
   mov rdi, 000h                                                  ; value initialization of variable declaration for index variable (0)
   mov rax, 014h                                                  ; type initialization of variable declaration for index variable (Integer'20)
   func$println$while$top:                                        ; top of while
@@ -4694,7 +4840,7 @@ func$println:
     jne func$println$while$body                                  ; while condition
     jmp func$println$while$bottom                                ; break out of while
     func$println$while$body:                                     ; start of while
-    ; Line 193: if (first == false) { ...
+    ; Line 194: if (first == false) { ...
     xor r14, r14                                                 ; zero value result of == (testing first variable and false) to put the boolean in
     cmp rbx, 000h                                                ; values equal?
     sete r14b                                                    ; put result in value result of == (testing first variable and false)
@@ -4708,10 +4854,10 @@ func$println:
     mov rdx, 013h                                                ; == operator result is of type Boolean'19
     cmp r8, 000h                                                 ; compare == operator result to false
     je func$println$while$if$continuation                        ; first == false
-      ; Line 194: __print(' ');
+      ; Line 195: __print(' ');
       ; Call __print with 1 arguments
       mov qword ptr [rsp + 048h], rcx                            ; move parameter count of println value out of rcx
-      mov rcx, offset string$21                                  ; reading string for push
+      mov rcx, offset string$22                                  ; reading string for push
       push rcx                                                   ; value of argument #1 (string)
       push 015h                                                  ; type of argument #1 (String'21)
       mov qword ptr [rsp + 048h], rbx                            ; move first variable value out of rbx
@@ -4731,7 +4877,7 @@ func$println:
       mov rbx, qword ptr [rsp + 038h]                            ; restoring slots to previous scope state
       mov rcx, qword ptr [rsp + 048h]                            ; restoring slots to previous scope state
     func$println$while$if$continuation:                          ; end of if
-    ; Line 196: __print(_stringify(parts[index]));
+    ; Line 197: __print(_stringify(parts[index]));
     cmp rdi, rcx                                                 ; compare index variable to parameter count of println
     jge func$println$while$subscript$boundsError                 ; index out of range (too high)
     cmp rdi, 000h                                                ; compare index variable to 0 (integer)
@@ -4828,25 +4974,25 @@ func$println:
     mov rcx, 001h                                                ; internal argument 1: number of actual arguments
     call func$__print                                            ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ; Line 197: first = false;
+    ; Line 198: first = false;
     mov qword ptr [rsp + 048h], 000h                             ; store value
     mov qword ptr [rsp + 038h], 013h                             ; store type (Boolean'19)
-    ; Line 198: index += 1;
+    ; Line 199: index += 1;
     mov rax, qword ptr [rsp + 008h]                              ; assign value of index variable to value of += operator result
     add rax, 001h                                                ; += operator
     mov r12, 014h                                                ; += operator result is of type Integer'20
     mov qword ptr [rsp + 008h], rax                              ; store value
     mov qword ptr [rsp + 018h], r12                              ; store type
-    ; Calling decref on _stringify return value (static type: String'21)
-    sub rsp, 20h                                                 ; allocate shadow space for decref
-    mov rdx, qword ptr [rsp + 050h]                              ; arg #2: type of potential string
-    mov rcx, qword ptr [rsp + 060h]                              ; arg #1: value of potential string
-    call intrinsic$decref                                        ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
     ; Calling decref on parts[index] (static type: Anything'22)
     sub rsp, 20h                                                 ; allocate shadow space for decref
     mov rdx, qword ptr [rsp + 040h]                              ; arg #2: type of potential string
     mov rcx, r15                                                 ; arg #1: value of potential string
+    call intrinsic$decref                                        ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    ; Calling decref on _stringify return value (static type: String'21)
+    sub rsp, 20h                                                 ; allocate shadow space for decref
+    mov rdx, qword ptr [rsp + 050h]                              ; arg #2: type of potential string
+    mov rcx, qword ptr [rsp + 060h]                              ; arg #1: value of potential string
     call intrinsic$decref                                        ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
     mov rax, qword ptr [rsp + 018h]                              ; restoring slots to previous scope state
@@ -4856,7 +5002,7 @@ func$println:
     mov rdi, qword ptr [rsp + 008h]                              ; restoring slots to previous scope state
     jmp func$println$while$top                                   ; return to top of while
   func$println$while$bottom:                                     ; bottom of while
-  ; Line 200: __print('\n');
+  ; Line 201: __print('\n');
   ; Call __print with 1 arguments
   mov r13, offset string                                         ; reading string for push
   push r13                                                       ; value of argument #1 (string)
@@ -4894,6 +5040,7 @@ func$println:
   ret                                                            ; return from subroutine
 
 ; foo
+dq func$foo$annotation
 func$foo:
   ; Prolog
   push rbx                                                       ; save non-volatile registers
