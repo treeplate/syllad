@@ -92,6 +92,34 @@ class JumpInstruction extends Instruction {
 
 enum cc { GreaterThan GreaterThanOrEqual LessThan LessThanOrEqual Equal NotEqual Negative Positive /* or zero */ }
 
+String ccSuffix(cc check) {
+  if (check == ccGreaterThan) {
+    return 'g';
+  }
+  if (check == ccGreaterThanOrEqual) {
+    return 'ge';
+  }
+  if (check == ccLessThan) {
+    return 'l';
+  }
+  if (check == ccLessThanOrEqual) {
+    return 'le';
+  }
+  if (check == ccEqual) {
+    return 'e';
+  }
+  if (check == ccNotEqual) {
+    return 'ne';
+  }
+  if (check == ccNegative) {
+    return 's';
+  }
+  if (check == ccPositive) {
+    return 'ns';
+  }
+  assert(false, concat('unknown check ', check));
+}
+
 class StoreCmpInstruction extends Instruction {
   Slot a;
   Slot b;
@@ -105,24 +133,7 @@ class StoreCmpInstruction extends Instruction {
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    
     // TODO: hard-code result for literal comparisons
-    String opcodeSuffix;
-    if (flag == ccGreaterThan) {
-      opcodeSuffix = 'g';
-    } else if (flag == ccGreaterThanOrEqual) {
-      opcodeSuffix = 'ge';
-    } else if (flag == ccLessThan) {
-      opcodeSuffix = 'l';
-    } else if (flag == ccLessThanOrEqual) {
-      opcodeSuffix = 'le';
-    } else if (flag == ccNegative) {
-      opcodeSuffix = 's';
-    } else if (flag == ccPositive) {
-      opcodeSuffix = 'ns';
-    } else {
-      assert(false, concat('unknown flag ', flag));
-    }
     Mop aOperand;
     if (a == b) {
       aOperand = manager.read(a, register, concat('we will be comparing ', a, ' with itself, so use a register'));
@@ -149,7 +160,7 @@ class StoreCmpInstruction extends Instruction {
     }
     block.addCode('xor', [targetOperand, targetOperand]:Anything, concat('clear ', target.debugName));
     block.addCode('cmp', [aOperand, bOperand]:Anything, concat('compare ', a.debugName, ' with ', b.debugName));
-    block.addCode(concat('set', opcodeSuffix), [targetOperand.low8Bits()], concat('store result in ', target.debugName));
+    block.addCode(concat('set', ccSuffix(flag)), [targetOperand.low8Bits()], concat('store result in ', target.debugName));
     aOperand.release();
     if (aOperand != bOperand) { 
       bOperand.release(); 
@@ -175,7 +186,6 @@ class StoreCmpInstruction extends Instruction {
 //
 // Be very careful when using this, since it does not call enterNestedScope/exitNestedScope
 // and so slots do not get updated in different branches.
-
 class ConditionalJumpInstruction extends Instruction {
   Slot a;
   SlotNullable b;
@@ -206,27 +216,7 @@ class ConditionalJumpInstruction extends Instruction {
       bOperand.release();
     }
     aOperand.release();
-    String opcodeSuffix;
-    if (check == ccGreaterThan) {
-      opcodeSuffix = 'g';
-    } else if (check == ccGreaterThanOrEqual) {
-      opcodeSuffix = 'ge';
-    } else if (check == ccLessThan) {
-      opcodeSuffix = 'l';
-    } else if (check == ccLessThanOrEqual) {
-      opcodeSuffix = 'le';
-    } else if (check == ccEqual) {
-      opcodeSuffix = 'e';
-    } else if (check == ccNotEqual) {
-      opcodeSuffix = 'ne';
-    } else if (check == ccNegative) {
-      opcodeSuffix = 's';
-    } else if (check == ccPositive) {
-      opcodeSuffix = 'ns';
-    } else {
-      assert(false, concat('unknown check ', check));
-    }
-    block.addCode(concat('j', opcodeSuffix), [label], comment);
+    block.addCode(concat('j', ccSuffix(check)), [label], comment);
   }
 
   Null constructor(Slot aArg, SlotNullable bArg, cc checkArg, String labelArg, String commentArg) { 
@@ -273,31 +263,46 @@ class JumpIfNotEqualInstruction extends ConditionalJumpInstruction {
   }
 }
 
-class JumpIfDynamicTypeNotEqualStaticTypeInstruction extends Instruction {
+// Compares the dynamic type of a slot with a static type, and jumps to the label if the result matches the given check.
+//
+// Be very careful when using this, since it does not call enterNestedScope/exitNestedScope
+// and so slots do not get updated in different branches.
+class ConditionalDynamicTypeJumpInstruction extends Instruction {
   Slot a;
   Type b;
-  String target;
+  String label;
   String comment;
+  cc check;
 
   Null prepare(SlotContext scope) {
     a.willRead(scope);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    Mop operandA = manager.readType(a, register | memory, concat('reading type of ', a.debugName, ' for comparison with ', b.name));
-    ImmediateOperand operandB = b.asOperand();
-    assert(operandB.minBits() <= 32, 'Type.asOperand() is not an imm32');
-    block.addCode('cmp', [operandA, operandB], comment);
-    block.addCode('jne', [target], null);
-    operandA.release();
+    // TODO: hard-code result for literal comparisons
+    Mop aOperand = manager.readType(a, register | memory, concat('reading first operand of cmp (', a.debugName, ') for a conditional jump'));
+    ImmediateOperand bOperand = b.asOperand();
+    assert(bOperand.minBits() <= 32, 'Type.asOperand() is not an imm32');
+    block.addCode('cmp', [aOperand, bOperand], concat('compare type of ', a.debugName, ' to ', b.name));
+    aOperand.release();
+    block.addCode(concat('j', ccSuffix(check)), [label], comment);
   }
-  
-  Null constructor(Slot aArg, Type bArg, String labelArg, String commentArg) {
+
+  Null constructor(Slot aArg, Type bArg, cc checkArg, String labelArg, String commentArg) { 
     super.constructor();
     a = aArg;
     b = bArg;
-    target = labelArg;
+    label = labelArg;
+    check = checkArg;
     comment = commentArg;
+  }
+}
+
+// Be very careful when using this, since it does not call enterNestedScope/exitNestedScope
+// and so slots do not get updated in different branches.
+class JumpIfDynamicTypeNotEqualStaticTypeInstruction extends ConditionalDynamicTypeJumpInstruction {
+  Null constructor(Slot aArg, Type bArg, String labelArg, String commentArg) {
+    super.constructor(aArg, bArg, ccNotEqual, labelArg, commentArg);
   }
 }
 
@@ -389,7 +394,7 @@ class SetSlotIfEqualInstruction extends Instruction {
     comment = commentArg;
   }
 }
-  
+ 
 class SetSlotIfTypesEqualInstruction extends Instruction {
   Slot a;
   Slot b;

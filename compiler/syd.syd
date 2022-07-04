@@ -1,20 +1,3 @@
-
-
-// slot a
-// slot b
-
-// read(a, anything)
-// enterNestedScope()
-// read(a, r12)
-// read(b, anything)
-// enterNestedScope()
-// write(a, anything)
-// write(b, anything)
-// emitAllNestedScopeExit()
-// exitNestedScope()
-// exitNestedScope()
-
-
 /*
 // NullFunction
 
@@ -61,8 +44,6 @@ for (a in b) {
 print(b);
 */
 
-// crashes: Boolean b; !b;
-
 //import 'a.syd'; // class Foo { Integer x; } Null bar(FooFunction a) { println(a().x); }
 //import 'b.syd'; // class Foo { String s; } Null bar(FooFunction a) { println(a().s); }
 
@@ -83,9 +64,6 @@ print(b);
 // - stringification
 // - implement the real "println"
 // - put initialized globals into .data section
-
-//class A { Null test() { this.test(); } }
-//Integer bar = 1; class Foo { Null constructor() { } } println(Foo().bar);
 
 import 'syd-tokenizer.syd';
 import 'syd-ast.syd';

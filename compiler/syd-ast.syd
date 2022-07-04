@@ -132,12 +132,17 @@ class IntegerLiteralExpression extends Expression {
 
 class ListLiteralExpression extends Expression {
   ExpressionList values;
+  TypeIdentifierNullable elementType;
 
   String toStringIndent(Integer indent) {
     String indenter(AstNode node) {
-      return node.toStringIndent(indent);
+      return node.toStringIndent(indent + 2);
     }
-    return concat('[', join(map(values, indenter) as StringList, ','), ']');
+    String elementTypeString = '';
+    if (elementType != null) {
+      elementTypeString = concat(':', elementType!.toStringIndent(indent));
+    }
+    return concat('[', join(map(values, indenter) as StringList, ','), ']', elementTypeString);
   }
 
   Null walk(NullFunction callback, Anything context) {
@@ -146,9 +151,15 @@ class ListLiteralExpression extends Expression {
     }
   }
 
-  Null constructor(ExpressionList valuesArg, SourceLocation sourceLocationArg) {
+  Slot generateInstructions(CompiledScope scope) {
+    // TODO: implement list literals
+    throw('list literals not implemented');
+  }
+
+  Null constructor(ExpressionList valuesArg, TypeIdentifierNullable elementTypeArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     values = valuesArg;
+    elementType = elementTypeArg;
   }
 }
 
@@ -204,13 +215,14 @@ class SubroutineCallExpression extends Expression {
   Slot generateInstructions(CompiledScope scope) {
     Slot subroutine = subroutineReference.generateInstructions(scope);
     SlotList argumentValues = []:Slot;
-    if (subroutine.staticType is AbstractSubroutineType) {
+    if (subroutine.staticType.isSubtypeOf(scope.environment().subroutineType)) {
       for (argument in arguments) {
         append(argumentValues, argument.generateInstructions(scope));
       }
     } else {
-      throw(concat('"', subroutineReference, '" is not a subroutine at ', sourceLocation));
+      throw(concat('"', subroutineReference, '" is not a subroutine at ', sourceLocation, ' (is ', subroutine.staticType, ')'));
     }
+    // TODO: emit dynamic type check for subroutine (skip if we can guarantee it's a non-sentinel subroutine)
     return scope.emitSubroutineCall(subroutine, argumentValues);
   }
 
@@ -230,14 +242,20 @@ class SubscriptExpression extends Expression {
   }
 
   Slot generateInstructions(CompiledScope scope) {
-    // xxxx static type checks
     Slot evaluatedList = list.generateInstructions(scope);
-    // TODO: static type check for evaluatedList to check it's a List or ReadOnlyList (for now we're crashing below)
-    // TODO: dynamic type check to verify that evaluatedList is a List or ReadOnlyList at runtime
+    Type elementType;
+    Boolean trustStaticType;
+    if (evaluatedList.staticType is AbstractListType) {
+      elementType = (evaluatedList.staticType as AbstractListType).elementType;
+    } else if (evaluatedList.staticType.isSubtypeOf(scope.environment().subscriptableType)) {
+      elementType = scope.environment().intrinsicsLibrary.coreAnythingType;
+    } else {
+      throw(concat('"', list, '", a ', evaluatedList.staticType.name, ', is not a list (and therefore cannot be subscripted) at ', sourceLocation));
+    }
+    scope.emitTypeCheck(evaluatedList, scope.environment().subscriptableType, scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage, concat(list), true);
     Slot evaluatedArgument = argument.generateInstructions(scope);
-    // TODO: static type check for evaluatedList to check it's a list
-    // TODO: dynamic type check to verify that evaluatedList is a list at runtime
-    Type elementType = (evaluatedList.staticType as AbstractListType).elementType;
+    // TODO: static type check for evaluatedArgument to check it's an integer
+    // TODO: dynamic type check to verify that evaluatedArgument is an integer at runtime
     Slot result = scope.registerDynamicValue(elementType, concat(list, '[', argument, ']'));
     scope.emitSubscriptEvaluation(evaluatedList, evaluatedArgument, result);
     return result;
@@ -275,10 +293,37 @@ class MemberAccessExpression extends Expression {
     callback(object, context);
   }
 
+  Slot generateInstructions(CompiledScope scope) {
+    // TODO: implement member access
+    throw('member access not implemented');
+  }
+
   Null constructor(Expression objectArg, String memberArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     object = objectArg;
     member = memberArg;
+  }
+}
+
+class UnwrapExpression extends Expression {
+  Expression lhs;
+  
+  String toStringIndent(Integer indent) {
+    return concat(lhs.toStringIndent(indent), '!');
+  }
+
+  Null walk(NullFunction callback, Anything context) {
+    callback(lhs, context);
+  }
+
+  Slot generateInstructions(CompiledScope scope) {
+    // TODO: implement unwrap
+    throw('unwrap not implemented');
+  }
+
+  Null constructor(Expression lhsArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
+    lhs = lhsArg;
   }
 }
 
@@ -297,7 +342,7 @@ class IsOperatorExpression extends Expression {
   Slot generateInstructions(CompiledScope scope) {
     Slot lhs = expression.generateInstructions(scope);
     Type rhs = type.generateInstructions(scope);
-    Slot slot = scope.registerDynamicValue((scope.environment().intrinsicsLibrary as CompiledIntrinsicsLibrary).coreBooleanType, 'is expression result');
+    Slot slot = scope.registerDynamicValue(scope.environment().intrinsicsLibrary.coreBooleanType, 'is expression result');
     scope.emitStoreTypeCheck(rhs, lhs, slot, concat(expression));
     return slot;
   }
@@ -763,40 +808,59 @@ class OperatorGreaterThanOrEqualsExpression extends OperatorNumericCmpExpression
   }
 }
 
-// TODO
 class OperatorLogicalAndExpression extends OperatorExpression {
   String describeOperator() {
     return '&&';
   }
+
+  Null generateTypeCheckInstructions(Slot lhsValue, Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitTypeCheck(lhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(lhs), true);
+    scope.emitTypeCheck(rhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true);
+  }
+
+  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
+    return intrinsics.coreBooleanType;
+  }
+
+  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    // TODO: implement logical and 
+    throw('&& not implemented');
+  }
 }
 
-// TODO
 class OperatorLogicalOrExpression extends OperatorExpression {
   String describeOperator() {
     return '||';
+  }
+
+  Null generateTypeCheckInstructions(Slot lhsValue, Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitTypeCheck(lhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(lhs), true);
+    scope.emitTypeCheck(rhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true);
+  }
+
+  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
+    return intrinsics.coreBooleanType;
+  }
+
+  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    // TODO: implement logical or
+    throw('|| not implemented');
   }
 }
 
 
 class DeclarationStatement extends Statement {
   String identifier;
-  ExpressionNullable rValue;
-  
-  Null walk(NullFunction callback, Anything context) {
-    if (rValue != null) {
-      callback(rValue, context);
-    }
-  }
 
-  Null constructor(String identifierArg, ExpressionNullable rValueArg, SourceLocation sourceLocationArg) {
+  Null constructor(String identifierArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     identifier = identifierArg;
-    rValue = rValueArg;
   }
 }
 
 class VariableDeclarationStatement extends DeclarationStatement {
   TypeIdentifier type;
+  ExpressionNullable rValue;
   
   String toStringIndent(Integer indent) {
     if (rValue == null) {
@@ -807,8 +871,8 @@ class VariableDeclarationStatement extends DeclarationStatement {
   
   Null generateInstructions(CompiledScope scope) {
     DynamicSlot lSlot = scope.registerVariable(identifier, type.generateInstructions(scope));
-    Slot rSlot = rValue!.generateInstructions(scope);
     if (rValue != null) {
+      Slot rSlot = rValue!.generateInstructions(scope);
       scope.emitInstruction(MoveInstruction(lSlot, rSlot, concat('value initialization of variable declaration for ', lSlot.debugName, ' (', rSlot.debugName, ')')));
       scope.emitInstruction(MoveTypeToTypeInstruction(lSlot, rSlot, scope.environment(), concat('type initialization of variable declaration for ', lSlot.debugName)));
       scope.emitIncref(lSlot);
@@ -816,12 +880,13 @@ class VariableDeclarationStatement extends DeclarationStatement {
   }
 
   Null constructor(TypeIdentifier typeArg, String identifierArg, ExpressionNullable rValueArg, SourceLocation sourceLocationArg) {
-    super.constructor(identifierArg, rValueArg, sourceLocationArg);
+    super.constructor(identifierArg, sourceLocationArg);
     type = typeArg;
+    rValue = rValueArg;
   }
 }
 
-class SubroutineDeclarationStatement extends Statement {
+class SubroutineDeclarationStatement extends DeclarationStatement {
   TypeIdentifier returnType;
   String identifier;
   AnythingListList parameters; // pairs of type (TypeIdentifier) and identifier (String)
@@ -892,9 +957,8 @@ class SubroutineDeclarationStatement extends Statement {
 
   Null constructor(TypeIdentifier returnTypeArg, String identifierArg, AnythingListList parametersArg, Boolean isVarArgsArg, StatementBlock bodyArg, SourceLocation sourceLocationArg, Boolean isIntrinsicArg) {
     assert(!isVarArgsArg || (len(parametersArg) == 1), 'varargs is only valid with a single parameter');
-    super.constructor(sourceLocationArg);
+    super.constructor(identifierArg, sourceLocationArg);
     returnType = returnTypeArg;
-    identifier = identifierArg;
     parameters = parametersArg;
     isVarArgs = isVarArgsArg;
     body = bodyArg;
@@ -902,7 +966,7 @@ class SubroutineDeclarationStatement extends Statement {
   }
 }  
 
-class GenericSystemSubroutineDeclarationStatement extends Statement {
+class GenericSystemSubroutineDeclarationStatement extends DeclarationStatement {
   TypeIdentifier returnType;
   String identifier;
   AnythingListList parameters; // pairs of type (TypeIdentifier) and identifier (String)
@@ -942,21 +1006,20 @@ class GenericSystemSubroutineDeclarationStatement extends Statement {
   }
 
   Null constructor(TypeIdentifier returnTypeArg, String identifierArg, AnythingListList parametersArg, String libraryArg, String externalNameArg, SourceLocation sourceLocationArg) {
-    super.constructor(sourceLocationArg);
+    super.constructor(identifierArg, sourceLocationArg);
     returnType = returnTypeArg;
-    identifier = identifierArg;
     parameters = parametersArg;
     library = libraryArg;
     externalName = externalNameArg;
   }
 }  
 
-class EnumDeclaration extends Statement {
-  String name;
+class EnumDeclaration extends DeclarationStatement {
+  String identifier;
   StringList values;
   
   String toStringIndent(Integer indent) {
-    StringList buffer = ['enum ', name, ' { '];
+    StringList buffer = ['enum ', identifier, ' { '];
     Integer index = 0;
     while (index < len(values)) {
       if (index > 0) {
@@ -972,30 +1035,67 @@ class EnumDeclaration extends Statement {
   Null generateInstructions(CompiledScope scope) {
     assert(scope is CompiledLibrary, 'found enum in non-global scope');
     CompiledLibrary globalScope = scope as CompiledLibrary;
-    if (scope.environment().isCompoundType(name)) {
-      throw(concat('"', name, '" is not a valid enum type name at ', sourceLocation));
+    if (scope.environment().isCompoundType(identifier)) {
+      throw(concat('"', identifier, '" is not a valid enum type name at ', sourceLocation));
     }
-    globalScope.declareType(EnumType(scope.environment(), name, values));
-    // TODO: register the identifiers
+    EnumType type = EnumType(scope.environment(), identifier, values);
+    globalScope.declareType(type);
+    Integer index = 0;
+    for (value in values) {
+      scope.registerNumericConstant(concat(identifier, value), index, type);
+      index += 1;
+    }
   }
 
-  Null constructor(String nameArg, StringList valuesArg, SourceLocation sourceLocationArg) {
-    super.constructor(sourceLocationArg);
-    name = nameArg;
+  Null constructor(String identifierArg, StringList valuesArg, SourceLocation sourceLocationArg) {
+    super.constructor(identifierArg, sourceLocationArg);
     values = valuesArg;
   }
 }
 
-class ClassDeclaration extends Statement {
-  String className;
-  StringNullable superclassName;
+class AbstractClassDeclaration extends DeclarationStatement {
+  TypeIdentifierNullable superclassName;
+  
+  ClassType declareType(CompiledScope scope) {
+    Type superclass;
+    if (superclassName == null) {
+      superclass = scope.environment().intrinsicsLibrary.coreClassType;
+      if (!(superclass is ClassType)) {
+        throw(concat('Specified type is not a class at ', superclassName!.sourceLocation));
+      }
+    } else {
+      superclass = superclassName!.generateInstructions(scope);
+    }
+    ClassType type = ClassType(scope.environment(), identifier, superclass as ClassType);
+    scope.globalScope().declareType(type);
+    return type;
+  }
+
+  Slot declareConstructor(CompiledScope scope, ClassType type, TypeList parameters) {
+    SubroutineTypeWithSpecificParameters subroutineType = createOrFindSubroutineTypeWithSpecificParameters(
+      scope.environment(),
+      type,
+      parameters,
+    );
+    CompiledSubroutineWithSpecificParameters constructor = CompiledSubroutineWithSpecificParameters(scope, subroutineType, identifier);
+    // TODO: type-check parameters
+    return scope.registerSubroutine(constructor);
+  }
+
+  Null constructor(String identifierArg, TypeIdentifierNullable superclassNameArg, SourceLocation sourceLocationArg) {
+    super.constructor(identifierArg, sourceLocationArg);
+    superclassName = superclassNameArg;
+  }
+}
+
+class ClassDeclaration extends AbstractClassDeclaration {
   DeclarationStatementList members;
   
   String toStringIndent(Integer indent) {
-    StringList buffer = ['class ', className, ' '];
+    StringList buffer = ['class ', identifier, ' '];
     if (superclassName != null) {
       append(buffer, 'extends ');
-      append(buffer, superclassName);
+      append(buffer, superclassName!.toStringIndent(indent));
     }
     append(buffer, '{\n');
     for (member in members) {
@@ -1007,11 +1107,74 @@ class ClassDeclaration extends Statement {
     return joinList(buffer);
   }
 
-  Null constructor(String classNameArg, StringNullable superclassNameArg, DeclarationStatementList membersArg, SourceLocation sourceLocationArg) {
-    super.constructor(sourceLocationArg);
-    className = classNameArg;
-    superclassName = superclassNameArg;
+  Null generateInstructions(CompiledScope scope) {
+    TypeNullable type = scope.globalScope().lookupType(identifier);
+    if (type == null) {
+      type = declareType(scope);
+      declareConstructor(scope, type! as ClassType, []:Type /* TODO: constructor parameters */);
+    } else {
+      // TODO: verify that |type| is a matching forward class declaration
+      // TODO: add our constructor if necessary
+    }
+    // TODO: declare class members
+    // TODO: compile scope of constructor
+    throw('classes not implemented');
+  }
+
+  Null constructor(String classNameArg, TypeIdentifierNullable superclassNameArg, DeclarationStatementList membersArg, SourceLocation sourceLocationArg) {
+    super.constructor(classNameArg, superclassNameArg, sourceLocationArg);
     members = membersArg;
+  }
+}
+
+class ForwardClassDeclaration extends AbstractClassDeclaration {
+  TypeIdentifierListNullable constructorParameterTypes;
+  DeclarationStatementList members;
+  
+  String toStringIndent(Integer indent) {
+    StringList buffer = ['fwdclass ', identifier, ' '];
+    if (superclassName != null) {
+      append(buffer, 'extends ');
+      append(buffer, superclassName!.toStringIndent(indent));
+    }
+    append(buffer, ';\n');
+    return joinList(buffer);
+  }
+
+  Null generateInstructions(CompiledScope scope) {
+    ClassType type = declareType(scope);
+    if (constructorParameterTypes != null) {
+      TypeList parameterTypes = []:Type;
+      for (identifier in constructorParameterTypes!) {
+        append(parameterTypes, identifier.generateInstructions(scope));
+      }
+      Slot constructor = declareConstructor(scope, type, parameterTypes);
+      // TODO: register the constructor with the class type somehow
+    }
+  }
+
+  Null constructor(String classNameArg, TypeIdentifierListNullable constructorParameterTypesArg, TypeIdentifierNullable superclassNameArg, SourceLocation sourceLocationArg) {
+    super.constructor(classNameArg, superclassNameArg, sourceLocationArg);
+    constructorParameterTypes = constructorParameterTypesArg;
+  }
+}
+
+class ForwardClassPropertyDeclaration extends DeclarationStatement {
+  TypeIdentifier propertyType;
+  TypeIdentifier hostClass;
+  
+  String toStringIndent(Integer indent) {
+    return concat('fwdclassprop ', propertyType.toStringIndent(indent), ' ', hostClass.toStringIndent(indent), '.', identifier, ';\n');
+  }
+
+  Null generateInstructions(CompiledScope scope) {
+    // TODO: declare the property on the class
+  }
+
+  Null constructor(TypeIdentifier hostClassArg, TypeIdentifier propertyTypeArg, String identifierArg, SourceLocation sourceLocationArg) {
+    super.constructor(identifierArg, sourceLocationArg);
+    hostClass = hostClassArg;
+    propertyType = propertyTypeArg;
   }
 }
 
@@ -1058,7 +1221,7 @@ class ReturnStatement extends Statement {
     if (expression != null) {
       subroutine.emitReturnFrom(scope, expression!.generateInstructions(scope));
     } else {
-      subroutine.emitReturnFrom(scope, (scope.environment().intrinsicsLibrary as CompiledIntrinsicsLibrary).coreNull);
+      subroutine.emitReturnFrom(scope, scope.environment().intrinsicsLibrary.coreNull);
     }
   }
 
@@ -1070,7 +1233,7 @@ class ReturnStatement extends Statement {
 
 class BreakStatement extends Statement {
   String toStringIndent(Integer indent) {
-    return 'break;\n';
+    return concat(stringTimes(' ', indent), 'break;\n');
   }
 
   Null generateInstructions(CompiledScope scope) {
@@ -1078,10 +1241,27 @@ class BreakStatement extends Statement {
     while (loopScope != null && !(loopScope is CompiledLoopScope)) {
       loopScope = loopScope!.parent;
     }
-    if (scope == null) {
+    if (loopScope == null) {
       throw(concat('Invalid break; not in a loop at ', this));
     }
-    (scope as CompiledLoopScope).emitBreakInstructionFrom(scope);
+    (loopScope as CompiledLoopScope).emitBreakInstructionFrom(scope);
+  }
+}
+
+class ContinueStatement extends Statement {
+  String toStringIndent(Integer indent) {
+    return concat(stringTimes(' ', indent), 'continue;\n');
+  }
+
+  Null generateInstructions(CompiledScope scope) {
+    CompiledScopeNullable loopScope = scope;
+    while (loopScope != null && !(loopScope is CompiledLoopScope)) {
+      loopScope = loopScope!.parent;
+    }
+    if (loopScope == null) {
+      throw(concat('Invalid continue; not in a loop at ', this));
+    }
+    (loopScope as CompiledLoopScope).emitContinueInstructionFrom(scope);
   }
 }
 
@@ -1404,6 +1584,11 @@ class ForStatement extends Statement {
   Null walk(NullFunction callback, Anything context) {
     callback(iterable, context);
     callback(block, context);
+  }
+
+  Null generateInstructions(CompiledScope scope) {
+    // TODO: implement for loop
+    throw('for not implemented');
   }
 
 /*

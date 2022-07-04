@@ -97,7 +97,7 @@ class VarArgsParameterSlot extends Slot {
   Slot argumentCount;
 
   Operand value() {
-    throw('cannot dereference a varargs parameter');
+    throw('dereferencing a varargs parameter is not implemented');
   }
 
   Slot baseAddress(IntegerType integerType) {

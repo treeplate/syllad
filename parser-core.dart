@@ -256,7 +256,7 @@ class ValueWrapper {
               stack,
               "$debugCreationDescription was attempted to be read while uninititalized ${formatCursorPosition(line, col, workspace, filename)}",
             );
-      assert(false, 'throw did not exit');
+      throw (FileInvalid('internal error: throw did not exit'));
     }
   }
 

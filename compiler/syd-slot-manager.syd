@@ -1164,11 +1164,11 @@ class SlotManager extends Object {
     assert(len(stackStatus) == 0, 'unexpected contents in stackStatus');
     append(stackStatus, StackEntry(0, stackMetrics));
     stackMetrics.growStack();
-    slotManagers++;
+    slotManagers += 1;
     verifyInvariants();
   }
   
   Null dispose() {
-    slotManagers--;
+    slotManagers -= 1;
   }
 }

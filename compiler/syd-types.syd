@@ -3,18 +3,31 @@ import 'syd-assembler.syd';
 import 'syd-operands.syd';
 
 fwdclass Type extends Object;
+fwdclass NullableType extends Type;
+fwdclass NumericType extends Type;
+fwdclass EnumType extends NumericType;
+fwdclass ClassType extends Type;
 fwdclass AbstractSubroutineType extends Type;
 fwdclass SubroutineTypeWithAnyArguments extends AbstractSubroutineType;
 fwdclass AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineType;
 fwdclass AbstractListType extends Type;
 fwdclass ReadOnlyListType extends AbstractListType;
+fwdclass ListType extends AbstractListType;
 fwdclass TypeRegistry extends Object;
+fwdclass IterableType extends Type;
 
+fwdclassprop Type NullableType.subtype;
 fwdclassprop TypeList AbstractSubroutineTypeWithSpecificParameters.parameterTypes;
+fwdclassprop Type IterableType.elementType;
 fwdclassprop NullFunction TypeRegistry.registerType;
+fwdclassprop TypeNullableFunction TypeRegistry.parseType;
+
+fwdclassprop NullableTypeList TypeRegistry.typesOfNullables;
 fwdclassprop SubroutineTypeWithAnyArgumentsList TypeRegistry.typesOfSubroutinesWithAnyArguments;
 fwdclassprop AbstractSubroutineTypeWithSpecificParametersList TypeRegistry.typesOfSubroutinesWithSpecificParameters;
 fwdclassprop ReadOnlyListTypeList TypeRegistry.typesOfReadOnlyLists;
+fwdclassprop ListTypeList TypeRegistry.typesOfLists;
+fwdclassprop IterableTypeList TypeRegistry.typesOfIterables;
 
 class Type extends Object {
   IntegerNullable code = null;
@@ -32,10 +45,6 @@ class Type extends Object {
   ImmediateOperand asOperand() {
     assert(code != null, concat('cannot read type operand (', name, ') before codes are assigned (did you forget to call markConstructed?)'));
     return ImmediateIntegerOperand(code!);
-  }
-
-  Boolean hasDynamicType() {
-    abstract();
   }
 
   Boolean isConstructed = false;
@@ -72,10 +81,6 @@ class WhateverType extends Type {
     return true;
   }
 
-  Boolean hasDynamicType() {
-    return true;
-  }
-
   Null markConstructed() {
     assert(false, 'Whatever type cannot be constructed.');
   }
@@ -87,11 +92,9 @@ class WhateverType extends Type {
 
 class AnythingType extends Type {
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType || other is WhateverType;
-  }
-
-  Boolean hasDynamicType() {
-    return true;
+    return other is AnythingType
+        || other is WhateverType
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
   Null markConstructed() {
@@ -105,11 +108,7 @@ class AnythingType extends Type {
 
 class SentinelType extends Type {
   Boolean isSubtypeOf(Type other) {
-    return true;
-  }
-
-  Boolean hasDynamicType() {
-    return true;
+    return false;
   }
 
   Null constructor(TypeRegistry typeRegistryArg) {
@@ -126,25 +125,27 @@ class NullableType extends Type {
         || (other is NullableType && subtype.isSubtypeOf((other as NullableType).subtype));
   }
 
-  Boolean hasDynamicType() {
-    return true;
-  }
-
   Null markConstructed() {
     assert(false, 'Nullable types cannot be constructed.');
   }
 
   Null constructor(TypeRegistry typeRegistryArg, Type subtypeArg) {
+    assert(!(subtypeArg is NullableType), 'Cannot create nullable nullable type.');
     super.constructor(typeRegistryArg, concat(subtypeArg.name, 'Nullable'));
     subtype = subtypeArg;
   }
 }
 
-class NumericType extends Type {
-  Boolean hasDynamicType() {
-    return true;
+NullableType createOrFindNullableType(TypeRegistry typeRegistry, Type subtype) {
+  for (entry in typeRegistry.typesOfNullables) {
+    if (entry.subtype == subtype) {
+      return entry;
+    }
   }
+  return NullableType(typeRegistry, subtype);
+}
 
+class NumericType extends Type {
   Null constructor(TypeRegistry typeRegistryArg, String nameArg) {
     super.constructor(typeRegistryArg, nameArg);
   }
@@ -169,9 +170,10 @@ class NullType extends NumericType {
 
 class BooleanType extends NumericType {
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType
+    return other is BooleanType
+        || other is AnythingType
         || other is WhateverType
-        || other is BooleanType;
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
   Boolean literalValueIsAppropriate(Anything value) {
@@ -185,9 +187,10 @@ class BooleanType extends NumericType {
 
 class IntegerType extends NumericType {
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType
+    return other is IntegerType
+        || other is AnythingType
         || other is WhateverType
-        || other is IntegerType;
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
   Boolean literalValueIsAppropriate(Anything value) {
@@ -203,17 +206,14 @@ class StringType extends Type {
   // pointer to heap-allocated structure (or structure in data segment)
 
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType
+    return other is StringType
+        || other is AnythingType
         || other is WhateverType
-        || other is StringType;
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
   Boolean literalValueIsAppropriate(Anything value) {
     return value is String;
-  }
-
-  Boolean hasDynamicType() {
-    return true;
   }
 
   Null constructor(TypeRegistry typeRegistryArg) {
@@ -222,11 +222,11 @@ class StringType extends Type {
 }
 
 class EnumValue extends Object {
-  Object type; // XXX Object should be EnumType
+  EnumType type;
   String name;
   Integer index;
 
-  Null constructor(Object typeArg, String nameArg, Integer indexArg) {
+  Null constructor(EnumType typeArg, String nameArg, Integer indexArg) {
     super.constructor();
     type = typeArg;
     name = nameArg;
@@ -238,9 +238,10 @@ class EnumType extends NumericType {
   Map values = Map();
 
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType
+    return other == this
+        || other is AnythingType
         || other is WhateverType
-        || other is StringType;
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
   Boolean literalValueIsAppropriate(Anything value) {
@@ -260,28 +261,29 @@ class EnumType extends NumericType {
 class ClassType extends Type {
   // xxx properties, methods, constructor...
 
-  Boolean hasDynamicType() {
-    return true;
+  ClassType supertype;
+
+  Boolean isSubtypeOf(Type other) {
+    if (this == other) {
+      return true;
+    }
+    if (supertype != this) {
+      return supertype.isSubtypeOf(other);
+    }
+    return other is AnythingType
+        || other is WhateverType
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
-  Null constructor(TypeRegistry typeRegistryArg, String nameArg) {
+  Null constructor(TypeRegistry typeRegistryArg, String nameArg, ClassType supertypeArg) {
     super.constructor(typeRegistryArg, nameArg);
+    supertype = supertypeArg;
   }
 }
 
-class RootClassType extends Type {
-  // pointer to class instance
-
-  Boolean isSubtypeOf(Type other) {
-    return other is ClassType || other is RootClassType;
-  }
-
-  Boolean hasDynamicType() {
-    return true;
-  }
-
+class RootClassType extends ClassType {
   Null constructor(TypeRegistry typeRegistryArg) {
-    super.constructor(typeRegistryArg, '<object>');
+    super.constructor(typeRegistryArg, '<object>', this);
   }
 }
 
@@ -293,13 +295,10 @@ class AbstractSubroutineType extends Type {
   }
 
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType
+    return (other is AbstractSubroutineType && returnType.isSubtypeOf((other as AbstractSubroutineType).returnType))
+        || other is AnythingType
         || other is WhateverType
-        || (other is AbstractSubroutineType && returnType.isSubtypeOf((other as AbstractSubroutineType).returnType));
-  }
-
-  Boolean hasDynamicType() {
-    return true;
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
   Null constructor(TypeRegistry typeRegistryArg, Type returnTypeArg) {
@@ -429,10 +428,6 @@ SubroutineTypeWithSpecificParameters createOrFindSubroutineTypeWithSpecificParam
 class AbstractListType extends Type {
   Type elementType;
 
-  Boolean hasDynamicType() {
-    return true;
-  }
-
   Null constructor(TypeRegistry typeRegistryArg, String nameArg, Type elementTypeArg) {
     super.constructor(typeRegistryArg, nameArg);
     elementType = elementTypeArg;
@@ -443,27 +438,39 @@ class ListType extends AbstractListType {
   // pointer to heap-allocated structure
 
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType
-        || other is WhateverType
-        || (other is AbstractListType &&
+    return (other is AbstractListType &&
             elementType.isSubtypeOf((other as AbstractListType).elementType) &&
-            (other as AbstractListType).elementType.isSubtypeOf(elementType));
+            (other as AbstractListType).elementType.isSubtypeOf(elementType))
+        || other is AnythingType
+        || other is WhateverType
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
   // xxx literals
 
   Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
     super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'List'), elementTypeArg);
+    append(typeRegistryArg.typesOfLists, this);
   }
+}
+
+ListType createOrFindListType(TypeRegistry typeRegistry, Type elementType) {
+  for (entry in typeRegistry.typesOfLists) {
+    if (entry.elementType == elementType) {
+      return entry;
+    }
+  }
+  return ListType(typeRegistry, elementType);
 }
 
 class ReadOnlyListType extends AbstractListType {
   // pointer to heap-allocated structure, or a VarArgsParameterVot
 
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType
+    return (other is ReadOnlyListType && elementType.isSubtypeOf((other as ReadOnlyListType).elementType))
+        || other is AnythingType
         || other is WhateverType
-        || (other is ReadOnlyListType && elementType.isSubtypeOf((other as ReadOnlyListType).elementType));
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
   Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
@@ -487,19 +494,26 @@ class IterableType extends Type {
   Type elementType;
 
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType
+    return (other is IterableType && elementType.isSubtypeOf(cast(cast(other).elementType)))
+        || other is AnythingType
         || other is WhateverType
-        || (other is IterableType && elementType.isSubtypeOf(cast(cast(other).elementType)));
-  }
-
-  Boolean hasDynamicType() {
-    return true;
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
   Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
     super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'Iterable'));
     elementType = elementTypeArg;
+    append(typeRegistryArg.typesOfIterables, this);
   }
+}
+
+IterableType createOrFindIterableType(TypeRegistry typeRegistry, Type elementType) {
+  for (entry in typeRegistry.typesOfIterables) {
+    if (entry.elementType == elementType) {
+      return entry;
+    }
+  }
+  return IterableType(typeRegistry, elementType);
 }
 
 class IteratorType extends Type {
@@ -508,13 +522,10 @@ class IteratorType extends Type {
   Type elementType;
 
   Boolean isSubtypeOf(Type other) {
-    return other is AnythingType
+    return (other is IteratorType && elementType.isSubtypeOf(cast(cast(other).elementType)))
+        || other is AnythingType
         || other is WhateverType
-        || (other is IteratorType && elementType.isSubtypeOf(cast(cast(other).elementType)));
-  }
-
-  Boolean hasDynamicType() {
-    return true; 
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
   Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
@@ -528,10 +539,6 @@ class ClosureType extends Type {
     return other is ClosureType;
   }
 
-  Boolean hasDynamicType() {
-    return false;
-  }
-
   Null constructor(TypeRegistry typeRegistryArg) {
     super.constructor(typeRegistryArg, '<closure>');
   }
@@ -540,10 +547,6 @@ class ClosureType extends Type {
 class SystemType extends Type {
   Boolean isSubtypeOf(Type other) {
     return other is SystemType;
-  }
-
-  Boolean hasDynamicType() {
-    return false;
   }
 
   Null constructor(TypeRegistry typeRegistryArg) {
@@ -560,10 +563,13 @@ class TypeRegistry extends Object {
 
   // These are used by createOrFindSubroutineType(), createOrFindReadOnlyListType(), et al.
   // TODO: right now managing this is O(N), could be made faster
-  // e.g. keep the list sorted and binary search.
+  // e.g. keep the lists sorted and binary search.
+  NullableTypeList typesOfNullables = []:NullableType;
   AbstractSubroutineTypeWithSpecificParametersList typesOfSubroutinesWithSpecificParameters = []:AbstractSubroutineTypeWithSpecificParameters;
   SubroutineTypeWithAnyArgumentsList typesOfSubroutinesWithAnyArguments = []:SubroutineTypeWithAnyArguments;
   ReadOnlyListTypeList typesOfReadOnlyLists = []:ReadOnlyListType;
+  ListTypeList typesOfLists = []:ListType;
+  IterableTypeList typesOfIterables = []:IterableType;
 
   TypeList sortedTypes;
 
@@ -602,19 +608,45 @@ class TypeRegistry extends Object {
     return comment;
   }
 
+  Boolean hasSuffix(String name, String suffix) {
+    Integer nameLen = len(scalarValues(name));
+    Integer suffixLen = len(scalarValues(suffix));
+    return (nameLen > suffixLen) && (substring(name, nameLen - suffixLen, nameLen) == suffix);
+  }
+
   Boolean isCompoundType(String name) {
-    Integer length = len(scalarValues(name));
-    return length >= 8 && substring(name, length-8, length) == 'Function';
+    return hasSuffix(name, 'Nullable')
+        || hasSuffix(name, 'Function')
+        || hasSuffix(name, 'List')
+        || hasSuffix(name, 'Iterable');
+  }
+
+  TypeNullable getPrefix(String name, String suffix, TypeNullableFunction lookupType) {
+    Integer nameLen = len(scalarValues(name));
+    Integer suffixLen = len(scalarValues(suffix));
+    if ((nameLen > suffixLen) && (substring(name, nameLen - suffixLen, nameLen) == suffix)) {
+      return parseType(substring(name, 0, nameLen - suffixLen), lookupType);
+    }
+    return null;
   }
 
   TypeNullable parseType(String name, TypeNullableFunction lookupType) {
-    Integer length = len(scalarValues(name));
-    if (length >= 8 && substring(name, length-8, length) == 'Function') {
-      TypeNullable lhs = parseType(substring(name, 0, length-8), lookupType);
-      if (lhs == null) {
-        return null;
-      }
-      return createOrFindSubroutineTypeWithAnyArgs(this, lhs!);
+    TypeNullable prefix;
+    prefix = getPrefix(name, 'Nullable', lookupType);
+    if (prefix != null) {
+      return createOrFindNullableType(this, prefix!);
+    }
+    prefix = getPrefix(name, 'Function', lookupType);
+    if (prefix != null) {
+      return createOrFindSubroutineTypeWithAnyArgs(this, prefix!);
+    }
+    prefix = getPrefix(name, 'List', lookupType);
+    if (prefix != null) {
+      return createOrFindListType(this, prefix!);
+    }
+    prefix = getPrefix(name, 'Iterable', lookupType);
+    if (prefix != null) {
+      return createOrFindIterableType(this, prefix!);
     }
     return lookupType(name);
   }

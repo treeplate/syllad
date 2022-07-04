@@ -107,6 +107,7 @@ fwdclassprop StringType CompiledIntrinsicsLibrary.coreStringType;
 fwdclassprop NullType CompiledIntrinsicsLibrary.coreNullType;
 fwdclassprop WhateverType CompiledIntrinsicsLibrary.coreWhateverType;
 fwdclassprop SystemType CompiledIntrinsicsLibrary.coreSystemType;
+fwdclassprop AnythingType CompiledIntrinsicsLibrary.coreAnythingType;
 fwdclassprop NullFunction CompiledIntrinsicsLibrary.generateScopes;
 fwdclassprop ImmediateSlot CompiledIntrinsicsLibrary.coreSentinel;
 fwdclassprop ImmediateSlot CompiledIntrinsicsLibrary.coreNull;
@@ -359,10 +360,27 @@ class CompilationEnvironment extends TypeRegistry {
     while (len(bytes) % 8 != 0) {
       append(bytes, 0); // padding to keep things 8-byte aligned
     }
+    IntegerListList data = [[]:Integer]:IntegerList;
+    for (byte in bytes) {
+      if (len(last(data) as WhateverList) >= 8) {
+        append(data, []:Integer);
+      }
+      append(last(data) as WhateverList, byte);
+    }
+    String genBytes(IntegerList bytes) {
+      return concat('db ', join(map(bytes, hex8) as StringList, ', '));
+    }
+    StringNullable genComments(IntegerList bytes) {
+      return '...';
+    }
+    StringList generatedBytes = map(data, genBytes) as StringList;
+    StringNullableList comments = map(data, genComments) as StringNullableList;
+    comments[0] = 'Type table';
+    comments[len(comments) - 1] = concat(comments[len(comments) - 1], '\n', join(comment, ''));
     assembler.addConst(
       label,
-      [ concat('db ', join(map(bytes, hex8) as StringList, ', ')) ],
-      [ concat('Type table\n', join(comment, '')) ]:StringNullable,
+      generatedBytes,
+      comments,
     );
     typeTableOffset = offset;
     typeTableWidth = width;
@@ -411,11 +429,16 @@ class CompilationEnvironment extends TypeRegistry {
     generateAssembler(assembler);
   }
 
+  AbstractSubroutineType subroutineType;
+  AbstractListType subscriptableType;
+
   Null constructor() {
     super.constructor();
     typeTableLabel = generateLabel('typeTable');
     intrinsicsLibrary = CompiledIntrinsicsLibrary(this, 'intrinsics');
     intrinsicsLibrary.generateScopes();
+    subroutineType = createOrFindSubroutineTypeWithAnyArgs(this, intrinsicsLibrary.coreAnythingType);
+    subscriptableType = createOrFindReadOnlyListType(this, intrinsicsLibrary.coreWhateverType);
   }
 }
 
@@ -710,8 +733,9 @@ class CompiledScope extends SlotContext {
     emitInstruction(SetTypeInstruction(target, environment.intrinsicsLibrary.coreBooleanType));
   }
   
+  // Caller should emit static and dynamic type checks on target.
   Slot emitSubroutineCall(Slot target, SlotList arguments) {
-    assert(target.staticType is AbstractSubroutineType, 'cannot call a non-function');
+    assert(target.staticType.isSubtypeOf(environment().subroutineType), 'cannot call a non-function');
     emitInstruction(CommentInstruction(concat('Call ', target.debugName, ' with ', len(arguments), ' arguments')));
     // xxxx statically check arguments are the right type if the types are known
     if (target is SubroutineSlot) {
@@ -722,8 +746,12 @@ class CompiledScope extends SlotContext {
     }
     Slot thisPointer = environment().intrinsicsLibrary.coreSentinel; // placeholder code
     Slot closurePointer = environment().intrinsicsLibrary.coreSentinel; // placeholder code
-    AbstractSubroutineType subroutineType = target.staticType as AbstractSubroutineType;
-    DynamicSlot returnValue = registerDynamicValue(subroutineType.returnType, concat(target.debugName, ' return value'));
+    Type returnType = environment().intrinsicsLibrary.coreAnythingType;
+    if (target.staticType is AbstractSubroutineType) {
+      AbstractSubroutineType subroutineType = target.staticType as AbstractSubroutineType;
+      returnType = subroutineType.returnType;
+    }
+    DynamicSlot returnValue = registerDynamicValue(returnType, concat(target.debugName, ' return value'));
     Integer argumentIndex = len(arguments) - 1;
     while (argumentIndex >= 0) {
       emitInstruction(PushInstruction(arguments[argumentIndex], concat('value of argument #', argumentIndex + 1, ' (', arguments[argumentIndex].debugName, ')')));
@@ -776,14 +804,17 @@ class CompiledScope extends SlotContext {
     String continueLabelArg = concat(labelPrefix(), '$', camelCase(what));
     // TODO: xxxx we could also check if we can statically disprove compatibility
     // (or maybe assert that we can't, because if we can why is someone calling us)
+    String continueLabel = environment().generateLabel(concat(continueLabelArg, '$TypeMatch'));
     if (!trustSlotStaticType || !value.canStaticallyProveTypeCompatibilityWith(staticType)) {
-      CompilationEnvironment environment = environment();
-      String continueLabel = environment.generateLabel(concat(continueLabelArg, '$TypeMatch'));
       emitIsOperatorCheck(staticType, value, what); // actual type check is here
       emitInstruction(JcInstruction(continueLabel, 'skip next block if the type matches'));
-      emitInstruction(DoBlockInstruction(block));
-      emitInstruction(LabelInstruction(continueLabel, 'after block'));
+    } else {
+      // just check for sentinel (which might be present even if we trust the static type)
+      // TODO: slots should track if they might be sentinel, so we can skip even this
+      emitInstruction(JumpIfDynamicTypeNotEqualStaticTypeInstruction(value, environment().intrinsicsLibrary.coreSentinelType, continueLabel, concat('skip next block if ', value.debugName, ' is not sentinel')));
     }
+    emitInstruction(DoBlockInstruction(block));
+    emitInstruction(LabelInstruction(continueLabel, 'after block'));
   }
 
   Null emitBlock(CompiledNestedScope block) {
@@ -835,6 +866,7 @@ class CompiledScope extends SlotContext {
       emitInstruction(MoveDerefToTypeInstruction(target, resultPointer, -0x08, 'store type'));
       emitIncref(target);
     } else {
+      // TODO: implement
       throw('list subscript not implemented for this list type');
     }
   }
@@ -1276,13 +1308,14 @@ class BuiltInLenSubroutine extends BuiltInSubroutine {
     if (len(arguments) == 1 && arguments[0] is VarArgsParameterSlot) {
       return (arguments[0] as VarArgsParameterSlot).length();
     }
-    assert(false, 'non-inline len() not yet implemented');
+    // TODO: implement inline len for non-varargs
+    assert(false, 'non-inline len() not yet implemented because Lists aren\'t yet implemented.');
     return null;
   }
 
   Null generateInstructions() {
     super.generateInstructions();
-    // TODO: implement
+    // TODO: implement non-inline len()
     emitInstruction(CommentInstruction('TODO: implement \'len\' function'));
   }
 
@@ -1311,8 +1344,7 @@ class BuiltInDebuggerSubroutine extends BuiltInSubroutine {
 
   Null generateInstructions() {
     super.generateInstructions();
-    // TODO: implement
-    emitInstruction(CommentInstruction('TODO: implement "debugger" function'));
+    emitInstruction(Interrupt3Instruction());
   }
 
   Null constructor(CompiledIntrinsicsLibrary parentArg) { 
@@ -1321,7 +1353,7 @@ class BuiltInDebuggerSubroutine extends BuiltInSubroutine {
       createOrFindSubroutineTypeWithSpecificParameters(
         parentArg.environment(),
         parentArg.coreNullType,
-        [ ]:Type,
+        []:Type,
       ),
       '__debugger',
     );
@@ -1432,7 +1464,7 @@ class GenericSystemCallSubroutine extends CompiledSubroutineWithSpecificParamete
     Register64OperandList parameterRegisters = [rcx, rdx, r8, r9];
     while (index >= 0) {
       emitInstruction(MoveToSpecificOperandInstruction(parameterRegisters[index].bit, parameters[index], true, concat('argument #', index + 1)));
-      index--;
+      index -= 1;
     }
     Slot returnValue = registerDynamicValue(type.returnType, concat('return value of ', externalName, ' system call'));
     emitInstruction(CallSystemInstruction(library, externalName, returnValue, concat('calls ', externalName, ' from ', library)));

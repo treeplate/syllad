@@ -28,7 +28,12 @@ Expression parseExpressionLeaves(TokenConsumer source) {
       }
     }
     source.expectPunctuation(ttCloseBracket);
-    return ListLiteralExpression(values, source.lastLocation());
+    TypeIdentifierNullable elementType = null;
+    if (source.isNext(ttColon)) {
+      source.expectPunctuation(ttColon);
+      elementType = TypeIdentifier(source.readIdentifier(), source.lastLocation());
+    }
+    return ListLiteralExpression(values, elementType, source.lastLocation());
   }
   if (source.isNext(ttOpenParen)) {
     source.expectPunctuation(ttOpenParen);
@@ -86,6 +91,11 @@ Expression parseUnaryExpression(TokenConsumer source) {
       source.expectPunctuation(ttPeriod);
       String identifier = source.readIdentifier();
       result = MemberAccessExpression(result, identifier, source.lastLocation());
+      continue;
+    }
+    if (source.isNext(ttBang)) {
+      source.expectPunctuation(ttBang);
+      result = UnwrapExpression(result, source.lastLocation());
       continue;
     }
     if (source.isNextIdentifier('is')) {
@@ -426,10 +436,10 @@ Statement _parseStatement(TokenConsumer source) {
     source.expectIdentifier('class');
     String className = source.readIdentifier();
     SourceLocation location = source.lastLocation();
-    StringNullable superclassName = null;
+    TypeIdentifierNullable superclassName = null;
     if (source.isNextIdentifier('extends')) {
       source.expectIdentifier('extends');
-      superclassName = source.readIdentifier();
+      superclassName = TypeIdentifier(source.readIdentifier(), source.lastLocation());
     }
     source.expectPunctuation(ttOpenBrace);
     DeclarationStatementList members = []:DeclarationStatement;
@@ -438,6 +448,41 @@ Statement _parseStatement(TokenConsumer source) {
     }
     source.expectPunctuation(ttCloseBrace);
     return ClassDeclaration(className, superclassName, members, location);
+  }
+  if (source.isNextIdentifier('fwdclass')) {
+    source.expectIdentifier('fwdclass');
+    String className = source.readIdentifier();
+    SourceLocation location = source.lastLocation();
+    TypeIdentifierListNullable constructorParameterTypes = null;
+    if (source.isNext(ttOpenParen)) {
+      source.expectPunctuation(ttOpenParen);
+      constructorParameterTypes = []:TypeIdentifier;
+      while (!source.isNext(ttCloseParen)) {
+        append(constructorParameterTypes!, TypeIdentifier(source.readIdentifier(), source.lastLocation()));
+        if (!source.isNext(ttCloseParen)) {
+          source.expectPunctuation(ttComma);
+        }
+      }
+      source.expectPunctuation(ttCloseParen);
+    }
+    TypeIdentifierNullable superclassName = null;
+    if (source.isNextIdentifier('extends')) {
+      source.expectIdentifier('extends');
+      superclassName = TypeIdentifier(source.readIdentifier(), source.lastLocation());
+    }
+    source.expectPunctuation(ttSemicolon);
+    return ForwardClassDeclaration(className, constructorParameterTypes, superclassName, location);
+  }
+
+  if (source.isNextIdentifier('fwdclassprop')) {
+    source.expectIdentifier('fwdclassprop');
+    TypeIdentifier propertyType = TypeIdentifier(source.readIdentifier(), source.lastLocation());
+    TypeIdentifier hostClass = TypeIdentifier(source.readIdentifier(), source.lastLocation());
+    source.expectPunctuation(ttPeriod);
+    String propertyName = source.readIdentifier();
+    SourceLocation location = source.lastLocation();
+    source.expectPunctuation(ttSemicolon);
+    return ForwardClassPropertyDeclaration(hostClass, propertyType, propertyName, location);
   }
   if (source.isNextIdentifier('if')) {
     return parseIfStatement(source);
@@ -455,6 +500,11 @@ Statement _parseStatement(TokenConsumer source) {
     source.expectIdentifier('break');
     source.expectPunctuation(ttSemicolon);
     return BreakStatement(source.lastLocation());
+  }
+  if (source.isNextIdentifier('continue')) {
+    source.expectIdentifier('continue');
+    source.expectPunctuation(ttSemicolon);
+    return ContinueStatement(source.lastLocation());
   }
   if (source.isNextIdentifier('import')) {
     source.expectIdentifier('import');
@@ -482,9 +532,6 @@ Statement _parseStatement(TokenConsumer source) {
     StatementBlock block = parseBlock(source);
     return ForStatement(variable, expression, block, location);
   }
-  // TODO:
-  // break
-  // continue
   if (source.isNext2(ttIdentifier, ttIdentifier)) {
     return parseDeclaration(source);
   }

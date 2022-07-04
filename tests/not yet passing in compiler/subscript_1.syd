@@ -1,7 +1,0 @@
-// expected error: error: NullFunction(Integer...) does not support subscript operator
-// expected exit code is 1
-
-Null test(Integer... args) {
-  print(test[-1]);
-}
-test();

@@ -2,13 +2,8 @@
 // expected output: Line 2
 // expected exit code is 3
 
-String concatList(WhateverList args, Integer offset) {
-  if(len(args) - offset == 0) { return ''; }
-  if(len(args) - offset == 1) { return concat(args[offset]); }
-  return concat(args[offset], concatList(args, offset+1));
-}
 Null printlnNoSpaces(Anything... args) {
-  println(concatList(args, 0));
+  println(joinList(args));
 }
 println('Line', '1');
 printlnNoSpaces('Li', 'ne ', '2');

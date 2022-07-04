@@ -196,6 +196,20 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
           return l.single;
         },
         "substring": (List<ValueWrapper> l, List<String> s) {
+          if (l[1].valueC(null, s, -2, 0, 'interr', 'interr') as int >
+              (l[2].valueC(null, s, -2, 0, 'interr', 'interr') as int)) {
+            throw FileInvalid(
+                "Cannot substring when the start (${l[1]}) is more than the end (${l[2]})!\n${s.reversed.join('\n')}");
+          }
+          if (l[1].valueC(null, s, -2, 0, 'interr', 'interr') as int < 0) {
+            throw FileInvalid(
+                "Cannot substring when the start (${l[1]}) is less than 0!\n${s.reversed.join('\n')}");
+          }
+          if (l[2].valueC(null, s, -2, 0, 'interr', 'interr') as int >
+              l[0].valueC(null, s, -2, 0, 'interr', 'interr').length) {
+            throw FileInvalid(
+                "Cannot substring when the end (${l[2]}) is more than the length of the string (${l[1]})!\n${s.reversed.join('\n')}");
+          }
           return ValueWrapper(
               stringType,
               (l[0].valueC(null, s, -2, 0, 'interr', 'interr') as String)

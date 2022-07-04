@@ -4,3 +4,4 @@ test.obj
 build_test.bat
 compiler/notes.txt
 compiler/default.debugtarget
+test.syd
