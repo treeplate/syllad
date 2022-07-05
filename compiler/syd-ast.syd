@@ -4,20 +4,6 @@ import 'syd-utils.syd';
 import 'syd-compiler.syd';
 import 'syd-loop-scopes.syd';
 
-class AstNode extends SourceCode {
-  String toStringIndent(Integer indent) {
-    abstract();
-  }
-
-  String toString() {
-    return toStringIndent(0);
-  }
-
-  Null walk(NullFunction callback, Anything context) {
-    // no children
-  }
-}
-
 class TypeIdentifier extends AstNode {
   String name;
   

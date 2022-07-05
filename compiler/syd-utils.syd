@@ -149,8 +149,20 @@ class SourceLocation extends Object {
   }
 }
 
-class SourceCode extends Object {
+class AstNode extends Object {
   SourceLocation sourceLocation;
+
+  String toStringIndent(Integer indent) {
+    abstract();
+  }
+
+  String toString() {
+    return toStringIndent(0);
+  }
+
+  Null walk(NullFunction callback, Anything context) {
+    // no children
+  }
 
   Null constructor(SourceLocation sourceLocationArg) {
     super.constructor();

@@ -60,15 +60,18 @@ fwdclass CompilerIntrinsic extends BuiltInSubroutine;
 fwdclass BuiltInReadFromAddressIntrinsic(CompiledIntrinsicsLibrary) extends CompilerIntrinsic;
 fwdclass BuiltInWriteToAddressIntrinsic(CompiledIntrinsicsLibrary) extends CompilerIntrinsic;
 fwdclass CompiledVarArgsSubroutine extends CompiledSubroutine;
+fwdclass SubroutineSlot extends CompileTimeLabelSlot;
 
 // CompiledScope
 fwdclassprop CompiledScopeNullable CompiledScope.parent;
 fwdclassprop String CompiledScope.name;
+fwdclassprop Set CompiledScope.references;
+fwdclassprop Set CompiledScope.subscopes;
 fwdclassprop CompilationEnvironmentFunction CompiledScope.environment;
 fwdclassprop CompiledStackFrameScopeFunction CompiledScope.stackFrame;
 fwdclassprop CompiledLibraryFunction CompiledScope.globalScope;
 fwdclassprop NullFunction CompiledScope.prepareSlots;
-fwdclassprop SlotNullableFunction CompiledScope.lookupIdentifier;
+fwdclassprop SlotNullableFunction CompiledScope.internalLookupIdentifier;
 fwdclassprop NullFunction CompiledScope.prepareInstructions;
 fwdclassprop NullFunction CompiledScope.generateAssemblerBlock;
 fwdclassprop NullFunction CompiledScope.emitInstruction;
@@ -94,6 +97,8 @@ fwdclassprop String CompiledSubroutine.epilogLabel;
 fwdclassprop AbstractSubroutineTypeWithSpecificParameters CompiledSubroutine.type;
 fwdclassprop SlotNullableFunction CompiledSubroutine.inline;
 fwdclassprop DynamicSlot CompiledSubroutine.parameterCount;
+fwdclassprop Boolean CompiledSubroutine.isUsed;
+fwdclassprop NullFunction CompiledSubroutine.markUsed;
 
 // CompiledLibrary
 fwdclassprop CompilationEnvironment CompiledLibrary.compilationEnvironment;
@@ -125,6 +130,9 @@ fwdclassprop Integer CompilationEnvironment.typeTableOffset;
 fwdclassprop String CompilationEnvironment.typeTableLabel;
 fwdclassprop StringFunction CompilationEnvironment.generateLabel;
 fwdclassprop SlotFunction CompilationEnvironment.integer;
+
+// SubroutineSlot
+fwdclassprop CompiledSubroutine SubroutineSlot.subroutine;
 
 
 // ============================================================================
@@ -161,6 +169,11 @@ class CompilationEnvironment extends TypeRegistry {
     }
     labels.set(name, sequenceId);
     return result;
+  }
+
+  Slot integer(Integer value) {
+    intrinsicsLibrary.coreIntegerType.markConstructed();
+    return ImmediateIntegerSlot(intrinsicsLibrary.coreIntegerType, value, concat(hex(value), ' (integer)'));
   }
 
   Map libraries = Map(); // String -> false (actively being compiled) or CompiledLibrary
@@ -252,22 +265,45 @@ class CompilationEnvironment extends TypeRegistry {
     append(subroutines, subroutine);
   }
 
+  Null markUsedScopesFor(CompiledScope scope) {
+    for (slot in scope.references.values()) {
+      if (slot is SubroutineSlot) {
+        CompiledSubroutine subroutine = (slot as SubroutineSlot).subroutine;
+        if (!subroutine.isUsed) {
+          subroutine.markUsed();
+          markUsedScopesFor(subroutine);
+        }
+      } // TODO: do the same with ImmediateDataLabelSlots
+      for (subscope in scope.subscopes.values()) {
+        markUsedScopesFor(subscope as CompiledScope);
+      }
+    }
+  }
+
   Null prepareInstructions() {
     intrinsicsLibrary.prepareInstructions();
     runtimeLibrary!.prepareInstructions();
     for (libraryName in libraryNames) {
-      Anything library = libraries.get(libraryName);
-      assert(library is CompiledLibrary, concat(libraryName, ' was never fully compiled'));
-      (library as CompiledLibrary).prepareInstructions();
+      (libraries.get(libraryName) as CompiledLibrary).prepareInstructions();
     }
     for (subroutine in subroutines) {
       subroutine.prepareInstructions();
     }
   }
 
-  Slot integer(Integer value) {
-    intrinsicsLibrary.coreIntegerType.markConstructed();
-    return ImmediateIntegerSlot(intrinsicsLibrary.coreIntegerType, value, concat(hex(value), ' (integer)'));
+  Null markUsedScopes() {
+    markUsedScopesFor(intrinsicsLibrary);
+    markUsedScopesFor(runtimeLibrary!);
+    for (libraryName in libraryNames) {
+      Anything library = libraries.get(libraryName);
+      assert(library is CompiledLibrary, concat(libraryName, ' was never fully compiled'));
+      markUsedScopesFor(library as CompiledLibrary);
+    }
+    // and since we always include decref:
+    CompiledSubroutine freeIntrinsic = intrinsics.get(freeIntrinsicName) as CompiledSubroutine;
+    freeIntrinsic.markUsed();
+    markUsedScopesFor(freeIntrinsic);
+    // TODO: avoid including decref intrinsic if we don't have strings
   }
 
   String typeTableLabel;
@@ -353,6 +389,7 @@ class CompilationEnvironment extends TypeRegistry {
   }
   
   Null generateDecrefIntrinsic(Assembler assembler, String label) {
+    // make sure to update markUsedScopes appropriately when adding or removing calls here
     AssemblerBlock block = assembler.createBlock();
     String decrefEndLabel = generateLabel(concat(label, '$end'));
     block.addComment('variable\'s type is in rdx');
@@ -394,7 +431,9 @@ class CompilationEnvironment extends TypeRegistry {
       (library as CompiledLibrary).allocateSlots(assembler);
     }
     for (subroutine in subroutines) {
-      subroutine.allocateSlots(assembler);
+      if (subroutine.isUsed) {
+        subroutine.allocateSlots(assembler);
+      }
     }
   }
 
@@ -415,13 +454,16 @@ class CompilationEnvironment extends TypeRegistry {
     mainBlock.addCode('ret', [], 'exit application');
     assembler.addLabeledBlock('main', mainBlock, null, null);
     for (subroutine in subroutines) {
-      subroutine.generateAssembler(assembler);
+      if (subroutine.isUsed) {
+        subroutine.generateAssembler(assembler);
+      }
     }
   }
 
   Null compile(Assembler assembler) {
     // the phase before this is Library.generateScopes() in syd_ast.syd
     prepareInstructions();
+    markUsedScopes();
     assignTypeCodes();
     generateTypeTable(assembler, typeTableLabel);
     generateDecrefIntrinsic(assembler, decrefLabel);
@@ -586,17 +628,28 @@ class CompiledScope extends SlotContext {
     return identifiers.get(name) != null;
   }
 
+  Set references = Set(); // Slots
+
   SlotNullable lookupIdentifier(String name) {
+    SlotNullable result = internalLookupIdentifier(name);
+    if (result != null) {
+      references.add(result!);
+    }
+    return result;
+  }
+
+  SlotNullable internalLookupIdentifier(String name) {
     SlotNullable value = identifiers.get(name) as SlotNullable;
     if (value == null && parent != null) {
-      value = parent!.lookupIdentifier(name);
+      value = parent!.internalLookupIdentifier(name);
     }
     return value;
   }
 
+  Set subscopes = Set(); // CompiledScope
+
   Null registerNestedScope(CompiledNestedScope nestedScope) {
-    stackFrame().registerNestedScope(nestedScope);
-    // CompiledStackFrameScope overrides this to add more behaviour
+    subscopes.add(nestedScope);
   }
 
   DynamicSlot registerSlot(DynamicSlot slot) {
@@ -641,7 +694,7 @@ class CompiledScope extends SlotContext {
     append(instructions, instruction);
   }
   
-  Null markSourceLocation(SourceCode statement) {
+  Null markSourceLocation(AstNode statement) {
     emitInstruction(PendingCommentInstruction(concat('Line ', statement.sourceLocation.lineNo, ': ', truncateString(concat(statement), 64))));
   }
   
@@ -791,10 +844,13 @@ class CompiledScope extends SlotContext {
     String label = environment().generateLabel(concat(block.labelPrefix(), '$', camelCase(what), '$Ok'));
     Slot printHandle = environment().intrinsicsLibrary.corePrint;
     block.emitInstruction(CommentInstruction(concat(' - print(', errorMessage.debugName, ')')));
+    block.references.add(printHandle);
+    block.references.add(errorMessage);
     block.emitSubroutineCall(printHandle, [ errorMessage ]);
     Slot exitHandle = environment().intrinsicsLibrary.coreExit;
     Slot failureExitCode = environment().integer(0x01);
     block.emitInstruction(CommentInstruction(concat(' - exit(1)')));
+    block.references.add(exitHandle);
     block.emitSubroutineCall(exitHandle, [ failureExitCode ]);
     return block;
   }
@@ -936,17 +992,6 @@ class CompiledStackFrameScope extends CompiledScope {
     return this;
   }
 
-  Null prepareInstructions() {
-    // xxx add string decrefs instruction
-    super.prepareInstructions();
-  }
-
-  CompiledNestedScopeList compiledNestedScopes = []:CompiledNestedScope;
-
-  Null registerNestedScope(CompiledNestedScope nestedScope) {
-    append(compiledNestedScopes, nestedScope);
-  }
-
   DynamicSlotList slots = []:DynamicSlot;
 
   DynamicSlot registerSlot(DynamicSlot slot) {
@@ -1053,6 +1098,13 @@ class CompiledSubroutine extends CompiledStackFrameScope {
   Slot returnValuePointer;
   // The parameter that contains a pointer to the return value type.
   Slot returnValueTypePointer;
+
+  // whether anything that is itself used references this
+  Boolean isUsed = false;
+
+  Null markUsed() {
+    isUsed = true;
+  }
 
   String labelPrefix() {
     return concat('func$', name);
@@ -1511,11 +1563,11 @@ class CompiledLibrary extends CompiledStackFrameScope {
     append(libraries, library);
   }
 
-  SlotNullable lookupIdentifier(String name) {
-    SlotNullable result = super.lookupIdentifier(name);
+  SlotNullable internalLookupIdentifier(String name) {
+    SlotNullable result = super.internalLookupIdentifier(name);
     if (result == null) {
       for (library in libraries) {
-        result = library.lookupIdentifier(name);
+        result = library.internalLookupIdentifier(name);
         if (result != null) {
           break;
         }

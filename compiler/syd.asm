@@ -10,7 +10,6 @@ includelib kernel32.lib
 extern GetStdHandle : proc
 extern WriteConsoleA : proc
 extern ExitProcess : proc
-extern GetLastError : proc
 extern GetProcessHeap : proc
 extern HeapAlloc : proc
 extern HeapFree : proc
@@ -54,55 +53,55 @@ extern HeapFree : proc
 
   func$__print$annotation dq -01h                                ; String constant (reference count)
                dq 7                                              ; Length
-               db "__print"                                      ; line 1087 column 111 in file syd-compiler.syd
+               db "__print"                                      ; line 1139 column 111 in file syd-compiler.syd
                db 00h                                            ; padding to align to 8-byte boundary
   func$exit$annotation dq -01h                                   ; String constant (reference count)
                dq 4                                              ; Length
-               db "exit"                                         ; line 1087 column 111 in file syd-compiler.syd
+               db "exit"                                         ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   func$len$annotation dq -01h                                    ; String constant (reference count)
                dq 3                                              ; Length
-               db "len"                                          ; line 1087 column 111 in file syd-compiler.syd
+               db "len"                                          ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   func$__debugger$annotation dq -01h                             ; String constant (reference count)
                dq 10                                             ; Length
-               db "__debugger"                                   ; line 1087 column 111 in file syd-compiler.syd
+               db "__debugger"                                   ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   func$__readFromAddress$annotation dq -01h                      ; String constant (reference count)
                dq 17                                             ; Length
-               db "__readFromAddress"                            ; line 1087 column 111 in file syd-compiler.syd
+               db "__readFromAddress"                            ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   func$__writeToAddress$annotation dq -01h                       ; String constant (reference count)
                dq 16                                             ; Length
-               db "__writeToAddress"                             ; line 1087 column 111 in file syd-compiler.syd
+               db "__writeToAddress"                             ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   parameterCountCheckFailureMessage dq -01h                      ; String constant (reference count)
                dq 88                                             ; Length
-               db "error: function call received the wrong number of parameters (expected %d, received %d)", 0ah ; line 1664 column 25 in file syd-compiler.syd
+               db "error: function call received the wrong number of parameters (expected %d, received %d)", 0ah ; line 1716 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   parameterTypeCheckFailureMessage dq -01h                       ; String constant (reference count)
                dq 71                                             ; Length
-               db "error: type mismatch for function %s parameter %d, expected %s, got %s", 0ah ; line 1669 column 25 in file syd-compiler.syd
+               db "error: type mismatch for function %s parameter %d, expected %s, got %s", 0ah ; line 1721 column 25 in file syd-compiler.syd
                db 00h                                            ; padding to align to 8-byte boundary
   returnValueTypeCheckFailureMessage dq -01h                     ; String constant (reference count)
                dq 68                                             ; Length
-               db "error: type mismatch for function return value, expected %s, got %s", 0ah ; line 1674 column 25 in file syd-compiler.syd
+               db "error: type mismatch for function return value, expected %s, got %s", 0ah ; line 1726 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   operandTypeCheckFailureMessage dq -01h                         ; String constant (reference count)
                dq 54                                             ; Length
-               db "error: type mismatch for operand, expected %s, got %s", 0ah ; line 1679 column 25 in file syd-compiler.syd
+               db "error: type mismatch for operand, expected %s, got %s", 0ah ; line 1731 column 25 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   asOperatorFailureMessage dq -01h                               ; String constant (reference count)
                dq 58                                             ; Length
-               db "error: type mismatch for as operator, expected %s, got %s", 0ah ; line 1684 column 25 in file syd-compiler.syd
+               db "error: type mismatch for as operator, expected %s, got %s", 0ah ; line 1736 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   boundsFailureMessage dq -01h                                   ; String constant (reference count)
                dq 64                                             ; Length
-               db "error: subscript index out of range (%d is not in range %d..%d)", 0ah ; line 1689 column 25 in file syd-compiler.syd
+               db "error: subscript index out of range (%d is not in range %d..%d)", 0ah ; line 1741 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   func$assert$annotation dq -01h                                 ; String constant (reference count)
                dq 6                                              ; Length
-               db "assert"                                       ; line 1087 column 111 in file syd-compiler.syd
+               db "assert"                                       ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   string       dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
@@ -110,35 +109,35 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   func$throw$annotation dq -01h                                  ; String constant (reference count)
                dq 5                                              ; Length
-               db "throw"                                        ; line 1087 column 111 in file syd-compiler.syd
+               db "throw"                                        ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
   func$__getLastError$annotation dq -01h                         ; String constant (reference count)
                dq 14                                             ; Length
-               db "__getLastError"                               ; line 1087 column 111 in file syd-compiler.syd
+               db "__getLastError"                               ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   func$__getProcessHeap$annotation dq -01h                       ; String constant (reference count)
                dq 16                                             ; Length
-               db "__getProcessHeap"                             ; line 1087 column 111 in file syd-compiler.syd
+               db "__getProcessHeap"                             ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   func$__heapAlloc$annotation dq -01h                            ; String constant (reference count)
                dq 11                                             ; Length
-               db "__heapAlloc"                                  ; line 1087 column 111 in file syd-compiler.syd
+               db "__heapAlloc"                                  ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   func$_alloc$annotation dq -01h                                 ; String constant (reference count)
                dq 6                                              ; Length
-               db "_alloc"                                       ; line 1087 column 111 in file syd-compiler.syd
+               db "_alloc"                                       ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   func$__heapFree$annotation dq -01h                             ; String constant (reference count)
                dq 10                                             ; Length
-               db "__heapFree"                                   ; line 1087 column 111 in file syd-compiler.syd
+               db "__heapFree"                                   ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   func$_free$annotation dq -01h                                  ; String constant (reference count)
                dq 5                                              ; Length
-               db "_free"                                        ; line 1087 column 111 in file syd-compiler.syd
+               db "_free"                                        ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
   func$append$annotation dq -01h                                 ; String constant (reference count)
                dq 6                                              ; Length
-               db "append"                                       ; line 1087 column 111 in file syd-compiler.syd
+               db "append"                                       ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   string$1     dq -01h                                           ; String constant (reference count)
                dq 26                                             ; Length
@@ -146,7 +145,7 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   func$chr$annotation dq -01h                                    ; String constant (reference count)
                dq 3                                              ; Length
-               db "chr"                                          ; line 1087 column 111 in file syd-compiler.syd
+               db "chr"                                          ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   string$2     dq -01h                                           ; String constant (reference count)
                dq 23                                             ; Length
@@ -154,7 +153,7 @@ extern HeapFree : proc
                db 00h                                            ; padding to align to 8-byte boundary
   func$joinList$annotation dq -01h                               ; String constant (reference count)
                dq 8                                              ; Length
-               db "joinList"                                     ; line 1087 column 111 in file syd-compiler.syd
+               db "joinList"                                     ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   string$3     dq -01h                                           ; String constant (reference count)
                dq 28                                             ; Length
@@ -162,7 +161,7 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   func$stringTimes$annotation dq -01h                            ; String constant (reference count)
                dq 11                                             ; Length
-               db "stringTimes"                                  ; line 1087 column 111 in file syd-compiler.syd
+               db "stringTimes"                                  ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   string$4     dq -01h                                           ; String constant (reference count)
                dq 31                                             ; Length
@@ -170,7 +169,7 @@ extern HeapFree : proc
                db 00h                                            ; padding to align to 8-byte boundary
   func$charsOf$annotation dq -01h                                ; String constant (reference count)
                dq 7                                              ; Length
-               db "charsOf"                                      ; line 1087 column 111 in file syd-compiler.syd
+               db "charsOf"                                      ; line 1139 column 111 in file syd-compiler.syd
                db 00h                                            ; padding to align to 8-byte boundary
   string$5     dq -01h                                           ; String constant (reference count)
                dq 27                                             ; Length
@@ -178,7 +177,7 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   func$scalarValues$annotation dq -01h                           ; String constant (reference count)
                dq 12                                             ; Length
-               db "scalarValues"                                 ; line 1087 column 111 in file syd-compiler.syd
+               db "scalarValues"                                 ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   string$6     dq -01h                                           ; String constant (reference count)
                dq 32                                             ; Length
@@ -186,7 +185,7 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   func$hex$annotation dq -01h                                    ; String constant (reference count)
                dq 3                                              ; Length
-               db "hex"                                          ; line 1087 column 111 in file syd-compiler.syd
+               db "hex"                                          ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   string$7     dq -01h                                           ; String constant (reference count)
                dq 23                                             ; Length
@@ -194,7 +193,7 @@ extern HeapFree : proc
                db 00h                                            ; padding to align to 8-byte boundary
   func$readFile$annotation dq -01h                               ; String constant (reference count)
                dq 8                                              ; Length
-               db "readFile"                                     ; line 1087 column 111 in file syd-compiler.syd
+               db "readFile"                                     ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   string$8     dq -01h                                           ; String constant (reference count)
                dq 28                                             ; Length
@@ -202,7 +201,7 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   func$stderr$annotation dq -01h                                 ; String constant (reference count)
                dq 6                                              ; Length
-               db "stderr"                                       ; line 1087 column 111 in file syd-compiler.syd
+               db "stderr"                                       ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   string$9     dq -01h                                           ; String constant (reference count)
                dq 26                                             ; Length
@@ -210,7 +209,7 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   func$_moveBytes$annotation dq -01h                             ; String constant (reference count)
                dq 10                                             ; Length
-               db "_moveBytes"                                   ; line 1087 column 111 in file syd-compiler.syd
+               db "_moveBytes"                                   ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   string$10    dq -01h                                           ; String constant (reference count)
                dq 51                                             ; Length
@@ -226,15 +225,15 @@ extern HeapFree : proc
                db 00h                                            ; padding to align to 8-byte boundary
   func$_stringByteLength$annotation dq -01h                      ; String constant (reference count)
                dq 17                                             ; Length
-               db "_stringByteLength"                            ; line 1087 column 111 in file syd-compiler.syd
+               db "_stringByteLength"                            ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   func$concat$annotation dq -01h                                 ; String constant (reference count)
                dq 6                                              ; Length
-               db "concat"                                       ; line 1087 column 111 in file syd-compiler.syd
+               db "concat"                                       ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   func$digitToStr$annotation dq -01h                             ; String constant (reference count)
                dq 10                                             ; Length
-               db "digitToStr"                                   ; line 1087 column 111 in file syd-compiler.syd
+               db "digitToStr"                                   ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   string$13    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
@@ -282,13 +281,13 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   func$intToStr$annotation dq -01h                               ; String constant (reference count)
                dq 8                                              ; Length
-               db "intToStr"                                     ; line 1087 column 111 in file syd-compiler.syd
+               db "intToStr"                                     ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   string$24    dq -01h                                           ; String constant (reference count)
                dq 0                                              ; Length
   func$_stringify$annotation dq -01h                             ; String constant (reference count)
                dq 10                                             ; Length
-               db "_stringify"                                   ; line 1087 column 111 in file syd-compiler.syd
+               db "_stringify"                                   ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   string$25    dq -01h                                           ; String constant (reference count)
                dq 4                                              ; Length
@@ -316,7 +315,7 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   func$print$annotation dq -01h                                  ; String constant (reference count)
                dq 5                                              ; Length
-               db "print"                                        ; line 1087 column 111 in file syd-compiler.syd
+               db "print"                                        ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
   string$31    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
@@ -324,11 +323,11 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   func$println$annotation dq -01h                                ; String constant (reference count)
                dq 7                                              ; Length
-               db "println"                                      ; line 1087 column 111 in file syd-compiler.syd
+               db "println"                                      ; line 1139 column 111 in file syd-compiler.syd
                db 00h                                            ; padding to align to 8-byte boundary
   func$foo$annotation dq -01h                                    ; String constant (reference count)
                dq 3                                              ; Length
-               db "foo"                                          ; line 1087 column 111 in file syd-compiler.syd
+               db "foo"                                          ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
 
 .data
@@ -866,75 +865,6 @@ func$len:
   pop rsi                                                        ; restore non-volatile registers
   pop rbx                                                        ; restore non-volatile registers
   pop r15                                                        ; restore non-volatile registers
-  ret                                                            ; return from subroutine
-
-; __debugger
-dq func$__debugger$annotation
-func$__debugger:
-  ; Prolog
-  push r14                                                       ; save non-volatile registers
-  push rbx                                                       ; save non-volatile registers
-  push rsi                                                       ; save non-volatile registers
-  push rdi                                                       ; save non-volatile registers
-  push r12                                                       ; save non-volatile registers
-  push rbp                                                       ; save non-volatile registers
-  push r13                                                       ; save non-volatile registers
-  sub rsp, 020h                                                  ; allocate space for stack
-  lea rbp, qword ptr [rsp + 058h]                                ; set up frame pointer
-  ; Check parameter count
-  cmp rcx, 000h                                                  ; compare parameter count of __debugger to 0 (integer)
-  je func$__debugger$parameterCountCheck$continuation            ; check number of parameters is as expected
-    ; Error handling block for parameter count
-    ;  - print(parameterCountCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
-    push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rax                                                     ; internal argument 6: pointer to return value slot's value
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rax                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of __debugger value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rbx                                                     ; internal argument 6: pointer to return value slot's value
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rbx                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$__debugger$parameterCountCheck$continuation:              ; end of parameter count check
-  int 3                                                          ; call debugger
-  ; Implicit return from __debugger
-  mov r13, qword ptr [rbp + 030h]                                ; get pointer to return value of __debugger into register to dereference it
-  mov qword ptr [r13], 000h                                      ; __debugger return value
-  mov r14, qword ptr [rbp + 028h]                                ; get pointer to return value type of __debugger into register to dereference it
-  mov qword ptr [r14], 017h                                      ; type of __debugger return value (Null'23)
-  mov rax, qword ptr [rbp + 030h]                                ; report address of return value
-  ; Epilog
-  add rsp, 020h                                                  ; free space for stack
-  pop r13                                                        ; restore non-volatile registers
-  pop rbp                                                        ; restore non-volatile registers
-  pop r12                                                        ; restore non-volatile registers
-  pop rdi                                                        ; restore non-volatile registers
-  pop rsi                                                        ; restore non-volatile registers
-  pop rbx                                                        ; restore non-volatile registers
-  pop r14                                                        ; restore non-volatile registers
   ret                                                            ; return from subroutine
 
 ; __readFromAddress
@@ -1494,279 +1424,6 @@ func$assert:
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
-  pop r14                                                        ; restore non-volatile registers
-  pop r13                                                        ; restore non-volatile registers
-  pop r12                                                        ; restore non-volatile registers
-  pop rbp                                                        ; restore non-volatile registers
-  pop rdi                                                        ; restore non-volatile registers
-  pop rsi                                                        ; restore non-volatile registers
-  pop rbx                                                        ; restore non-volatile registers
-  pop r15                                                        ; restore non-volatile registers
-  ret                                                            ; return from subroutine
-
-; throw
-dq func$throw$annotation
-func$throw:
-  ; Prolog
-  push r15                                                       ; save non-volatile registers
-  push rbx                                                       ; save non-volatile registers
-  push rsi                                                       ; save non-volatile registers
-  push rdi                                                       ; save non-volatile registers
-  push rbp                                                       ; save non-volatile registers
-  push r12                                                       ; save non-volatile registers
-  push r13                                                       ; save non-volatile registers
-  push r14                                                       ; save non-volatile registers
-  sub rsp, 020h                                                  ; allocate space for stack
-  lea rbp, qword ptr [rsp + 060h]                                ; set up frame pointer
-  ; Check parameter count
-  cmp rcx, 001h                                                  ; compare parameter count of throw to 1 (integer)
-  je func$throw$parameterCountCheck$continuation                 ; check number of parameters is as expected
-    ; Error handling block for parameter count
-    ;  - print(parameterCountCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
-    push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rax                                                     ; internal argument 6: pointer to return value slot's value
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rax                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of throw value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rbx                                                     ; internal argument 6: pointer to return value slot's value
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rbx                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$throw$parameterCountCheck$continuation:                   ; end of parameter count check
-  ; Check type of parameter 0, message (expecting String)
-  mov rsi, qword ptr [rbp + 038h]                                ; move type of message to testByte
-  mov rax, rsi                                                   ; move testByte to testByte
-  mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
-  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 003h                                       ; check that message is String
-  jc func$throw$message$TypeMatch                                ; skip next block if the type matches
-    ; Error handling block for message
-    ;  - print(parameterTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
-    push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r14                                                     ; internal argument 6: pointer to return value slot's value
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r14                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of throw value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r15                                                     ; internal argument 6: pointer to return value slot's value
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r15                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$throw$message$TypeMatch:                                  ; after block
-  ; Line 14: __print(message);
-  ; Call __print with 1 arguments
-  push qword ptr [rbp + 040h]                                    ; value of argument #1 (message)
-  push qword ptr [rbp + 038h]                                    ; type of argument #1
-  lea r10, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push r10                                                       ; internal argument 6: pointer to return value slot's value
-  lea r10, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push r10                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov qword ptr [rsp + 040h], rcx                                ; move parameter count of throw value out of rcx
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$__print                                              ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 15: __print('\n');
-  ; Call __print with 1 arguments
-  mov rbx, offset string                                         ; reading string for push
-  push rbx                                                       ; value of argument #1 (string)
-  push 01ah                                                      ; type of argument #1 (String'26)
-  lea rsi, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push rsi                                                       ; internal argument 6: pointer to return value slot's value
-  lea rsi, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push rsi                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$__print                                              ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 16: exit(1);
-  ; Call exit with 1 arguments
-  push 001h                                                      ; value of argument #1 (1)
-  push 019h                                                      ; type of argument #1 (Integer'25)
-  lea rax, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push rax                                                       ; internal argument 6: pointer to return value slot's value
-  lea rax, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push rax                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$exit                                                 ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Implicit return from throw
-  mov r14, qword ptr [rbp + 030h]                                ; get pointer to return value of throw into register to dereference it
-  mov qword ptr [r14], 000h                                      ; throw return value
-  mov r15, qword ptr [rbp + 028h]                                ; get pointer to return value type of throw into register to dereference it
-  mov qword ptr [r15], 017h                                      ; type of throw return value (Null'23)
-  mov rax, qword ptr [rbp + 030h]                                ; report address of return value
-  ; Epilog
-  add rsp, 020h                                                  ; free space for stack
-  pop r14                                                        ; restore non-volatile registers
-  pop r13                                                        ; restore non-volatile registers
-  pop r12                                                        ; restore non-volatile registers
-  pop rbp                                                        ; restore non-volatile registers
-  pop rdi                                                        ; restore non-volatile registers
-  pop rsi                                                        ; restore non-volatile registers
-  pop rbx                                                        ; restore non-volatile registers
-  pop r15                                                        ; restore non-volatile registers
-  ret                                                            ; return from subroutine
-
-; __getLastError
-dq func$__getLastError$annotation
-func$__getLastError:
-  ; Prolog
-  push r15                                                       ; save non-volatile registers
-  push rbx                                                       ; save non-volatile registers
-  push rsi                                                       ; save non-volatile registers
-  push rdi                                                       ; save non-volatile registers
-  push rbp                                                       ; save non-volatile registers
-  push r12                                                       ; save non-volatile registers
-  push r13                                                       ; save non-volatile registers
-  push r14                                                       ; save non-volatile registers
-  sub rsp, 028h                                                  ; allocate space for stack
-  lea rbp, qword ptr [rsp + 068h]                                ; set up frame pointer
-  ; Check parameter count
-  cmp rcx, 000h                                                  ; compare parameter count of __getLastError to 0 (integer)
-  je func$__getLastError$parameterCountCheck$continuation        ; check number of parameters is as expected
-    ; Error handling block for parameter count
-    ;  - print(parameterCountCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
-    push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea rax, qword ptr [rsp + 028h]                              ; load address of return value's value
-    push rax                                                     ; internal argument 6: pointer to return value slot's value
-    lea rax, qword ptr [rsp + 028h]                              ; load address of return value's type
-    push rax                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 048h], rcx                              ; move parameter count of __getLastError value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea rbx, qword ptr [rsp + 028h]                              ; load address of return value's value
-    push rbx                                                     ; internal argument 6: pointer to return value slot's value
-    lea rbx, qword ptr [rsp + 028h]                              ; load address of return value's type
-    push rbx                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 008h]                              ; restoring slots to previous scope state
-  func$__getLastError$parameterCountCheck$continuation:          ; end of parameter count check
-  ; Calling GetLastError
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov qword ptr [rsp + 038h], rcx                                ; move parameter count of __getLastError value out of rcx
-  call GetLastError                                              ; calls GetLastError from kernel32.lib
-  mov rsi, 019h                                                  ; return value of GetLastError system call is of type Integer'25
-  add rsp, 020h                                                  ; release shadow space and arguments if there were more than four (result in stack pointer)
-  cmp rsi, 000h                                                  ; compare type of return value of GetLastError system call to <sentinel>
-  jne func$__getLastError$GetlasterrorReturnValue$TypeMatch      ; skip next block if return value of GetLastError system call is not sentinel
-    ; Error handling block for __getLastError return value
-    ;  - print(returnValueTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov rdi, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
-    push rdi                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r12, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r12                                                     ; internal argument 6: pointer to return value slot's value
-    lea r12, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r12                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    mov qword ptr [rsp + 040h], rax                              ; move return value of GetLastError system call value out of rax
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r13, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r13                                                     ; internal argument 6: pointer to return value slot's value
-    lea r13, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r13                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rax, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$__getLastError$GetlasterrorReturnValue$TypeMatch:         ; after block
-  mov r14, qword ptr [rbp + 030h]                                ; get pointer to return value of __getLastError into register to dereference it
-  mov qword ptr [r14], rax                                       ; __getLastError return value
-  mov r15, qword ptr [rbp + 028h]                                ; get pointer to return value type of __getLastError into register to dereference it
-  mov qword ptr [r15], rsi                                       ; type of __getLastError return value
-  mov rax, qword ptr [rbp + 030h]                                ; report address of return value
-  ; Epilog
-  add rsp, 028h                                                  ; free space for stack
   pop r14                                                        ; restore non-volatile registers
   pop r13                                                        ; restore non-volatile registers
   pop r12                                                        ; restore non-volatile registers
@@ -2802,1691 +2459,6 @@ func$_free:
   pop r15                                                        ; restore non-volatile registers
   ret                                                            ; return from subroutine
 
-; append
-dq func$append$annotation
-func$append:
-  ; Prolog
-  push r15                                                       ; save non-volatile registers
-  push rbx                                                       ; save non-volatile registers
-  push rsi                                                       ; save non-volatile registers
-  push rdi                                                       ; save non-volatile registers
-  push rbp                                                       ; save non-volatile registers
-  push r12                                                       ; save non-volatile registers
-  push r13                                                       ; save non-volatile registers
-  push r14                                                       ; save non-volatile registers
-  sub rsp, 020h                                                  ; allocate space for stack
-  lea rbp, qword ptr [rsp + 060h]                                ; set up frame pointer
-  ; Check parameter count
-  cmp rcx, 002h                                                  ; compare parameter count of append to 2 (integer)
-  je func$append$parameterCountCheck$continuation                ; check number of parameters is as expected
-    ; Error handling block for parameter count
-    ;  - print(parameterCountCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
-    push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rax                                                     ; internal argument 6: pointer to return value slot's value
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rax                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of append value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rbx                                                     ; internal argument 6: pointer to return value slot's value
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rbx                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$append$parameterCountCheck$continuation:                  ; end of parameter count check
-  ; Check type of parameter 0, list (expecting WhateverList)
-  mov rsi, qword ptr [rbp + 038h]                                ; move type of list to testByte
-  mov rax, rsi                                                   ; move testByte to testByte
-  mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
-  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 007h                                       ; check that list is WhateverList
-  jc func$append$list$TypeMatch                                  ; skip next block if the type matches
-    ; Error handling block for list
-    ;  - print(parameterTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
-    push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r14                                                     ; internal argument 6: pointer to return value slot's value
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r14                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of append value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r15                                                     ; internal argument 6: pointer to return value slot's value
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r15                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$append$list$TypeMatch:                                    ; after block
-  ; Check type of parameter 1, element (expecting Anything)
-  mov r10, qword ptr [rbp + 048h]                                ; move type of element to testByte
-  mov rax, r10                                                   ; move testByte to testByte
-  mov rbx, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rbx                                                        ; adjust to the relative start of that type's entry in the type table
-  mov rsi, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, rsi                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 004h                                       ; check that element is Anything
-  jc func$append$element$TypeMatch                               ; skip next block if the type matches
-    ; Error handling block for element
-    ;  - print(parameterTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov rdi, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
-    push rdi                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r12, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r12                                                     ; internal argument 6: pointer to return value slot's value
-    lea r12, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r12                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of append value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r13, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r13                                                     ; internal argument 6: pointer to return value slot's value
-    lea r13, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r13                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$append$element$TypeMatch:                                 ; after block
-  ; Line 51: __print('append is not implemented\n');
-  ; Call __print with 1 arguments
-  mov r14, offset string$1                                       ; reading string for push
-  push r14                                                       ; value of argument #1 (string)
-  push 01ah                                                      ; type of argument #1 (String'26)
-  lea r15, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push r15                                                       ; internal argument 6: pointer to return value slot's value
-  lea r15, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push r15                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov qword ptr [rsp + 040h], rcx                                ; move parameter count of append value out of rcx
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$__print                                              ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 52: exit(1);
-  ; Call exit with 1 arguments
-  push 001h                                                      ; value of argument #1 (1)
-  push 019h                                                      ; type of argument #1 (Integer'25)
-  lea r10, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push r10                                                       ; internal argument 6: pointer to return value slot's value
-  lea r10, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push r10                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$exit                                                 ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Implicit return from append
-  mov rdi, qword ptr [rbp + 030h]                                ; get pointer to return value of append into register to dereference it
-  mov qword ptr [rdi], 000h                                      ; append return value
-  mov r12, qword ptr [rbp + 028h]                                ; get pointer to return value type of append into register to dereference it
-  mov qword ptr [r12], 017h                                      ; type of append return value (Null'23)
-  mov rax, qword ptr [rbp + 030h]                                ; report address of return value
-  ; Epilog
-  add rsp, 020h                                                  ; free space for stack
-  pop r14                                                        ; restore non-volatile registers
-  pop r13                                                        ; restore non-volatile registers
-  pop r12                                                        ; restore non-volatile registers
-  pop rbp                                                        ; restore non-volatile registers
-  pop rdi                                                        ; restore non-volatile registers
-  pop rsi                                                        ; restore non-volatile registers
-  pop rbx                                                        ; restore non-volatile registers
-  pop r15                                                        ; restore non-volatile registers
-  ret                                                            ; return from subroutine
-
-; chr
-dq func$chr$annotation
-func$chr:
-  ; Prolog
-  push r15                                                       ; save non-volatile registers
-  push rbx                                                       ; save non-volatile registers
-  push rsi                                                       ; save non-volatile registers
-  push rdi                                                       ; save non-volatile registers
-  push rbp                                                       ; save non-volatile registers
-  push r12                                                       ; save non-volatile registers
-  push r13                                                       ; save non-volatile registers
-  push r14                                                       ; save non-volatile registers
-  sub rsp, 020h                                                  ; allocate space for stack
-  lea rbp, qword ptr [rsp + 060h]                                ; set up frame pointer
-  ; Check parameter count
-  cmp rcx, 001h                                                  ; compare parameter count of chr to 1 (integer)
-  je func$chr$parameterCountCheck$continuation                   ; check number of parameters is as expected
-    ; Error handling block for parameter count
-    ;  - print(parameterCountCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
-    push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rax                                                     ; internal argument 6: pointer to return value slot's value
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rax                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of chr value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rbx                                                     ; internal argument 6: pointer to return value slot's value
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rbx                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$chr$parameterCountCheck$continuation:                     ; end of parameter count check
-  ; Check type of parameter 0, character (expecting Integer)
-  mov rsi, qword ptr [rbp + 038h]                                ; move type of character to testByte
-  mov rax, rsi                                                   ; move testByte to testByte
-  mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
-  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 002h                                       ; check that character is Integer
-  jc func$chr$character$TypeMatch                                ; skip next block if the type matches
-    ; Error handling block for character
-    ;  - print(parameterTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
-    push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r14                                                     ; internal argument 6: pointer to return value slot's value
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r14                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of chr value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r15                                                     ; internal argument 6: pointer to return value slot's value
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r15                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$chr$character$TypeMatch:                                  ; after block
-  ; Line 57: __print('chr is not implemented\n');
-  ; Call __print with 1 arguments
-  mov r10, offset string$2                                       ; reading string for push
-  push r10                                                       ; value of argument #1 (string)
-  push 01ah                                                      ; type of argument #1 (String'26)
-  lea rbx, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push rbx                                                       ; internal argument 6: pointer to return value slot's value
-  lea rbx, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push rbx                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov qword ptr [rsp + 040h], rcx                                ; move parameter count of chr value out of rcx
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$__print                                              ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 58: exit(1);
-  ; Call exit with 1 arguments
-  push 001h                                                      ; value of argument #1 (1)
-  push 019h                                                      ; type of argument #1 (Integer'25)
-  lea rsi, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push rsi                                                       ; internal argument 6: pointer to return value slot's value
-  lea rsi, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push rsi                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$exit                                                 ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Implicit return from chr
-  mov rax, 017h                                                  ; move type of null to testByte
-  mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
-  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 003h                                       ; check that chr return value is String
-  jc func$chr$chrReturnValue$TypeMatch                           ; skip next block if the type matches
-    ; Error handling block for chr return value
-    ;  - print(returnValueTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r13, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
-    push r13                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r14                                                     ; internal argument 6: pointer to return value slot's value
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r14                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r15                                                     ; internal argument 6: pointer to return value slot's value
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r15                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-  func$chr$chrReturnValue$TypeMatch:                             ; after block
-  mov r10, qword ptr [rbp + 030h]                                ; get pointer to return value of chr into register to dereference it
-  mov qword ptr [r10], 000h                                      ; chr return value
-  mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of chr into register to dereference it
-  mov qword ptr [rbx], 017h                                      ; type of chr return value (Null'23)
-  mov rax, qword ptr [rbp + 030h]                                ; report address of return value
-  ; Epilog
-  add rsp, 020h                                                  ; free space for stack
-  pop r14                                                        ; restore non-volatile registers
-  pop r13                                                        ; restore non-volatile registers
-  pop r12                                                        ; restore non-volatile registers
-  pop rbp                                                        ; restore non-volatile registers
-  pop rdi                                                        ; restore non-volatile registers
-  pop rsi                                                        ; restore non-volatile registers
-  pop rbx                                                        ; restore non-volatile registers
-  pop r15                                                        ; restore non-volatile registers
-  ret                                                            ; return from subroutine
-
-; joinList
-dq func$joinList$annotation
-func$joinList:
-  ; Prolog
-  push r15                                                       ; save non-volatile registers
-  push rbx                                                       ; save non-volatile registers
-  push rsi                                                       ; save non-volatile registers
-  push rdi                                                       ; save non-volatile registers
-  push rbp                                                       ; save non-volatile registers
-  push r12                                                       ; save non-volatile registers
-  push r13                                                       ; save non-volatile registers
-  push r14                                                       ; save non-volatile registers
-  sub rsp, 020h                                                  ; allocate space for stack
-  lea rbp, qword ptr [rsp + 060h]                                ; set up frame pointer
-  ; Check parameter count
-  cmp rcx, 001h                                                  ; compare parameter count of joinList to 1 (integer)
-  je func$joinList$parameterCountCheck$continuation              ; check number of parameters is as expected
-    ; Error handling block for parameter count
-    ;  - print(parameterCountCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
-    push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rax                                                     ; internal argument 6: pointer to return value slot's value
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rax                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of joinList value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rbx                                                     ; internal argument 6: pointer to return value slot's value
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rbx                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$joinList$parameterCountCheck$continuation:                ; end of parameter count check
-  ; Check type of parameter 0, args (expecting StringList)
-  mov rsi, qword ptr [rbp + 038h]                                ; move type of args to testByte
-  mov rax, rsi                                                   ; move testByte to testByte
-  mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
-  add rax, 001h                                                  ; adjust to the byte containing the bit to check against (result in testByte)
-  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 000h                                       ; check that args is StringList
-  jc func$joinList$args$TypeMatch                                ; skip next block if the type matches
-    ; Error handling block for args
-    ;  - print(parameterTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
-    push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r14                                                     ; internal argument 6: pointer to return value slot's value
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r14                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of joinList value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r15                                                     ; internal argument 6: pointer to return value slot's value
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r15                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$joinList$args$TypeMatch:                                  ; after block
-  ; Line 63: __print('joinList is not implemented\n');
-  ; Call __print with 1 arguments
-  mov r10, offset string$3                                       ; reading string for push
-  push r10                                                       ; value of argument #1 (string)
-  push 01ah                                                      ; type of argument #1 (String'26)
-  lea rbx, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push rbx                                                       ; internal argument 6: pointer to return value slot's value
-  lea rbx, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push rbx                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov qword ptr [rsp + 040h], rcx                                ; move parameter count of joinList value out of rcx
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$__print                                              ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 64: exit(1);
-  ; Call exit with 1 arguments
-  push 001h                                                      ; value of argument #1 (1)
-  push 019h                                                      ; type of argument #1 (Integer'25)
-  lea rsi, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push rsi                                                       ; internal argument 6: pointer to return value slot's value
-  lea rsi, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push rsi                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$exit                                                 ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Implicit return from joinList
-  mov rax, 017h                                                  ; move type of null to testByte
-  mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
-  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 003h                                       ; check that joinList return value is String
-  jc func$joinList$joinlistReturnValue$TypeMatch                 ; skip next block if the type matches
-    ; Error handling block for joinList return value
-    ;  - print(returnValueTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r13, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
-    push r13                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r14                                                     ; internal argument 6: pointer to return value slot's value
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r14                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r15                                                     ; internal argument 6: pointer to return value slot's value
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r15                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-  func$joinList$joinlistReturnValue$TypeMatch:                   ; after block
-  mov r10, qword ptr [rbp + 030h]                                ; get pointer to return value of joinList into register to dereference it
-  mov qword ptr [r10], 000h                                      ; joinList return value
-  mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of joinList into register to dereference it
-  mov qword ptr [rbx], 017h                                      ; type of joinList return value (Null'23)
-  mov rax, qword ptr [rbp + 030h]                                ; report address of return value
-  ; Epilog
-  add rsp, 020h                                                  ; free space for stack
-  pop r14                                                        ; restore non-volatile registers
-  pop r13                                                        ; restore non-volatile registers
-  pop r12                                                        ; restore non-volatile registers
-  pop rbp                                                        ; restore non-volatile registers
-  pop rdi                                                        ; restore non-volatile registers
-  pop rsi                                                        ; restore non-volatile registers
-  pop rbx                                                        ; restore non-volatile registers
-  pop r15                                                        ; restore non-volatile registers
-  ret                                                            ; return from subroutine
-
-; stringTimes
-dq func$stringTimes$annotation
-func$stringTimes:
-  ; Prolog
-  push r15                                                       ; save non-volatile registers
-  push rbx                                                       ; save non-volatile registers
-  push rsi                                                       ; save non-volatile registers
-  push rdi                                                       ; save non-volatile registers
-  push rbp                                                       ; save non-volatile registers
-  push r12                                                       ; save non-volatile registers
-  push r13                                                       ; save non-volatile registers
-  push r14                                                       ; save non-volatile registers
-  sub rsp, 020h                                                  ; allocate space for stack
-  lea rbp, qword ptr [rsp + 060h]                                ; set up frame pointer
-  ; Check parameter count
-  cmp rcx, 002h                                                  ; compare parameter count of stringTimes to 2 (integer)
-  je func$stringTimes$parameterCountCheck$continuation           ; check number of parameters is as expected
-    ; Error handling block for parameter count
-    ;  - print(parameterCountCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
-    push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rax                                                     ; internal argument 6: pointer to return value slot's value
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rax                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of stringTimes value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rbx                                                     ; internal argument 6: pointer to return value slot's value
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rbx                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$stringTimes$parameterCountCheck$continuation:             ; end of parameter count check
-  ; Check type of parameter 0, str (expecting String)
-  mov rsi, qword ptr [rbp + 038h]                                ; move type of str to testByte
-  mov rax, rsi                                                   ; move testByte to testByte
-  mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
-  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 003h                                       ; check that str is String
-  jc func$stringTimes$str$TypeMatch                              ; skip next block if the type matches
-    ; Error handling block for str
-    ;  - print(parameterTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
-    push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r14                                                     ; internal argument 6: pointer to return value slot's value
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r14                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of stringTimes value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r15                                                     ; internal argument 6: pointer to return value slot's value
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r15                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$stringTimes$str$TypeMatch:                                ; after block
-  ; Check type of parameter 1, count (expecting Integer)
-  mov r10, qword ptr [rbp + 048h]                                ; move type of count to testByte
-  mov rax, r10                                                   ; move testByte to testByte
-  mov rbx, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rbx                                                        ; adjust to the relative start of that type's entry in the type table
-  mov rsi, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, rsi                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 002h                                       ; check that count is Integer
-  jc func$stringTimes$count$TypeMatch                            ; skip next block if the type matches
-    ; Error handling block for count
-    ;  - print(parameterTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov rdi, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
-    push rdi                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r12, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r12                                                     ; internal argument 6: pointer to return value slot's value
-    lea r12, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r12                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of stringTimes value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r13, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r13                                                     ; internal argument 6: pointer to return value slot's value
-    lea r13, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r13                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$stringTimes$count$TypeMatch:                              ; after block
-  ; Line 69: __print('stringTimes is not implemented\n');
-  ; Call __print with 1 arguments
-  mov r14, offset string$4                                       ; reading string for push
-  push r14                                                       ; value of argument #1 (string)
-  push 01ah                                                      ; type of argument #1 (String'26)
-  lea r15, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push r15                                                       ; internal argument 6: pointer to return value slot's value
-  lea r15, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push r15                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov qword ptr [rsp + 040h], rcx                                ; move parameter count of stringTimes value out of rcx
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$__print                                              ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 70: exit(1);
-  ; Call exit with 1 arguments
-  push 001h                                                      ; value of argument #1 (1)
-  push 019h                                                      ; type of argument #1 (Integer'25)
-  lea r10, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push r10                                                       ; internal argument 6: pointer to return value slot's value
-  lea r10, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push r10                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$exit                                                 ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Implicit return from stringTimes
-  mov rax, 017h                                                  ; move type of null to testByte
-  mov rbx, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rbx                                                        ; adjust to the relative start of that type's entry in the type table
-  mov rsi, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, rsi                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 003h                                       ; check that stringTimes return value is String
-  jc func$stringTimes$stringtimesReturnValue$TypeMatch           ; skip next block if the type matches
-    ; Error handling block for stringTimes return value
-    ;  - print(returnValueTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov rdi, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
-    push rdi                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r12, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r12                                                     ; internal argument 6: pointer to return value slot's value
-    lea r12, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r12                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r13, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r13                                                     ; internal argument 6: pointer to return value slot's value
-    lea r13, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r13                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-  func$stringTimes$stringtimesReturnValue$TypeMatch:             ; after block
-  mov r14, qword ptr [rbp + 030h]                                ; get pointer to return value of stringTimes into register to dereference it
-  mov qword ptr [r14], 000h                                      ; stringTimes return value
-  mov r15, qword ptr [rbp + 028h]                                ; get pointer to return value type of stringTimes into register to dereference it
-  mov qword ptr [r15], 017h                                      ; type of stringTimes return value (Null'23)
-  mov rax, qword ptr [rbp + 030h]                                ; report address of return value
-  ; Epilog
-  add rsp, 020h                                                  ; free space for stack
-  pop r14                                                        ; restore non-volatile registers
-  pop r13                                                        ; restore non-volatile registers
-  pop r12                                                        ; restore non-volatile registers
-  pop rbp                                                        ; restore non-volatile registers
-  pop rdi                                                        ; restore non-volatile registers
-  pop rsi                                                        ; restore non-volatile registers
-  pop rbx                                                        ; restore non-volatile registers
-  pop r15                                                        ; restore non-volatile registers
-  ret                                                            ; return from subroutine
-
-; charsOf
-dq func$charsOf$annotation
-func$charsOf:
-  ; Prolog
-  push r15                                                       ; save non-volatile registers
-  push rbx                                                       ; save non-volatile registers
-  push rsi                                                       ; save non-volatile registers
-  push rdi                                                       ; save non-volatile registers
-  push rbp                                                       ; save non-volatile registers
-  push r12                                                       ; save non-volatile registers
-  push r13                                                       ; save non-volatile registers
-  push r14                                                       ; save non-volatile registers
-  sub rsp, 020h                                                  ; allocate space for stack
-  lea rbp, qword ptr [rsp + 060h]                                ; set up frame pointer
-  ; Check parameter count
-  cmp rcx, 001h                                                  ; compare parameter count of charsOf to 1 (integer)
-  je func$charsOf$parameterCountCheck$continuation               ; check number of parameters is as expected
-    ; Error handling block for parameter count
-    ;  - print(parameterCountCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
-    push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rax                                                     ; internal argument 6: pointer to return value slot's value
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rax                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of charsOf value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rbx                                                     ; internal argument 6: pointer to return value slot's value
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rbx                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$charsOf$parameterCountCheck$continuation:                 ; end of parameter count check
-  ; Check type of parameter 0, str (expecting String)
-  mov rsi, qword ptr [rbp + 038h]                                ; move type of str to testByte
-  mov rax, rsi                                                   ; move testByte to testByte
-  mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
-  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 003h                                       ; check that str is String
-  jc func$charsOf$str$TypeMatch                                  ; skip next block if the type matches
-    ; Error handling block for str
-    ;  - print(parameterTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
-    push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r14                                                     ; internal argument 6: pointer to return value slot's value
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r14                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of charsOf value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r15                                                     ; internal argument 6: pointer to return value slot's value
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r15                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$charsOf$str$TypeMatch:                                    ; after block
-  ; Line 75: __print('charsOf is not implemented\n');
-  ; Call __print with 1 arguments
-  mov r10, offset string$5                                       ; reading string for push
-  push r10                                                       ; value of argument #1 (string)
-  push 01ah                                                      ; type of argument #1 (String'26)
-  lea rbx, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push rbx                                                       ; internal argument 6: pointer to return value slot's value
-  lea rbx, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push rbx                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov qword ptr [rsp + 040h], rcx                                ; move parameter count of charsOf value out of rcx
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$__print                                              ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 76: exit(1);
-  ; Call exit with 1 arguments
-  push 001h                                                      ; value of argument #1 (1)
-  push 019h                                                      ; type of argument #1 (Integer'25)
-  lea rsi, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push rsi                                                       ; internal argument 6: pointer to return value slot's value
-  lea rsi, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push rsi                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$exit                                                 ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Implicit return from charsOf
-  mov rax, 017h                                                  ; move type of null to testByte
-  mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
-  add rax, 001h                                                  ; adjust to the byte containing the bit to check against (result in testByte)
-  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 000h                                       ; check that charsOf return value is StringList
-  jc func$charsOf$charsofReturnValue$TypeMatch                   ; skip next block if the type matches
-    ; Error handling block for charsOf return value
-    ;  - print(returnValueTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r13, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
-    push r13                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r14                                                     ; internal argument 6: pointer to return value slot's value
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r14                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r15                                                     ; internal argument 6: pointer to return value slot's value
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r15                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-  func$charsOf$charsofReturnValue$TypeMatch:                     ; after block
-  mov r10, qword ptr [rbp + 030h]                                ; get pointer to return value of charsOf into register to dereference it
-  mov qword ptr [r10], 000h                                      ; charsOf return value
-  mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of charsOf into register to dereference it
-  mov qword ptr [rbx], 017h                                      ; type of charsOf return value (Null'23)
-  mov rax, qword ptr [rbp + 030h]                                ; report address of return value
-  ; Epilog
-  add rsp, 020h                                                  ; free space for stack
-  pop r14                                                        ; restore non-volatile registers
-  pop r13                                                        ; restore non-volatile registers
-  pop r12                                                        ; restore non-volatile registers
-  pop rbp                                                        ; restore non-volatile registers
-  pop rdi                                                        ; restore non-volatile registers
-  pop rsi                                                        ; restore non-volatile registers
-  pop rbx                                                        ; restore non-volatile registers
-  pop r15                                                        ; restore non-volatile registers
-  ret                                                            ; return from subroutine
-
-; scalarValues
-dq func$scalarValues$annotation
-func$scalarValues:
-  ; Prolog
-  push r15                                                       ; save non-volatile registers
-  push rbx                                                       ; save non-volatile registers
-  push rsi                                                       ; save non-volatile registers
-  push rdi                                                       ; save non-volatile registers
-  push rbp                                                       ; save non-volatile registers
-  push r12                                                       ; save non-volatile registers
-  push r13                                                       ; save non-volatile registers
-  push r14                                                       ; save non-volatile registers
-  sub rsp, 020h                                                  ; allocate space for stack
-  lea rbp, qword ptr [rsp + 060h]                                ; set up frame pointer
-  ; Check parameter count
-  cmp rcx, 001h                                                  ; compare parameter count of scalarValues to 1 (integer)
-  je func$scalarValues$parameterCountCheck$continuation          ; check number of parameters is as expected
-    ; Error handling block for parameter count
-    ;  - print(parameterCountCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
-    push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rax                                                     ; internal argument 6: pointer to return value slot's value
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rax                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of scalarValues value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rbx                                                     ; internal argument 6: pointer to return value slot's value
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rbx                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$scalarValues$parameterCountCheck$continuation:            ; end of parameter count check
-  ; Check type of parameter 0, str (expecting String)
-  mov rsi, qword ptr [rbp + 038h]                                ; move type of str to testByte
-  mov rax, rsi                                                   ; move testByte to testByte
-  mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
-  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 003h                                       ; check that str is String
-  jc func$scalarValues$str$TypeMatch                             ; skip next block if the type matches
-    ; Error handling block for str
-    ;  - print(parameterTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
-    push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r14                                                     ; internal argument 6: pointer to return value slot's value
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r14                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of scalarValues value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r15                                                     ; internal argument 6: pointer to return value slot's value
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r15                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$scalarValues$str$TypeMatch:                               ; after block
-  ; Line 81: __print('scalarValues is not implemented\n');
-  ; Call __print with 1 arguments
-  mov r10, offset string$6                                       ; reading string for push
-  push r10                                                       ; value of argument #1 (string)
-  push 01ah                                                      ; type of argument #1 (String'26)
-  lea rbx, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push rbx                                                       ; internal argument 6: pointer to return value slot's value
-  lea rbx, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push rbx                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov qword ptr [rsp + 040h], rcx                                ; move parameter count of scalarValues value out of rcx
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$__print                                              ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 82: exit(1);
-  ; Call exit with 1 arguments
-  push 001h                                                      ; value of argument #1 (1)
-  push 019h                                                      ; type of argument #1 (Integer'25)
-  lea rsi, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push rsi                                                       ; internal argument 6: pointer to return value slot's value
-  lea rsi, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push rsi                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$exit                                                 ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Implicit return from scalarValues
-  mov rax, 017h                                                  ; move type of null to testByte
-  mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
-  add rax, 001h                                                  ; adjust to the byte containing the bit to check against (result in testByte)
-  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 000h                                       ; check that scalarValues return value is StringList
-  jc func$scalarValues$scalarvaluesReturnValue$TypeMatch         ; skip next block if the type matches
-    ; Error handling block for scalarValues return value
-    ;  - print(returnValueTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r13, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
-    push r13                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r14                                                     ; internal argument 6: pointer to return value slot's value
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r14                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r15                                                     ; internal argument 6: pointer to return value slot's value
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r15                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-  func$scalarValues$scalarvaluesReturnValue$TypeMatch:           ; after block
-  mov r10, qword ptr [rbp + 030h]                                ; get pointer to return value of scalarValues into register to dereference it
-  mov qword ptr [r10], 000h                                      ; scalarValues return value
-  mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of scalarValues into register to dereference it
-  mov qword ptr [rbx], 017h                                      ; type of scalarValues return value (Null'23)
-  mov rax, qword ptr [rbp + 030h]                                ; report address of return value
-  ; Epilog
-  add rsp, 020h                                                  ; free space for stack
-  pop r14                                                        ; restore non-volatile registers
-  pop r13                                                        ; restore non-volatile registers
-  pop r12                                                        ; restore non-volatile registers
-  pop rbp                                                        ; restore non-volatile registers
-  pop rdi                                                        ; restore non-volatile registers
-  pop rsi                                                        ; restore non-volatile registers
-  pop rbx                                                        ; restore non-volatile registers
-  pop r15                                                        ; restore non-volatile registers
-  ret                                                            ; return from subroutine
-
-; hex
-dq func$hex$annotation
-func$hex:
-  ; Prolog
-  push r15                                                       ; save non-volatile registers
-  push rbx                                                       ; save non-volatile registers
-  push rsi                                                       ; save non-volatile registers
-  push rdi                                                       ; save non-volatile registers
-  push rbp                                                       ; save non-volatile registers
-  push r12                                                       ; save non-volatile registers
-  push r13                                                       ; save non-volatile registers
-  push r14                                                       ; save non-volatile registers
-  sub rsp, 020h                                                  ; allocate space for stack
-  lea rbp, qword ptr [rsp + 060h]                                ; set up frame pointer
-  ; Check parameter count
-  cmp rcx, 001h                                                  ; compare parameter count of hex to 1 (integer)
-  je func$hex$parameterCountCheck$continuation                   ; check number of parameters is as expected
-    ; Error handling block for parameter count
-    ;  - print(parameterCountCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
-    push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rax                                                     ; internal argument 6: pointer to return value slot's value
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rax                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of hex value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rbx                                                     ; internal argument 6: pointer to return value slot's value
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rbx                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$hex$parameterCountCheck$continuation:                     ; end of parameter count check
-  ; Check type of parameter 0, num (expecting Integer)
-  mov rsi, qword ptr [rbp + 038h]                                ; move type of num to testByte
-  mov rax, rsi                                                   ; move testByte to testByte
-  mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
-  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 002h                                       ; check that num is Integer
-  jc func$hex$num$TypeMatch                                      ; skip next block if the type matches
-    ; Error handling block for num
-    ;  - print(parameterTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
-    push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r14                                                     ; internal argument 6: pointer to return value slot's value
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r14                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of hex value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r15                                                     ; internal argument 6: pointer to return value slot's value
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r15                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$hex$num$TypeMatch:                                        ; after block
-  ; Line 87: __print('hex is not implemented\n');
-  ; Call __print with 1 arguments
-  mov r10, offset string$7                                       ; reading string for push
-  push r10                                                       ; value of argument #1 (string)
-  push 01ah                                                      ; type of argument #1 (String'26)
-  lea rbx, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push rbx                                                       ; internal argument 6: pointer to return value slot's value
-  lea rbx, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push rbx                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov qword ptr [rsp + 040h], rcx                                ; move parameter count of hex value out of rcx
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$__print                                              ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 88: exit(1);
-  ; Call exit with 1 arguments
-  push 001h                                                      ; value of argument #1 (1)
-  push 019h                                                      ; type of argument #1 (Integer'25)
-  lea rsi, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push rsi                                                       ; internal argument 6: pointer to return value slot's value
-  lea rsi, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push rsi                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$exit                                                 ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Implicit return from hex
-  mov rax, 017h                                                  ; move type of null to testByte
-  mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
-  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 003h                                       ; check that hex return value is String
-  jc func$hex$hexReturnValue$TypeMatch                           ; skip next block if the type matches
-    ; Error handling block for hex return value
-    ;  - print(returnValueTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r13, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
-    push r13                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r14                                                     ; internal argument 6: pointer to return value slot's value
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r14                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r15                                                     ; internal argument 6: pointer to return value slot's value
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r15                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-  func$hex$hexReturnValue$TypeMatch:                             ; after block
-  mov r10, qword ptr [rbp + 030h]                                ; get pointer to return value of hex into register to dereference it
-  mov qword ptr [r10], 000h                                      ; hex return value
-  mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of hex into register to dereference it
-  mov qword ptr [rbx], 017h                                      ; type of hex return value (Null'23)
-  mov rax, qword ptr [rbp + 030h]                                ; report address of return value
-  ; Epilog
-  add rsp, 020h                                                  ; free space for stack
-  pop r14                                                        ; restore non-volatile registers
-  pop r13                                                        ; restore non-volatile registers
-  pop r12                                                        ; restore non-volatile registers
-  pop rbp                                                        ; restore non-volatile registers
-  pop rdi                                                        ; restore non-volatile registers
-  pop rsi                                                        ; restore non-volatile registers
-  pop rbx                                                        ; restore non-volatile registers
-  pop r15                                                        ; restore non-volatile registers
-  ret                                                            ; return from subroutine
-
-; readFile
-dq func$readFile$annotation
-func$readFile:
-  ; Prolog
-  push r15                                                       ; save non-volatile registers
-  push rbx                                                       ; save non-volatile registers
-  push rsi                                                       ; save non-volatile registers
-  push rdi                                                       ; save non-volatile registers
-  push rbp                                                       ; save non-volatile registers
-  push r12                                                       ; save non-volatile registers
-  push r13                                                       ; save non-volatile registers
-  push r14                                                       ; save non-volatile registers
-  sub rsp, 020h                                                  ; allocate space for stack
-  lea rbp, qword ptr [rsp + 060h]                                ; set up frame pointer
-  ; Check parameter count
-  cmp rcx, 001h                                                  ; compare parameter count of readFile to 1 (integer)
-  je func$readFile$parameterCountCheck$continuation              ; check number of parameters is as expected
-    ; Error handling block for parameter count
-    ;  - print(parameterCountCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
-    push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rax                                                     ; internal argument 6: pointer to return value slot's value
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rax                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of readFile value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rbx                                                     ; internal argument 6: pointer to return value slot's value
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rbx                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$readFile$parameterCountCheck$continuation:                ; end of parameter count check
-  ; Check type of parameter 0, file (expecting String)
-  mov rsi, qword ptr [rbp + 038h]                                ; move type of file to testByte
-  mov rax, rsi                                                   ; move testByte to testByte
-  mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
-  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 003h                                       ; check that file is String
-  jc func$readFile$file$TypeMatch                                ; skip next block if the type matches
-    ; Error handling block for file
-    ;  - print(parameterTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
-    push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r14                                                     ; internal argument 6: pointer to return value slot's value
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r14                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of readFile value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r15                                                     ; internal argument 6: pointer to return value slot's value
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r15                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$readFile$file$TypeMatch:                                  ; after block
-  ; Line 93: __print('readFile is not implemented\n');
-  ; Call __print with 1 arguments
-  mov r10, offset string$8                                       ; reading string for push
-  push r10                                                       ; value of argument #1 (string)
-  push 01ah                                                      ; type of argument #1 (String'26)
-  lea rbx, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push rbx                                                       ; internal argument 6: pointer to return value slot's value
-  lea rbx, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push rbx                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov qword ptr [rsp + 040h], rcx                                ; move parameter count of readFile value out of rcx
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$__print                                              ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 94: exit(1);
-  ; Call exit with 1 arguments
-  push 001h                                                      ; value of argument #1 (1)
-  push 019h                                                      ; type of argument #1 (Integer'25)
-  lea rsi, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push rsi                                                       ; internal argument 6: pointer to return value slot's value
-  lea rsi, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push rsi                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$exit                                                 ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Implicit return from readFile
-  mov rax, 017h                                                  ; move type of null to testByte
-  mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
-  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 003h                                       ; check that readFile return value is String
-  jc func$readFile$readfileReturnValue$TypeMatch                 ; skip next block if the type matches
-    ; Error handling block for readFile return value
-    ;  - print(returnValueTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r13, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
-    push r13                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r14                                                     ; internal argument 6: pointer to return value slot's value
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r14                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r15                                                     ; internal argument 6: pointer to return value slot's value
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r15                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-  func$readFile$readfileReturnValue$TypeMatch:                   ; after block
-  mov r10, qword ptr [rbp + 030h]                                ; get pointer to return value of readFile into register to dereference it
-  mov qword ptr [r10], 000h                                      ; readFile return value
-  mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of readFile into register to dereference it
-  mov qword ptr [rbx], 017h                                      ; type of readFile return value (Null'23)
-  mov rax, qword ptr [rbp + 030h]                                ; report address of return value
-  ; Epilog
-  add rsp, 020h                                                  ; free space for stack
-  pop r14                                                        ; restore non-volatile registers
-  pop r13                                                        ; restore non-volatile registers
-  pop r12                                                        ; restore non-volatile registers
-  pop rbp                                                        ; restore non-volatile registers
-  pop rdi                                                        ; restore non-volatile registers
-  pop rsi                                                        ; restore non-volatile registers
-  pop rbx                                                        ; restore non-volatile registers
-  pop r15                                                        ; restore non-volatile registers
-  ret                                                            ; return from subroutine
-
-; stderr
-dq func$stderr$annotation
-func$stderr:
-  ; Prolog
-  push r15                                                       ; save non-volatile registers
-  push rbx                                                       ; save non-volatile registers
-  push rsi                                                       ; save non-volatile registers
-  push rdi                                                       ; save non-volatile registers
-  push rbp                                                       ; save non-volatile registers
-  push r12                                                       ; save non-volatile registers
-  push r13                                                       ; save non-volatile registers
-  push r14                                                       ; save non-volatile registers
-  sub rsp, 020h                                                  ; allocate space for stack
-  lea rbp, qword ptr [rsp + 060h]                                ; set up frame pointer
-  ; Check parameter count
-  cmp rcx, 001h                                                  ; compare parameter count of stderr to 1 (integer)
-  je func$stderr$parameterCountCheck$continuation                ; check number of parameters is as expected
-    ; Error handling block for parameter count
-    ;  - print(parameterCountCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
-    push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rax                                                     ; internal argument 6: pointer to return value slot's value
-    lea rax, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rax                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of stderr value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push rbx                                                     ; internal argument 6: pointer to return value slot's value
-    lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push rbx                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$stderr$parameterCountCheck$continuation:                  ; end of parameter count check
-  ; Check type of parameter 0, str (expecting String)
-  mov rsi, qword ptr [rbp + 038h]                                ; move type of str to testByte
-  mov rax, rsi                                                   ; move testByte to testByte
-  mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
-  mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
-  mov r12, offset typeTable                                      ; read second operand of + (type table pointer)
-  add rax, r12                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
-  bt qword ptr [rax], 003h                                       ; check that str is String
-  jc func$stderr$str$TypeMatch                                   ; skip next block if the type matches
-    ; Error handling block for str
-    ;  - print(parameterTypeCheckFailureMessage)
-    ; Call __print with 1 arguments
-    mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
-    push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01ah                                                    ; type of argument #1 (String'26)
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r14                                                     ; internal argument 6: pointer to return value slot's value
-    lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r14                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 040h], rcx                              ; move parameter count of stderr value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ;  - exit(1)
-    ; Call exit with 1 arguments
-    push 001h                                                    ; value of argument #1 (1 (integer))
-    push 019h                                                    ; type of argument #1 (Integer'25)
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
-    push r15                                                     ; internal argument 6: pointer to return value slot's value
-    lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
-    push r15                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$exit                                               ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
-  func$stderr$str$TypeMatch:                                     ; after block
-  ; Line 99: __print('stderr is not implemented\n');
-  ; Call __print with 1 arguments
-  mov r10, offset string$9                                       ; reading string for push
-  push r10                                                       ; value of argument #1 (string)
-  push 01ah                                                      ; type of argument #1 (String'26)
-  lea rbx, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push rbx                                                       ; internal argument 6: pointer to return value slot's value
-  lea rbx, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push rbx                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov qword ptr [rsp + 040h], rcx                                ; move parameter count of stderr value out of rcx
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$__print                                              ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 100: exit(1);
-  ; Call exit with 1 arguments
-  push 001h                                                      ; value of argument #1 (1)
-  push 019h                                                      ; type of argument #1 (Integer'25)
-  lea rsi, qword ptr [rsp + 020h]                                ; load address of return value's value
-  push rsi                                                       ; internal argument 6: pointer to return value slot's value
-  lea rsi, qword ptr [rsp + 020h]                                ; load address of return value's type
-  push rsi                                                       ; internal argument 5: pointer to return value slot's type
-  sub rsp, 020h                                                  ; allocate shadow space
-  mov r9, 000h                                                   ; internal argument 4: "this" pointer
-  mov r8, 000h                                                   ; internal argument 3: "this" pointer type
-  mov rdx, 000h                                                  ; internal argument 2: closure pointer
-  mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call func$exit                                                 ; jump to subroutine
-  add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Implicit return from stderr
-  mov r13, qword ptr [rbp + 030h]                                ; get pointer to return value of stderr into register to dereference it
-  mov qword ptr [r13], 000h                                      ; stderr return value
-  mov r14, qword ptr [rbp + 028h]                                ; get pointer to return value type of stderr into register to dereference it
-  mov qword ptr [r14], 017h                                      ; type of stderr return value (Null'23)
-  mov rax, qword ptr [rbp + 030h]                                ; report address of return value
-  ; Epilog
-  add rsp, 020h                                                  ; free space for stack
-  pop r14                                                        ; restore non-volatile registers
-  pop r13                                                        ; restore non-volatile registers
-  pop r12                                                        ; restore non-volatile registers
-  pop rbp                                                        ; restore non-volatile registers
-  pop rdi                                                        ; restore non-volatile registers
-  pop rsi                                                        ; restore non-volatile registers
-  pop rbx                                                        ; restore non-volatile registers
-  pop r15                                                        ; restore non-volatile registers
-  ret                                                            ; return from subroutine
-
 ; _moveBytes
 dq func$_moveBytes$annotation
 func$_moveBytes:
@@ -5092,8 +3064,8 @@ func$_moveBytes:
     mov rsi, 019h                                                ; += operator result is of type Integer'25
     mov r12, rbx                                                 ; store value
     mov qword ptr [rsp + 058h], rsi                              ; store type
-    mov qword ptr [rsp + 070h], r12                              ; restoring slots to previous scope state
     mov r15, qword ptr [rsp + 050h]                              ; restoring slots to previous scope state
+    mov qword ptr [rsp + 070h], r12                              ; restoring slots to previous scope state
     mov r10, qword ptr [rsp + 048h]                              ; restoring slots to previous scope state
     jmp func$_moveBytes$while$top                                ; return to top of while
   func$_moveBytes$while$bottom:                                  ; bottom of while
@@ -7789,17 +5761,17 @@ func$intToStr:
     add rbx, 001h                                                ; increment ref count (result in string refcount temporary)
     mov qword ptr [r10], rbx                                     ; put it back in the string
     func$intToStr$while$AfterIncref:                             ; after incref
-    ; Calling decref on digitToStr return value (static type: String'26)
-    sub rsp, 20h                                                 ; allocate shadow space for decref
-    mov rdx, qword ptr [rsp + 038h]                              ; arg #2: type of potential string
-    mov rcx, qword ptr [rsp + 040h]                              ; arg #1: value of potential string
-    mov qword ptr [rsp + 058h], r10                              ; move buffer variable value out of r10
-    call intrinsic$decref                                        ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
     ; Calling decref on concat return value (static type: String'26)
     sub rsp, 20h                                                 ; allocate shadow space for decref
     mov rdx, qword ptr [rsp + 020h]                              ; arg #2: type of potential string
     mov rcx, qword ptr [rsp + 028h]                              ; arg #1: value of potential string
+    mov qword ptr [rsp + 058h], r10                              ; move buffer variable value out of r10
+    call intrinsic$decref                                        ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    ; Calling decref on digitToStr return value (static type: String'26)
+    sub rsp, 20h                                                 ; allocate shadow space for decref
+    mov rdx, qword ptr [rsp + 038h]                              ; arg #2: type of potential string
+    mov rcx, qword ptr [rsp + 040h]                              ; arg #1: value of potential string
     call intrinsic$decref                                        ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
     mov rax, qword ptr [rsp + 038h]                              ; restoring slots to previous scope state
@@ -8476,345 +6448,6 @@ func$_stringify:
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 038h                                                  ; free space for stack
-  pop r14                                                        ; restore non-volatile registers
-  pop r13                                                        ; restore non-volatile registers
-  pop r12                                                        ; restore non-volatile registers
-  pop rbp                                                        ; restore non-volatile registers
-  pop rdi                                                        ; restore non-volatile registers
-  pop rsi                                                        ; restore non-volatile registers
-  pop rbx                                                        ; restore non-volatile registers
-  pop r15                                                        ; restore non-volatile registers
-  ret                                                            ; return from subroutine
-
-; print
-dq func$print$annotation
-func$print:
-  ; Prolog
-  push r15                                                       ; save non-volatile registers
-  push rbx                                                       ; save non-volatile registers
-  push rsi                                                       ; save non-volatile registers
-  push rdi                                                       ; save non-volatile registers
-  push rbp                                                       ; save non-volatile registers
-  push r12                                                       ; save non-volatile registers
-  push r13                                                       ; save non-volatile registers
-  push r14                                                       ; save non-volatile registers
-  sub rsp, 060h                                                  ; allocate space for stack
-  lea rbp, qword ptr [rsp + 0a0h]                                ; set up frame pointer
-  ; Varargs parameter type check; expecting parameters to be Anything
-  lea r10, qword ptr [rbp + 040h]                                ; get base address of varargs, where loop will start
-  mov rax, rcx                                                   ; assign value of parameter count of print to value of pointer to last argument
-  mov rbx, 010h                                                  ; read operand of mul (10 (integer)) 
-  mul rbx                                                        ; end of loop is the number of arguments times the width of each argument (010h)...
-  add rax, r10                                                   ; ...offset from the initial index (result in pointer to last argument)
-  func$print$varargTypeChecks$Loop:                              ; top of loop
-    mov qword ptr [rsp + 050h], 000h                             ; move pointer to indexth argument type into a mutable location
-    cmp r10, rax                                                 ; compare pointer to indexth argument to pointer to last argument
-    je func$print$varargTypeChecks$TypesAllMatch                 ; we have type-checked all the arguments
-    mov rsi, qword ptr [r10 - 008h]                              ; load type of indexth argument into indexth argument
-    mov rdi, rsi                                                 ; move type of indexth argument to testByte
-    mov qword ptr [rsp + 048h], rax                              ; move pointer to last argument value out of rax
-    mov rax, rdi                                                 ; move testByte to testByte
-    mov r12, 002h                                                ; read operand of mul (type table width in bytes) 
-    mul r12                                                      ; adjust to the relative start of that type's entry in the type table
-    mov r13, offset typeTable                                    ; read second operand of + (type table pointer)
-    add rax, r13                                                 ; finally offset all of that by the start of the type table itself (result in testByte)
-    bt qword ptr [rax], 004h                                     ; check that vararg types is Anything
-    jc func$print$varargTypeChecks$TypeMatch                     ; skip next block if the type matches
-      ; Error handling block for vararg types
-      ;  - print(parameterTypeCheckFailureMessage)
-      ; Call __print with 1 arguments
-      mov r14, offset parameterTypeCheckFailureMessage           ; reading parameterTypeCheckFailureMessage for push
-      push r14                                                   ; value of argument #1 (parameterTypeCheckFailureMessage)
-      push 01ah                                                  ; type of argument #1 (String'26)
-      lea r15, qword ptr [rsp + 050h]                            ; load address of return value's value
-      push r15                                                   ; internal argument 6: pointer to return value slot's value
-      lea r15, qword ptr [rsp + 050h]                            ; load address of return value's type
-      push r15                                                   ; internal argument 5: pointer to return value slot's type
-      sub rsp, 020h                                              ; allocate shadow space
-      mov r9, 000h                                               ; internal argument 4: "this" pointer
-      mov r8, 000h                                               ; internal argument 3: "this" pointer type
-      mov rdx, 000h                                              ; internal argument 2: closure pointer
-      mov qword ptr [rsp + 070h], rcx                            ; move parameter count of print value out of rcx
-      mov rcx, 001h                                              ; internal argument 1: number of actual arguments
-      mov qword ptr [rsp + 068h], r10                            ; move pointer to indexth argument value out of r10
-      call func$__print                                          ; jump to subroutine
-      add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
-      ;  - exit(1)
-      ; Call exit with 1 arguments
-      push 001h                                                  ; value of argument #1 (1 (integer))
-      push 019h                                                  ; type of argument #1 (Integer'25)
-      lea r10, qword ptr [rsp + 050h]                            ; load address of return value's value
-      push r10                                                   ; internal argument 6: pointer to return value slot's value
-      lea r10, qword ptr [rsp + 050h]                            ; load address of return value's type
-      push r10                                                   ; internal argument 5: pointer to return value slot's type
-      sub rsp, 020h                                              ; allocate shadow space
-      mov r9, 000h                                               ; internal argument 4: "this" pointer
-      mov r8, 000h                                               ; internal argument 3: "this" pointer type
-      mov rdx, 000h                                              ; internal argument 2: closure pointer
-      mov rcx, 001h                                              ; internal argument 1: number of actual arguments
-      call func$exit                                             ; jump to subroutine
-      add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
-      mov r10, qword ptr [rsp + 028h]                            ; restoring slots to previous scope state
-      mov rcx, qword ptr [rsp + 030h]                            ; restoring slots to previous scope state
-    func$print$varargTypeChecks$TypeMatch:                       ; after block
-    add r10, 010h                                                ; next argument (result in pointer to indexth argument)
-    mov rax, qword ptr [rsp + 048h]                              ; restoring slots to previous scope state
-    jmp func$print$varargTypeChecks$Loop                         ; return to top of loop
-    func$print$varargTypeChecks$TypesAllMatch:                   ; after loop
-    mov rax, qword ptr [rsp + 048h]                              ; restoring slots to previous scope state
-  ; Line 244: Boolean first = true;
-  mov rbx, 001h                                                  ; value initialization of variable declaration for first variable (true)
-  mov rsi, 018h                                                  ; type initialization of variable declaration for first variable (Boolean'24)
-  ; Line 245: Integer index = 0;
-  mov rdi, 000h                                                  ; value initialization of variable declaration for index variable (0)
-  mov rax, 019h                                                  ; type initialization of variable declaration for index variable (Integer'25)
-  func$print$while$top:                                          ; top of while
-    ; Call len with 1 arguments
-    cmp rax, 000h                                                ; compare type of index variable to <sentinel>
-    jne func$print$while$index$TypeMatch                         ; skip next block if index variable is not sentinel
-      ; Error handling block for index
-      ;  - print(operandTypeCheckFailureMessage)
-      ; Call __print with 1 arguments
-      mov r12, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
-      push r12                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01ah                                                  ; type of argument #1 (String'26)
-      lea r13, qword ptr [rsp + 060h]                            ; load address of return value's value
-      push r13                                                   ; internal argument 6: pointer to return value slot's value
-      lea r13, qword ptr [rsp + 060h]                            ; load address of return value's type
-      push r13                                                   ; internal argument 5: pointer to return value slot's type
-      sub rsp, 020h                                              ; allocate shadow space
-      mov r9, 000h                                               ; internal argument 4: "this" pointer
-      mov r8, 000h                                               ; internal argument 3: "this" pointer type
-      mov rdx, 000h                                              ; internal argument 2: closure pointer
-      mov qword ptr [rsp + 080h], rcx                            ; move parameter count of print value out of rcx
-      mov rcx, 001h                                              ; internal argument 1: number of actual arguments
-      mov qword ptr [rsp + 078h], rax                            ; move index variable type out of rax
-      call func$__print                                          ; jump to subroutine
-      add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
-      ;  - exit(1)
-      ; Call exit with 1 arguments
-      push 001h                                                  ; value of argument #1 (1 (integer))
-      push 019h                                                  ; type of argument #1 (Integer'25)
-      lea r14, qword ptr [rsp + 060h]                            ; load address of return value's value
-      push r14                                                   ; internal argument 6: pointer to return value slot's value
-      lea r14, qword ptr [rsp + 060h]                            ; load address of return value's type
-      push r14                                                   ; internal argument 5: pointer to return value slot's type
-      sub rsp, 020h                                              ; allocate shadow space
-      mov r9, 000h                                               ; internal argument 4: "this" pointer
-      mov r8, 000h                                               ; internal argument 3: "this" pointer type
-      mov rdx, 000h                                              ; internal argument 2: closure pointer
-      mov rcx, 001h                                              ; internal argument 1: number of actual arguments
-      call func$exit                                             ; jump to subroutine
-      add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
-      mov rax, qword ptr [rsp + 038h]                            ; restoring slots to previous scope state
-      mov rcx, qword ptr [rsp + 040h]                            ; restoring slots to previous scope state
-    func$print$while$index$TypeMatch:                            ; after block
-    mov qword ptr [rsp + 050h], rsi                              ; move first variable type out of rsi
-    xor rsi, rsi                                                 ; clear < operator result
-    cmp rdi, rcx                                                 ; compare index variable with parameter count of print
-    setl sil                                                     ; store result in < operator result
-    mov qword ptr [rsp + 048h], rdi                              ; move index variable value out of rdi
-    mov rdi, 018h                                                ; < operator result is of type Boolean'24
-    cmp rsi, 000h                                                ; compare < operator result to false
-    jne func$print$while$body                                    ; while condition
-    mov rsi, qword ptr [rsp + 050h]                              ; restoring slots to previous scope state
-    mov rdi, qword ptr [rsp + 048h]                              ; restoring slots to previous scope state
-    jmp func$print$while$bottom                                  ; break out of while
-    func$print$while$body:                                       ; start of while
-    ; Line 247: if (first == false) { ...
-    mov qword ptr [rsp + 040h], rax                              ; move index variable type out of rax
-    xor rax, rax                                                 ; zero value result of == (testing first variable and false) to put the boolean in
-    cmp rbx, 000h                                                ; values equal?
-    sete al                                                      ; put result in value result of == (testing first variable and false)
-    mov r12, 018h                                                ; value result of == (testing first variable and false) is a Boolean'24
-    xor r13, r13                                                 ; zero type result of == (testing first variable and false) to put the boolean in
-    cmp qword ptr [rsp + 050h], 018h                             ; types equal?
-    sete r13b                                                    ; put result in type result of == (testing first variable and false)
-    mov r14, 018h                                                ; type result of == (testing first variable and false) is a Boolean'24
-    mov r15, rax                                                 ; assign value of value result of == (testing first variable and false) to value of == operator result
-    and r15, r13                                                 ; && type temp and value temp
-    mov r10, 018h                                                ; == operator result is of type Boolean'24
-    cmp r15, 000h                                                ; compare == operator result to false
-    je func$print$while$if$continuation                          ; first == false
-      ; Line 248: __print(' ');
-      ; Call __print with 1 arguments
-      mov qword ptr [rsp + 038h], rbx                            ; move first variable value out of rbx
-      mov rbx, offset string$31                                  ; reading string for push
-      push rbx                                                   ; value of argument #1 (string)
-      push 01ah                                                  ; type of argument #1 (String'26)
-      lea r9, qword ptr [rsp + 040h]                             ; load address of return value's value
-      push r9                                                    ; internal argument 6: pointer to return value slot's value
-      lea r9, qword ptr [rsp + 040h]                             ; load address of return value's type
-      push r9                                                    ; internal argument 5: pointer to return value slot's type
-      sub rsp, 020h                                              ; allocate shadow space
-      mov r9, 000h                                               ; internal argument 4: "this" pointer
-      mov r8, 000h                                               ; internal argument 3: "this" pointer type
-      mov rdx, 000h                                              ; internal argument 2: closure pointer
-      mov qword ptr [rsp + 060h], rcx                            ; move parameter count of print value out of rcx
-      mov rcx, 001h                                              ; internal argument 1: number of actual arguments
-      call func$__print                                          ; jump to subroutine
-      add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
-      mov rbx, qword ptr [rsp + 038h]                            ; restoring slots to previous scope state
-      mov rcx, qword ptr [rsp + 020h]                            ; restoring slots to previous scope state
-    func$print$while$if$continuation:                            ; end of if
-    ; Line 250: __print(_stringify(parts[index]));
-    cmp qword ptr [rsp + 048h], rcx                              ; compare index variable to parameter count of print
-    jge func$print$while$subscript$boundsError                   ; index out of range (too high)
-    cmp qword ptr [rsp + 048h], 000h                             ; compare index variable to 0 (integer)
-    jge func$print$while$subscript$inBounds                      ; index not out of range (not negative)
-    func$print$while$subscript$boundsError:                      ; invalid index
-      ; Error handling block for subscript bounds error
-      ;  - print(boundsFailureMessage)
-      ; Call __print with 1 arguments
-      mov r12, offset boundsFailureMessage                       ; reading boundsFailureMessage for push
-      push r12                                                   ; value of argument #1 (boundsFailureMessage)
-      push 01ah                                                  ; type of argument #1 (String'26)
-      lea r13, qword ptr [rsp + 048h]                            ; load address of return value's value
-      push r13                                                   ; internal argument 6: pointer to return value slot's value
-      lea r13, qword ptr [rsp + 048h]                            ; load address of return value's type
-      push r13                                                   ; internal argument 5: pointer to return value slot's type
-      sub rsp, 020h                                              ; allocate shadow space
-      mov r9, 000h                                               ; internal argument 4: "this" pointer
-      mov r8, 000h                                               ; internal argument 3: "this" pointer type
-      mov rdx, 000h                                              ; internal argument 2: closure pointer
-      mov qword ptr [rsp + 068h], rcx                            ; move parameter count of print value out of rcx
-      mov rcx, 001h                                              ; internal argument 1: number of actual arguments
-      call func$__print                                          ; jump to subroutine
-      add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
-      ;  - exit(1)
-      ; Call exit with 1 arguments
-      push 001h                                                  ; value of argument #1 (1 (integer))
-      push 019h                                                  ; type of argument #1 (Integer'25)
-      lea r14, qword ptr [rsp + 048h]                            ; load address of return value's value
-      push r14                                                   ; internal argument 6: pointer to return value slot's value
-      lea r14, qword ptr [rsp + 048h]                            ; load address of return value's type
-      push r14                                                   ; internal argument 5: pointer to return value slot's type
-      sub rsp, 020h                                              ; allocate shadow space
-      mov r9, 000h                                               ; internal argument 4: "this" pointer
-      mov r8, 000h                                               ; internal argument 3: "this" pointer type
-      mov rdx, 000h                                              ; internal argument 2: closure pointer
-      mov rcx, 001h                                              ; internal argument 1: number of actual arguments
-      call func$exit                                             ; jump to subroutine
-      add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
-      mov rcx, qword ptr [rsp + 028h]                            ; restoring slots to previous scope state
-    func$print$while$subscript$inBounds:                         ; valid index
-    lea r15, qword ptr [rbp + 040h]                              ; base address of varargs
-    mov r10, qword ptr [rsp + 048h]                              ; assign value of index variable to value of index into list * 16
-    shl r10, 004h                                                ; multiply by 8*2
-    mov qword ptr [rsp + 038h], rbx                              ; move first variable value out of rbx
-    mov rbx, r15                                                 ; assign value of base address of varargs to value of pointer to value (and type, later)
-    add rbx, r10                                                 ; get pointer to value (result in pointer to value (and type, later))
-    mov rsi, qword ptr [rbx]                                     ; store value
-    mov rdi, qword ptr [rbx - 008h]                              ; store type
-    ; increment reference count for parts[index] if necessary
-    cmp rdi, 01ah                                                ; compare type of parts[index] to String
-    jne func$print$while$AfterIncref                             ; if not a string, skip incref
-    mov rax, qword ptr [rsi]                                     ; dereference string to get to ref count
-    cmp rax, 0                                                   ; compare string refcount temporary to 0
-    js func$print$while$AfterIncref                              ; if ref count is negative (constant strings), skip incref
-    add rax, 001h                                                ; increment ref count (result in string refcount temporary)
-    mov qword ptr [rsi], rax                                     ; put it back in the string
-    func$print$while$AfterIncref:                                ; after incref
-    ; Call _stringify with 1 arguments
-    push rsi                                                     ; value of argument #1 (parts[index])
-    push rdi                                                     ; type of argument #1
-    lea r12, qword ptr [rsp + 040h]                              ; load address of return value's value
-    push r12                                                     ; internal argument 6: pointer to return value slot's value
-    lea r12, qword ptr [rsp + 040h]                              ; load address of return value's type
-    push r12                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov qword ptr [rsp + 060h], rcx                              ; move parameter count of print value out of rcx
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$_stringify                                         ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ; Call __print with 1 arguments
-    push qword ptr [rsp + 030h]                                  ; value of argument #1 (_stringify return value)
-    push qword ptr [rsp + 030h]                                  ; type of argument #1
-    lea r13, qword ptr [rsp + 028h]                              ; load address of return value's value
-    push r13                                                     ; internal argument 6: pointer to return value slot's value
-    lea r13, qword ptr [rsp + 028h]                              ; load address of return value's type
-    push r13                                                     ; internal argument 5: pointer to return value slot's type
-    sub rsp, 020h                                                ; allocate shadow space
-    mov r9, 000h                                                 ; internal argument 4: "this" pointer
-    mov r8, 000h                                                 ; internal argument 3: "this" pointer type
-    mov rdx, 000h                                                ; internal argument 2: closure pointer
-    mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call func$__print                                            ; jump to subroutine
-    add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ; Line 251: first = false;
-    mov qword ptr [rsp + 038h], 000h                             ; store value
-    mov qword ptr [rsp + 050h], 018h                             ; store type (Boolean'24)
-    ; Line 252: index += 1;
-    cmp qword ptr [rsp + 040h], 000h                             ; compare type of index variable to <sentinel>
-    jne func$print$while$indexVariable$TypeMatch                 ; skip next block if index variable is not sentinel
-      ; Error handling block for index variable
-      ;  - print(operandTypeCheckFailureMessage)
-      ; Call __print with 1 arguments
-      mov r14, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
-      push r14                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01ah                                                  ; type of argument #1 (String'26)
-      lea r15, qword ptr [rsp + 028h]                            ; load address of return value's value
-      push r15                                                   ; internal argument 6: pointer to return value slot's value
-      lea r15, qword ptr [rsp + 028h]                            ; load address of return value's type
-      push r15                                                   ; internal argument 5: pointer to return value slot's type
-      sub rsp, 020h                                              ; allocate shadow space
-      mov r9, 000h                                               ; internal argument 4: "this" pointer
-      mov r8, 000h                                               ; internal argument 3: "this" pointer type
-      mov rdx, 000h                                              ; internal argument 2: closure pointer
-      mov rcx, 001h                                              ; internal argument 1: number of actual arguments
-      call func$__print                                          ; jump to subroutine
-      add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
-      ;  - exit(1)
-      ; Call exit with 1 arguments
-      push 001h                                                  ; value of argument #1 (1 (integer))
-      push 019h                                                  ; type of argument #1 (Integer'25)
-      lea r10, qword ptr [rsp + 028h]                            ; load address of return value's value
-      push r10                                                   ; internal argument 6: pointer to return value slot's value
-      lea r10, qword ptr [rsp + 028h]                            ; load address of return value's type
-      push r10                                                   ; internal argument 5: pointer to return value slot's type
-      sub rsp, 020h                                              ; allocate shadow space
-      mov r9, 000h                                               ; internal argument 4: "this" pointer
-      mov r8, 000h                                               ; internal argument 3: "this" pointer type
-      mov rdx, 000h                                              ; internal argument 2: closure pointer
-      mov rcx, 001h                                              ; internal argument 1: number of actual arguments
-      call func$exit                                             ; jump to subroutine
-      add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
-    func$print$while$indexVariable$TypeMatch:                    ; after block
-    mov rax, qword ptr [rsp + 048h]                              ; assign value of index variable to value of += operator result
-    add rax, 001h                                                ; += operator
-    mov r12, 019h                                                ; += operator result is of type Integer'25
-    mov qword ptr [rsp + 048h], rax                              ; store value
-    mov qword ptr [rsp + 040h], r12                              ; store type
-    ; Calling decref on parts[index] (static type: Anything'27)
-    sub rsp, 20h                                                 ; allocate shadow space for decref
-    mov rdx, rdi                                                 ; arg #2: type of potential string
-    mov rcx, rsi                                                 ; arg #1: value of potential string
-    call intrinsic$decref                                        ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
-    ; Calling decref on _stringify return value (static type: String'26)
-    sub rsp, 20h                                                 ; allocate shadow space for decref
-    mov rdx, qword ptr [rsp + 048h]                              ; arg #2: type of potential string
-    mov rcx, qword ptr [rsp + 050h]                              ; arg #1: value of potential string
-    call intrinsic$decref                                        ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
-    mov rax, qword ptr [rsp + 040h]                              ; restoring slots to previous scope state
-    mov rbx, qword ptr [rsp + 038h]                              ; restoring slots to previous scope state
-    mov rcx, qword ptr [rsp + 020h]                              ; restoring slots to previous scope state
-    mov rsi, qword ptr [rsp + 050h]                              ; restoring slots to previous scope state
-    mov rdi, qword ptr [rsp + 048h]                              ; restoring slots to previous scope state
-    jmp func$print$while$top                                     ; return to top of while
-  func$print$while$bottom:                                       ; bottom of while
-  ; Implicit return from print
-  mov r10, qword ptr [rbp + 030h]                                ; get pointer to return value of print into register to dereference it
-  mov qword ptr [r10], 000h                                      ; print return value
-  mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of print into register to dereference it
-  mov qword ptr [rbx], 017h                                      ; type of print return value (Null'23)
-  mov rax, qword ptr [rbp + 030h]                                ; report address of return value
-  ; Epilog
-  add rsp, 060h                                                  ; free space for stack
   pop r14                                                        ; restore non-volatile registers
   pop r13                                                        ; restore non-volatile registers
   pop r12                                                        ; restore non-volatile registers
