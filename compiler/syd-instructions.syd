@@ -90,36 +90,6 @@ class JumpInstruction extends Instruction {
   }
 }
 
-enum cc { GreaterThan GreaterThanOrEqual LessThan LessThanOrEqual Equal NotEqual Negative Positive /* or zero */ }
-
-String ccSuffix(cc check) {
-  if (check == ccGreaterThan) {
-    return 'g';
-  }
-  if (check == ccGreaterThanOrEqual) {
-    return 'ge';
-  }
-  if (check == ccLessThan) {
-    return 'l';
-  }
-  if (check == ccLessThanOrEqual) {
-    return 'le';
-  }
-  if (check == ccEqual) {
-    return 'e';
-  }
-  if (check == ccNotEqual) {
-    return 'ne';
-  }
-  if (check == ccNegative) {
-    return 's';
-  }
-  if (check == ccPositive) {
-    return 'ns';
-  }
-  assert(false, concat('unknown check ', check));
-}
-
 class StoreCmpInstruction extends Instruction {
   Slot a;
   Slot b;
@@ -128,47 +98,64 @@ class StoreCmpInstruction extends Instruction {
 
   Null prepare(SlotContext scope) {
     a.willRead(scope);
-    b.willRead(scope);
-    target.willWrite(scope);
+    if (b != a) {
+      b.willRead(scope);
+    }
+    if (target != a && target != b) {
+      target.willWrite(scope);
+    }
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    // TODO: hard-code result for literal comparisons
-    Mop aOperand;
-    if (a == b) {
-      aOperand = manager.read(a, register, concat('we will be comparing ', a, ' with itself, so use a register'));
+    BooleanNullable hardcodedResult = compareOperands(a.value(), flag, b.value());
+    if (hardcodedResult == null) {
+      Mop aOperand;
+      if (a == b) {
+        aOperand = manager.read(a, register, concat('we will be comparing ', a, ' with itself, so use a register'));
+      } else {
+        aOperand = manager.read(a, register | memory, concat('reading first value to compare (', a, ')'));
+      }
+      Mop bOperand;
+      if (a == b) {
+        bOperand = aOperand;
+      } else if (aOperand.isMemory()) {
+        bOperand = manager.read(b, register | immediate8 | immediate32, concat('reading second value to compare (', b, ')'));
+      } else {
+        bOperand = manager.read(b, register | memory | immediate8 | immediate32, concat('reading second value to compare (', b, ')'));
+      }
+      Mop targetOperand;
+      if (target == a) {
+        assert(false, 'not implemented: we should have used readForMutation in this case');
+        targetOperand = aOperand;
+      } else if (target == b) {
+        assert(false, 'not implemented: we should have used readForMutation in this case');
+        targetOperand = bOperand;
+      } else {
+        targetOperand = manager.write(target, register | memory);
+      }
+      block.addCode('xor', [targetOperand, targetOperand]:Anything, concat('clear ', target.debugName));
+      block.addCode('cmp', [aOperand, bOperand]:Anything, concat('compare ', a.debugName, ' with ', b.debugName));
+      block.addCode(concat('set', ccSuffix(flag)), [targetOperand.low8Bits()], concat('store result in ', target.debugName));
+      aOperand.release();
+      if (aOperand != bOperand) { 
+        bOperand.release(); 
+      }
+      if (targetOperand != aOperand && targetOperand != bOperand) { 
+        targetOperand.release(); 
+      }
     } else {
-      aOperand = manager.read(a, register | memory, concat('reading first value to compare (', a, ')'));
+      if (hardcodedResult!) {
+        manager.hardcode(target, ImmediateIntegerOperand(0x01), concat(a.debugName, ' ', describeCC(flag), ' ', b.debugName, ' is true'));
+      } else {
+        manager.hardcode(target, ImmediateIntegerOperand(0x00), concat(a.debugName, ' ', describeCC(flag), ' ', b.debugName, ' is false'));
+      }
+      if (a != target) {
+        manager.read(a, anywhere, 'record as read').release();
+      }
+      if (b != target && b != a) {
+        manager.read(b, anywhere, 'record as read').release();
+      }
     }
-    Mop bOperand;
-    if (a == b) {
-      bOperand = aOperand;
-    } else if (aOperand.isMemory()) {
-      bOperand = manager.read(b, register | immediate8 | immediate32, concat('reading second value to compare (', b, ')'));
-    } else {
-      bOperand = manager.read(b, register | memory | immediate8 | immediate32, concat('reading second value to compare (', b, ')'));
-    }
-    Mop targetOperand;
-    if (target == a) {
-      assert(false, 'not implemented: we should have used readForMutation in this case');
-      targetOperand = aOperand;
-    } else if (target == b) {
-      assert(false, 'not implemented: we should have used readForMutation in this case');
-      targetOperand = bOperand;
-    } else {
-      targetOperand = manager.write(target, register | memory);
-    }
-    block.addCode('xor', [targetOperand, targetOperand]:Anything, concat('clear ', target.debugName));
-    block.addCode('cmp', [aOperand, bOperand]:Anything, concat('compare ', a.debugName, ' with ', b.debugName));
-    block.addCode(concat('set', ccSuffix(flag)), [targetOperand.low8Bits()], concat('store result in ', target.debugName));
-    aOperand.release();
-    if (aOperand != bOperand) { 
-      bOperand.release(); 
-    }
-    if (targetOperand != aOperand && targetOperand != bOperand) { 
-      targetOperand.release(); 
-    }
-    
   }
 
   Null constructor(Slot aArg, Slot bArg, Slot targetArg, cc flagArg) { 
@@ -201,22 +188,38 @@ class ConditionalJumpInstruction extends Instruction {
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    // TODO: hard-code result for literal comparisons
-    Mop aOperand = manager.read(a, register | memory, concat('reading first operand of cmp (', a.debugName, ') for a conditional jump'));
+    Operand bValue;
     if (b == null) {
-      block.addCode('cmp', [aOperand, '0'], concat('compare ', a.debugName, ' to 0'));
+      bValue = ImmediateIntegerOperand(0x00);
     } else {
-      Mop bOperand;
-      if (aOperand.isMemory()) {
-        bOperand = manager.read(b!, register | immediate8 | immediate32, concat('reading second operand of cmp (', b!.debugName, ') for a conditional jump'));
-      } else {
-        bOperand = manager.read(b!, register | memory | immediate8 | immediate32, concat('reading second operand of cmp (', b!.debugName, ') for a conditional jump'));
-      }
-      block.addCode('cmp', [aOperand, bOperand]:Anything, concat('compare ', a.debugName, ' to ', b!.debugName));
-      bOperand.release();
+      bValue = b!.value();
     }
-    aOperand.release();
-    block.addCode(concat('j', ccSuffix(check)), [label], comment);
+    BooleanNullable hardcodedResult = compareOperands(a.value(), check, bValue);
+    if (hardcodedResult == null) {
+      Mop aOperand = manager.read(a, register | memory, concat('reading first operand of cmp (', a.debugName, ') for a conditional jump'));
+      if (b == null) {
+        block.addCode('cmp', [aOperand, '0'], concat('compare ', a.debugName, ' to 0'));
+      } else {
+        Mop bOperand;
+        if (aOperand.isMemory()) {
+          bOperand = manager.read(b!, register | immediate8 | immediate32, concat('reading second operand of cmp (', b!.debugName, ') for a conditional jump'));
+        } else {
+          bOperand = manager.read(b!, register | memory | immediate8 | immediate32, concat('reading second operand of cmp (', b!.debugName, ') for a conditional jump'));
+        }
+        block.addCode('cmp', [aOperand, bOperand]:Anything, concat('compare ', a.debugName, ' to ', b!.debugName));
+        bOperand.release();
+      }
+      aOperand.release();
+      block.addCode(concat('j', ccSuffix(check)), [label], comment);
+    } else {
+      if (hardcodedResult!) {
+        block.addCode('jmp', [label], comment);
+      }
+      manager.read(a, anywhere, 'record as read').release();
+      if (b != a && b != null) {
+        manager.read(b!, anywhere, 'record as read').release();
+      }
+    }
   }
 
   Null constructor(Slot aArg, SlotNullable bArg, cc checkArg, String labelArg, String commentArg) { 
@@ -279,13 +282,20 @@ class ConditionalDynamicTypeJumpInstruction extends Instruction {
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    // TODO: hard-code result for literal comparisons
-    Mop aOperand = manager.readType(a, register | memory, concat('reading first operand of cmp (', a.debugName, ') for a conditional jump'));
-    ImmediateOperand bOperand = b.asOperand();
-    assert(bOperand.minBits() <= 32, 'Type.asOperand() is not an imm32');
-    block.addCode('cmp', [aOperand, bOperand], concat('compare type of ', a.debugName, ' to ', b.name));
-    aOperand.release();
-    block.addCode(concat('j', ccSuffix(check)), [label], comment);
+    BooleanNullable hardcodedResult = compareOperands(a.dynamicType(), check, b.asOperand());
+    if (hardcodedResult == null) {
+      Mop aOperand = manager.readType(a, register | memory, concat('reading first operand of cmp (', a.debugName, ') for a conditional jump'));
+      ImmediateOperand bOperand = b.asOperand();
+      assert(bOperand.minBits() <= 32, 'Type.asOperand() is not an imm32');
+      block.addCode('cmp', [aOperand, bOperand], concat('compare type of ', a.debugName, ' to ', b.name));
+      aOperand.release();
+      block.addCode(concat('j', ccSuffix(check)), [label], comment);
+    } else {
+      manager.readType(a, anywhere, 'record as read').release();
+      if (hardcodedResult!) {
+        block.addCode('jmp', [label], comment);
+      }
+    }
   }
 
   Null constructor(Slot aArg, Type bArg, cc checkArg, String labelArg, String commentArg) { 
@@ -500,6 +510,7 @@ class CallInstruction extends Instruction {
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     manager.save(volatileRegister);
+    // TODO: tell manager to restore global variables
     Mop targetOperand = manager.read(target, memory | nonvolatileRegister | immediate, concat('reading ', target.debugName, ' to call it'));
     block.addCode('call', [targetOperand], comment);
     targetOperand.release();
@@ -899,7 +910,14 @@ class BiOperandInstruction extends Instruction {
 class AddInstruction extends Instruction {
   // TODO: if both aArg and bArg are immediates, hard code the result
   // TODO: if one is zero, move the other to targetSlot
-  
+
+  // There are three slots but they can be the same as each other with five different possible combinations:
+  //   a = b + c
+  //   a = a + c
+  //   a = a + a
+  //   a = b + a
+  //   a = b + b
+
   Slot lhs;
   Slot rhs;
   Slot result;
@@ -907,46 +925,66 @@ class AddInstruction extends Instruction {
 
   Null prepare(SlotContext scope) {
     lhs.willRead(scope);
-    rhs.willRead(scope);
+    if (lhs != rhs) {
+      rhs.willRead(scope);
+    }
     result.willWrite(scope);
     super.prepare(scope);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    // There are three slots but they can be the same as each other with five different possible combinations:
-    //   a = b + c
-    //   a = a + c
-    //   a = b + a
-    //   a = b + b
-    //   a = a + a
-    
-    Mop resultOperand;
-    Mop otherOperand;
-    if (lhs == result && rhs == result) {
-      resultOperand = manager.readForMutation(result, result, register, null);
-      otherOperand = resultOperand;
-    } else if (rhs == result) {
-      // we flip them over in this case since the order doesn't matter
-      resultOperand = manager.readForMutation(rhs, result, register | memory, null);
-      if (resultOperand.isMemory()) {
-        otherOperand = manager.read(lhs, register | immediate8 | immediate32, concat('read first operand of + (', lhs.debugName, ')'));
+    IntegerNullable lhsValue = lhs.value().toInteger();
+    IntegerNullable rhsValue = rhs.value().toInteger();
+    if (lhsValue != null && rhsValue != null) {
+      manager.read(lhs, anywhere, 'record as read').release();
+      if (lhs != rhs) {
+        manager.read(rhs, anywhere, 'record as read').release();
+      }
+      manager.hardcode(result, ImmediateIntegerOperand(lhsValue + rhsValue), comment);
+    } else if (lhsValue == 0) {
+      manager.read(lhs, anywhere, 'record as read').release();
+      if (rhsValue == result) {
+        manager.read(rhs, anywhere, 'record as read').release();
+        manager.write(result, anywhere).release();
       } else {
-        otherOperand = manager.read(lhs, register | memory | immediate8 | immediate32, concat('read first operand of + (', lhs.debugName, ')'));
+        manager.readForMutation(rhs, result, anywhere, comment).release();
+      }
+    } else if (rhsValue == 0) {
+      manager.read(rhs, anywhere, 'record as read').release();
+      if (lhsValue == result) {
+        manager.read(lhs, anywhere, 'record as read').release();
+        manager.write(result, anywhere).release();
+      } else {
+        manager.readForMutation(lhs, result, anywhere, comment).release();
       }
     } else {
-      resultOperand = manager.readForMutation(lhs, result, register | memory, null);
-      if (resultOperand.isMemory()) {
-        otherOperand = manager.read(rhs, register | immediate8 | immediate32, concat('read second operand of + (', rhs.debugName, ')'));
+      Mop resultOperand;
+      Mop otherOperand;
+      if (lhs == result && rhs == result) {
+        resultOperand = manager.readForMutation(result, result, register, null);
+        otherOperand = resultOperand;
+      } else if (rhs == result) {
+        // we flip them over in this case since the order doesn't matter
+        resultOperand = manager.readForMutation(rhs, result, register | memory, null);
+        if (resultOperand.isMemory()) {
+          otherOperand = manager.read(lhs, register | immediate8 | immediate32, concat('read first operand of + (', lhs.debugName, ')'));
+        } else {
+          otherOperand = manager.read(lhs, register | memory | immediate8 | immediate32, concat('read first operand of + (', lhs.debugName, ')'));
+        }
       } else {
-        otherOperand = manager.read(rhs, register | memory | immediate8 | immediate32, concat('read second operand of + (', rhs.debugName, ')'));
+        resultOperand = manager.readForMutation(lhs, result, register | memory, null);
+        if (resultOperand.isMemory()) {
+          otherOperand = manager.read(rhs, register | immediate8 | immediate32, concat('read second operand of + (', rhs.debugName, ')'));
+        } else {
+          otherOperand = manager.read(rhs, register | memory | immediate8 | immediate32, concat('read second operand of + (', rhs.debugName, ')'));
+        }
+      }
+      block.addCode('add', [resultOperand, otherOperand], concat(comment, ' (result in ', result.debugName, ')'));
+      resultOperand.release();
+      if (otherOperand != resultOperand) {
+        otherOperand.release();
       }
     }
-    block.addCode('add', [resultOperand, otherOperand], concat(comment, ' (result in ', result.debugName, ')'));
-    resultOperand.release();
-    if (otherOperand != resultOperand) {
-      otherOperand.release();
-    }
-    
   }
 
   Null constructor(Slot lhsArg, Slot rhsArg, Slot resultArg, String commentArg) {

@@ -22,6 +22,65 @@ Integer immediate8 = 0x0000200;
 Integer immediate32 = 0x0000400;
 Integer immediate64 = 0x0000800;
 Integer immediate = immediate8 | immediate32 | immediate64;
+Integer anywhere = 0xFFFFFFFF;
+
+enum cc { GreaterThan GreaterThanOrEqual LessThan LessThanOrEqual Equal NotEqual Negative Positive /* or zero */ }
+
+String ccSuffix(cc check) {
+  if (check == ccGreaterThan) {
+    return 'g';
+  }
+  if (check == ccGreaterThanOrEqual) {
+    return 'ge';
+  }
+  if (check == ccLessThan) {
+    return 'l';
+  }
+  if (check == ccLessThanOrEqual) {
+    return 'le';
+  }
+  if (check == ccEqual) {
+    return 'e';
+  }
+  if (check == ccNotEqual) {
+    return 'ne';
+  }
+  if (check == ccNegative) {
+    return 's';
+  }
+  if (check == ccPositive) {
+    return 'ns';
+  }
+  assert(false, concat('unknown check ', check));
+}
+
+String describeCC(cc check) {
+  if (check == ccGreaterThan) {
+    return '>';
+  }
+  if (check == ccGreaterThanOrEqual) {
+    return '>=';
+  }
+  if (check == ccLessThan) {
+    return '<';
+  }
+  if (check == ccLessThanOrEqual) {
+    return '<=';
+  }
+  if (check == ccEqual) {
+    return '==';
+  }
+  if (check == ccNotEqual) {
+    return '!=';
+  }
+  if (check == ccNegative) {
+    return '<';
+  }
+  if (check == ccPositive) {
+    return '>';
+  }
+  assert(false, concat('unknown check ', check));
+}
 
 class Operand extends Object {
   Boolean isMutable() {
@@ -40,13 +99,61 @@ class Operand extends Object {
     abstract();
   }
 
+  // returns false is the result is unknown
   Boolean equals(Operand other) {
     abstract();
+  }
+
+  // returns null is the result is unknown
+  IntegerNullable toInteger() {
+    return null;
   }
 
   Anything snapshot() {
     return this;
   }
+}
+
+// returns null is the result is unknown
+BooleanNullable compareOperands(Operand a, cc operator, Operand b) {
+  if (operator == ccEqual) {
+    assert(a.equals(b) == b.equals(a), 'non-reflexive equality detected');
+    if (a.equals(b)) { // might catch cases we can't normally catch, e.g. comparing a register to itself
+      return true;
+    }
+    // equals returns false when the answer is unknown
+    // so we can't just reverse it for ccNotEqual
+  }
+  IntegerNullable valueA = a.toInteger();
+  IntegerNullable valueB = b.toInteger();
+  if (valueA == null || valueB == null) {
+    return null;
+  }
+  if (operator == ccGreaterThan) {
+    return valueA! > valueB!;
+  }
+  if (operator == ccGreaterThanOrEqual) {
+    return valueA! >= valueB!;
+  }
+  if (operator == ccLessThan) {
+    return valueA! < valueB!;
+  }
+  if (operator == ccLessThanOrEqual) {
+    return valueA! <= valueB!;
+  }
+  if (operator == ccEqual) {
+    return valueA! == valueB!;
+  }
+  if (operator == ccNotEqual) {
+    return valueA! != valueB!;
+  }
+  if (operator == ccNegative) {
+    return valueA! < valueB!;
+  }
+  if (operator == ccPositive) {
+    return valueA! > valueB!;
+  }
+  assert(false, concat('unknown operator ', operator));
 }
 
 class ImmediateOperand extends Operand {
@@ -92,6 +199,10 @@ class ImmediateIntegerOperand extends ImmediateOperand {
 
   String toString() {
     return hexH(value);
+  }
+
+  IntegerNullable toInteger() {
+    return value;
   }
 
   Operand low8Bits() {

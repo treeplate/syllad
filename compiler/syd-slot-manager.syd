@@ -627,6 +627,7 @@ class SlotManager extends Object {
       assert(debugOriginalStackSize == stackSize(), 'stack size changed for doing nothing');
       return managedResult;
     }
+    // Current operand is not one of the allowed operand kinds.
     assert((allowedOperandKinds & ~immediate) > 0, 'manageSlot called only with immediate allowed operand kinds');
     if (slot is DynamicSlot) {
       trackSlot(slot as DynamicSlot);
@@ -698,6 +699,19 @@ class SlotManager extends Object {
     return result;
   }
 
+  // updates a slot to have a particular hard-coded value
+  Mop hardcode(Slot slot, ImmediateOperand operand, String comment) {
+    if (slot is DynamicSlot) {
+      slot.didWrite(scopes[nestedScopeDepth]);
+      updateOperandFor(slot as DynamicSlot, StoringValue, operand);
+      (slot as DynamicSlot).updateValue(operand);
+    } else {
+      Mop mop = write(slot, register | memory);
+      emitMov(blocks[nestedScopeDepth], mop, operand, comment);
+      mop.release();
+    }
+  }
+
   // provides a Mop that will contain source's value until it is written to,
   // and thereafter contains target. If not written to, target will have had
   // source assigned to it.
@@ -734,6 +748,19 @@ class SlotManager extends Object {
     Mop result = manageSlot(slot, StoringType, false, allowedOperandKinds, '(this comment should not be used)');
     slot.didWrite(scopes[nestedScopeDepth]);
     return result;
+  }
+
+  // updates a slot to have a particular hard-coded value
+  Mop hardcodeType(Slot slot, ImmediateOperand operand, String comment) {
+    if (slot is DynamicSlot) {
+      slot.didWrite(scopes[nestedScopeDepth]);
+      updateOperandFor(slot as DynamicSlot, StoringType, operand);
+      (slot as DynamicSlot).updateDynamicType(operand);
+    } else {
+      Mop mop = writeType(slot, register | memory);
+      emitMov(blocks[nestedScopeDepth], mop, operand, comment);
+      mop.release();
+    }
   }
 
   // provides a Mop that will contain source's dynamic type until it is written to,
