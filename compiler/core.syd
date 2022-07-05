@@ -206,7 +206,7 @@ class Map extends Object {
     nonGrowingSet(key, value);
   }
 
-  Anything get(Anything key) {
+  AnythingNullable get(Anything key) {
     if (len(table) == 0) {
       return null;
     }

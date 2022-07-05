@@ -7,6 +7,16 @@ class LowLevelInstruction extends Object {
   StringNullable comment;
   Integer indent;
 
+  Boolean skipped = false;
+  Null assignSkipped(Boolean value) {
+    skipped = value;
+  }
+
+  StringNullable label = null;
+  Null assignLabel(String value) {
+    label = value;
+  }
+
   String eval(Integer lineLength) {
     if (opcode == null) {
       assert(len(operands) == 0, 'no opcode, but at least one operand');
@@ -56,7 +66,10 @@ class AssemblerBlock extends Object {
     currentIndent -= 2;
   }
 
+  Map labelCount = Map(); // String -> Integer
+
   Null addCode(String opcode, WhateverList operands, StringNullable comment) {
+    assert(opcode != 'jmp' || (len(operands) == 1 && operands[0] is String), 'jmp expects exactly one string operand for optimizations to work');
     assert(!contains(charsOf(opcode), ':'), 'use addLabel to add a label');
     if (!deadCode) {
       if (pendingComment != null) {
@@ -70,6 +83,13 @@ class AssemblerBlock extends Object {
           append(newList, op);
         }
       }
+      if (opcode == 'jmp') {
+        IntegerNullable count = labelCount.get(operands[0]) as IntegerNullable;
+        if (count == null) {
+          count = 0;
+        }
+        labelCount.set(operands[0], count! + 1);
+      }
       append(lines, LowLevelInstruction(opcode, newList, comment, currentIndent));
     }
     pendingComment = null;
@@ -81,7 +101,9 @@ class AssemblerBlock extends Object {
   Null addLabel(String label, StringNullable comment) {
     assert(!contains(charsOf(label), ':'), 'addLabel adds the colon, so should not be given a label with a colon');
     pendingComment = null;
-    append(lines, LowLevelInstruction(concat(label, ':'), [], comment, currentIndent));
+    LowLevelInstruction instruction = LowLevelInstruction(concat(label, ':'), [], comment, currentIndent);
+    instruction.assignLabel(label);
+    append(lines, instruction);
     deadCode = false;
   }
 
@@ -109,10 +131,46 @@ class AssemblerBlock extends Object {
     for (line in block.lines) {
       append(lines, line);
     }
+    for (label in block.labelCount.keys()) {
+      IntegerNullable count = labelCount.get(label) as IntegerNullable;
+      if (count == null) {
+        count = 0;
+      }
+      labelCount.set(label, count! + block.labelCount.get(label) as Integer);
+    }
   }
 
   AssemblerBlock createBlock() {
     return AssemblerBlock(lineLength, assembler);
+  }
+
+  Null optimize() {
+    Boolean changed = true;
+    while (changed) {
+      changed = false;
+      Integer index = len(lines) - 1;
+      LowLevelInstruction next = LowLevelInstruction(null, [], null, currentIndent);
+      while (index >= 0) {
+        LowLevelInstruction line = lines[index];
+        if (!line.skipped) {
+          if (line.label != null && labelCount.get(line.label) == 0) {
+            line.assignSkipped(true);
+            changed = true;
+          } else if (line.opcode == 'jmp') {
+            if (next.label == line.operands[0]) {
+              line.assignSkipped(true);
+              changed = true;
+              IntegerNullable count = labelCount.get(next.label) as IntegerNullable;
+              if (count != null) {
+                labelCount.set(next.label, count! - 1);
+              }
+            }
+          }
+          next = line;
+        }
+        index -= 1;
+      }
+    }
   }
 
   Null constructor(Integer lineLengthArg, Assembler assemblerArg) {
@@ -205,8 +263,11 @@ class Assembler extends Object {
       append(code, concat('dq ', annotation));
     }
     append(code, concat(label, ':'));
+    block.optimize();
     for (line in block.lines) {
-      append(code, line.eval(lineLength));
+      if (!line.skipped) {
+        append(code, line.eval(lineLength));
+      }
     }
   }
 

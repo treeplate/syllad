@@ -573,14 +573,10 @@ func$__print:
   call WriteConsoleA                                             ; returns boolean representing success in rax
   add rsp, 028h                                                  ; release shadow space (result in stack pointer)
   ; Implicit return from __print
-  jmp func$__print$PrintReturnValue$TypeMatch                    ; skip next block if null is not sentinel
-  func$__print$PrintReturnValue$TypeMatch:                       ; after block
   mov r12, qword ptr [rbp + 030h]                                ; get pointer to return value of __print into register to dereference it
   mov qword ptr [r12], 000h                                      ; __print return value
   mov r13, qword ptr [rbp + 028h]                                ; get pointer to return value type of __print into register to dereference it
   mov qword ptr [r13], 017h                                      ; type of __print return value (Null'23)
-  jmp func$__print$epilog                                        ; return
-  func$__print$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 028h                                                  ; free space for stack
@@ -697,14 +693,10 @@ func$exit:
   call ExitProcess                                               ; process should terminate at this point
   add rsp, 020h                                                  ; release shadow space, just in case (result in stack pointer)
   ; Implicit return from exit
-  jmp func$exit$exitReturnValue$TypeMatch                        ; skip next block if null is not sentinel
-  func$exit$exitReturnValue$TypeMatch:                           ; after block
   mov rax, qword ptr [rbp + 030h]                                ; get pointer to return value of exit into register to dereference it
   mov qword ptr [rax], 000h                                      ; exit return value
   mov rdi, qword ptr [rbp + 028h]                                ; get pointer to return value type of exit into register to dereference it
   mov qword ptr [rdi], 017h                                      ; type of exit return value (Null'23)
-  jmp func$exit$epilog                                           ; return
-  func$exit$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -863,8 +855,6 @@ func$len:
   mov qword ptr [r14], 000h                                      ; len return value
   mov r15, qword ptr [rbp + 028h]                                ; get pointer to return value type of len into register to dereference it
   mov qword ptr [r15], 017h                                      ; type of len return value (Null'23)
-  jmp func$len$epilog                                            ; return
-  func$len$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -931,14 +921,10 @@ func$__debugger:
   func$__debugger$parameterCountCheck$continuation:              ; end of parameter count check
   int 3                                                          ; call debugger
   ; Implicit return from __debugger
-  jmp func$__debugger$DebuggerReturnValue$TypeMatch              ; skip next block if null is not sentinel
-  func$__debugger$DebuggerReturnValue$TypeMatch:                 ; after block
   mov r13, qword ptr [rbp + 030h]                                ; get pointer to return value of __debugger into register to dereference it
   mov qword ptr [r13], 000h                                      ; __debugger return value
   mov r14, qword ptr [rbp + 028h]                                ; get pointer to return value type of __debugger into register to dereference it
   mov qword ptr [r14], 017h                                      ; type of __debugger return value (Null'23)
-  jmp func$__debugger$epilog                                     ; return
-  func$__debugger$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -1095,8 +1081,6 @@ func$__readFromAddress:
   mov qword ptr [r14], 000h                                      ; __readFromAddress return value
   mov r15, qword ptr [rbp + 028h]                                ; get pointer to return value type of __readFromAddress into register to dereference it
   mov qword ptr [r15], 017h                                      ; type of __readFromAddress return value (Null'23)
-  jmp func$__readFromAddress$epilog                              ; return
-  func$__readFromAddress$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -1251,14 +1235,10 @@ func$__writeToAddress:
     mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
   func$__writeToAddress$value$TypeMatch:                         ; after block
   ; Implicit return from __writeToAddress
-  jmp func$__writeToAddress$WritetoaddressReturnValue$TypeMatch  ; skip next block if null is not sentinel
-  func$__writeToAddress$WritetoaddressReturnValue$TypeMatch:     ; after block
   mov rax, qword ptr [rbp + 030h]                                ; get pointer to return value of __writeToAddress into register to dereference it
   mov qword ptr [rax], 000h                                      ; __writeToAddress return value
   mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of __writeToAddress into register to dereference it
   mov qword ptr [rbx], 017h                                      ; type of __writeToAddress return value (Null'23)
-  jmp func$__writeToAddress$epilog                               ; return
-  func$__writeToAddress$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -1507,14 +1487,10 @@ func$assert:
     mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
   func$assert$if$continuation:                                   ; end of if
   ; Implicit return from assert
-  jmp func$assert$assertReturnValue$TypeMatch                    ; skip next block if null is not sentinel
-  func$assert$assertReturnValue$TypeMatch:                       ; after block
   mov rax, qword ptr [rbp + 030h]                                ; get pointer to return value of assert into register to dereference it
   mov qword ptr [rax], 000h                                      ; assert return value
   mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of assert into register to dereference it
   mov qword ptr [rbx], 017h                                      ; type of assert return value (Null'23)
-  jmp func$assert$epilog                                         ; return
-  func$assert$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -1672,14 +1648,10 @@ func$throw:
   call func$exit                                                 ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
   ; Implicit return from throw
-  jmp func$throw$throwReturnValue$TypeMatch                      ; skip next block if null is not sentinel
-  func$throw$throwReturnValue$TypeMatch:                         ; after block
   mov r14, qword ptr [rbp + 030h]                                ; get pointer to return value of throw into register to dereference it
   mov qword ptr [r14], 000h                                      ; throw return value
   mov r15, qword ptr [rbp + 028h]                                ; get pointer to return value type of throw into register to dereference it
   mov qword ptr [r15], 017h                                      ; type of throw return value (Null'23)
-  jmp func$throw$epilog                                          ; return
-  func$throw$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -1792,8 +1764,6 @@ func$__getLastError:
   mov qword ptr [r14], rax                                       ; __getLastError return value
   mov r15, qword ptr [rbp + 028h]                                ; get pointer to return value type of __getLastError into register to dereference it
   mov qword ptr [r15], rsi                                       ; type of __getLastError return value
-  jmp func$__getLastError$epilog                                 ; return
-  func$__getLastError$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 028h                                                  ; free space for stack
@@ -1906,8 +1876,6 @@ func$__getProcessHeap:
   mov qword ptr [r14], rax                                       ; __getProcessHeap return value
   mov r15, qword ptr [rbp + 028h]                                ; get pointer to return value type of __getProcessHeap into register to dereference it
   mov qword ptr [r15], rsi                                       ; type of __getProcessHeap return value
-  jmp func$__getProcessHeap$epilog                               ; return
-  func$__getProcessHeap$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 028h                                                  ; free space for stack
@@ -2155,8 +2123,6 @@ func$__heapAlloc:
   mov qword ptr [r10], rax                                       ; __heapAlloc return value
   mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of __heapAlloc into register to dereference it
   mov qword ptr [rbx], r12                                       ; type of __heapAlloc return value
-  jmp func$__heapAlloc$epilog                                    ; return
-  func$__heapAlloc$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 028h                                                  ; free space for stack
@@ -2304,8 +2270,6 @@ func$_alloc:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov rcx, qword ptr [rsp + 010h]                              ; restoring slots to previous scope state
   func$_alloc$BlockcountVariable$TypeMatch:                      ; after block
-  jmp func$_alloc$1$TypeMatch                                    ; skip next block if 1 is not sentinel
-  func$_alloc$1$TypeMatch:                                       ; after block
   mov r13, qword ptr _blockCountValue                            ; assign value of _blockCount variable to value of += operator result
   add r13, 001h                                                  ; += operator
   mov r14, 019h                                                  ; += operator result is of type Integer'25
@@ -2372,8 +2336,6 @@ func$_alloc:
   mov r12, qword ptr [rsp + 018h]                                ; reading type of __heapAlloc return value
   mov r13, qword ptr [rbp + 028h]                                ; get pointer to return value type of _alloc into register to dereference it
   mov qword ptr [r13], r12                                       ; type of _alloc return value
-  jmp func$_alloc$epilog                                         ; return
-  func$_alloc$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 030h                                                  ; free space for stack
@@ -2621,8 +2583,6 @@ func$__heapFree:
   mov qword ptr [r10], rax                                       ; __heapFree return value
   mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of __heapFree into register to dereference it
   mov qword ptr [rbx], r12                                       ; type of __heapFree return value
-  jmp func$__heapFree$epilog                                     ; return
-  func$__heapFree$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 028h                                                  ; free space for stack
@@ -2770,8 +2730,6 @@ func$_free:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
   func$_free$BlockcountVariable$TypeMatch:                       ; after block
-  jmp func$_free$1$TypeMatch                                     ; skip next block if 1 is not sentinel
-  func$_free$1$TypeMatch:                                        ; after block
   mov r13, qword ptr _blockCountValue                            ; assign value of _blockCount variable to value of -= operator result
   sub r13, 001h                                                  ; -= operator
   mov r14, 019h                                                  ; -= operator result is of type Integer'25
@@ -2827,14 +2785,10 @@ func$_free:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
   func$_free$if$continuation:                                    ; end of if
   ; Implicit return from _free
-  jmp func$_free$FreeReturnValue$TypeMatch                       ; skip next block if null is not sentinel
-  func$_free$FreeReturnValue$TypeMatch:                          ; after block
   mov rbx, qword ptr [rbp + 030h]                                ; get pointer to return value of _free into register to dereference it
   mov qword ptr [rbx], 000h                                      ; _free return value
   mov rsi, qword ptr [rbp + 028h]                                ; get pointer to return value type of _free into register to dereference it
   mov qword ptr [rsi], 017h                                      ; type of _free return value (Null'23)
-  jmp func$_free$epilog                                          ; return
-  func$_free$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -3021,14 +2975,10 @@ func$append:
   call func$exit                                                 ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
   ; Implicit return from append
-  jmp func$append$appendReturnValue$TypeMatch                    ; skip next block if null is not sentinel
-  func$append$appendReturnValue$TypeMatch:                       ; after block
   mov rdi, qword ptr [rbp + 030h]                                ; get pointer to return value of append into register to dereference it
   mov qword ptr [rdi], 000h                                      ; append return value
   mov r12, qword ptr [rbp + 028h]                                ; get pointer to return value type of append into register to dereference it
   mov qword ptr [r12], 017h                                      ; type of append return value (Null'23)
-  jmp func$append$epilog                                         ; return
-  func$append$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -3215,8 +3165,6 @@ func$chr:
   mov qword ptr [r10], 000h                                      ; chr return value
   mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of chr into register to dereference it
   mov qword ptr [rbx], 017h                                      ; type of chr return value (Null'23)
-  jmp func$chr$epilog                                            ; return
-  func$chr$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -3404,8 +3352,6 @@ func$joinList:
   mov qword ptr [r10], 000h                                      ; joinList return value
   mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of joinList into register to dereference it
   mov qword ptr [rbx], 017h                                      ; type of joinList return value (Null'23)
-  jmp func$joinList$epilog                                       ; return
-  func$joinList$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -3636,8 +3582,6 @@ func$stringTimes:
   mov qword ptr [r14], 000h                                      ; stringTimes return value
   mov r15, qword ptr [rbp + 028h]                                ; get pointer to return value type of stringTimes into register to dereference it
   mov qword ptr [r15], 017h                                      ; type of stringTimes return value (Null'23)
-  jmp func$stringTimes$epilog                                    ; return
-  func$stringTimes$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -3825,8 +3769,6 @@ func$charsOf:
   mov qword ptr [r10], 000h                                      ; charsOf return value
   mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of charsOf into register to dereference it
   mov qword ptr [rbx], 017h                                      ; type of charsOf return value (Null'23)
-  jmp func$charsOf$epilog                                        ; return
-  func$charsOf$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -4014,8 +3956,6 @@ func$scalarValues:
   mov qword ptr [r10], 000h                                      ; scalarValues return value
   mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of scalarValues into register to dereference it
   mov qword ptr [rbx], 017h                                      ; type of scalarValues return value (Null'23)
-  jmp func$scalarValues$epilog                                   ; return
-  func$scalarValues$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -4202,8 +4142,6 @@ func$hex:
   mov qword ptr [r10], 000h                                      ; hex return value
   mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of hex into register to dereference it
   mov qword ptr [rbx], 017h                                      ; type of hex return value (Null'23)
-  jmp func$hex$epilog                                            ; return
-  func$hex$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -4390,8 +4328,6 @@ func$readFile:
   mov qword ptr [r10], 000h                                      ; readFile return value
   mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of readFile into register to dereference it
   mov qword ptr [rbx], 017h                                      ; type of readFile return value (Null'23)
-  jmp func$readFile$epilog                                       ; return
-  func$readFile$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -4534,14 +4470,10 @@ func$stderr:
   call func$exit                                                 ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
   ; Implicit return from stderr
-  jmp func$stderr$stderrReturnValue$TypeMatch                    ; skip next block if null is not sentinel
-  func$stderr$stderrReturnValue$TypeMatch:                       ; after block
   mov r13, qword ptr [rbp + 030h]                                ; get pointer to return value of stderr into register to dereference it
   mov qword ptr [r13], 000h                                      ; stderr return value
   mov r14, qword ptr [rbp + 028h]                                ; get pointer to return value type of stderr into register to dereference it
   mov qword ptr [r14], 017h                                      ; type of stderr return value (Null'23)
-  jmp func$stderr$epilog                                         ; return
-  func$stderr$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -4777,8 +4709,6 @@ func$_moveBytes:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov rcx, qword ptr [rsp + 060h]                              ; restoring slots to previous scope state
   func$_moveBytes$length$TypeMatch$1:                            ; after block
-  jmp func$_moveBytes$0$TypeMatch                                ; skip next block if 0 is not sentinel
-  func$_moveBytes$0$TypeMatch:                                   ; after block
   xor rbx, rbx                                                   ; clear > operator result
   cmp qword ptr [rbp + 060h], 000h                               ; compare length with 0
   setg bl                                                        ; store result in > operator result
@@ -4845,8 +4775,6 @@ func$_moveBytes:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov rax, qword ptr [rsp + 058h]                              ; restoring slots to previous scope state
   func$_moveBytes$length$TypeMatch$2:                            ; after block
-  jmp func$_moveBytes$8$TypeMatch                                ; skip next block if 8 is not sentinel
-  func$_moveBytes$8$TypeMatch:                                   ; after block
   mov qword ptr [rsp + 070h], rax                                ; move toCursor variable value out of rax
   mov rax, qword ptr [rbp + 060h]                                ; assign value of length to value of / operator result
   cqo                                                            ; zero-extend dividend
@@ -4892,8 +4820,6 @@ func$_moveBytes:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov rax, qword ptr [rsp + 040h]                              ; restoring slots to previous scope state
   func$_moveBytes$length8$TypeMatch:                             ; after block
-  jmp func$_moveBytes$8$TypeMatch$1                              ; skip next block if 8 is not sentinel
-  func$_moveBytes$8$TypeMatch$1:                                 ; after block
   mov qword ptr [rsp + 050h], rax                                ; move / operator result value out of rax
   mov r14, qword ptr [rsp + 050h]                                ; read left hand side operand of imul (/ operator result)
   imul rax, r14, 008h                                            ; compute (/ operator result) * (8) (result in * operator result)
@@ -5116,8 +5042,6 @@ func$_moveBytes:
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
       mov r13, qword ptr [rsp + 070h]                            ; restoring slots to previous scope state
     func$_moveBytes$while$fromcursorVariable$TypeMatch:          ; after block
-    jmp func$_moveBytes$while$8$TypeMatch                        ; skip next block if 8 is not sentinel
-    func$_moveBytes$while$8$TypeMatch:                           ; after block
     mov rsi, r13                                                 ; assign value of fromCursor variable to value of += operator result
     add rsi, 008h                                                ; += operator
     mov rdi, 019h                                                ; += operator result is of type Integer'25
@@ -5163,8 +5087,6 @@ func$_moveBytes:
       mov r12, qword ptr [rsp + 070h]                            ; restoring slots to previous scope state
       mov r13, qword ptr [rsp + 038h]                            ; restoring slots to previous scope state
     func$_moveBytes$while$tocursorVariable$TypeMatch:            ; after block
-    jmp func$_moveBytes$while$8$TypeMatch$1                      ; skip next block if 8 is not sentinel
-    func$_moveBytes$while$8$TypeMatch$1:                         ; after block
     mov rbx, r12                                                 ; assign value of toCursor variable to value of += operator result
     add rbx, 008h                                                ; += operator
     mov rsi, 019h                                                ; += operator result is of type Integer'25
@@ -5483,8 +5405,6 @@ func$_moveBytes:
       mov r8, qword ptr [rsp + 010h]                             ; restoring slots to previous scope state
       mov r9, qword ptr [rsp + 018h]                             ; restoring slots to previous scope state
     func$_moveBytes$Movebytes$if$extrabytes$TypeMatch:           ; after block
-    jmp func$_moveBytes$Movebytes$if$0$TypeMatch                 ; skip next block if 0 is not sentinel
-    func$_moveBytes$Movebytes$if$0$TypeMatch:                    ; after block
     xor r12, r12                                                 ; clear > operator result
     cmp r13, 000h                                                ; compare extraBytes variable with 0
     setg r12b                                                    ; store result in > operator result
@@ -5546,8 +5466,6 @@ func$_moveBytes:
       call func$exit                                             ; jump to subroutine
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
     func$_moveBytes$Movebytes$if$extrabytes$TypeMatch$1:         ; after block
-    jmp func$_moveBytes$Movebytes$if$8$TypeMatch                 ; skip next block if 8 is not sentinel
-    func$_moveBytes$Movebytes$if$8$TypeMatch:                    ; after block
     xor r13, r13                                                 ; clear < operator result
     cmp qword ptr [rsp + 028h], 008h                             ; compare extraBytes variable with 8
     setl r13b                                                    ; store result in < operator result
@@ -5605,13 +5523,9 @@ func$_moveBytes:
       call func$exit                                             ; jump to subroutine
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
     func$_moveBytes$Movebytes$if$extrabytes$TypeMatch$2:         ; after block
-    jmp func$_moveBytes$Movebytes$if$8$TypeMatch$1               ; skip next block if 8 is not sentinel
-    func$_moveBytes$Movebytes$if$8$TypeMatch$1:                  ; after block
     mov r14, qword ptr [rsp + 028h]                              ; read left hand side operand of imul (extraBytes variable)
     imul rax, r14, 008h                                          ; compute (extraBytes variable) * (8) (result in * operator result)
     mov r10, 019h                                                ; * operator result is of type Integer'25
-    jmp func$_moveBytes$Movebytes$if$1$TypeMatch                 ; skip next block if -1 is not sentinel
-    func$_moveBytes$Movebytes$if$1$TypeMatch:                    ; after block
     cmp r10, 000h                                                ; compare type of * operator result to <sentinel>
     jne func$_moveBytes$Movebytes$if$extrabytes8$TypeMatch       ; skip next block if * operator result is not sentinel
       ; Error handling block for extraBytes * 8
@@ -5942,14 +5856,10 @@ func$_moveBytes:
     mov r13, qword ptr [rsp + 040h]                              ; restoring slots to previous scope state
   func$_moveBytes$if$continuation:                               ; end of if
   ; Implicit return from _moveBytes
-  jmp func$_moveBytes$MovebytesReturnValue$TypeMatch             ; skip next block if null is not sentinel
-  func$_moveBytes$MovebytesReturnValue$TypeMatch:                ; after block
   mov r15, qword ptr [rbp + 030h]                                ; get pointer to return value of _moveBytes into register to dereference it
   mov qword ptr [r15], 000h                                      ; _moveBytes return value
   mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of _moveBytes into register to dereference it
   mov qword ptr [rbx], 017h                                      ; type of _moveBytes return value (Null'23)
-  jmp func$_moveBytes$epilog                                     ; return
-  func$_moveBytes$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 080h                                                  ; free space for stack
@@ -6104,8 +6014,6 @@ func$_stringByteLength:
     mov rax, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
     mov rcx, qword ptr [rsp + 008h]                              ; restoring slots to previous scope state
   func$_stringByteLength$pointer$TypeMatch:                      ; after block
-  jmp func$_stringByteLength$8$TypeMatch                         ; skip next block if 8 is not sentinel
-  func$_stringByteLength$8$TypeMatch:                            ; after block
   mov rbx, rsi                                                   ; assign value of pointer variable to value of + operator result
   add rbx, 008h                                                  ; compute (pointer variable) + (8) (result in + operator result)
   mov rsi, 019h                                                  ; + operator result is of type Integer'25
@@ -6155,8 +6063,6 @@ func$_stringByteLength:
   mov qword ptr [r15], rax                                       ; _stringByteLength return value
   mov r10, qword ptr [rbp + 028h]                                ; get pointer to return value type of _stringByteLength into register to dereference it
   mov qword ptr [r10], rdi                                       ; type of _stringByteLength return value
-  jmp func$_stringByteLength$epilog                              ; return
-  func$_stringByteLength$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 028h                                                  ; free space for stack
@@ -6293,8 +6199,6 @@ func$concat:
       mov rax, qword ptr [rsp + 060h]                            ; restoring slots to previous scope state
       mov rcx, qword ptr [rsp + 068h]                            ; restoring slots to previous scope state
     func$concat$while$index$TypeMatch:                           ; after block
-    jmp func$concat$while$lenArguments$TypeMatch                 ; skip next block if parameter count of concat is not sentinel
-    func$concat$while$lenArguments$TypeMatch:                    ; after block
     mov qword ptr [rsp + 078h], rsi                              ; move length variable type out of rsi
     xor rsi, rsi                                                 ; clear < operator result
     cmp rdi, rcx                                                 ; compare index variable with parameter count of concat
@@ -6308,8 +6212,6 @@ func$concat:
     jmp func$concat$while$bottom                                 ; break out of while
     func$concat$while$body:                                      ; start of while
     ; Line 142: length += _stringByteLength(arguments[index]);
-    jmp func$concat$while$arguments$TypeMatch                    ; skip next block if arguments is not sentinel
-    func$concat$while$arguments$TypeMatch:                       ; after block
     cmp qword ptr [rsp + 070h], rcx                              ; compare index variable to parameter count of concat
     jge func$concat$while$subscript$boundsError                  ; index out of range (too high)
     cmp qword ptr [rsp + 070h], 000h                             ; compare index variable to 0 (integer)
@@ -6498,8 +6400,6 @@ func$concat:
       call func$exit                                             ; jump to subroutine
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
     func$concat$while$indexVariable$TypeMatch:                   ; after block
-    jmp func$concat$while$1$TypeMatch                            ; skip next block if 1 is not sentinel
-    func$concat$while$1$TypeMatch:                               ; after block
     mov rax, qword ptr [rsp + 070h]                              ; assign value of index variable to value of += operator result
     add rax, 001h                                                ; += operator
     mov r12, 019h                                                ; += operator result is of type Integer'25
@@ -6519,8 +6419,6 @@ func$concat:
     jmp func$concat$while$top                                    ; return to top of while
   func$concat$while$bottom:                                      ; bottom of while
   ; Line 145: Integer resultPointer = _alloc(16 /* 0x10 */ + length);
-  jmp func$concat$160X10$TypeMatch                               ; skip next block if 16 /* 0x10 */ is not sentinel
-  func$concat$160X10$TypeMatch:                                  ; after block
   cmp rsi, 000h                                                  ; compare type of length variable to <sentinel>
   jne func$concat$length$TypeMatch                               ; skip next block if length variable is not sentinel
     ; Error handling block for length
@@ -6627,8 +6525,6 @@ func$concat:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov rbx, qword ptr [rsp + 060h]                              ; restoring slots to previous scope state
   func$concat$resultpointer$TypeMatch:                           ; after block
-  jmp func$concat$8$TypeMatch                                    ; skip next block if 8 is not sentinel
-  func$concat$8$TypeMatch:                                       ; after block
   mov r12, r13                                                   ; assign value of resultPointer variable to value of + operator result
   add r12, 008h                                                  ; compute (resultPointer variable) + (8) (result in + operator result)
   mov qword ptr [rsp + 068h], r13                                ; move resultPointer variable value out of r13
@@ -6673,8 +6569,6 @@ func$concat:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov r14, qword ptr [rsp + 060h]                              ; restoring slots to previous scope state
   func$concat$resultpointer$TypeMatch$1:                         ; after block
-  jmp func$concat$160X10$TypeMatch$1                             ; skip next block if 16 /* 0x10 */ is not sentinel
-  func$concat$160X10$TypeMatch$1:                                ; after block
   mov rax, qword ptr [rsp + 068h]                                ; assign value of resultPointer variable to value of + operator result
   add rax, 010h                                                  ; compute (resultPointer variable) + (16 /* 0x10 */) (result in + operator result)
   mov r12, 019h                                                  ; + operator result is of type Integer'25
@@ -6721,8 +6615,6 @@ func$concat:
       call func$exit                                             ; jump to subroutine
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
     func$concat$while$index$TypeMatch$1:                         ; after block
-    jmp func$concat$while$lenArguments$TypeMatch$1               ; skip next block if parameter count of concat is not sentinel
-    func$concat$while$lenArguments$TypeMatch$1:                  ; after block
     mov r12, qword ptr [rsp + 058h]                              ; reading second value to compare (<DynamicSlot:Integer'25 at [rcx, stack operand #5, stack operand #5]/[019h, 019h, 019h] ("parameter count of concat") (living: true)>)
     mov qword ptr [rsp + 058h], r13                              ; move cursor variable value out of r13
     xor r13, r13                                                 ; clear < operator result
@@ -6738,8 +6630,6 @@ func$concat:
     jmp func$concat$while$bottom$1                               ; break out of while
     func$concat$while$body$1:                                    ; start of while
     ; Line 151: String segment = arguments[index];
-    jmp func$concat$while$arguments$TypeMatch$1                  ; skip next block if arguments is not sentinel
-    func$concat$while$arguments$TypeMatch$1:                     ; after block
     cmp qword ptr [rsp + 078h], r12                              ; compare index variable to parameter count of concat
     jge func$concat$while$subscript$boundsError$1                ; index out of range (too high)
     cmp qword ptr [rsp + 078h], 000h                             ; compare index variable to 0 (integer)
@@ -6862,8 +6752,6 @@ func$concat:
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
       mov r15, qword ptr [rsp + 038h]                            ; restoring slots to previous scope state
     func$concat$while$segmentlength$TypeMatch:                   ; after block
-    jmp func$concat$while$0$TypeMatch                            ; skip next block if 0 is not sentinel
-    func$concat$while$0$TypeMatch:                               ; after block
     xor rax, rax                                                 ; clear > operator result
     cmp r12, 000h                                                ; compare segmentLength variable with 0
     setg al                                                      ; store result in > operator result
@@ -6920,8 +6808,6 @@ func$concat:
         mov rsi, qword ptr [rsp + 018h]                          ; restoring slots to previous scope state
         mov rdi, qword ptr [rsp + 010h]                          ; restoring slots to previous scope state
       func$concat$while$while$if$segmentpointer$TypeMatch:       ; after block
-      jmp func$concat$while$while$if$160X10$TypeMatch            ; skip next block if 16 /* 0x10 */ is not sentinel
-      func$concat$while$while$if$160X10$TypeMatch:               ; after block
       mov r14, r15                                               ; assign value of segmentPointer variable to value of + operator result
       add r14, 010h                                              ; compute (segmentPointer variable) + (16 /* 0x10 */) (result in + operator result)
       mov r15, 019h                                              ; + operator result is of type Integer'25
@@ -7064,8 +6950,6 @@ func$concat:
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
       mov rsi, qword ptr [rsp + 038h]                            ; restoring slots to previous scope state
     func$concat$while$indexVariable$TypeMatch$1:                 ; after block
-    jmp func$concat$while$1$TypeMatch$1                          ; skip next block if 1 is not sentinel
-    func$concat$while$1$TypeMatch$1:                             ; after block
     mov r13, qword ptr [rsp + 078h]                              ; assign value of index variable to value of += operator result
     add r13, 001h                                                ; += operator
     mov r14, 019h                                                ; += operator result is of type Integer'25
@@ -7149,8 +7033,6 @@ func$concat:
   mov r14, rdx                                                   ; save type of potential string
   call intrinsic$decref                                          ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
-  jmp func$concat$epilog                                         ; return
-  func$concat$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 088h                                                  ; free space for stack
@@ -7275,8 +7157,6 @@ func$digitToStr:
   cmp rdi, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation                             ; digit == 0
     ; Line 171: return '0';
-    jmp func$digitToStr$digittostr$if$digittostrReturnValue$TypeMatch ; skip next block if string is not sentinel
-    func$digitToStr$digittostr$if$digittostrReturnValue$TypeMatch:  ; after block
     mov r10, offset string$13                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov rbx, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [rbx], r10                                     ; digitToStr return value
@@ -7299,8 +7179,6 @@ func$digitToStr:
   cmp r14, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$1                           ; digit == 1
     ; Line 174: return '1';
-    jmp func$digitToStr$digittostr$if$1$digittostrReturnValue$TypeMatch ; skip next block if string is not sentinel
-    func$digitToStr$digittostr$if$1$digittostrReturnValue$TypeMatch:  ; after block
     mov rbx, offset string$14                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov rsi, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [rsi], rbx                                     ; digitToStr return value
@@ -7323,8 +7201,6 @@ func$digitToStr:
   cmp r15, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$2                           ; digit == 2
     ; Line 177: return '2';
-    jmp func$digitToStr$digittostr$if$2$digittostrReturnValue$TypeMatch ; skip next block if string is not sentinel
-    func$digitToStr$digittostr$if$2$digittostrReturnValue$TypeMatch:  ; after block
     mov rsi, offset string$15                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov rax, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [rax], rsi                                     ; digitToStr return value
@@ -7347,8 +7223,6 @@ func$digitToStr:
   cmp r10, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$3                           ; digit == 3
     ; Line 180: return '3';
-    jmp func$digitToStr$digittostr$if$3$digittostrReturnValue$TypeMatch ; skip next block if string is not sentinel
-    func$digitToStr$digittostr$if$3$digittostrReturnValue$TypeMatch:  ; after block
     mov rax, offset string$16                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov rdi, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [rdi], rax                                     ; digitToStr return value
@@ -7371,8 +7245,6 @@ func$digitToStr:
   cmp rbx, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$4                           ; digit == 4
     ; Line 183: return '4';
-    jmp func$digitToStr$digittostr$if$4$digittostrReturnValue$TypeMatch ; skip next block if string is not sentinel
-    func$digitToStr$digittostr$if$4$digittostrReturnValue$TypeMatch:  ; after block
     mov rdi, offset string$17                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r12, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [r12], rdi                                     ; digitToStr return value
@@ -7395,8 +7267,6 @@ func$digitToStr:
   cmp rsi, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$5                           ; digit == 5
     ; Line 186: return '5';
-    jmp func$digitToStr$digittostr$if$5$digittostrReturnValue$TypeMatch ; skip next block if string is not sentinel
-    func$digitToStr$digittostr$if$5$digittostrReturnValue$TypeMatch:  ; after block
     mov r12, offset string$18                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r13, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [r13], r12                                     ; digitToStr return value
@@ -7419,8 +7289,6 @@ func$digitToStr:
   cmp rax, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$6                           ; digit == 6
     ; Line 189: return '6';
-    jmp func$digitToStr$digittostr$if$6$digittostrReturnValue$TypeMatch ; skip next block if string is not sentinel
-    func$digitToStr$digittostr$if$6$digittostrReturnValue$TypeMatch:  ; after block
     mov r13, offset string$19                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r14, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [r14], r13                                     ; digitToStr return value
@@ -7443,8 +7311,6 @@ func$digitToStr:
   cmp rdi, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$7                           ; digit == 7
     ; Line 192: return '7';
-    jmp func$digitToStr$digittostr$if$7$digittostrReturnValue$TypeMatch ; skip next block if string is not sentinel
-    func$digitToStr$digittostr$if$7$digittostrReturnValue$TypeMatch:  ; after block
     mov r14, offset string$20                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r15, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [r15], r14                                     ; digitToStr return value
@@ -7467,8 +7333,6 @@ func$digitToStr:
   cmp r12, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$8                           ; digit == 8
     ; Line 195: return '8';
-    jmp func$digitToStr$digittostr$if$8$digittostrReturnValue$TypeMatch ; skip next block if string is not sentinel
-    func$digitToStr$digittostr$if$8$digittostrReturnValue$TypeMatch:  ; after block
     mov r15, offset string$21                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r10, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [r10], r15                                     ; digitToStr return value
@@ -7491,8 +7355,6 @@ func$digitToStr:
   cmp r13, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$9                           ; digit == 9
     ; Line 198: return '9';
-    jmp func$digitToStr$digittostr$if$9$digittostrReturnValue$TypeMatch ; skip next block if string is not sentinel
-    func$digitToStr$digittostr$if$9$digittostrReturnValue$TypeMatch:  ; after block
     mov r10, offset string$22                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov rbx, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [rbx], r10                                     ; digitToStr return value
@@ -7578,7 +7440,6 @@ func$digitToStr:
   mov qword ptr [rdi], 000h                                      ; digitToStr return value
   mov r12, qword ptr [rbp + 028h]                                ; get pointer to return value type of digitToStr into register to dereference it
   mov qword ptr [r12], 017h                                      ; type of digitToStr return value (Null'23)
-  jmp func$digitToStr$epilog                                     ; return
   func$digitToStr$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
@@ -7704,8 +7565,6 @@ func$intToStr:
   cmp rdi, 000h                                                  ; compare == operator result to false
   je func$intToStr$if$continuation                               ; value == 0
     ; Line 206: return '0';
-    jmp func$intToStr$inttostr$if$inttostrReturnValue$TypeMatch  ; skip next block if string is not sentinel
-    func$intToStr$inttostr$if$inttostrReturnValue$TypeMatch:     ; after block
     mov r10, offset string$13                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov rbx, qword ptr [rbp + 030h]                              ; get pointer to return value of intToStr into register to dereference it
     mov qword ptr [rbx], r10                                     ; intToStr return value
@@ -7768,8 +7627,6 @@ func$intToStr:
       mov rax, qword ptr [rsp + 028h]                            ; restoring slots to previous scope state
       mov rcx, qword ptr [rsp + 030h]                            ; restoring slots to previous scope state
     func$intToStr$while$newvalue$TypeMatch:                      ; after block
-    jmp func$intToStr$while$0$TypeMatch                          ; skip next block if 0 is not sentinel
-    func$intToStr$while$0$TypeMatch:                             ; after block
     mov qword ptr [rsp + 040h], rdi                              ; move buffer variable type out of rdi
     xor rdi, rdi                                                 ; clear > operator result
     cmp r13, 000h                                                ; compare newValue variable with 0
@@ -7824,8 +7681,6 @@ func$intToStr:
       mov rcx, qword ptr [rsp + 018h]                            ; restoring slots to previous scope state
       mov r13, qword ptr [rsp + 038h]                            ; restoring slots to previous scope state
     func$intToStr$while$newvalue$TypeMatch$1:                    ; after block
-    jmp func$intToStr$while$100Xa$TypeMatch                      ; skip next block if 10 /* 0xa */ is not sentinel
-    func$intToStr$while$100Xa$TypeMatch:                         ; after block
     mov qword ptr [rsp + 038h], rax                              ; move buffer variable value out of rax
     mov rax, r13                                                 ; put lhs of rdx division (<DynamicSlot:Integer'25 at [r13, r13]/[r14, r14] ("newValue variable") (living: true)>) in rax
     mov qword ptr [rsp + 030h], rax                              ; move newValue variable value out of rax
@@ -7874,8 +7729,6 @@ func$intToStr:
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
       mov rcx, qword ptr [rsp + 010h]                            ; restoring slots to previous scope state
     func$intToStr$while$newvalue$TypeMatch$2:                    ; after block
-    jmp func$intToStr$while$100Xa$TypeMatch$1                    ; skip next block if 10 /* 0xa */ is not sentinel
-    func$intToStr$while$100Xa$TypeMatch$1:                       ; after block
     mov rax, qword ptr [rsp + 030h]                              ; assign value of newValue variable to value of / operator result
     cqo                                                          ; zero-extend dividend
     mov r12, 00ah                                                ; read operand of div (10 /* 0xa */) 
@@ -8019,7 +7872,6 @@ func$intToStr:
   mov r15, rcx                                                   ; save value of potential string
   call intrinsic$decref                                          ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
-  jmp func$intToStr$epilog                                       ; return
   func$intToStr$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
@@ -8223,8 +8075,6 @@ func$_stringify:
     cmp qword ptr [rbp + 040h], 000h                             ; compare arg to false
     je func$_stringify$Stringify$if$1$if$continuation            ; arg
       ; Line 224: return 'true';
-      jmp func$_stringify$Stringify$if$1$stringify$if$1$if$StringifyReturnValue$TypeMatch ; skip next block if string is not sentinel
-      func$_stringify$Stringify$if$1$stringify$if$1$if$StringifyReturnValue$TypeMatch:  ; after block
       mov rdi, offset string$25                                  ; read second operand of mov (string) for MoveToDerefInstruction
       mov r12, qword ptr [rbp + 030h]                            ; get pointer to return value of _stringify into register to dereference it
       mov qword ptr [r12], rdi                                   ; _stringify return value
@@ -8233,8 +8083,6 @@ func$_stringify:
       jmp func$_stringify$epilog                                 ; return
     func$_stringify$Stringify$if$1$if$continuation:              ; end of if
     ; Line 226: return 'false';
-    jmp func$_stringify$Stringify$if$1$StringifyReturnValue$TypeMatch ; skip next block if string is not sentinel
-    func$_stringify$Stringify$if$1$StringifyReturnValue$TypeMatch:  ; after block
     mov r10, offset string$26                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov rbx, qword ptr [rbp + 030h]                              ; get pointer to return value of _stringify into register to dereference it
     mov qword ptr [rbx], r10                                     ; _stringify return value
@@ -8256,8 +8104,6 @@ func$_stringify:
   cmp r14, 000h                                                  ; compare is expression result to false
   je func$_stringify$if$continuation$2                           ; arg is Null
     ; Line 229: return 'null';
-    jmp func$_stringify$Stringify$if$2$StringifyReturnValue$TypeMatch ; skip next block if string is not sentinel
-    func$_stringify$Stringify$if$2$StringifyReturnValue$TypeMatch:  ; after block
     mov rbx, offset string$27                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov rsi, qword ptr [rbp + 030h]                              ; get pointer to return value of _stringify into register to dereference it
     mov qword ptr [rsi], rbx                                     ; _stringify return value
@@ -8450,8 +8296,6 @@ func$_stringify:
       call func$exit                                             ; jump to subroutine
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
     func$_stringify$Stringify$if$4$func$TypeMatch:               ; after block
-    jmp func$_stringify$Stringify$if$4$8$TypeMatch               ; skip next block if 8 is not sentinel
-    func$_stringify$Stringify$if$4$8$TypeMatch:                  ; after block
     mov r13, r14                                                 ; assign value of func variable to value of - operator result
     sub r13, 008h                                                ; compute (func variable) - (8)
     mov r14, 019h                                                ; - operator result is of type Integer'25
@@ -8628,7 +8472,6 @@ func$_stringify:
   mov qword ptr [r14], 000h                                      ; _stringify return value
   mov r15, qword ptr [rbp + 028h]                                ; get pointer to return value type of _stringify into register to dereference it
   mov qword ptr [r15], 017h                                      ; type of _stringify return value (Null'23)
-  jmp func$_stringify$epilog                                     ; return
   func$_stringify$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
@@ -8766,8 +8609,6 @@ func$print:
       mov rax, qword ptr [rsp + 038h]                            ; restoring slots to previous scope state
       mov rcx, qword ptr [rsp + 040h]                            ; restoring slots to previous scope state
     func$print$while$index$TypeMatch:                            ; after block
-    jmp func$print$while$lenParts$TypeMatch                      ; skip next block if parameter count of print is not sentinel
-    func$print$while$lenParts$TypeMatch:                         ; after block
     mov qword ptr [rsp + 050h], rsi                              ; move first variable type out of rsi
     xor rsi, rsi                                                 ; clear < operator result
     cmp rdi, rcx                                                 ; compare index variable with parameter count of print
@@ -8817,8 +8658,6 @@ func$print:
       mov rcx, qword ptr [rsp + 020h]                            ; restoring slots to previous scope state
     func$print$while$if$continuation:                            ; end of if
     ; Line 250: __print(_stringify(parts[index]));
-    jmp func$print$while$parts$TypeMatch                         ; skip next block if parts is not sentinel
-    func$print$while$parts$TypeMatch:                            ; after block
     cmp qword ptr [rsp + 048h], rcx                              ; compare index variable to parameter count of print
     jge func$print$while$subscript$boundsError                   ; index out of range (too high)
     cmp qword ptr [rsp + 048h], 000h                             ; compare index variable to 0 (integer)
@@ -8944,8 +8783,6 @@ func$print:
       call func$exit                                             ; jump to subroutine
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
     func$print$while$indexVariable$TypeMatch:                    ; after block
-    jmp func$print$while$1$TypeMatch                             ; skip next block if 1 is not sentinel
-    func$print$while$1$TypeMatch:                                ; after block
     mov rax, qword ptr [rsp + 048h]                              ; assign value of index variable to value of += operator result
     add rax, 001h                                                ; += operator
     mov r12, 019h                                                ; += operator result is of type Integer'25
@@ -8971,14 +8808,10 @@ func$print:
     jmp func$print$while$top                                     ; return to top of while
   func$print$while$bottom:                                       ; bottom of while
   ; Implicit return from print
-  jmp func$print$printReturnValue$TypeMatch                      ; skip next block if null is not sentinel
-  func$print$printReturnValue$TypeMatch:                         ; after block
   mov r10, qword ptr [rbp + 030h]                                ; get pointer to return value of print into register to dereference it
   mov qword ptr [r10], 000h                                      ; print return value
   mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of print into register to dereference it
   mov qword ptr [rbx], 017h                                      ; type of print return value (Null'23)
-  jmp func$print$epilog                                          ; return
-  func$print$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 060h                                                  ; free space for stack
@@ -9115,8 +8948,6 @@ func$println:
       mov rax, qword ptr [rsp + 038h]                            ; restoring slots to previous scope state
       mov rcx, qword ptr [rsp + 040h]                            ; restoring slots to previous scope state
     func$println$while$index$TypeMatch:                          ; after block
-    jmp func$println$while$lenParts$TypeMatch                    ; skip next block if parameter count of println is not sentinel
-    func$println$while$lenParts$TypeMatch:                       ; after block
     mov qword ptr [rsp + 050h], rsi                              ; move first variable type out of rsi
     xor rsi, rsi                                                 ; clear < operator result
     cmp rdi, rcx                                                 ; compare index variable with parameter count of println
@@ -9166,8 +8997,6 @@ func$println:
       mov rcx, qword ptr [rsp + 020h]                            ; restoring slots to previous scope state
     func$println$while$if$continuation:                          ; end of if
     ; Line 263: __print(_stringify(parts[index]));
-    jmp func$println$while$parts$TypeMatch                       ; skip next block if parts is not sentinel
-    func$println$while$parts$TypeMatch:                          ; after block
     cmp qword ptr [rsp + 048h], rcx                              ; compare index variable to parameter count of println
     jge func$println$while$subscript$boundsError                 ; index out of range (too high)
     cmp qword ptr [rsp + 048h], 000h                             ; compare index variable to 0 (integer)
@@ -9293,8 +9122,6 @@ func$println:
       call func$exit                                             ; jump to subroutine
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
     func$println$while$indexVariable$TypeMatch:                  ; after block
-    jmp func$println$while$1$TypeMatch                           ; skip next block if 1 is not sentinel
-    func$println$while$1$TypeMatch:                              ; after block
     mov rax, qword ptr [rsp + 048h]                              ; assign value of index variable to value of += operator result
     add rax, 001h                                                ; += operator
     mov r12, 019h                                                ; += operator result is of type Integer'25
@@ -9337,14 +9164,10 @@ func$println:
   call func$__print                                              ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
   ; Implicit return from println
-  jmp func$println$printlnReturnValue$TypeMatch                  ; skip next block if null is not sentinel
-  func$println$printlnReturnValue$TypeMatch:                     ; after block
   mov rsi, qword ptr [rbp + 030h]                                ; get pointer to return value of println into register to dereference it
   mov qword ptr [rsi], 000h                                      ; println return value
   mov rdi, qword ptr [rbp + 028h]                                ; get pointer to return value type of println into register to dereference it
   mov qword ptr [rdi], 017h                                      ; type of println return value (Null'23)
-  jmp func$println$epilog                                        ; return
-  func$println$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 060h                                                  ; free space for stack
@@ -9410,14 +9233,10 @@ func$foo:
     mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
   func$foo$parameterCountCheck$continuation:                     ; end of parameter count check
   ; Implicit return from foo
-  jmp func$foo$fooReturnValue$TypeMatch                          ; skip next block if null is not sentinel
-  func$foo$fooReturnValue$TypeMatch:                             ; after block
   mov r13, qword ptr [rbp + 030h]                                ; get pointer to return value of foo into register to dereference it
   mov qword ptr [r13], 000h                                      ; foo return value
   mov r14, qword ptr [rbp + 028h]                                ; get pointer to return value type of foo into register to dereference it
   mov qword ptr [r14], 017h                                      ; type of foo return value (Null'23)
-  jmp func$foo$epilog                                            ; return
-  func$foo$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
