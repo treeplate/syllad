@@ -265,40 +265,6 @@ class CompilationEnvironment extends TypeRegistry {
     }
   }
 
-  Null allocateSlots(Assembler assembler) {
-    intrinsicsLibrary.allocateSlots(assembler);
-    runtimeLibrary!.allocateSlots(assembler);
-    for (libraryName in libraryNames) {
-      Anything library = libraries.get(libraryName);
-      assert(library is CompiledLibrary, concat(libraryName, ' was never fully compiled'));
-      (library as CompiledLibrary).allocateSlots(assembler);
-    }
-    for (subroutine in subroutines) {
-      subroutine.allocateSlots(assembler);
-    }
-  }
-
-  Null generateAssembler(Assembler assembler) {
-    AssemblerBlock mainBlock = assembler.createBlock();
-    for (constant in constants) {
-      assembler.addConst(constant.label, constant.data, constant.comments);
-    }
-    intrinsicsLibrary.generateAssemblerBlock(mainBlock);
-    runtimeLibrary!.generateAssemblerBlock(mainBlock);
-    for (libraryName in libraryNames) {
-      Anything library = libraries.get(libraryName);
-      assert(library is CompiledLibrary, concat(libraryName, ' was never fully compiled'));
-      (library as CompiledLibrary).generateAssemblerBlock(mainBlock);
-    }
-    mainBlock.addBlankLine();
-    mainBlock.addComment('End of global scope');
-    mainBlock.addCode('ret', [], 'exit application');
-    assembler.addLabeledBlock('main', mainBlock, null, null);
-    for (subroutine in subroutines) {
-      subroutine.generateAssembler(assembler);
-    }
-  }
-
   Slot integer(Integer value) {
     intrinsicsLibrary.coreIntegerType.markConstructed();
     return ImmediateIntegerSlot(intrinsicsLibrary.coreIntegerType, value, concat(hex(value), ' (integer)'));
@@ -417,6 +383,40 @@ class CompilationEnvironment extends TypeRegistry {
     block.addLabel(decrefEndLabel, null);
     block.addCode('ret', [], 'return from subroutine');
     assembler.addLabeledBlock(label, block, 'decref intrinsic; used to decrement the reference count of string variables', null);
+  }
+
+  Null allocateSlots(Assembler assembler) {
+    intrinsicsLibrary.allocateSlots(assembler);
+    runtimeLibrary!.allocateSlots(assembler);
+    for (libraryName in libraryNames) {
+      Anything library = libraries.get(libraryName);
+      assert(library is CompiledLibrary, concat(libraryName, ' was never fully compiled'));
+      (library as CompiledLibrary).allocateSlots(assembler);
+    }
+    for (subroutine in subroutines) {
+      subroutine.allocateSlots(assembler);
+    }
+  }
+
+  Null generateAssembler(Assembler assembler) {
+    AssemblerBlock mainBlock = assembler.createBlock();
+    for (constant in constants) {
+      assembler.addConst(constant.label, constant.data, constant.comments);
+    }
+    intrinsicsLibrary.generateAssemblerBlock(mainBlock);
+    runtimeLibrary!.generateAssemblerBlock(mainBlock);
+    for (libraryName in libraryNames) {
+      Anything library = libraries.get(libraryName);
+      assert(library is CompiledLibrary, concat(libraryName, ' was never fully compiled'));
+      (library as CompiledLibrary).generateAssemblerBlock(mainBlock);
+    }
+    mainBlock.addBlankLine();
+    mainBlock.addComment('End of global scope');
+    mainBlock.addCode('ret', [], 'exit application');
+    assembler.addLabeledBlock('main', mainBlock, null, null);
+    for (subroutine in subroutines) {
+      subroutine.generateAssembler(assembler);
+    }
   }
 
   Null compile(Assembler assembler) {
