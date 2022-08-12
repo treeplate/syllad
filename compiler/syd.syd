@@ -54,12 +54,7 @@ print(b);
 // - verify that we keep the stack pointer 16-byte aligned
 // - something that runs each test in turn (and matches expectation)
 // - static type checking ("xxxx")
-// - heap allocation
-//    - import GetProcessHeap, HeapAlloc, HeapFree from kernel32
-// - string ref counting
-// - len for varargs
-// - vararg internal rtl functions
-// - concat for strings, joinList for StringLists
+// - joinList for StringLists
 // - lists, garbage collection
 // - stringification
 // - implement the real "println"
