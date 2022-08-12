@@ -1,5 +1,4 @@
-// TODO:
-//  - implement string ref counting
+// ERROR MANAGEMENT
 
 // TODO: this should be a compiler intrinsic so that the message evaluation can be lazy and so it can be skipped in release builds
 Null assert(Boolean condition, String message) {
@@ -17,6 +16,9 @@ Null throw(String message) {
 }
 
 Integer __getLastError() __extern 'kernel32.lib' 'GetLastError';
+
+
+// HEAP MANAGEMENT
 
 Integer __getProcessHeap() __extern 'kernel32.lib' 'GetProcessHeap';
 
@@ -46,59 +48,8 @@ Null _free(Integer pointer) __intrinsic {
   }
 }
 
-Null append(WhateverList list, Anything element) {
-  // TODO: implement this
-  __print('append is not implemented\n');
-  exit(1);
-}
 
-String chr(Integer character) {
-  // TODO: implement this
-  __print('chr is not implemented\n');
-  exit(1);
-}
-
-String joinList(StringList args) {
-  // TODO: implement this
-  __print('joinList is not implemented\n');
-  exit(1);
-}
-
-String stringTimes(String str, Integer count) {
-  // TODO: implement this
-  __print('stringTimes is not implemented\n');
-  exit(1);
-}
-
-StringList charsOf(String str) {
-  // TODO: implement this
-  __print('charsOf is not implemented\n');
-  exit(1);
-}
-
-StringList scalarValues(String str) {
-  // TODO: implement this
-  __print('scalarValues is not implemented\n');
-  exit(1);
-}
-
-String hex(Integer num) {
-  // TODO: implement this
-  __print('hex is not implemented\n');
-  exit(1);
-}
-
-String readFile(String file) {
-  // TODO: implement this
-  __print('readFile is not implemented\n');
-  exit(1);
-}
-
-Null stderr(String str) {
-  // TODO: implement this
-  __print('stderr is not implemented\n');
-  exit(1);
-}
+// STRINGS AND PRINTING
 
 Null _moveBytes(Integer from, Integer to, Integer length) {
   // TODO: move this to inlined assembler (using the string-copy instructions) for performance
@@ -159,12 +110,6 @@ String concat(String... arguments) {
   }
   return resultPointer __as__ String;
 }
-
-/* TODO: depends on charsOf, stringTimes, lists...
-String padLeft(String line, Integer length, String padding) {
-  return concat(stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))), line);
-}
-*/
 
 String digitToStr(Integer digit) {
   if (digit == 0) {
@@ -266,3 +211,66 @@ Null println(Anything... parts) {
   }
   __print('\n');
 }
+
+
+// STANDARD LIBRARY
+
+Null append(WhateverList list, Anything element) {
+  // TODO: implement this
+  __print('append is not implemented\n');
+  exit(1);
+}
+
+String chr(Integer character) {
+  // TODO: implement this
+  __print('chr is not implemented\n');
+  exit(1);
+}
+
+String joinList(StringList args) {
+  // TODO: implement this
+  __print('joinList is not implemented\n');
+  exit(1);
+}
+
+String stringTimes(String str, Integer count) {
+  // TODO: implement this
+  __print('stringTimes is not implemented\n');
+  exit(1);
+}
+
+StringList charsOf(String str) {
+  // TODO: implement this
+  __print('charsOf is not implemented\n');
+  exit(1);
+}
+
+StringList scalarValues(String str) {
+  // TODO: implement this
+  __print('scalarValues is not implemented\n');
+  exit(1);
+}
+
+String hex(Integer num) {
+  // TODO: implement this
+  __print('hex is not implemented\n');
+  exit(1);
+}
+
+String readFile(String file) {
+  // TODO: implement this
+  __print('readFile is not implemented\n');
+  exit(1);
+}
+
+Null stderr(String str) {
+  // TODO: implement this
+  __print('stderr is not implemented\n');
+  exit(1);
+}
+
+/* TODO: depends on charsOf, stringTimes, lists...
+String padLeft(String line, Integer length, String padding) {
+  return concat(stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))), line);
+}
+*/

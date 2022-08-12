@@ -1,0 +1,4 @@
+// expected output: <function (foo)>
+
+Null foo() {}
+println(foo);

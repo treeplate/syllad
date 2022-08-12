@@ -1,4 +1,0 @@
-// expected output: <function (foo function)>
-
-Null foo() {}
-println(foo);

@@ -18,9 +18,9 @@ extern HeapFree : proc
   typeTable    db 000h, 000h, 050h, 000h, 050h, 000h, 050h, 000h ; Type table
                db 050h, 000h, 050h, 000h, 050h, 000h, 050h, 000h ; ...
                db 050h, 000h, 050h, 000h, 050h, 000h, 050h, 000h ; ...
-               db 050h, 000h, 050h, 000h, 050h, 000h, 050h, 000h ; ...
-               db 050h, 000h, 050h, 000h, 050h, 000h, 030h, 000h ; ...
-               db 050h, 000h, 050h, 000h, 030h, 000h, 011h, 000h ; ...
+               db 050h, 000h, 030h, 000h, 050h, 000h, 050h, 000h ; ...
+               db 050h, 000h, 030h, 000h, 050h, 000h, 050h, 000h ; ...
+               db 050h, 000h, 050h, 000h, 050h, 000h, 011h, 000h ; ...
                db 012h, 000h, 014h, 000h, 018h, 000h, 000h, 000h ; ...
    ; Columns: Null'23 Boolean'24 Integer'25 String'26 Anything'27 WhateverReadOnlyList'28 AnythingFunction'29 WhateverList'30 StringList'31
    ; 0 0 0 0 0 0 0 0 : 0   <sentinel>'0
@@ -33,19 +33,19 @@ extern HeapFree : proc
    ; 0 0 0 0 1 0 1 0 : 0   NullFunction(Boolean, String)'7
    ; 0 0 0 0 1 0 1 0 : 0   IntegerFunction()'8
    ; 0 0 0 0 1 0 1 0 : 0   IntegerFunction(Integer, Integer, Integer)'9
-   ; 0 0 0 0 1 0 1 0 : 0   NullFunction(WhateverList, Anything)'10
-   ; 0 0 0 0 1 0 1 0 : 0   StringFunction(Integer)'11
-   ; 0 0 0 0 1 0 1 0 : 0   StringFunction(StringList)'12
-   ; 0 0 0 0 1 0 1 0 : 0   StringFunction(String, Integer)'13
-   ; 0 0 0 0 1 0 1 0 : 0   StringListFunction(String)'14
-   ; 0 0 0 0 1 0 1 0 : 0   StringFunction(String)'15
-   ; 0 0 0 0 1 0 1 0 : 0   NullFunction(Integer, Integer, Integer)'16
-   ; 0 0 0 0 1 0 1 0 : 0   IntegerFunction(String)'17
-   ; 0 0 0 0 1 0 1 0 : 0   StringFunction(String...)'18
-   ; 0 0 0 0 1 1 0 0 : 0   StringReadOnlyList'19
-   ; 0 0 0 0 1 0 1 0 : 0   StringFunction(Anything)'20
-   ; 0 0 0 0 1 0 1 0 : 0   NullFunction(Anything...)'21
-   ; 0 0 0 0 1 1 0 0 : 0   AnythingReadOnlyList'22
+   ; 0 0 0 0 1 0 1 0 : 0   NullFunction(Integer, Integer, Integer)'10
+   ; 0 0 0 0 1 0 1 0 : 0   IntegerFunction(String)'11
+   ; 0 0 0 0 1 0 1 0 : 0   StringFunction(String...)'12
+   ; 0 0 0 0 1 1 0 0 : 0   StringReadOnlyList'13
+   ; 0 0 0 0 1 0 1 0 : 0   StringFunction(Integer)'14
+   ; 0 0 0 0 1 0 1 0 : 0   StringFunction(Anything)'15
+   ; 0 0 0 0 1 0 1 0 : 0   NullFunction(Anything...)'16
+   ; 0 0 0 0 1 1 0 0 : 0   AnythingReadOnlyList'17
+   ; 0 0 0 0 1 0 1 0 : 0   NullFunction(WhateverList, Anything)'18
+   ; 0 0 0 0 1 0 1 0 : 0   StringFunction(StringList)'19
+   ; 0 0 0 0 1 0 1 0 : 0   StringFunction(String, Integer)'20
+   ; 0 0 0 0 1 0 1 0 : 0   StringListFunction(String)'21
+   ; 0 0 0 0 1 0 1 0 : 0   StringFunction(String)'22
    ; 1 0 0 0 1 0 0 0 : 0   Null'23
    ; 0 1 0 0 1 0 0 0 : 0   Boolean'24
    ; 0 0 1 0 1 0 0 0 : 0   Integer'25
@@ -105,7 +105,7 @@ extern HeapFree : proc
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   string       dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db 0ah                                            ; line 8 column 16 in file runtime library
+               db 0ah                                            ; line 7 column 16 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   func$throw$annotation dq -01h                                  ; String constant (reference count)
                dq 5                                              ; Length
@@ -135,93 +135,21 @@ extern HeapFree : proc
                dq 5                                              ; Length
                db "_free"                                        ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
-  func$append$annotation dq -01h                                 ; String constant (reference count)
-               dq 6                                              ; Length
-               db "append"                                       ; line 1139 column 111 in file syd-compiler.syd
-               db 00h, 00h                                       ; padding to align to 8-byte boundary
-  string$1     dq -01h                                           ; String constant (reference count)
-               dq 26                                             ; Length
-               db "append is not implemented", 0ah               ; line 51 column 39 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
-  func$chr$annotation dq -01h                                    ; String constant (reference count)
-               dq 3                                              ; Length
-               db "chr"                                          ; line 1139 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  string$2     dq -01h                                           ; String constant (reference count)
-               dq 23                                             ; Length
-               db "chr is not implemented", 0ah                  ; line 57 column 36 in file runtime library
-               db 00h                                            ; padding to align to 8-byte boundary
-  func$joinList$annotation dq -01h                               ; String constant (reference count)
-               dq 8                                              ; Length
-               db "joinList"                                     ; line 1139 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
-  string$3     dq -01h                                           ; String constant (reference count)
-               dq 28                                             ; Length
-               db "joinList is not implemented", 0ah             ; line 63 column 41 in file runtime library
-               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
-  func$stringTimes$annotation dq -01h                            ; String constant (reference count)
-               dq 11                                             ; Length
-               db "stringTimes"                                  ; line 1139 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  string$4     dq -01h                                           ; String constant (reference count)
-               dq 31                                             ; Length
-               db "stringTimes is not implemented", 0ah          ; line 69 column 44 in file runtime library
-               db 00h                                            ; padding to align to 8-byte boundary
-  func$charsOf$annotation dq -01h                                ; String constant (reference count)
-               dq 7                                              ; Length
-               db "charsOf"                                      ; line 1139 column 111 in file syd-compiler.syd
-               db 00h                                            ; padding to align to 8-byte boundary
-  string$5     dq -01h                                           ; String constant (reference count)
-               dq 27                                             ; Length
-               db "charsOf is not implemented", 0ah              ; line 75 column 40 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  func$scalarValues$annotation dq -01h                           ; String constant (reference count)
-               dq 12                                             ; Length
-               db "scalarValues"                                 ; line 1139 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
-  string$6     dq -01h                                           ; String constant (reference count)
-               dq 32                                             ; Length
-               db "scalarValues is not implemented", 0ah         ; line 81 column 45 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
-  func$hex$annotation dq -01h                                    ; String constant (reference count)
-               dq 3                                              ; Length
-               db "hex"                                          ; line 1139 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  string$7     dq -01h                                           ; String constant (reference count)
-               dq 23                                             ; Length
-               db "hex is not implemented", 0ah                  ; line 87 column 36 in file runtime library
-               db 00h                                            ; padding to align to 8-byte boundary
-  func$readFile$annotation dq -01h                               ; String constant (reference count)
-               dq 8                                              ; Length
-               db "readFile"                                     ; line 1139 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
-  string$8     dq -01h                                           ; String constant (reference count)
-               dq 28                                             ; Length
-               db "readFile is not implemented", 0ah             ; line 93 column 41 in file runtime library
-               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
-  func$stderr$annotation dq -01h                                 ; String constant (reference count)
-               dq 6                                              ; Length
-               db "stderr"                                       ; line 1139 column 111 in file syd-compiler.syd
-               db 00h, 00h                                       ; padding to align to 8-byte boundary
-  string$9     dq -01h                                           ; String constant (reference count)
-               dq 26                                             ; Length
-               db "stderr is not implemented", 0ah               ; line 99 column 39 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   func$_moveBytes$annotation dq -01h                             ; String constant (reference count)
                dq 10                                             ; Length
                db "_moveBytes"                                   ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
-  string$10    dq -01h                                           ; String constant (reference count)
+  string$1     dq -01h                                           ; String constant (reference count)
                dq 51                                             ; Length
-               db "_moveBytes expects positive number of bytes to copy" ; line 106 column 74 in file runtime library
+               db "_moveBytes expects positive number of bytes to copy" ; line 57 column 74 in file runtime library
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  string$11    dq -01h                                           ; String constant (reference count)
+  string$2     dq -01h                                           ; String constant (reference count)
                dq 61                                             ; Length
-               db "internal error: zero extra bytes but fromCursor is before end" ; line 125 column 90 in file runtime library
+               db "internal error: zero extra bytes but fromCursor is before end" ; line 76 column 90 in file runtime library
                db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
-  string$12    dq -01h                                           ; String constant (reference count)
+  string$3     dq -01h                                           ; String constant (reference count)
                dq 39                                             ; Length
-               db "internal error: more than 7 extra bytes"      ; line 126 column 68 in file runtime library
+               db "internal error: more than 7 extra bytes"      ; line 77 column 68 in file runtime library
                db 00h                                            ; padding to align to 8-byte boundary
   func$_stringByteLength$annotation dq -01h                      ; String constant (reference count)
                dq 17                                             ; Length
@@ -235,96 +163,168 @@ extern HeapFree : proc
                dq 10                                             ; Length
                db "digitToStr"                                   ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
+  string$4     dq -01h                                           ; String constant (reference count)
+               dq 1                                              ; Length
+               db "0"                                            ; line 116 column 14 in file runtime library
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  string$5     dq -01h                                           ; String constant (reference count)
+               dq 1                                              ; Length
+               db "1"                                            ; line 119 column 14 in file runtime library
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  string$6     dq -01h                                           ; String constant (reference count)
+               dq 1                                              ; Length
+               db "2"                                            ; line 122 column 14 in file runtime library
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  string$7     dq -01h                                           ; String constant (reference count)
+               dq 1                                              ; Length
+               db "3"                                            ; line 125 column 14 in file runtime library
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  string$8     dq -01h                                           ; String constant (reference count)
+               dq 1                                              ; Length
+               db "4"                                            ; line 128 column 14 in file runtime library
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  string$9     dq -01h                                           ; String constant (reference count)
+               dq 1                                              ; Length
+               db "5"                                            ; line 131 column 14 in file runtime library
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  string$10    dq -01h                                           ; String constant (reference count)
+               dq 1                                              ; Length
+               db "6"                                            ; line 134 column 14 in file runtime library
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  string$11    dq -01h                                           ; String constant (reference count)
+               dq 1                                              ; Length
+               db "7"                                            ; line 137 column 14 in file runtime library
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  string$12    dq -01h                                           ; String constant (reference count)
+               dq 1                                              ; Length
+               db "8"                                            ; line 140 column 14 in file runtime library
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$13    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db "0"                                            ; line 171 column 14 in file runtime library
+               db "9"                                            ; line 143 column 14 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$14    dq -01h                                           ; String constant (reference count)
-               dq 1                                              ; Length
-               db "1"                                            ; line 174 column 14 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  string$15    dq -01h                                           ; String constant (reference count)
-               dq 1                                              ; Length
-               db "2"                                            ; line 177 column 14 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  string$16    dq -01h                                           ; String constant (reference count)
-               dq 1                                              ; Length
-               db "3"                                            ; line 180 column 14 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  string$17    dq -01h                                           ; String constant (reference count)
-               dq 1                                              ; Length
-               db "4"                                            ; line 183 column 14 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  string$18    dq -01h                                           ; String constant (reference count)
-               dq 1                                              ; Length
-               db "5"                                            ; line 186 column 14 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  string$19    dq -01h                                           ; String constant (reference count)
-               dq 1                                              ; Length
-               db "6"                                            ; line 189 column 14 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  string$20    dq -01h                                           ; String constant (reference count)
-               dq 1                                              ; Length
-               db "7"                                            ; line 192 column 14 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  string$21    dq -01h                                           ; String constant (reference count)
-               dq 1                                              ; Length
-               db "8"                                            ; line 195 column 14 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  string$22    dq -01h                                           ; String constant (reference count)
-               dq 1                                              ; Length
-               db "9"                                            ; line 198 column 14 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  string$23    dq -01h                                           ; String constant (reference count)
                dq 56                                             ; Length
-               db "Invalid digit passed to digitToStr (digit as exit code)", 0ah ; line 200 column 69 in file runtime library
+               db "Invalid digit passed to digitToStr (digit as exit code)", 0ah ; line 145 column 69 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   func$intToStr$annotation dq -01h                               ; String constant (reference count)
                dq 8                                              ; Length
                db "intToStr"                                     ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
-  string$24    dq -01h                                           ; String constant (reference count)
+  string$15    dq -01h                                           ; String constant (reference count)
                dq 0                                              ; Length
   func$_stringify$annotation dq -01h                             ; String constant (reference count)
                dq 10                                             ; Length
                db "_stringify"                                   ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
-  string$25    dq -01h                                           ; String constant (reference count)
+  string$16    dq -01h                                           ; String constant (reference count)
                dq 4                                              ; Length
-               db "true"                                         ; line 224 column 19 in file runtime library
+               db "true"                                         ; line 169 column 19 in file runtime library
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
-  string$26    dq -01h                                           ; String constant (reference count)
+  string$17    dq -01h                                           ; String constant (reference count)
                dq 5                                              ; Length
-               db "false"                                        ; line 226 column 18 in file runtime library
+               db "false"                                        ; line 171 column 18 in file runtime library
                db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
-  string$27    dq -01h                                           ; String constant (reference count)
+  string$18    dq -01h                                           ; String constant (reference count)
                dq 4                                              ; Length
-               db "null"                                         ; line 229 column 17 in file runtime library
+               db "null"                                         ; line 174 column 17 in file runtime library
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
-  string$28    dq -01h                                           ; String constant (reference count)
+  string$19    dq -01h                                           ; String constant (reference count)
                dq 11                                             ; Length
-               db "<function ("                                  ; line 237 column 31 in file runtime library
+               db "<function ("                                  ; line 182 column 31 in file runtime library
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  string$29    dq -01h                                           ; String constant (reference count)
+  string$20    dq -01h                                           ; String constant (reference count)
                dq 2                                              ; Length
-               db ")>"                                           ; line 237 column 63 in file runtime library
+               db ")>"                                           ; line 182 column 63 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
-  string$30    dq -01h                                           ; String constant (reference count)
+  string$21    dq -01h                                           ; String constant (reference count)
                dq 28                                             ; Length
-               db "value cannot be stringified", 0ah             ; line 239 column 41 in file runtime library
+               db "value cannot be stringified", 0ah             ; line 184 column 41 in file runtime library
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   func$print$annotation dq -01h                                  ; String constant (reference count)
                dq 5                                              ; Length
                db "print"                                        ; line 1139 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
-  string$31    dq -01h                                           ; String constant (reference count)
+  string$22    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db " "                                            ; line 248 column 17 in file runtime library
+               db " "                                            ; line 193 column 17 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   func$println$annotation dq -01h                                ; String constant (reference count)
                dq 7                                              ; Length
                db "println"                                      ; line 1139 column 111 in file syd-compiler.syd
                db 00h                                            ; padding to align to 8-byte boundary
+  func$append$annotation dq -01h                                 ; String constant (reference count)
+               dq 6                                              ; Length
+               db "append"                                       ; line 1139 column 111 in file syd-compiler.syd
+               db 00h, 00h                                       ; padding to align to 8-byte boundary
+  string$23    dq -01h                                           ; String constant (reference count)
+               dq 26                                             ; Length
+               db "append is not implemented", 0ah               ; line 220 column 39 in file runtime library
+               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
+  func$chr$annotation dq -01h                                    ; String constant (reference count)
+               dq 3                                              ; Length
+               db "chr"                                          ; line 1139 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
+  string$24    dq -01h                                           ; String constant (reference count)
+               dq 23                                             ; Length
+               db "chr is not implemented", 0ah                  ; line 226 column 36 in file runtime library
+               db 00h                                            ; padding to align to 8-byte boundary
+  func$joinList$annotation dq -01h                               ; String constant (reference count)
+               dq 8                                              ; Length
+               db "joinList"                                     ; line 1139 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
+  string$25    dq -01h                                           ; String constant (reference count)
+               dq 28                                             ; Length
+               db "joinList is not implemented", 0ah             ; line 232 column 41 in file runtime library
+               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
+  func$stringTimes$annotation dq -01h                            ; String constant (reference count)
+               dq 11                                             ; Length
+               db "stringTimes"                                  ; line 1139 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
+  string$26    dq -01h                                           ; String constant (reference count)
+               dq 31                                             ; Length
+               db "stringTimes is not implemented", 0ah          ; line 238 column 44 in file runtime library
+               db 00h                                            ; padding to align to 8-byte boundary
+  func$charsOf$annotation dq -01h                                ; String constant (reference count)
+               dq 7                                              ; Length
+               db "charsOf"                                      ; line 1139 column 111 in file syd-compiler.syd
+               db 00h                                            ; padding to align to 8-byte boundary
+  string$27    dq -01h                                           ; String constant (reference count)
+               dq 27                                             ; Length
+               db "charsOf is not implemented", 0ah              ; line 244 column 40 in file runtime library
+               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
+  func$scalarValues$annotation dq -01h                           ; String constant (reference count)
+               dq 12                                             ; Length
+               db "scalarValues"                                 ; line 1139 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
+  string$28    dq -01h                                           ; String constant (reference count)
+               dq 32                                             ; Length
+               db "scalarValues is not implemented", 0ah         ; line 250 column 45 in file runtime library
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
+  func$hex$annotation dq -01h                                    ; String constant (reference count)
+               dq 3                                              ; Length
+               db "hex"                                          ; line 1139 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
+  string$29    dq -01h                                           ; String constant (reference count)
+               dq 23                                             ; Length
+               db "hex is not implemented", 0ah                  ; line 256 column 36 in file runtime library
+               db 00h                                            ; padding to align to 8-byte boundary
+  func$readFile$annotation dq -01h                               ; String constant (reference count)
+               dq 8                                              ; Length
+               db "readFile"                                     ; line 1139 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
+  string$30    dq -01h                                           ; String constant (reference count)
+               dq 28                                             ; Length
+               db "readFile is not implemented", 0ah             ; line 262 column 41 in file runtime library
+               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
+  func$stderr$annotation dq -01h                                 ; String constant (reference count)
+               dq 6                                              ; Length
+               db "stderr"                                       ; line 1139 column 111 in file syd-compiler.syd
+               db 00h, 00h                                       ; padding to align to 8-byte boundary
+  string$31    dq -01h                                           ; String constant (reference count)
+               dq 26                                             ; Length
+               db "stderr is not implemented", 0ah               ; line 268 column 39 in file runtime library
+               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   func$foo$annotation dq -01h                                    ; String constant (reference count)
                dq 3                                              ; Length
                db "foo"                                          ; line 1139 column 111 in file syd-compiler.syd
@@ -388,7 +388,7 @@ main:
   push rbp                                                       ; save non-volatile registers
   sub rsp, 018h                                                  ; allocate space for stack
   lea rbp, qword ptr [rsp + 020h]                                ; set up frame pointer
-  ; Line 23: Integer _heapHandle = __getProcessHeap();
+  ; Line 25: Integer _heapHandle = __getProcessHeap();
   ; Call __getProcessHeap with 0 arguments
   lea r10, qword ptr [rsp + 008h]                                ; load address of return value's value
   push r10                                                       ; internal argument 6: pointer to return value slot's value
@@ -405,7 +405,7 @@ main:
   mov qword ptr _heapHandleValue, r11                            ; value initialization of variable declaration for _heapHandle variable (__getProcessHeap return value)
   mov r11, qword ptr [rsp + 000h]                                ; indirect through r11 because operand pair (qword ptr _heapHandleType, stack operand #2) is not allowed with mov
   mov qword ptr _heapHandleType, r11                             ; type initialization of variable declaration for _heapHandle variable
-  ; Line 27: Integer _blockCount = 0;
+  ; Line 29: Integer _blockCount = 0;
   mov qword ptr _blockCountValue, 000h                           ; value initialization of variable declaration for _blockCount variable (0)
   mov qword ptr _blockCountType, 019h                            ; type initialization of variable declaration for _blockCount variable (Integer'25)
   ; Epilog
@@ -1322,7 +1322,7 @@ func$assert:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
   func$assert$message$TypeMatch:                                 ; after block
-  ; Line 6: if (!condition) { ...
+  ; Line 5: if (!condition) { ...
   cmp qword ptr [rbp + 038h], 000h                               ; compare type of condition to <sentinel>
   jne func$assert$condition$TypeMatch$1                          ; skip next block if condition is not sentinel
     ; Error handling block for condition
@@ -1367,7 +1367,7 @@ func$assert:
   mov rbx, 018h                                                  ; ! unary operator result is of type Boolean'24
   cmp rax, 000h                                                  ; compare ! unary operator result to false
   je func$assert$if$continuation                                 ; !condition
-    ; Line 7: __print(message);
+    ; Line 6: __print(message);
     ; Call __print with 1 arguments
     push qword ptr [rbp + 050h]                                  ; value of argument #1 (message)
     push qword ptr [rbp + 048h]                                  ; type of argument #1
@@ -1383,7 +1383,7 @@ func$assert:
     mov rcx, 001h                                                ; internal argument 1: number of actual arguments
     call func$__print                                            ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ; Line 8: __print('\n');
+    ; Line 7: __print('\n');
     ; Call __print with 1 arguments
     mov rdi, offset string                                       ; reading string for push
     push rdi                                                     ; value of argument #1 (string)
@@ -1399,7 +1399,7 @@ func$assert:
     mov rcx, 001h                                                ; internal argument 1: number of actual arguments
     call func$__print                                            ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ; Line 9: exit(1);
+    ; Line 8: exit(1);
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1)
     push 019h                                                    ; type of argument #1 (Integer'25)
@@ -1889,7 +1889,7 @@ func$_alloc:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov rcx, qword ptr [rsp + 010h]                              ; restoring slots to previous scope state
   func$_alloc$size$TypeMatch:                                    ; after block
-  ; Line 33: _blockCount += 1;
+  ; Line 35: _blockCount += 1;
   cmp qword ptr _blockCountType, 000h                            ; compare type of _blockCount variable to <sentinel>
   jne func$_alloc$BlockcountVariable$TypeMatch                   ; skip next block if _blockCount variable is not sentinel
     ; Error handling block for _blockCount variable
@@ -1932,7 +1932,7 @@ func$_alloc:
   mov r14, 019h                                                  ; += operator result is of type Integer'25
   mov qword ptr _blockCountValue, r13                            ; store value
   mov qword ptr _blockCountType, r14                             ; store type
-  ; Line 34: return __heapAlloc(_heapHandle, 0, size);
+  ; Line 36: return __heapAlloc(_heapHandle, 0, size);
   ; Call __heapAlloc with 3 arguments
   push qword ptr [rbp + 040h]                                    ; value of argument #3 (size)
   push qword ptr [rbp + 038h]                                    ; type of argument #3
@@ -2349,7 +2349,7 @@ func$_free:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
   func$_free$pointer$TypeMatch:                                  ; after block
-  ; Line 42: _blockCount -= 1;
+  ; Line 44: _blockCount -= 1;
   cmp qword ptr _blockCountType, 000h                            ; compare type of _blockCount variable to <sentinel>
   jne func$_free$BlockcountVariable$TypeMatch                    ; skip next block if _blockCount variable is not sentinel
     ; Error handling block for _blockCount variable
@@ -2392,7 +2392,7 @@ func$_free:
   mov r14, 019h                                                  ; -= operator result is of type Integer'25
   mov qword ptr _blockCountValue, r13                            ; store value
   mov qword ptr _blockCountType, r14                             ; store type
-  ; Line 43: if (__heapFree(_heapHandle, 0, pointer) == 0) { ...
+  ; Line 45: if (__heapFree(_heapHandle, 0, pointer) == 0) { ...
   ; Call __heapFree with 3 arguments
   push qword ptr [rbp + 040h]                                    ; value of argument #3 (pointer)
   push qword ptr [rbp + 038h]                                    ; type of argument #3
@@ -2425,7 +2425,7 @@ func$_free:
   mov r12, 018h                                                  ; == operator result is of type Boolean'24
   cmp rdi, 000h                                                  ; compare == operator result to false
   je func$_free$if$continuation                                  ; __heapFree(_heapHandle, 0, pointer) == 0
-    ; Line 45: exit(1);
+    ; Line 47: exit(1);
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1)
     push 019h                                                    ; type of argument #1 (Integer'25)
@@ -2643,7 +2643,7 @@ func$_moveBytes:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov rcx, qword ptr [rsp + 060h]                              ; restoring slots to previous scope state
   func$_moveBytes$length$TypeMatch:                              ; after block
-  ; Line 106: assert(length > 0, '_moveBytes expects positive number of bytes ...
+  ; Line 57: assert(length > 0, '_moveBytes expects positive number of bytes ...
   cmp qword ptr [rbp + 058h], 000h                               ; compare type of length to <sentinel>
   jne func$_moveBytes$length$TypeMatch$1                         ; skip next block if length is not sentinel
     ; Error handling block for length
@@ -2686,7 +2686,7 @@ func$_moveBytes:
   setg bl                                                        ; store result in > operator result
   mov rsi, 018h                                                  ; > operator result is of type Boolean'24
   ; Call assert with 2 arguments
-  mov rdi, offset string$10                                      ; reading string for push
+  mov rdi, offset string$1                                       ; reading string for push
   push rdi                                                       ; value of argument #2 (string)
   push 01ah                                                      ; type of argument #2 (String'26)
   push rbx                                                       ; value of argument #1 (> operator result)
@@ -2703,13 +2703,13 @@ func$_moveBytes:
   mov rcx, 002h                                                  ; internal argument 1: number of actual arguments
   call func$assert                                               ; jump to subroutine
   add rsp, 050h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 107: Integer fromCursor = from;
+  ; Line 58: Integer fromCursor = from;
   mov r13, qword ptr [rbp + 040h]                                ; value initialization of variable declaration for fromCursor variable (from)
   mov r14, qword ptr [rbp + 038h]                                ; type initialization of variable declaration for fromCursor variable
-  ; Line 108: Integer toCursor = to;
+  ; Line 59: Integer toCursor = to;
   mov rax, qword ptr [rbp + 050h]                                ; value initialization of variable declaration for toCursor variable (to)
   mov r15, qword ptr [rbp + 048h]                                ; type initialization of variable declaration for toCursor variable
-  ; Line 109: Integer end = from + length / 8 * 8;
+  ; Line 60: Integer end = from + length / 8 * 8;
   cmp qword ptr [rbp + 058h], 000h                               ; compare type of length to <sentinel>
   jne func$_moveBytes$length$TypeMatch$2                         ; skip next block if length is not sentinel
     ; Error handling block for length
@@ -2952,8 +2952,8 @@ func$_moveBytes:
       mov rcx, 001h                                              ; internal argument 1: number of actual arguments
       call func$exit                                             ; jump to subroutine
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
-      mov r13, qword ptr [rsp + 048h]                            ; restoring slots to previous scope state
       mov r10, qword ptr [rsp + 038h]                            ; restoring slots to previous scope state
+      mov r13, qword ptr [rsp + 048h]                            ; restoring slots to previous scope state
     func$_moveBytes$while$end$TypeMatch:                         ; after block
     xor r14, r14                                                 ; clear < operator result
     cmp r13, r15                                                 ; compare fromCursor variable with end variable
@@ -2965,18 +2965,18 @@ func$_moveBytes:
     mov r15, qword ptr [rsp + 050h]                              ; restoring slots to previous scope state
     jmp func$_moveBytes$while$bottom                             ; break out of while
     func$_moveBytes$while$body:                                  ; start of while
-    ; Line 114: Integer value = __readFromAddress(fromCursor);
+    ; Line 65: Integer value = __readFromAddress(fromCursor);
     ; Call __readFromAddress with 1 arguments
     mov qword ptr [rsp + 048h], r10                              ; move end variable type out of r10
     mov r10, qword ptr [r13]                                     ; dereference first argument of __readFromAddress
     mov rbx, 019h                                                ; dereferenced fromCursor variable is of type Integer'25
     mov rsi, r10                                                 ; value initialization of variable declaration for value variable (dereferenced fromCursor variable)
     mov rdi, rbx                                                 ; type initialization of variable declaration for value variable
-    ; Line 115: __writeToAddress(toCursor, value);
+    ; Line 66: __writeToAddress(toCursor, value);
     ; Call __writeToAddress with 2 arguments
     mov r12, qword ptr [rsp + 070h]                              ; get toCursor variable into register to dereference it
     mov qword ptr [r12], rsi                                     ; __writeToAddress
-    ; Line 116: fromCursor += 8;
+    ; Line 67: fromCursor += 8;
     cmp qword ptr [rsp + 068h], 000h                             ; compare type of fromCursor variable to <sentinel>
     jne func$_moveBytes$while$fromcursorVariable$TypeMatch       ; skip next block if fromCursor variable is not sentinel
       ; Error handling block for fromCursor variable
@@ -3019,7 +3019,7 @@ func$_moveBytes:
     mov rdi, 019h                                                ; += operator result is of type Integer'25
     mov r13, rsi                                                 ; store value
     mov qword ptr [rsp + 068h], rdi                              ; store type
-    ; Line 117: toCursor += 8;
+    ; Line 68: toCursor += 8;
     cmp qword ptr [rsp + 058h], 000h                             ; compare type of toCursor variable to <sentinel>
     jne func$_moveBytes$while$tocursorVariable$TypeMatch         ; skip next block if toCursor variable is not sentinel
       ; Error handling block for toCursor variable
@@ -3069,7 +3069,7 @@ func$_moveBytes:
     mov r10, qword ptr [rsp + 048h]                              ; restoring slots to previous scope state
     jmp func$_moveBytes$while$top                                ; return to top of while
   func$_moveBytes$while$bottom:                                  ; bottom of while
-  ; Line 119: end = from + length;
+  ; Line 70: end = from + length;
   cmp qword ptr [rbp + 038h], 000h                               ; compare type of from to <sentinel>
   jne func$_moveBytes$from$TypeMatch$2                           ; skip next block if from is not sentinel
     ; Error handling block for from
@@ -3106,8 +3106,8 @@ func$_moveBytes:
     mov rcx, 001h                                                ; internal argument 1: number of actual arguments
     call func$exit                                               ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov r13, qword ptr [rsp + 048h]                              ; restoring slots to previous scope state
     mov r10, qword ptr [rsp + 040h]                              ; restoring slots to previous scope state
+    mov r13, qword ptr [rsp + 048h]                              ; restoring slots to previous scope state
   func$_moveBytes$from$TypeMatch$2:                              ; after block
   cmp qword ptr [rbp + 058h], 000h                               ; compare type of length to <sentinel>
   jne func$_moveBytes$length$TypeMatch$3                         ; skip next block if length is not sentinel
@@ -3154,7 +3154,7 @@ func$_moveBytes:
   mov rbx, 019h                                                  ; + operator result is of type Integer'25
   mov r15, r10                                                   ; store value
   mov qword ptr [rsp + 050h], rbx                                ; store type
-  ; Line 121: if (fromCursor < end) { ...
+  ; Line 72: if (fromCursor < end) { ...
   cmp qword ptr [rsp + 068h], 000h                               ; compare type of fromCursor variable to <sentinel>
   jne func$_moveBytes$fromcursor$TypeMatch                       ; skip next block if fromCursor variable is not sentinel
     ; Error handling block for fromCursor
@@ -3234,13 +3234,13 @@ func$_moveBytes:
   mov r15, 018h                                                  ; < operator result is of type Boolean'24
   cmp r10, 000h                                                  ; compare < operator result to false
   je func$_moveBytes$if$continuation                             ; fromCursor < end
-    ; Line 122: Integer newValue = __readFromAddress(fromCursor);
+    ; Line 73: Integer newValue = __readFromAddress(fromCursor);
     ; Call __readFromAddress with 1 arguments
     mov rbx, qword ptr [r13]                                     ; dereference first argument of __readFromAddress
     mov rsi, 019h                                                ; dereferenced fromCursor variable is of type Integer'25
     mov rdi, rbx                                                 ; value initialization of variable declaration for newValue variable (dereferenced fromCursor variable)
     mov r12, rsi                                                 ; type initialization of variable declaration for newValue variable
-    ; Line 123: Integer oldValue = __readFromAddress(toCursor);
+    ; Line 74: Integer oldValue = __readFromAddress(toCursor);
     ; Call __readFromAddress with 1 arguments
     mov qword ptr [rsp + 040h], r13                              ; move fromCursor variable value out of r13
     mov r13, qword ptr [rsp + 070h]                              ; get toCursor variable into register to dereference it
@@ -3248,7 +3248,7 @@ func$_moveBytes:
     mov r14, 019h                                                ; dereferenced toCursor variable is of type Integer'25
     mov r9, rax                                                  ; value initialization of variable declaration for oldValue variable (dereferenced toCursor variable)
     mov r8, r14                                                  ; type initialization of variable declaration for oldValue variable
-    ; Line 124: Integer extraBytes = end - fromCursor;
+    ; Line 75: Integer extraBytes = end - fromCursor;
     cmp qword ptr [rsp + 050h], 000h                             ; compare type of end variable to <sentinel>
     jne func$_moveBytes$Movebytes$if$end$TypeMatch               ; skip next block if end variable is not sentinel
       ; Error handling block for end
@@ -3335,7 +3335,7 @@ func$_moveBytes:
     mov qword ptr [rsp + 030h], r13                              ; move toCursor variable value out of r13
     mov r13, rdi                                                 ; value initialization of variable declaration for extraBytes variable (- operator result)
     mov rax, r12                                                 ; type initialization of variable declaration for extraBytes variable
-    ; Line 125: assert(extraBytes > 0, 'internal error: zero extra bytes but fro...
+    ; Line 76: assert(extraBytes > 0, 'internal error: zero extra bytes but fro...
     cmp rax, 000h                                                ; compare type of extraBytes variable to <sentinel>
     jne func$_moveBytes$Movebytes$if$extrabytes$TypeMatch        ; skip next block if extraBytes variable is not sentinel
       ; Error handling block for extraBytes
@@ -3384,7 +3384,7 @@ func$_moveBytes:
     mov r13, 018h                                                ; > operator result is of type Boolean'24
     ; Call assert with 2 arguments
     mov qword ptr [rsp + 020h], rax                              ; move extraBytes variable type out of rax
-    mov rax, offset string$11                                    ; reading string for push
+    mov rax, offset string$2                                     ; reading string for push
     push rax                                                     ; value of argument #2 (string)
     push 01ah                                                    ; type of argument #2 (String'26)
     push r12                                                     ; value of argument #1 (> operator result)
@@ -3402,7 +3402,7 @@ func$_moveBytes:
     mov rcx, 002h                                                ; internal argument 1: number of actual arguments
     call func$assert                                             ; jump to subroutine
     add rsp, 050h                                                ; release shadow space and arguments (result in stack pointer)
-    ; Line 126: assert(extraBytes < 8, 'internal error: more than 7 extra bytes'...
+    ; Line 77: assert(extraBytes < 8, 'internal error: more than 7 extra bytes'...
     cmp qword ptr [rsp + 020h], 000h                             ; compare type of extraBytes variable to <sentinel>
     jne func$_moveBytes$Movebytes$if$extrabytes$TypeMatch$1      ; skip next block if extraBytes variable is not sentinel
       ; Error handling block for extraBytes
@@ -3443,7 +3443,7 @@ func$_moveBytes:
     setl r13b                                                    ; store result in < operator result
     mov rax, 018h                                                ; < operator result is of type Boolean'24
     ; Call assert with 2 arguments
-    mov r14, offset string$12                                    ; reading string for push
+    mov r14, offset string$3                                     ; reading string for push
     push r14                                                     ; value of argument #2 (string)
     push 01ah                                                    ; type of argument #2 (String'26)
     push r13                                                     ; value of argument #1 (< operator result)
@@ -3459,7 +3459,7 @@ func$_moveBytes:
     mov rcx, 002h                                                ; internal argument 1: number of actual arguments
     call func$assert                                             ; jump to subroutine
     add rsp, 050h                                                ; release shadow space and arguments (result in stack pointer)
-    ; Line 127: Integer mask = -1 << extraBytes * 8;
+    ; Line 78: Integer mask = -1 << extraBytes * 8;
     cmp qword ptr [rsp + 020h], 000h                             ; compare type of extraBytes variable to <sentinel>
     jne func$_moveBytes$Movebytes$if$extrabytes$TypeMatch$2      ; skip next block if extraBytes variable is not sentinel
       ; Error handling block for extraBytes
@@ -3543,7 +3543,7 @@ func$_moveBytes:
     mov r14, 019h                                                ; << operator result is of type Integer'25
     mov r10, rax                                                 ; value initialization of variable declaration for mask variable (<< operator result)
     mov r15, r14                                                 ; type initialization of variable declaration for mask variable
-    ; Line 128: Integer finalValue = newValue & ~mask | oldValue & mask;
+    ; Line 79: Integer finalValue = newValue & ~mask | oldValue & mask;
     cmp r15, 000h                                                ; compare type of mask variable to <sentinel>
     jne func$_moveBytes$Movebytes$if$mask$TypeMatch              ; skip next block if mask variable is not sentinel
       ; Error handling block for mask
@@ -3820,7 +3820,7 @@ func$_moveBytes:
     mov rsi, 019h                                                ; | operator result is of type Integer'25
     mov rdi, rbx                                                 ; value initialization of variable declaration for finalValue variable (| operator result)
     mov r12, rsi                                                 ; type initialization of variable declaration for finalValue variable
-    ; Line 129: __writeToAddress(toCursor, finalValue);
+    ; Line 80: __writeToAddress(toCursor, finalValue);
     ; Call __writeToAddress with 2 arguments
     mov r13, qword ptr [rsp + 030h]                              ; get toCursor variable into register to dereference it
     mov qword ptr [r13], rdi                                     ; __writeToAddress
@@ -3941,12 +3941,12 @@ func$_stringByteLength:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov rcx, qword ptr [rsp + 008h]                              ; restoring slots to previous scope state
   func$_stringByteLength$data$TypeMatch:                         ; after block
-  ; Line 134: Integer pointer = data __as__ Integer;
+  ; Line 85: Integer pointer = data __as__ Integer;
   mov r10, qword ptr [rbp + 040h]                                ; force cast of data to Integer
   mov rbx, 019h                                                  ; force cast of data to Integer is of type Integer'25
   mov rsi, r10                                                   ; value initialization of variable declaration for pointer variable (force cast of data to Integer)
   mov rax, rbx                                                   ; type initialization of variable declaration for pointer variable
-  ; Line 135: return __readFromAddress(pointer + 8);
+  ; Line 86: return __readFromAddress(pointer + 8);
   cmp rax, 000h                                                  ; compare type of pointer variable to <sentinel>
   jne func$_stringByteLength$pointer$TypeMatch                   ; skip next block if pointer variable is not sentinel
     ; Error handling block for pointer
@@ -4124,10 +4124,10 @@ func$concat:
     jmp func$concat$varargTypeChecks$Loop                        ; return to top of loop
     func$concat$varargTypeChecks$TypesAllMatch:                  ; after loop
     mov rax, qword ptr [rsp + 070h]                              ; restoring slots to previous scope state
-  ; Line 139: Integer length = 0;
+  ; Line 90: Integer length = 0;
   mov rbx, 000h                                                  ; value initialization of variable declaration for length variable (0)
   mov rsi, 019h                                                  ; type initialization of variable declaration for length variable (Integer'25)
-  ; Line 140: Integer index = 0;
+  ; Line 91: Integer index = 0;
   mov rdi, 000h                                                  ; value initialization of variable declaration for index variable (0)
   mov rax, 019h                                                  ; type initialization of variable declaration for index variable (Integer'25)
   func$concat$while$top:                                         ; top of while
@@ -4183,7 +4183,7 @@ func$concat:
     mov rdi, qword ptr [rsp + 070h]                              ; restoring slots to previous scope state
     jmp func$concat$while$bottom                                 ; break out of while
     func$concat$while$body:                                      ; start of while
-    ; Line 142: length += _stringByteLength(arguments[index]);
+    ; Line 93: length += _stringByteLength(arguments[index]);
     cmp qword ptr [rsp + 070h], rcx                              ; compare index variable to parameter count of concat
     jge func$concat$while$subscript$boundsError                  ; index out of range (too high)
     cmp qword ptr [rsp + 070h], 000h                             ; compare index variable to 0 (integer)
@@ -4336,7 +4336,7 @@ func$concat:
     mov r13, 019h                                                ; += operator result is of type Integer'25
     mov qword ptr [rsp + 068h], r12                              ; store value
     mov qword ptr [rsp + 078h], r13                              ; store type
-    ; Line 143: index += 1;
+    ; Line 94: index += 1;
     cmp qword ptr [rsp + 060h], 000h                             ; compare type of index variable to <sentinel>
     jne func$concat$while$indexVariable$TypeMatch                ; skip next block if index variable is not sentinel
       ; Error handling block for index variable
@@ -4390,7 +4390,7 @@ func$concat:
     mov rdi, qword ptr [rsp + 070h]                              ; restoring slots to previous scope state
     jmp func$concat$while$top                                    ; return to top of while
   func$concat$while$bottom:                                      ; bottom of while
-  ; Line 145: Integer resultPointer = _alloc(16 /* 0x10 */ + length);
+  ; Line 96: Integer resultPointer = _alloc(16 /* 0x10 */ + length);
   cmp rsi, 000h                                                  ; compare type of length variable to <sentinel>
   jne func$concat$length$TypeMatch                               ; skip next block if length variable is not sentinel
     ; Error handling block for length
@@ -4456,10 +4456,10 @@ func$concat:
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
   mov r13, qword ptr [rsp + 068h]                                ; value initialization of variable declaration for resultPointer variable (_alloc return value)
   mov r14, qword ptr [rsp + 060h]                                ; type initialization of variable declaration for resultPointer variable
-  ; Line 146: __writeToAddress(resultPointer, 1);
+  ; Line 97: __writeToAddress(resultPointer, 1);
   ; Call __writeToAddress with 2 arguments
   mov qword ptr [r13], 001h                                      ; __writeToAddress
-  ; Line 147: __writeToAddress(resultPointer + 8, length);
+  ; Line 98: __writeToAddress(resultPointer + 8, length);
   cmp r14, 000h                                                  ; compare type of resultPointer variable to <sentinel>
   jne func$concat$resultpointer$TypeMatch                        ; skip next block if resultPointer variable is not sentinel
     ; Error handling block for resultPointer
@@ -4503,7 +4503,7 @@ func$concat:
   mov r13, 019h                                                  ; + operator result is of type Integer'25
   ; Call __writeToAddress with 2 arguments
   mov qword ptr [r12], rbx                                       ; __writeToAddress
-  ; Line 148: Integer cursor = resultPointer + 16 /* 0x10 */;
+  ; Line 99: Integer cursor = resultPointer + 16 /* 0x10 */;
   cmp r14, 000h                                                  ; compare type of resultPointer variable to <sentinel>
   jne func$concat$resultpointer$TypeMatch$1                      ; skip next block if resultPointer variable is not sentinel
     ; Error handling block for resultPointer
@@ -4547,7 +4547,7 @@ func$concat:
   mov r13, rax                                                   ; value initialization of variable declaration for cursor variable (+ operator result)
   mov qword ptr [rsp + 060h], r14                                ; move resultPointer variable type out of r14
   mov r14, r12                                                   ; type initialization of variable declaration for cursor variable
-  ; Line 149: index = 0;
+  ; Line 100: index = 0;
   mov qword ptr [rsp + 078h], 000h                               ; store value
   mov qword ptr [rsp + 070h], 019h                               ; store type (Integer'25)
   func$concat$while$top$1:                                       ; top of while
@@ -4601,7 +4601,7 @@ func$concat:
     mov qword ptr [rsp + 058h], r12                              ; restoring slots to previous scope state
     jmp func$concat$while$bottom$1                               ; break out of while
     func$concat$while$body$1:                                    ; start of while
-    ; Line 151: String segment = arguments[index];
+    ; Line 102: String segment = arguments[index];
     cmp qword ptr [rsp + 078h], r12                              ; compare index variable to parameter count of concat
     jge func$concat$while$subscript$boundsError$1                ; index out of range (too high)
     cmp qword ptr [rsp + 078h], 000h                             ; compare index variable to 0 (integer)
@@ -4668,7 +4668,7 @@ func$concat:
     add rax, 001h                                                ; increment ref count (result in string refcount temporary)
     mov qword ptr [rsi], rax                                     ; put it back in the string
     func$concat$while$AfterIncref$2:                             ; after incref
-    ; Line 152: Integer segmentLength = _stringByteLength(segment);
+    ; Line 103: Integer segmentLength = _stringByteLength(segment);
     ; Call _stringByteLength with 1 arguments
     push rsi                                                     ; value of argument #1 (segment variable)
     push rdi                                                     ; type of argument #1
@@ -4686,7 +4686,7 @@ func$concat:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov r12, qword ptr [rsp + 040h]                              ; value initialization of variable declaration for segmentLength variable (_stringByteLength return value)
     mov r13, qword ptr [rsp + 038h]                              ; type initialization of variable declaration for segmentLength variable
-    ; Line 153: if (segmentLength > 0) { ...
+    ; Line 104: if (segmentLength > 0) { ...
     cmp r13, 000h                                                ; compare type of segmentLength variable to <sentinel>
     jne func$concat$while$segmentlength$TypeMatch                ; skip next block if segmentLength variable is not sentinel
       ; Error handling block for segmentLength
@@ -4731,14 +4731,14 @@ func$concat:
     mov r12, 018h                                                ; > operator result is of type Boolean'24
     cmp rax, 000h                                                ; compare > operator result to false
     je func$concat$while$if$continuation                         ; segmentLength > 0
-      ; Line 154: Integer segmentPointer = segment __as__ Integer;
+      ; Line 105: Integer segmentPointer = segment __as__ Integer;
       mov qword ptr [rsp + 038h], r13                            ; move segmentLength variable type out of r13
       mov r13, rsi                                               ; force cast of segment variable to Integer
       mov r14, 019h                                              ; force cast of segment variable to Integer is of type Integer'25
       mov qword ptr [rsp + 028h], r15                            ; move arguments[index] value out of r15
       mov r15, r13                                               ; value initialization of variable declaration for segmentPointer variable (force cast of segment variable to Integer)
       mov r10, r14                                               ; type initialization of variable declaration for segmentPointer variable
-      ; Line 155: _moveBytes(segmentPointer + 16 /* 0x10 */, cursor, segmentLength...
+      ; Line 106: _moveBytes(segmentPointer + 16 /* 0x10 */, cursor, segmentLength...
       cmp r10, 000h                                              ; compare type of segmentPointer variable to <sentinel>
       jne func$concat$while$while$if$segmentpointer$TypeMatch    ; skip next block if segmentPointer variable is not sentinel
         ; Error handling block for segmentPointer
@@ -4801,7 +4801,7 @@ func$concat:
       mov rcx, 003h                                              ; internal argument 1: number of actual arguments
       call func$_moveBytes                                       ; jump to subroutine
       add rsp, 060h                                              ; release shadow space and arguments (result in stack pointer)
-      ; Line 156: cursor += segmentLength;
+      ; Line 107: cursor += segmentLength;
       cmp qword ptr [rsp + 050h], 000h                           ; compare type of cursor variable to <sentinel>
       jne func$concat$while$while$if$cursorVariable$TypeMatch    ; skip next block if cursor variable is not sentinel
         ; Error handling block for cursor variable
@@ -4884,7 +4884,7 @@ func$concat:
       mov r15, qword ptr [rsp + 028h]                            ; restoring slots to previous scope state
       mov r13, qword ptr [rsp + 038h]                            ; restoring slots to previous scope state
     func$concat$while$if$continuation:                           ; end of if
-    ; Line 158: index += 1;
+    ; Line 109: index += 1;
     cmp qword ptr [rsp + 070h], 000h                             ; compare type of index variable to <sentinel>
     jne func$concat$while$indexVariable$TypeMatch$1              ; skip next block if index variable is not sentinel
       ; Error handling block for index variable
@@ -4927,16 +4927,16 @@ func$concat:
     mov r14, 019h                                                ; += operator result is of type Integer'25
     mov qword ptr [rsp + 078h], r13                              ; store value
     mov qword ptr [rsp + 070h], r14                              ; store type
-    ; Calling decref on segment variable (static type: String'26)
-    sub rsp, 20h                                                 ; allocate shadow space for decref
-    mov rdx, rdi                                                 ; arg #2: type of potential string
-    mov rcx, rsi                                                 ; arg #1: value of potential string
-    call intrinsic$decref                                        ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
     ; Calling decref on arguments[index] (static type: String'26)
     sub rsp, 20h                                                 ; allocate shadow space for decref
     mov rdx, qword ptr [rsp + 050h]                              ; arg #2: type of potential string
     mov rcx, r15                                                 ; arg #1: value of potential string
+    call intrinsic$decref                                        ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    ; Calling decref on segment variable (static type: String'26)
+    sub rsp, 20h                                                 ; allocate shadow space for decref
+    mov rdx, rdi                                                 ; arg #2: type of potential string
+    mov rcx, rsi                                                 ; arg #1: value of potential string
     call intrinsic$decref                                        ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
     mov r14, qword ptr [rsp + 050h]                              ; restoring slots to previous scope state
@@ -4945,7 +4945,7 @@ func$concat:
     mov qword ptr [rsp + 058h], r11                              ; restoring slots to previous scope state
     jmp func$concat$while$top$1                                  ; return to top of while
   func$concat$while$bottom$1:                                    ; bottom of while
-  ; Line 160: return resultPointer __as__ String;
+  ; Line 111: return resultPointer __as__ String;
   mov r15, qword ptr [rsp + 068h]                                ; force cast of resultPointer variable to String
   mov r10, 01ah                                                  ; force cast of resultPointer variable to String is of type String'26
   cmp r10, 000h                                                  ; compare type of force cast of resultPointer variable to String to <sentinel>
@@ -5114,7 +5114,7 @@ func$digitToStr:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov rcx, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
   func$digitToStr$digit$TypeMatch:                               ; after block
-  ; Line 170: if (digit == 0) { ...
+  ; Line 115: if (digit == 0) { ...
   xor r10, r10                                                   ; zero value result of == (testing digit and 0) to put the boolean in
   cmp qword ptr [rbp + 040h], 000h                               ; values equal?
   sete r10b                                                      ; put result in value result of == (testing digit and 0)
@@ -5128,15 +5128,15 @@ func$digitToStr:
   mov r12, 018h                                                  ; == operator result is of type Boolean'24
   cmp rdi, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation                             ; digit == 0
-    ; Line 171: return '0';
-    mov r10, offset string$13                                    ; read second operand of mov (string) for MoveToDerefInstruction
+    ; Line 116: return '0';
+    mov r10, offset string$4                                     ; read second operand of mov (string) for MoveToDerefInstruction
     mov rbx, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [rbx], r10                                     ; digitToStr return value
     mov rsi, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
     mov qword ptr [rsi], 01ah                                    ; type of digitToStr return value (String'26)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation:                               ; end of if
-  ; Line 173: if (digit == 1) { ...
+  ; Line 118: if (digit == 1) { ...
   xor rax, rax                                                   ; zero value result of == (testing digit and 1) to put the boolean in
   cmp qword ptr [rbp + 040h], 001h                               ; values equal?
   sete al                                                        ; put result in value result of == (testing digit and 1)
@@ -5150,15 +5150,15 @@ func$digitToStr:
   mov r15, 018h                                                  ; == operator result is of type Boolean'24
   cmp r14, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$1                           ; digit == 1
-    ; Line 174: return '1';
-    mov rbx, offset string$14                                    ; read second operand of mov (string) for MoveToDerefInstruction
+    ; Line 119: return '1';
+    mov rbx, offset string$5                                     ; read second operand of mov (string) for MoveToDerefInstruction
     mov rsi, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [rsi], rbx                                     ; digitToStr return value
     mov rax, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
     mov qword ptr [rax], 01ah                                    ; type of digitToStr return value (String'26)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$1:                             ; end of if
-  ; Line 176: if (digit == 2) { ...
+  ; Line 121: if (digit == 2) { ...
   xor rdi, rdi                                                   ; zero value result of == (testing digit and 2) to put the boolean in
   cmp qword ptr [rbp + 040h], 002h                               ; values equal?
   sete dil                                                       ; put result in value result of == (testing digit and 2)
@@ -5172,15 +5172,15 @@ func$digitToStr:
   mov r10, 018h                                                  ; == operator result is of type Boolean'24
   cmp r15, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$2                           ; digit == 2
-    ; Line 177: return '2';
-    mov rsi, offset string$15                                    ; read second operand of mov (string) for MoveToDerefInstruction
+    ; Line 122: return '2';
+    mov rsi, offset string$6                                     ; read second operand of mov (string) for MoveToDerefInstruction
     mov rax, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [rax], rsi                                     ; digitToStr return value
     mov rdi, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
     mov qword ptr [rdi], 01ah                                    ; type of digitToStr return value (String'26)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$2:                             ; end of if
-  ; Line 179: if (digit == 3) { ...
+  ; Line 124: if (digit == 3) { ...
   xor r12, r12                                                   ; zero value result of == (testing digit and 3) to put the boolean in
   cmp qword ptr [rbp + 040h], 003h                               ; values equal?
   sete r12b                                                      ; put result in value result of == (testing digit and 3)
@@ -5194,15 +5194,15 @@ func$digitToStr:
   mov rbx, 018h                                                  ; == operator result is of type Boolean'24
   cmp r10, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$3                           ; digit == 3
-    ; Line 180: return '3';
-    mov rax, offset string$16                                    ; read second operand of mov (string) for MoveToDerefInstruction
+    ; Line 125: return '3';
+    mov rax, offset string$7                                     ; read second operand of mov (string) for MoveToDerefInstruction
     mov rdi, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [rdi], rax                                     ; digitToStr return value
     mov r12, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
     mov qword ptr [r12], 01ah                                    ; type of digitToStr return value (String'26)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$3:                             ; end of if
-  ; Line 182: if (digit == 4) { ...
+  ; Line 127: if (digit == 4) { ...
   xor r13, r13                                                   ; zero value result of == (testing digit and 4) to put the boolean in
   cmp qword ptr [rbp + 040h], 004h                               ; values equal?
   sete r13b                                                      ; put result in value result of == (testing digit and 4)
@@ -5216,15 +5216,15 @@ func$digitToStr:
   mov rsi, 018h                                                  ; == operator result is of type Boolean'24
   cmp rbx, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$4                           ; digit == 4
-    ; Line 183: return '4';
-    mov rdi, offset string$17                                    ; read second operand of mov (string) for MoveToDerefInstruction
+    ; Line 128: return '4';
+    mov rdi, offset string$8                                     ; read second operand of mov (string) for MoveToDerefInstruction
     mov r12, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [r12], rdi                                     ; digitToStr return value
     mov r13, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
     mov qword ptr [r13], 01ah                                    ; type of digitToStr return value (String'26)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$4:                             ; end of if
-  ; Line 185: if (digit == 5) { ...
+  ; Line 130: if (digit == 5) { ...
   xor r14, r14                                                   ; zero value result of == (testing digit and 5) to put the boolean in
   cmp qword ptr [rbp + 040h], 005h                               ; values equal?
   sete r14b                                                      ; put result in value result of == (testing digit and 5)
@@ -5238,15 +5238,15 @@ func$digitToStr:
   mov rax, 018h                                                  ; == operator result is of type Boolean'24
   cmp rsi, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$5                           ; digit == 5
-    ; Line 186: return '5';
-    mov r12, offset string$18                                    ; read second operand of mov (string) for MoveToDerefInstruction
+    ; Line 131: return '5';
+    mov r12, offset string$9                                     ; read second operand of mov (string) for MoveToDerefInstruction
     mov r13, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [r13], r12                                     ; digitToStr return value
     mov r14, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
     mov qword ptr [r14], 01ah                                    ; type of digitToStr return value (String'26)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$5:                             ; end of if
-  ; Line 188: if (digit == 6) { ...
+  ; Line 133: if (digit == 6) { ...
   xor r15, r15                                                   ; zero value result of == (testing digit and 6) to put the boolean in
   cmp qword ptr [rbp + 040h], 006h                               ; values equal?
   sete r15b                                                      ; put result in value result of == (testing digit and 6)
@@ -5260,15 +5260,15 @@ func$digitToStr:
   mov rdi, 018h                                                  ; == operator result is of type Boolean'24
   cmp rax, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$6                           ; digit == 6
-    ; Line 189: return '6';
-    mov r13, offset string$19                                    ; read second operand of mov (string) for MoveToDerefInstruction
+    ; Line 134: return '6';
+    mov r13, offset string$10                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r14, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [r14], r13                                     ; digitToStr return value
     mov r15, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
     mov qword ptr [r15], 01ah                                    ; type of digitToStr return value (String'26)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$6:                             ; end of if
-  ; Line 191: if (digit == 7) { ...
+  ; Line 136: if (digit == 7) { ...
   xor r10, r10                                                   ; zero value result of == (testing digit and 7) to put the boolean in
   cmp qword ptr [rbp + 040h], 007h                               ; values equal?
   sete r10b                                                      ; put result in value result of == (testing digit and 7)
@@ -5282,15 +5282,15 @@ func$digitToStr:
   mov r12, 018h                                                  ; == operator result is of type Boolean'24
   cmp rdi, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$7                           ; digit == 7
-    ; Line 192: return '7';
-    mov r14, offset string$20                                    ; read second operand of mov (string) for MoveToDerefInstruction
+    ; Line 137: return '7';
+    mov r14, offset string$11                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r15, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [r15], r14                                     ; digitToStr return value
     mov r10, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
     mov qword ptr [r10], 01ah                                    ; type of digitToStr return value (String'26)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$7:                             ; end of if
-  ; Line 194: if (digit == 8) { ...
+  ; Line 139: if (digit == 8) { ...
   xor rbx, rbx                                                   ; zero value result of == (testing digit and 8) to put the boolean in
   cmp qword ptr [rbp + 040h], 008h                               ; values equal?
   sete bl                                                        ; put result in value result of == (testing digit and 8)
@@ -5304,15 +5304,15 @@ func$digitToStr:
   mov r13, 018h                                                  ; == operator result is of type Boolean'24
   cmp r12, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$8                           ; digit == 8
-    ; Line 195: return '8';
-    mov r15, offset string$21                                    ; read second operand of mov (string) for MoveToDerefInstruction
+    ; Line 140: return '8';
+    mov r15, offset string$12                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r10, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [r10], r15                                     ; digitToStr return value
     mov rbx, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
     mov qword ptr [rbx], 01ah                                    ; type of digitToStr return value (String'26)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$8:                             ; end of if
-  ; Line 197: if (digit == 9) { ...
+  ; Line 142: if (digit == 9) { ...
   xor rsi, rsi                                                   ; zero value result of == (testing digit and 9) to put the boolean in
   cmp qword ptr [rbp + 040h], 009h                               ; values equal?
   sete sil                                                       ; put result in value result of == (testing digit and 9)
@@ -5326,17 +5326,17 @@ func$digitToStr:
   mov r14, 018h                                                  ; == operator result is of type Boolean'24
   cmp r13, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$9                           ; digit == 9
-    ; Line 198: return '9';
-    mov r10, offset string$22                                    ; read second operand of mov (string) for MoveToDerefInstruction
+    ; Line 143: return '9';
+    mov r10, offset string$13                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov rbx, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [rbx], r10                                     ; digitToStr return value
     mov rsi, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
     mov qword ptr [rsi], 01ah                                    ; type of digitToStr return value (String'26)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$9:                             ; end of if
-  ; Line 200: __print('Invalid digit passed to digitToStr (digit as exit code)...
+  ; Line 145: __print('Invalid digit passed to digitToStr (digit as exit code)...
   ; Call __print with 1 arguments
-  mov rax, offset string$23                                      ; reading string for push
+  mov rax, offset string$14                                      ; reading string for push
   push rax                                                       ; value of argument #1 (string)
   push 01ah                                                      ; type of argument #1 (String'26)
   lea rdi, qword ptr [rsp + 020h]                                ; load address of return value's value
@@ -5351,7 +5351,7 @@ func$digitToStr:
   mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
   call func$__print                                              ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 201: exit(digit);
+  ; Line 146: exit(digit);
   ; Call exit with 1 arguments
   push qword ptr [rbp + 040h]                                    ; value of argument #1 (digit)
   push qword ptr [rbp + 038h]                                    ; type of argument #1
@@ -5522,7 +5522,7 @@ func$intToStr:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov rcx, qword ptr [rsp + 030h]                              ; restoring slots to previous scope state
   func$intToStr$value$TypeMatch:                                 ; after block
-  ; Line 205: if (value == 0) { ...
+  ; Line 150: if (value == 0) { ...
   xor r10, r10                                                   ; zero value result of == (testing value and 0) to put the boolean in
   cmp qword ptr [rbp + 040h], 000h                               ; values equal?
   sete r10b                                                      ; put result in value result of == (testing value and 0)
@@ -5536,16 +5536,16 @@ func$intToStr:
   mov r12, 018h                                                  ; == operator result is of type Boolean'24
   cmp rdi, 000h                                                  ; compare == operator result to false
   je func$intToStr$if$continuation                               ; value == 0
-    ; Line 206: return '0';
-    mov r10, offset string$13                                    ; read second operand of mov (string) for MoveToDerefInstruction
+    ; Line 151: return '0';
+    mov r10, offset string$4                                     ; read second operand of mov (string) for MoveToDerefInstruction
     mov rbx, qword ptr [rbp + 030h]                              ; get pointer to return value of intToStr into register to dereference it
     mov qword ptr [rbx], r10                                     ; intToStr return value
     mov rsi, qword ptr [rbp + 028h]                              ; get pointer to return value type of intToStr into register to dereference it
     mov qword ptr [rsi], 01ah                                    ; type of intToStr return value (String'26)
     jmp func$intToStr$epilog                                     ; return
   func$intToStr$if$continuation:                                 ; end of if
-  ; Line 208: String buffer = '';
-  mov rax, offset string$24                                      ; value initialization of variable declaration for buffer variable (string)
+  ; Line 153: String buffer = '';
+  mov rax, offset string$15                                      ; value initialization of variable declaration for buffer variable (string)
   mov rdi, 01ah                                                  ; type initialization of variable declaration for buffer variable (String'26)
   ; increment reference count for buffer variable if necessary
   cmp rdi, 01ah                                                  ; compare type of buffer variable to String
@@ -5556,7 +5556,7 @@ func$intToStr:
   add r12, 001h                                                  ; increment ref count (result in string refcount temporary)
   mov qword ptr [rax], r12                                       ; put it back in the string
   func$intToStr$AfterIncref:                                     ; after incref
-  ; Line 209: Integer newValue = value;
+  ; Line 154: Integer newValue = value;
   mov r13, qword ptr [rbp + 040h]                                ; value initialization of variable declaration for newValue variable (value)
   mov r14, qword ptr [rbp + 038h]                                ; type initialization of variable declaration for newValue variable
   func$intToStr$while$top:                                       ; top of while
@@ -5609,7 +5609,7 @@ func$intToStr:
     mov rdi, qword ptr [rsp + 040h]                              ; restoring slots to previous scope state
     jmp func$intToStr$while$bottom                               ; break out of while
     func$intToStr$while$body:                                    ; start of while
-    ; Line 211: Integer digit = newValue % 10 /* 0xa */;
+    ; Line 156: Integer digit = newValue % 10 /* 0xa */;
     cmp r14, 000h                                                ; compare type of newValue variable to <sentinel>
     jne func$intToStr$while$newvalue$TypeMatch$1                 ; skip next block if newValue variable is not sentinel
       ; Error handling block for newValue
@@ -5663,7 +5663,7 @@ func$intToStr:
     mov r13, rdx                                                 ; value initialization of variable declaration for digit variable (% operator result)
     mov qword ptr [rsp + 028h], r14                              ; move newValue variable type out of r14
     mov r14, r12                                                 ; type initialization of variable declaration for digit variable
-    ; Line 212: newValue = newValue / 10 /* 0xa */;
+    ; Line 157: newValue = newValue / 10 /* 0xa */;
     cmp qword ptr [rsp + 028h], 000h                             ; compare type of newValue variable to <sentinel>
     jne func$intToStr$while$newvalue$TypeMatch$2                 ; skip next block if newValue variable is not sentinel
       ; Error handling block for newValue
@@ -5709,7 +5709,7 @@ func$intToStr:
     mov r13, 019h                                                ; / operator result is of type Integer'25
     mov qword ptr [rsp + 030h], rax                              ; store value
     mov qword ptr [rsp + 028h], r13                              ; store type
-    ; Line 213: buffer = concat(digitToStr(digit), buffer);
+    ; Line 158: buffer = concat(digitToStr(digit), buffer);
     ; Call digitToStr with 1 arguments
     push qword ptr [rsp + 020h]                                  ; value of argument #1 (digit variable)
     push r14                                                     ; type of argument #1
@@ -5781,7 +5781,7 @@ func$intToStr:
     mov r14, qword ptr [rsp + 028h]                              ; restoring slots to previous scope state
     jmp func$intToStr$while$top                                  ; return to top of while
   func$intToStr$while$bottom:                                    ; bottom of while
-  ; Line 215: return buffer;
+  ; Line 160: return buffer;
   cmp rdi, 000h                                                  ; compare type of buffer variable to <sentinel>
   jne func$intToStr$inttostrReturnValue$TypeMatch                ; skip next block if buffer variable is not sentinel
     ; Error handling block for intToStr return value
@@ -5954,7 +5954,7 @@ func$_stringify:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov rcx, qword ptr [rsp + 018h]                              ; restoring slots to previous scope state
   func$_stringify$arg$TypeMatch:                                 ; after block
-  ; Line 219: if (arg is String) { ...
+  ; Line 164: if (arg is String) { ...
   mov r10, qword ptr [rbp + 038h]                                ; move type of arg to testByte
   mov rax, r10                                                   ; move testByte to testByte
   mov rbx, 002h                                                  ; read operand of mul (type table width in bytes) 
@@ -5967,7 +5967,7 @@ func$_stringify:
   mov r12, 018h                                                  ; is expression result is of type Boolean'24
   cmp rdi, 000h                                                  ; compare is expression result to false
   je func$_stringify$if$continuation                             ; arg is String
-    ; Line 220: return arg;
+    ; Line 165: return arg;
     mov r13, qword ptr [rbp + 038h]                              ; move type of arg to testByte
     mov rax, r13                                                 ; move testByte to testByte
     mov r14, 002h                                                ; read operand of mul (type table width in bytes) 
@@ -6030,7 +6030,7 @@ func$_stringify:
     func$_stringify$Stringify$if$AfterIncref:                    ; after incref
     jmp func$_stringify$epilog                                   ; return
   func$_stringify$if$continuation:                               ; end of if
-  ; Line 222: if (arg is Boolean) { ...
+  ; Line 167: if (arg is Boolean) { ...
   mov r15, qword ptr [rbp + 038h]                                ; move type of arg to testByte
   mov rax, r15                                                   ; move testByte to testByte
   mov r10, 002h                                                  ; read operand of mul (type table width in bytes) 
@@ -6043,26 +6043,26 @@ func$_stringify:
   mov rdx, 018h                                                  ; is expression result is of type Boolean'24
   cmp r8, 000h                                                   ; compare is expression result to false
   je func$_stringify$if$continuation$1                           ; arg is Boolean
-    ; Line 223: if (arg) { ...
+    ; Line 168: if (arg) { ...
     cmp qword ptr [rbp + 040h], 000h                             ; compare arg to false
     je func$_stringify$Stringify$if$1$if$continuation            ; arg
-      ; Line 224: return 'true';
-      mov rdi, offset string$25                                  ; read second operand of mov (string) for MoveToDerefInstruction
+      ; Line 169: return 'true';
+      mov rdi, offset string$16                                  ; read second operand of mov (string) for MoveToDerefInstruction
       mov r12, qword ptr [rbp + 030h]                            ; get pointer to return value of _stringify into register to dereference it
       mov qword ptr [r12], rdi                                   ; _stringify return value
       mov r13, qword ptr [rbp + 028h]                            ; get pointer to return value type of _stringify into register to dereference it
       mov qword ptr [r13], 01ah                                  ; type of _stringify return value (String'26)
       jmp func$_stringify$epilog                                 ; return
     func$_stringify$Stringify$if$1$if$continuation:              ; end of if
-    ; Line 226: return 'false';
-    mov r10, offset string$26                                    ; read second operand of mov (string) for MoveToDerefInstruction
+    ; Line 171: return 'false';
+    mov r10, offset string$17                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov rbx, qword ptr [rbp + 030h]                              ; get pointer to return value of _stringify into register to dereference it
     mov qword ptr [rbx], r10                                     ; _stringify return value
     mov rsi, qword ptr [rbp + 028h]                              ; get pointer to return value type of _stringify into register to dereference it
     mov qword ptr [rsi], 01ah                                    ; type of _stringify return value (String'26)
     jmp func$_stringify$epilog                                   ; return
   func$_stringify$if$continuation$1:                             ; end of if
-  ; Line 228: if (arg is Null) { ...
+  ; Line 173: if (arg is Null) { ...
   mov rdi, qword ptr [rbp + 038h]                                ; move type of arg to testByte
   mov rax, rdi                                                   ; move testByte to testByte
   mov r12, 002h                                                  ; read operand of mul (type table width in bytes) 
@@ -6075,15 +6075,15 @@ func$_stringify:
   mov r15, 018h                                                  ; is expression result is of type Boolean'24
   cmp r14, 000h                                                  ; compare is expression result to false
   je func$_stringify$if$continuation$2                           ; arg is Null
-    ; Line 229: return 'null';
-    mov rbx, offset string$27                                    ; read second operand of mov (string) for MoveToDerefInstruction
+    ; Line 174: return 'null';
+    mov rbx, offset string$18                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov rsi, qword ptr [rbp + 030h]                              ; get pointer to return value of _stringify into register to dereference it
     mov qword ptr [rsi], rbx                                     ; _stringify return value
     mov rdi, qword ptr [rbp + 028h]                              ; get pointer to return value type of _stringify into register to dereference it
     mov qword ptr [rdi], 01ah                                    ; type of _stringify return value (String'26)
     jmp func$_stringify$epilog                                   ; return
   func$_stringify$if$continuation$2:                             ; end of if
-  ; Line 231: if (arg is Integer) { ...
+  ; Line 176: if (arg is Integer) { ...
   mov rax, qword ptr [rbp + 038h]                                ; move type of arg to testByte
   mov r12, 002h                                                  ; read operand of mul (type table width in bytes) 
   mul r12                                                        ; adjust to the relative start of that type's entry in the type table
@@ -6095,7 +6095,7 @@ func$_stringify:
   mov r15, 018h                                                  ; is expression result is of type Boolean'24
   cmp r14, 000h                                                  ; compare is expression result to false
   je func$_stringify$if$continuation$3                           ; arg is Integer
-    ; Line 232: return intToStr(arg as Integer);
+    ; Line 177: return intToStr(arg as Integer);
     mov r10, qword ptr [rbp + 038h]                              ; move type of arg to testByte
     mov rax, r10                                                 ; move testByte to testByte
     mov r9, 002h                                                 ; read operand of mul (type table width in bytes) 
@@ -6213,7 +6213,7 @@ func$_stringify:
     add rsp, 20h                                                 ; free shadow space for decref
     jmp func$_stringify$epilog                                   ; return
   func$_stringify$if$continuation$3:                             ; end of if
-  ; Line 234: if (arg is AnythingFunction) { ...
+  ; Line 179: if (arg is AnythingFunction) { ...
   mov rdi, qword ptr [rbp + 038h]                                ; move type of arg to testByte
   mov rax, rdi                                                   ; move testByte to testByte
   mov r12, 002h                                                  ; read operand of mul (type table width in bytes) 
@@ -6226,13 +6226,13 @@ func$_stringify:
   mov r8, 018h                                                   ; is expression result is of type Boolean'24
   cmp r9, 000h                                                   ; compare is expression result to false
   je func$_stringify$if$continuation$4                           ; arg is AnythingFunction
-    ; Line 235: Integer func = arg __as__ Integer;
+    ; Line 180: Integer func = arg __as__ Integer;
     mov rdx, qword ptr [rbp + 040h]                              ; force cast of arg to Integer
     mov qword ptr [rsp + 028h], rcx                              ; move parameter count of _stringify value out of rcx
     mov rcx, 019h                                                ; force cast of arg to Integer is of type Integer'25
     mov r14, rdx                                                 ; value initialization of variable declaration for func variable (force cast of arg to Integer)
     mov r15, rcx                                                 ; type initialization of variable declaration for func variable
-    ; Line 236: Integer annotation = __readFromAddress(func - 8);
+    ; Line 181: Integer annotation = __readFromAddress(func - 8);
     cmp r15, 000h                                                ; compare type of func variable to <sentinel>
     jne func$_stringify$Stringify$if$4$func$TypeMatch            ; skip next block if func variable is not sentinel
       ; Error handling block for func
@@ -6276,16 +6276,16 @@ func$_stringify:
     mov r10, 019h                                                ; dereferenced - operator result is of type Integer'25
     mov rbx, r15                                                 ; value initialization of variable declaration for annotation variable (dereferenced - operator result)
     mov rsi, r10                                                 ; type initialization of variable declaration for annotation variable
-    ; Line 237: return concat('<function (', annotation __as__ String, ')>');
+    ; Line 182: return concat('<function (', annotation __as__ String, ')>');
     mov rdi, rbx                                                 ; force cast of annotation variable to String
     mov rax, 01ah                                                ; force cast of annotation variable to String is of type String'26
     ; Call concat with 3 arguments
-    mov r12, offset string$29                                    ; reading string for push
+    mov r12, offset string$20                                    ; reading string for push
     push r12                                                     ; value of argument #3 (string)
     push 01ah                                                    ; type of argument #3 (String'26)
     push rdi                                                     ; value of argument #2 (force cast of annotation variable to String)
     push rax                                                     ; type of argument #2
-    mov r9, offset string$28                                     ; reading string for push
+    mov r9, offset string$19                                     ; reading string for push
     push r9                                                      ; value of argument #1 (string)
     push 01ah                                                    ; type of argument #1 (String'26)
     lea r8, qword ptr [rsp + 050h]                               ; load address of return value's value
@@ -6366,9 +6366,9 @@ func$_stringify:
     add rsp, 20h                                                 ; free shadow space for decref
     jmp func$_stringify$epilog                                   ; return
   func$_stringify$if$continuation$4:                             ; end of if
-  ; Line 239: __print('value cannot be stringified\n');
+  ; Line 184: __print('value cannot be stringified\n');
   ; Call __print with 1 arguments
-  mov r13, offset string$30                                      ; reading string for push
+  mov r13, offset string$21                                      ; reading string for push
   push r13                                                       ; value of argument #1 (string)
   push 01ah                                                      ; type of argument #1 (String'26)
   lea r14, qword ptr [rsp + 038h]                                ; load address of return value's value
@@ -6383,7 +6383,7 @@ func$_stringify:
   mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
   call func$__print                                              ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 240: exit(1);
+  ; Line 185: exit(1);
   ; Call exit with 1 arguments
   push 001h                                                      ; value of argument #1 (1)
   push 019h                                                      ; type of argument #1 (Integer'25)
@@ -6534,10 +6534,10 @@ func$println:
     jmp func$println$varargTypeChecks$Loop                       ; return to top of loop
     func$println$varargTypeChecks$TypesAllMatch:                 ; after loop
     mov rax, qword ptr [rsp + 048h]                              ; restoring slots to previous scope state
-  ; Line 257: Boolean first = true;
+  ; Line 202: Boolean first = true;
   mov rbx, 001h                                                  ; value initialization of variable declaration for first variable (true)
   mov rsi, 018h                                                  ; type initialization of variable declaration for first variable (Boolean'24)
-  ; Line 258: Integer index = 0;
+  ; Line 203: Integer index = 0;
   mov rdi, 000h                                                  ; value initialization of variable declaration for index variable (0)
   mov rax, 019h                                                  ; type initialization of variable declaration for index variable (Integer'25)
   func$println$while$top:                                        ; top of while
@@ -6593,7 +6593,7 @@ func$println:
     mov rdi, qword ptr [rsp + 048h]                              ; restoring slots to previous scope state
     jmp func$println$while$bottom                                ; break out of while
     func$println$while$body:                                     ; start of while
-    ; Line 260: if (first == false) { ...
+    ; Line 205: if (first == false) { ...
     mov qword ptr [rsp + 040h], rax                              ; move index variable type out of rax
     xor rax, rax                                                 ; zero value result of == (testing first variable and false) to put the boolean in
     cmp rbx, 000h                                                ; values equal?
@@ -6608,10 +6608,10 @@ func$println:
     mov r10, 018h                                                ; == operator result is of type Boolean'24
     cmp r15, 000h                                                ; compare == operator result to false
     je func$println$while$if$continuation                        ; first == false
-      ; Line 261: __print(' ');
+      ; Line 206: __print(' ');
       ; Call __print with 1 arguments
       mov qword ptr [rsp + 038h], rbx                            ; move first variable value out of rbx
-      mov rbx, offset string$31                                  ; reading string for push
+      mov rbx, offset string$22                                  ; reading string for push
       push rbx                                                   ; value of argument #1 (string)
       push 01ah                                                  ; type of argument #1 (String'26)
       lea r9, qword ptr [rsp + 040h]                             ; load address of return value's value
@@ -6629,7 +6629,7 @@ func$println:
       mov rbx, qword ptr [rsp + 038h]                            ; restoring slots to previous scope state
       mov rcx, qword ptr [rsp + 020h]                            ; restoring slots to previous scope state
     func$println$while$if$continuation:                          ; end of if
-    ; Line 263: __print(_stringify(parts[index]));
+    ; Line 208: __print(_stringify(parts[index]));
     cmp qword ptr [rsp + 048h], rcx                              ; compare index variable to parameter count of println
     jge func$println$while$subscript$boundsError                 ; index out of range (too high)
     cmp qword ptr [rsp + 048h], 000h                             ; compare index variable to 0 (integer)
@@ -6716,10 +6716,10 @@ func$println:
     mov rcx, 001h                                                ; internal argument 1: number of actual arguments
     call func$__print                                            ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ; Line 264: first = false;
+    ; Line 209: first = false;
     mov qword ptr [rsp + 038h], 000h                             ; store value
     mov qword ptr [rsp + 050h], 018h                             ; store type (Boolean'24)
-    ; Line 265: index += 1;
+    ; Line 210: index += 1;
     cmp qword ptr [rsp + 040h], 000h                             ; compare type of index variable to <sentinel>
     jne func$println$while$indexVariable$TypeMatch               ; skip next block if index variable is not sentinel
       ; Error handling block for index variable
@@ -6760,16 +6760,16 @@ func$println:
     mov r12, 019h                                                ; += operator result is of type Integer'25
     mov qword ptr [rsp + 048h], rax                              ; store value
     mov qword ptr [rsp + 040h], r12                              ; store type
-    ; Calling decref on parts[index] (static type: Anything'27)
-    sub rsp, 20h                                                 ; allocate shadow space for decref
-    mov rdx, rdi                                                 ; arg #2: type of potential string
-    mov rcx, rsi                                                 ; arg #1: value of potential string
-    call intrinsic$decref                                        ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
     ; Calling decref on _stringify return value (static type: String'26)
     sub rsp, 20h                                                 ; allocate shadow space for decref
     mov rdx, qword ptr [rsp + 048h]                              ; arg #2: type of potential string
     mov rcx, qword ptr [rsp + 050h]                              ; arg #1: value of potential string
+    call intrinsic$decref                                        ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    ; Calling decref on parts[index] (static type: Anything'27)
+    sub rsp, 20h                                                 ; allocate shadow space for decref
+    mov rdx, rdi                                                 ; arg #2: type of potential string
+    mov rcx, rsi                                                 ; arg #1: value of potential string
     call intrinsic$decref                                        ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
     mov rax, qword ptr [rsp + 040h]                              ; restoring slots to previous scope state
@@ -6779,7 +6779,7 @@ func$println:
     mov rdi, qword ptr [rsp + 048h]                              ; restoring slots to previous scope state
     jmp func$println$while$top                                   ; return to top of while
   func$println$while$bottom:                                     ; bottom of while
-  ; Line 267: __print('\n');
+  ; Line 212: __print('\n');
   ; Call __print with 1 arguments
   mov r13, offset string                                         ; reading string for push
   push r13                                                       ; value of argument #1 (string)
