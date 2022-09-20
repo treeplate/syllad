@@ -1,7 +1,5 @@
 import 'syd-compiler.syd';
 
-// TODO: need to figure out how to handle nested scopes in the slot manager here
-
 class CompiledLoopScope extends CompiledNestedScope {
   String loopTopLabel;
   String loopBottomLabel;

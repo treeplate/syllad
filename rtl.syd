@@ -1,3 +1,16 @@
 String padLeft(String line, Integer length, String padding) {
   return concat(stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))), line);
 }
+
+String join(StringList items, String joiner) {
+  StringList result = []:String;
+  Integer index = 0;
+  while (index < len(items)) {
+    if (index > 0) {
+      append(result, joiner);
+    }
+    append(result, items[index]);
+    index += 1;
+  }
+  return joinList(result);
+}

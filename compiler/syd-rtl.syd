@@ -28,12 +28,25 @@ Integer __heapAlloc(Integer hHeap, Integer dwFlags, Integer dwBytes) __extern 'k
 
 Integer _blockCount = 0;
 
+NullFunction _garbageCollector;
+
 /// Allocates a block on the heap.
 ///
 /// Block must be freed with [_free].
 Integer _alloc(Integer size) {
-  _blockCount += 1;
-  return __heapAlloc(_heapHandle, 0x00, size);
+  Integer pointer = __heapAlloc(_heapHandle, 0x00, size);
+  if (pointer > 0) {
+    _blockCount += 1;
+    return pointer;
+  }
+  _garbageCollector();
+  pointer = __heapAlloc(_heapHandle, 0x00, size);
+  if (pointer > 0) {
+    _blockCount += 1;
+    return pointer;
+  }
+  __print('Out of memory.\n');
+  exit(1);
 }
 
 // returns positive for success, zero for failure
@@ -47,9 +60,6 @@ Null _free(Integer pointer) __intrinsic {
     exit(1);
   }
 }
-
-
-// STRINGS AND PRINTING
 
 Null _moveBytes(Integer from, Integer to, Integer length) {
   // TODO: move this to inlined assembler (using the string-copy instructions) for performance
@@ -81,6 +91,214 @@ Null _moveBytes(Integer from, Integer to, Integer length) {
   }
 }
 
+Null _fillQuadWords(Integer destination, Integer length, Integer value) {
+  // TODO: is there an x64 intrinsic that does this faster?
+  assert(length > 0, '_fillQuadWords expects positive number of bytes to fill');
+  assert(length % 8 == 0, '_fillQuadWords expects number of bytes to fill to be a multiple of 8');
+  Integer cursor = destination;
+  Integer end = destination + length;
+  while (cursor < end) {
+    __writeToAddress(cursor, value);
+    cursor += 8;
+  }
+}
+
+
+// GARBAGE COLLECTION
+
+// Allocated blocks that participate in garbage collection are a subtype of GarbageCollectable.
+// We have a list for every allocated GarbageCollectable block (list starts at _blockListStart).
+// Each allocated GarbageCollectable block has the same header (each line is 64 bits):
+//
+//   ref count (number of known references from stack)
+//   length N
+//   scratch space (used by GC, can otherwise be ignored)
+//   block entry (pointer into block list, minus _blockListStart)
+//
+// After this there are N type/value pairs (64 bit type codes, 64 bit values) which the garbage
+// collector can walk to find all references.
+
+Integer _gcLocked = 0; // when non-zero, GC cannot happen
+Integer _blockListStart; // start of allocation list
+Integer _blockListEnd; // end of allocation list
+Integer _blockListNext; // next allocation entry
+Integer _debugLiveBlocks = 0;
+
+Integer _blockEntrySize = 8;
+Integer _gcBlockHeaderRefCount = 0 * 8;
+Integer _gcBlockHeaderLength = 1 * 8;
+Integer _gcBlockHeaderScratchSpace = 2 * 8;
+Integer _gcBlockHeaderEntryPointer = 3 * 8;
+Integer _gcBlockData = 4 * 8;
+
+Null _blockListInit(Integer initialCount) {
+  _gcLocked += 1;
+  Integer initialSize = initialCount * _blockEntrySize;
+  _blockListStart = _alloc(initialSize);
+  _blockListEnd = _blockListStart + initialSize;
+  _blockListNext = _blockListStart;
+  _fillQuadWords(_blockListStart, initialSize, 0);
+  _gcLocked -= 1;
+}
+
+_blockListInit(1024);
+
+Null _growBlockList() {
+  assert(_gcLocked > 0, '_growBlockList called without _gcLocked set');
+  Integer oldLength = _blockListEnd - _blockListStart;
+  Integer newLength = oldLength * 2;
+  Integer newBlock = _alloc(newLength); // TODO: use realloc instead
+  _moveBytes(_blockListStart, newBlock, oldLength);
+  _fillQuadWords(newBlock + oldLength, oldLength, 0);
+  _free(_blockListStart);
+  _blockListStart = newBlock;
+  _blockListNext = newBlock + oldLength;
+  _blockListEnd = newBlock + newLength;
+}
+
+Null _advanceToNextBlock() {
+  assert(_gcLocked > 0, '_advanceToNextBlock called without _gcLocked set');
+  Integer last = _blockListNext;
+  while (true) {
+    _blockListNext += _blockEntrySize;
+    if (_blockListNext == last) {
+      // looped all the way around, need to grow the list
+      _growBlockList();
+      return;
+    }
+    if (_blockListNext == _blockListEnd) {
+      _blockListNext = _blockListStart;
+    }
+    Integer pointer = __readFromAddress(_blockListNext);
+    if (pointer == 0) {
+      // found a free slot
+      return;
+    }
+  }
+}
+
+GarbageCollectable _constructor(Integer typeCode, Integer length, Integer size) {
+  assert(_gcLocked > 0, '_constructor called without _gcLocked set');
+  assert(size >= length, 'length cannot be bigger than size');
+  Integer resultPointer = _alloc(64 + 16 * size);
+  __writeToAddress(resultPointer + _gcBlockHeaderRefCount, 0); // ref count
+  __writeToAddress(resultPointer + _gcBlockHeaderScratchSpace, 0); // scratch space
+  __writeToAddress(resultPointer + _gcBlockHeaderEntryPointer, _blockListNext - _blockListStart); // block pointer
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, length); // length
+  __writeToAddress(_blockListNext, resultPointer);
+  _advanceToNextBlock();
+  _debugLiveBlocks += 1;
+  return resultPointer __dynamic_as__ typeCode;
+}
+
+Null _mark(Integer pointer, Integer tag) {
+  Integer blockScratchSpace = __readFromAddress(pointer + _gcBlockHeaderScratchSpace);
+  if (blockScratchSpace == tag) {
+    return;
+  }
+  __writeToAddress(pointer + _gcBlockHeaderScratchSpace, tag);
+  Integer blockLength = __readFromAddress(pointer + _gcBlockHeaderLength);
+  Integer cursor = pointer + _gcBlockData;
+  Integer end = cursor + blockLength * 16;
+  while (cursor < end) {
+    Whatever value = __readFromAddress(cursor + 8) __dynamic_as__ __readFromAddress(cursor + 0);
+    if (value is GarbageCollectable) {
+      _mark(value __as__ Integer, tag);
+    }
+    cursor += 16;
+  }
+}
+
+Integer _currentTag = 0;
+
+Null _garbageCollectorImplementation() {
+  if (_gcLocked > 0) {
+    return;
+  }
+  _gcLocked += 1;
+  _currentTag += 1;
+  Integer cursor = _blockListStart;
+  while (cursor < _blockListEnd) {
+    Integer pointer = __readFromAddress(cursor);
+    if (pointer != 0) {
+      Integer blockRefCount = __readFromAddress(pointer + _gcBlockHeaderRefCount);
+      assert(blockRefCount >= 0, 'Reference count underflow.');
+      if (blockRefCount != 0) {
+        _mark(pointer, _currentTag);
+      }
+    }
+    cursor += _blockEntrySize;
+  }
+  while (cursor > _blockListStart) {
+    cursor -= _blockEntrySize;
+    Integer pointer = __readFromAddress(cursor);
+    if (pointer != 0) {
+      Integer blockScratchSpace = __readFromAddress(pointer + _gcBlockHeaderScratchSpace);
+      if (blockScratchSpace != _currentTag) {
+        // destructor:
+        _free(pointer);
+        __writeToAddress(cursor, 0);
+        _debugLiveBlocks -= 1;
+      }
+    }
+  }
+  _gcLocked -= 1;
+}
+_garbageCollector = _garbageCollectorImplementation;
+
+
+// LISTS
+
+// Lists are represented as pointers to an intermediary block that itself contains a pointer to
+// the data. Both are GarbageCollectable blocks as described above.
+//
+// The list intermediary has length two.
+// The first value is size (type Integer), the number of allocated entries in the list data.
+// This may be bigger than the length, to allow cheaper appends.
+// The second value is a pointer to the data block (type __ListData).
+//
+// The list data just has the values.
+
+WhateverList _listConstructor(Integer typeCode, Integer initialSize) __intrinsic {
+  _gcLocked += 1;
+  WhateverList list = _constructor(typeCode, 2, 2) as WhateverList;
+  __ListData data = _constructor(__typeToCode __ListData, 0, initialSize) as __ListData;
+  __writeToAddress(list __as__ Integer + _gcBlockData + 0, __typeOf initialSize);
+  __writeToAddress(list __as__ Integer + _gcBlockData + 8, initialSize __as__ Integer);
+  __writeToAddress(list __as__ Integer + _gcBlockData + 16, __typeOf data);
+  __writeToAddress(list __as__ Integer + _gcBlockData + 24, data __as__ Integer);
+  _gcLocked -= 1;
+  return list;
+}
+
+Null _growList(WhateverList list) {
+  _gcLocked += 1;
+  __ListData newData = _constructor(__typeToCode __ListData, len(list), len(list) * 2) as __ListData;
+  __ListData oldData = __readFromAddress(list __as__ Integer + _gcBlockData + 16 + 8) __as__ __ListData;
+  _moveBytes(oldData __as__ Integer + _gcBlockData, newData __as__ Integer + _gcBlockData, len(list) * 16);
+  __writeToAddress(list __as__ Integer + _gcBlockData + 16 + 8, newData __as__ Integer);
+  _gcLocked -= 1;
+}
+
+Null append(WhateverList list, Anything element) {
+  _gcLocked += 1;
+  Integer intermediaryAddress = list __as__ Integer;
+  Integer size = __readFromAddress(intermediaryAddress + _gcBlockData + 0 + 8);
+  Integer dataAddress = __readFromAddress(intermediaryAddress + _gcBlockData + 16 + 8);
+  Integer length = len(list);
+  if (length == size) {
+    _growList(list);
+  }
+  __writeToAddress(dataAddress + _gcBlockHeaderLength, length + 1);
+  __writeToAddress(dataAddress + _gcBlockData, __typeOf element);
+  __writeToAddress(dataAddress + _gcBlockData + 8, element __as__ Integer);
+  __incref(element);
+  _gcLocked -= 1;
+}
+
+
+// STRINGS AND PRINTING
+
 Integer _stringByteLength(String data) {
   Integer pointer = data __as__ Integer;
   return __readFromAddress(pointer + 8);
@@ -93,8 +311,13 @@ String concat(String... arguments) {
     length += _stringByteLength(arguments[index]);
     index += 1;
   }
+  assert(length >= 0, 'negative length detected');
+  if (length >= 2147483648) {
+    __print('absurd length detected (as exit code)\n');
+    exit(length);
+  }
   Integer resultPointer = _alloc(16 + length);
-  __writeToAddress(resultPointer, 1); // ref count
+  __writeToAddress(resultPointer, 0); // ref count
   __writeToAddress(resultPointer + 8, length);
   Integer cursor = resultPointer + 16;
   index = 0;
@@ -150,6 +373,9 @@ String intToStr(Integer value) {
   if (value == 0) {
     return '0';
   }
+  if (value < 0) {
+    return concat('-', intToStr(-value));
+  }
   String buffer = ''; 
   Integer newValue = value; // parameters are final
   while (newValue > 0) {
@@ -158,6 +384,21 @@ String intToStr(Integer value) {
     buffer = concat(digitToStr(digit), buffer);
   }
   return buffer;
+}
+
+String _joinOffset(StringList args, String joiner, Integer offset) {
+  if (len(args) - offset == 0) {
+    return '';
+  }
+  if (len(args) - offset == 1) {
+    return args[offset];
+  }
+  return concat(args[offset], joiner, _joinOffset(args, joiner, offset+1));
+}
+
+String join(StringList items, String joiner) {
+  // TODO: this should allocate the string ahead of time and just write each string in turn into the buffer
+  return _joinOffset(items, joiner, 0);
 }
 
 String _stringify(Anything arg) {
@@ -180,6 +421,20 @@ String _stringify(Anything arg) {
     Integer func = arg __as__ Integer;
     Integer annotation = __readFromAddress(func - 8);
     return concat('<function (', annotation __as__ String, ')>');
+  }
+  if (arg is WhateverList) {
+    StringList new = []:String;
+    WhateverList old = arg as WhateverList;
+    Integer i = 0;
+    while (i < len(old)) {
+      // TODO: beware infinite loops from cyclic references
+      append(new, _stringify(old[i]));
+      i += 1;
+    }
+    return concat('[', join(new, ', '), ']');
+  }
+  if (arg is __ListData) {
+    return '<__ListData>';
   }
   __print('value cannot be stringified\n');
   exit(1);
@@ -215,22 +470,25 @@ Null println(Anything... parts) {
 
 // STANDARD LIBRARY
 
-Null append(WhateverList list, Anything element) {
-  // TODO: implement this
-  __print('append is not implemented\n');
-  exit(1);
-}
-
 String chr(Integer character) {
   // TODO: implement this
   __print('chr is not implemented\n');
   exit(1);
 }
 
+String _joinListOffset(StringList args, Integer offset) {
+  if (len(args) - offset == 0) {
+    return '';
+  }
+  if (len(args) - offset == 1) {
+    return args[offset];
+  }
+  return concat(args[offset], _joinListOffset(args, offset+1));
+}
+
 String joinList(StringList args) {
-  // TODO: implement this
-  __print('joinList is not implemented\n');
-  exit(1);
+  // TODO: this should allocate the buffer ahead of time and copy each list into the buffer
+  return _joinListOffset(args, 0);
 }
 
 String stringTimes(String str, Integer count) {
@@ -274,3 +532,44 @@ String padLeft(String line, Integer length, String padding) {
   return concat(stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))), line);
 }
 */
+
+Null _debugDescribeBlock(Integer pointer, String indent) {
+  Integer blockLength = __readFromAddress(pointer + _gcBlockHeaderLength);
+  Integer cursor = pointer + _gcBlockData;
+  Integer end = cursor + blockLength * 16;
+  Integer index = 0;
+  while (cursor < end) {
+    Whatever value = __readFromAddress(cursor + 8) __dynamic_as__ __readFromAddress(cursor + 0);
+    if (value is GarbageCollectable) {
+      Integer fieldPointer = value __as__ Integer;
+      Integer refcount = __readFromAddress(fieldPointer + _gcBlockHeaderRefCount);
+      Integer length = __readFromAddress(fieldPointer + _gcBlockHeaderLength);
+      Integer entry = __readFromAddress((fieldPointer + _gcBlockHeaderEntryPointer)) / 8;
+      println(concat(indent, _stringify(index), '. type ', _stringify(__typeOf value), ': block #', _stringify(entry), ' (', _stringify(length), ' fields, referenced from ', _stringify(refcount), ' roots)'));
+      _debugDescribeBlock(fieldPointer, concat(indent, '  '));
+    } else {
+      println(concat(indent, _stringify(index), '. type ', _stringify(__typeOf value), ': ', _stringify(value)));
+    }
+    cursor += 16;
+    index += 1;
+  }
+}
+
+Null _debugDumpBlockList() {
+  _gcLocked += 1;
+  println(concat('Block list (', _stringify(_debugLiveBlocks), ' out of ', _stringify((_blockListEnd - _blockListStart) / 8), ' live blocks):'));
+  Integer index = 0;
+  Integer cursor = _blockListStart;
+  while (cursor < _blockListEnd) {
+    Integer pointer = __readFromAddress(cursor);
+    if (pointer != 0) {
+      Integer refcount = __readFromAddress(pointer + _gcBlockHeaderRefCount);
+      Integer length = __readFromAddress(pointer + _gcBlockHeaderLength);
+      println(concat('  #', _stringify(index), ': ', _stringify(length), ' fields, referenced from ', _stringify(refcount), ' roots'));
+      _debugDescribeBlock(pointer, '    ');
+    }
+    cursor += _blockEntrySize;
+    index += 1;
+  }
+  _gcLocked -= 1;
+}

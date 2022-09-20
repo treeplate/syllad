@@ -2,12 +2,18 @@ import 'core.syd';
 import 'syd-types.syd';
 import 'syd-operands.syd';
 
+enum ip { DecrefMaybeGCOrString DecrefMaybeGC DecrefMaybeString DecrefString }
+
 class SlotContext extends Object {
   SlotContextNullable getParent() {
     abstract();
   }
 
   SlotContext slotScope() {
+    abstract();
+  }
+
+  String lookupInternalProcedureLabel(ip procedure) {
     abstract();
   }
 }
@@ -23,6 +29,10 @@ class Slot extends Object {
   Null didRead(SlotContext scope) { }
 
   Null didWrite(SlotContext scope) { }
+
+  Boolean isMutable() {
+    abstract();
+  }
 
   Operand value() {
     abstract();
@@ -50,6 +60,10 @@ class Slot extends Object {
 class ParameterSlot extends Slot {
   Integer offset;
 
+  Boolean isMutable() {
+    return false;
+  }
+
   Operand value() {
     return AddressComputationOperand(rbp, null, 1, offset);
   }
@@ -68,12 +82,20 @@ class ParameterSlot extends Slot {
 }
 
 class ReturnValuePointerSlot extends Slot {
+  Boolean isMutable() {
+    return false;
+  }
+
   Operand value() {
     return AddressComputationOperand(rbp, null, 1, 0x20 /* shadow space */ + 0x08 /* return address */ + 0x08 /* return value type pointer */);
   }
 }
 
 class ReturnValueTypePointerSlot extends Slot {
+  Boolean isMutable() {
+    return false;
+  }
+  
   Operand value() {
     return AddressComputationOperand(rbp, null, 1, 0x20 /* shadow space */ + 0x08 /* return address */);
   }
@@ -81,6 +103,10 @@ class ReturnValueTypePointerSlot extends Slot {
 
 class OperandSlot extends Slot {
   Operand operand;
+
+  Boolean isMutable() {
+    return true;
+  }
 
   Operand value() {
     return operand;
@@ -92,14 +118,68 @@ class OperandSlot extends Slot {
   }
 }
 
+// Used to represent specific registers, e.g. rbp, when generating
+// instructions that are basically just hard-coded assembly. For
+// example, when generating the prolog.
+class RegisterSlot extends OperandSlot {
+  Boolean isMutable() {
+    return true;
+  }
+
+  Integer bit() {
+    return (operand as Register64Operand).bit;
+  }
+
+  Null constructor(Type typeArg, Register64Operand operandArg, String debugNameArg) {
+    super.constructor(typeArg, operandArg, debugNameArg);
+  }
+}
+
+class RegistersSlot extends RegisterSlot {
+  Register64Operand dynamicTypeOperand;
+
+  Operand dynamicType() {
+    return dynamicTypeOperand;
+  }
+
+  Null constructor(Type typeArg, Register64Operand valueArg, Register64Operand dynamicTypeOperandArg, String debugNameArg) {
+    super.constructor(typeArg, valueArg, debugNameArg);
+    dynamicTypeOperand = dynamicTypeOperandArg;
+  }
+}
+
+// pointerSlot points to the value
+class SimpleMemorySlot extends Slot {
+  Slot pointerSlot;
+
+  Boolean isMutable() {
+    return true;
+  }
+
+  Operand value() {
+    assert(pointerSlot.value() is Register64Operand, concat('SimpleMemorySlot expects a pointer that becomes an Register64Operand, operand is ', pointerSlot.value()));
+    return (pointerSlot.value() as Register64Operand).dereference();
+  }
+
+  Null constructor(Type typeArg, Slot pointerSlotArg, String debugNameArg) {
+    super.constructor(typeArg, debugNameArg);
+    pointerSlot = pointerSlotArg;
+  }
+}
+
 class VarArgsParameterSlot extends Slot {
   Integer offset;
   Slot argumentCount;
+
+  Boolean isMutable() {
+    return false;
+  }
 
   Operand value() {
     throw('dereferencing a varargs parameter is not implemented');
   }
 
+  // points to type of first argument, value is 8 bytes later, next argument type 8 bytes after that, etc
   Slot baseAddress(IntegerType integerType) {
     return OperandSlot(integerType, AddressComputationOperand(rbp, null, 1, offset), concat(debugName, ' base address'));
   }
@@ -112,7 +192,6 @@ class VarArgsParameterSlot extends Slot {
     super.constructor(staticTypeArg, debugNameArg);
     offset = 0x08 // return value pointer 
            + 0x08 // return type pointer
-           + 0x08 // type of first value 
            + 0x20 // shadow space 
            + 0x08; // return address
     argumentCount = argumentCountArg;
@@ -121,7 +200,11 @@ class VarArgsParameterSlot extends Slot {
 
 // subclasses of ImmediateSlot must always return
 // compile-type constants (immediates) from asOperand
-class ImmediateSlot extends Slot { }
+class ImmediateSlot extends Slot {
+  Boolean isMutable() {
+    return false;
+  } 
+}
 
 class CompileTimeIntegerSlot extends ImmediateSlot {
   Integer numericValue() {
@@ -166,18 +249,5 @@ class ImmediateDataLabelSlot extends CompileTimeLabelSlot {
   Null constructor(Type typeArg, String labelArg, String debugNameArg) {
     super.constructor(typeArg, debugNameArg);
     label = labelArg;
-  }
-}
-
-// Used to represent specific registers, e.g. rbp, when generating
-// instructions that are basically just hard-coded assembly. For
-// example, when generating the prolog.
-class RegisterSlot extends OperandSlot {
-  Integer bit() {
-    return (operand as Register64Operand).bit;
-  }
-
-  Null constructor(Type typeArg, Register64Operand operandArg, String debugNameArg) {
-    super.constructor(typeArg, operandArg, debugNameArg);
   }
 }

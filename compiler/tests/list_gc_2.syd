@@ -1,0 +1,32 @@
+// expected exit code: 0
+
+_gcLocked += 1;
+if (true) {
+  if (true) {
+    assert(_blockCount == 1, concat('unexpected allocation count A: ', intToStr(_blockCount)));
+  }
+  AnythingList foo = [];
+  if (true) {
+    assert(_blockCount == 3, concat('unexpected allocation count B: ', intToStr(_blockCount)));
+  }
+  if (true) {
+    append(foo, []);
+  }
+  if (true) {
+    assert(_blockCount == 5, concat('unexpected allocation count C: ', intToStr(_blockCount)));
+  }
+  if (true) {
+    foo[0] = null;
+  }
+  if (true) {
+    assert(_blockCount == 5, concat('unexpected allocation count D: ', intToStr(_blockCount)));
+  }
+  _gcLocked -= 1;
+  _garbageCollector();
+  _gcLocked += 1;
+  assert(_blockCount == 3, concat('unexpected allocation count E: ', intToStr(_blockCount)));
+}
+_gcLocked -= 1;
+_garbageCollector();
+_gcLocked += 1;
+assert(_blockCount == 1, concat('unexpected allocation count F: ', intToStr(_blockCount)));

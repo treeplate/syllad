@@ -67,9 +67,13 @@ class AssemblerBlock extends Object {
   }
 
   Map labelCount = Map(); // String -> Integer
+  
+  Boolean isJump(String opcode) {
+    return opcode == 'jmp' || opcode == 'je' || opcode == 'jc' || opcode == 'jnc'; // TODO: add the other jumps
+  }
 
   Null addCode(String opcode, WhateverList operands, StringNullable comment) {
-    assert(opcode != 'jmp' || (len(operands) == 1 && operands[0] is String), 'jmp expects exactly one string operand for optimizations to work');
+    assert(!isJump(opcode) || (len(operands) == 1 && operands[0] is String), 'jump opcodes expect exactly one string operand for optimizations to work');
     assert(!contains(charsOf(opcode), ':'), 'use addLabel to add a label');
     if (!deadCode) {
       if (pendingComment != null) {
@@ -83,7 +87,7 @@ class AssemblerBlock extends Object {
           append(newList, op);
         }
       }
-      if (opcode == 'jmp') {
+      if (isJump(opcode)) {
         IntegerNullable count = labelCount.get(operands[0]) as IntegerNullable;
         if (count == null) {
           count = 0;

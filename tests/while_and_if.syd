@@ -1,0 +1,14 @@
+// expected output: Line 1
+// expected output: Line 2
+// expected output: Line 3
+
+while (true) {
+    println('Line 1');
+    if (true) {
+        println('Line 2');
+        break;
+        println('Error');
+    }
+    println('Error 2');
+}
+println('Line 3');

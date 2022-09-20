@@ -108,6 +108,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
             type = expr.type;
           } else if (expr.type.name == "Whatever") {
             // has been cast()-ed
+
           } else if (type != expr.type) {
             type = sharedSupertype;
           }
@@ -126,9 +127,13 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
               tokens.current.col,
               tokens.workspace,
               tokens.file);
-          if (!type.isSubtypeOf(t) && elements.isNotEmpty)
-            throw FileInvalid(
-                'Invalid explicit list type (inferred type $type, provided type $t) ${formatCursorPositionFromTokens(tokens)}');
+          for (Expression expr in elements) {
+            if (!expr.type.isSubtypeOf(t)) {
+              throw FileInvalid(
+                'Invalid explicit list type (inferred type $type, provided type $t) ${formatCursorPositionFromTokens(tokens)}',
+              );
+            }
+          }
           type = t;
           tokens.moveNext();
         }
@@ -148,7 +153,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         return r;
       }
       throw FileInvalid(
-        "Unexpected token ${tokens.current} on ${formatCursorPositionFromTokens(tokens)}",
+        "Unexpected token ${tokens.current}    ${formatCursorPositionFromTokens(tokens)}",
       );
   }
   assert(false);
@@ -349,7 +354,18 @@ Expression parseExpression(TokenIterator tokens, TypeValidator scope) {
 Expression parseMulDivRem(TokenIterator tokens, TypeValidator scope) {
   Expression operandA = parseNots(tokens, scope);
   if (tokens.current is CharToken) {
-    if (tokens.currentChar == TokenType.multiply) {
+    if (tokens.currentChar == TokenType.starStar) {
+      tokens.moveNext();
+      Expression operandB = parseMulDivRem(tokens, scope);
+      return PowExpression(
+        operandA,
+        operandB,
+        tokens.current.line,
+        tokens.current.col,
+        tokens.workspace,
+        tokens.file,
+      );
+    } else if (tokens.currentChar == TokenType.star) {
       tokens.moveNext();
       Expression operandB = parseMulDivRem(tokens, scope);
       return MultiplyExpression(

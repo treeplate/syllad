@@ -1,0 +1,37 @@
+// expected exit code: 0
+_gcLocked += 1;
+
+Null test1() {
+  IntegerList foo = []:Integer;
+  append(foo, 2);
+}
+
+Null test2() {
+  []:Integer;
+  _garbageCollector();
+}
+
+Null test3() {
+  WhateverList list = []:Whatever;
+  append(list, list);
+}
+
+Null runGC() {
+  _gcLocked -= 1;
+  _garbageCollector();
+  _gcLocked += 1;
+}
+
+
+assert(_debugLiveBlocks == 0, 'started with unexpected allocations');
+test1();
+runGC();
+assert(_debugLiveBlocks == 0, 'leaked memory');
+
+test2();
+runGC();
+assert(_debugLiveBlocks == 0, 'leaked memory');
+
+test3();
+runGC();
+assert(_debugLiveBlocks == 0, 'leaked memory');

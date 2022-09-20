@@ -13,6 +13,12 @@ class Operation extends Object {
 class OperationRead extends Operation { }
 class OperationWrite extends Operation { }
 
+// Reference counting style.
+// - rcNever means that the slot is not reference counted at all, regardless.
+// - rcOnStack means that it is in a slot that would be a GC root (GarbageCollectable and Strings are reference counted).
+// - rcOnHeap means that it is in a slot that would not be a GC root (only Strings are reference counted).
+enum rc { Never OnStack OnHeap }
+
 class DynamicSlot extends Slot {
   StringNullable name;
   OperandNullableList values = []:OperandNullable;
@@ -83,19 +89,21 @@ class DynamicSlot extends Slot {
     initializeScheduled = true;
   }
 
-  Boolean readForDecrefScheduled = false;
+  rc referenceCountStyle;
+  Boolean debugReadForDecrefScheduled = false;
 
   Null willReadForDecref(SlotContext scope) {
-    assert(!readForDecrefScheduled, 'Called willReadForDecref twice');
+    assert(referenceCountStyle != rcNever, concat('No need to read for decref if the slot is not reference counted (', this, ')'));
+    assert(!debugReadForDecrefScheduled, 'Called willReadForDecref twice');
     assert(depth > -1, 'willReadForDecref called on uninitalized slot');
     append(operations, OperationRead(scope));
-    readForDecrefScheduled = true;
+    debugReadForDecrefScheduled = true;
   }
 
   Null didRead(SlotContext scope) {
     assert(len(operations) > position, concat('unplanned read of ', this, '; operations were ', operations));
     assert(operations[position] is OperationRead, concat('unplanned read of ', this, ' at position ', position, '; operations were ', operations));
-    assert(operations[position].scope == scope, concat('unplanned read of ', this, ' at position ', position, ' (scope mismatch)'));
+    assert(operations[position].scope == scope, concat('unplanned read of ', this, ' at position ', position, ' (scope mismatch; expected, ', operations[position].scope, ' but was in ', scope, ')'));
     position += 1;
     recomputeExpired();
   }
@@ -212,7 +220,7 @@ class DynamicSlot extends Slot {
 
   Null exitNestedScope() {
     assert(len(values) == len(dynamicTypes), 'DynamicSlot desync');
-    assert(!valuePinned && !typePinned, 'cannot exit nested scope while pinned');
+    assert(!valuePinned && !typePinned, concat('cannot exit nested scope while pinned (slot: ', this, ')'));
     assert(depth > -1, concat('cannot exit nested scope of uninitialized slot ', this));
     assert(depth > 0, 'cannot use finalized slot');
     depth -= 1;
@@ -273,9 +281,15 @@ class DynamicSlot extends Slot {
     return concat('<', className, ':', staticType, ' at ', sublist(values, 0, depth), '/', sublist(dynamicTypes, 0, depth), ' ("', debugName, '") (living: ', stillAlive(), ')>');
   }
 
-  Null constructor(Type staticTypeArg, SlotContext homeScopeArg, StringNullable nameArg, String debugNameArg) {
+  Boolean isMutable() {
+    return true;
+  }
+
+  Null constructor(Type staticTypeArg, SlotContext homeScopeArg, rc referenceCountStyleArg, StringNullable nameArg, String debugNameArg) {
+    assert(!(staticTypeArg.neverReferenceCounted() && referenceCountStyleArg != rcNever), concat('no point reference counting a type (', staticTypeArg.name, ') that cannot be reference counted'));
     super.constructor(staticTypeArg, debugNameArg);
     name = nameArg;
     homeScope = homeScopeArg;
+    referenceCountStyle = referenceCountStyleArg;
   }
 }

@@ -171,8 +171,8 @@ class TypeValidator {
     }
   }
 
-  void newVar(String name, ValueType type, int line, int col, String file,
-      String workspace,
+  void newVar(String name, ValueType type, int line, int col, String workspace,
+      String file,
       [bool constant = false]) {
     if (directVars.contains(name)) {
       throw FileInvalid(

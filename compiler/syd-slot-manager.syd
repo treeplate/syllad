@@ -6,7 +6,31 @@ import 'syd-operands.syd';
 fwdclass SlotManager extends Object;
 fwdclassprop NullFunction SlotManager._releaseOperand;
 
-String decrefLabel = 'intrinsic$decref';
+// Data structures:
+//
+// GarbageCollectables:
+//   8 bytes reference count
+//   8 bytes number of fields
+//   8 bytes scratch space for garbage collector
+//   8 bytes pointer into block list (relative to block start)
+//   fields, 16 bytes each:
+//      8 bytes type
+//      8 bytes value
+//   
+// Strings (first 16 bytes intentionally match GarbageCollectables):
+//   8 bytes reference count
+//   8 bytes number of bytes
+//   String data (right-padded to 8 byte boundary with 0x00)
+
+Integer _gcBlockHeaderRefCount = 0 * 8;
+Integer _gcBlockHeaderLength = 1 * 8;
+Integer _gcBlockStringData = 2 * 8;
+Integer _gcBlockHeaderScratchSpace = 2 * 8;
+Integer _gcBlockHeaderEntryPointer = 3 * 8;
+Integer _gcBlockData = 4 * 8;
+Integer _listBlockSize = _gcBlockData + 0 * 16 + 8;
+Integer _listBlockData = _gcBlockData + 1 * 16 + 8;
+
 
 // Managed Operand
 // TODO: this really should be an AssignedOperand or something like that, it's slots that are managed not operands
@@ -235,6 +259,8 @@ class SlotManager extends Object {
   AssemblerBlockList blocks = []:AssemblerBlock;
   Integer nestedScopeDepth = -1;
 
+  String debugName;
+
   // The list of currently outstanding managed operands.
   Set managedOperands = Set(); // of Mop
 
@@ -254,6 +280,8 @@ class SlotManager extends Object {
   StackMetrics stackMetrics = StackMetrics();
    
   Type stringType;
+  Type garbageCollectableType;
+  Type sentinelType;
 
   Integer stackSize() {
     assert(len(stackStatus) == stackMetrics.stackSize, 'inconsistent');
@@ -345,7 +373,7 @@ class SlotManager extends Object {
   Null updateStatus(DynamicSlot slot, Storing what, Operand oldOperand, OperandNullable newOperand) {
     if (oldOperand is Register64Operand || oldOperand is StackOperand) {
       SlotStatusEntry oldEntry = getEntry(oldOperand)!;
-      assert(oldEntry.mop == null, concat('updateStatus called when oldOperand had a mop'));
+      assert(oldEntry.mop == null, concat('updateStatus called for ', slot, ' ', what, ' when oldOperand (', oldOperand, ') still had an active mop'));
       assert(operandFor(slot, what).equals(oldOperand), 'slot not in oldOperand when calling updateStatus');
       assert(oldEntry.slot == slot, concat("oldOperand (", oldOperand, ") has a slot status entry does not have the right slot (expected ", slot, ' got ', oldEntry.slot, ')'));
       oldEntry.assignSlot(null, StoringNothing);
@@ -423,8 +451,9 @@ class SlotManager extends Object {
       StackEntry entry = stackStatus[index];
       if (entry.what == StoringNothing || 
           (entry.what != StoringInternal &&
-           (((entry.slot is DynamicSlot) && !(entry.slot as DynamicSlot).stillAlive() && !isPinned(entry.slot!, entry.what))) ||
-            ((entry.what == StoringImmediate) && (entry.mop == null)))) {
+           entry.mop == null &&
+           ((entry.slot is DynamicSlot && !(entry.slot as DynamicSlot).stillAlive() && !isPinned(entry.slot!, entry.what)) ||
+            (entry.what == StoringImmediate)))) {
         if (entry.slot != null) {
           // Null _ = blocks[nestedScopeDepth].addComment(concat('discarding ', entry.slot!.debugName, ' ', describeWhat(entry.what), ' which was in ', entry.operand));
           updateOperandFor(entry.slot! as DynamicSlot, entry.what, null);
@@ -492,7 +521,7 @@ class SlotManager extends Object {
         // move original slot into anything but registers
         Operand target = findHome(entry.slot!, entry.what, ~register);
         if (!(target is ImmediateOperand)) {
-          emitMov(blocks[nestedScopeDepth], target, operandFor(entry.slot!, entry.what), concat('move ', entry.slot!.debugName, ' ', describeWhat(entry.what), ' out of ', entry.operand));
+          emitMov(blocks[nestedScopeDepth], target, operandFor(entry.slot!, entry.what), concat('move ', entry.slot!.debugName, '\'s ', describeWhat(entry.what), ' out of ', entry.operand));
         }
         updateOperandFor(entry.slot! as DynamicSlot, entry.what, target);
       } else {
@@ -510,7 +539,7 @@ class SlotManager extends Object {
   Null makeMutable(DynamicSlot slot, Storing what) {
     if (operandFor(slot, what) is ImmediateOperand) {
       Operand target = findHome(slot, what, ~immediate);
-      emitMov(blocks[nestedScopeDepth], target, operandFor(slot, what), concat('move ', slot.debugName, ' ', describeWhat(what), ' into a mutable location'));
+      emitMov(blocks[nestedScopeDepth], target, operandFor(slot, what), concat('move ', slot.debugName, '\'s ', describeWhat(what), ' into a mutable location'));
       updateOperandFor(slot, what, target);
     }
   }
@@ -518,7 +547,7 @@ class SlotManager extends Object {
   Null trackSlot(DynamicSlot slot) {
     if (!trackedSlots.has(slot)) {
       trackedSlots.add(slot);
-      if (stringType.isSubtypeOf(slot.staticType)) {
+      if (slot.referenceCountStyle != rcNever) {
         slot.willReadForDecref(scopes[nestedScopeDepth]);
       }
     }
@@ -528,7 +557,7 @@ class SlotManager extends Object {
     Operand operand = operandFor(slot, what);
     SlotStatusEntryNullable entry = getEntry(operand);
     if (entry != null) {
-      assert(entry!.slot == slot, concat('slot\'s operand\'s SlotStatusEntry\'s slot is not the same as the original slot (expected ', slot, ' got ', entry!.slot, ')\n',)); //prettyStackStatus(), '\n', prettyRegisterStatus(),));
+      assert(entry!.slot == slot, concat('slot\'s ', what, ' operand\'s SlotStatusEntry\'s slot is not the same as the original slot (expected ', slot, ' got ', entry!.slot, ')\n'));
       assert(entry!.what == what, 'slot manager is confused (what)'); 
     } else {
       // XXX we're expecting this to be hit with AddressComputationOperand (used by parameters) but it hasn't yet, which is weird
@@ -663,7 +692,7 @@ class SlotManager extends Object {
         return managedResult;
       }
     }
-    assert((allowedOperandKinds & ~register) > 0, concat('no available registers for ', slot));
+    assert((allowedOperandKinds & ~register) > 0, concat('no available registers for ', slot, ' (allowed operands were: ', describeOperandKinds(allowedOperandKinds), ')'));
     // we're not putting it in a register
     Operand target;
     target = findHome(slot, what, allowedOperandKinds);
@@ -700,7 +729,7 @@ class SlotManager extends Object {
   }
 
   // updates a slot to have a particular hard-coded value
-  Mop hardcode(Slot slot, ImmediateOperand operand, String comment) {
+  Null hardcode(Slot slot, ImmediateOperand operand, String comment) {
     if (slot is DynamicSlot) {
       slot.didWrite(scopes[nestedScopeDepth]);
       updateOperandFor(slot as DynamicSlot, StoringValue, operand);
@@ -751,7 +780,7 @@ class SlotManager extends Object {
   }
 
   // updates a slot to have a particular hard-coded value
-  Mop hardcodeType(Slot slot, ImmediateOperand operand, String comment) {
+  Null hardcodeType(Slot slot, ImmediateOperand operand, String comment) {
     if (slot is DynamicSlot) {
       slot.didWrite(scopes[nestedScopeDepth]);
       updateOperandFor(slot as DynamicSlot, StoringType, operand);
@@ -773,7 +802,7 @@ class SlotManager extends Object {
       if (comment != null) {
         nonNullComment = comment!;
       } else {
-        nonNullComment = concat('set ', target.debugName, ' type to type of ', source.debugName);
+        nonNullComment = concat('set ', target.debugName, '\'s type to type of ', source.debugName);
       }
       // TODO: if the operand we assigned to result happens to be where source was just before, we can omit this mov
       emitMov(blocks[nestedScopeDepth], result.operand, source.dynamicType(), nonNullComment);
@@ -788,7 +817,15 @@ class SlotManager extends Object {
   // source assigned to it.
   Mop readTypeToValueForMutation(Slot source, Slot target, Integer allowedOperandKinds) {
     Mop result = manageSlot(target, StoringValue, false, allowedOperandKinds, '(this comment should not be used)');
-    emitMov(blocks[nestedScopeDepth], result.operand, source.dynamicType(), concat('store ', source.debugName, ' type in ', target.debugName, ' type slot'));
+    emitMov(blocks[nestedScopeDepth], result.operand, source.dynamicType(), concat('store ', source.debugName, '\'s type in ', target.debugName, ' value slot'));
+    source.didRead(scopes[nestedScopeDepth]);
+    target.didWrite(scopes[nestedScopeDepth]);
+    return result;
+  }
+
+  Mop readValueToTypeForMutation(Slot source, Slot target, Integer allowedOperandKinds) {
+    Mop result = manageSlot(target, StoringType, false, allowedOperandKinds, '(this comment should not be used)');
+    emitMov(blocks[nestedScopeDepth], result.operand, source.value(), concat('store ', source.debugName, ' value in ', target.debugName, '\'s type slot'));
     source.didRead(scopes[nestedScopeDepth]);
     target.didWrite(scopes[nestedScopeDepth]);
     return result;
@@ -804,7 +841,6 @@ class SlotManager extends Object {
     assert(entry.operand == result, 'slot manager is confused');
     assert(entry.mop == null, 'Tried to use a managed register while it was still under management.');
     entry.assignSlot(slot, what);
-    verifyInvariants();
   }
 
   // if either operand is a register, then that register must have been save()d first
@@ -863,9 +899,8 @@ class SlotManager extends Object {
     verifyInvariants();
   }
 
-  Null pin(RegisterSlot slot) {
-    verifyInvariants();
-    RegisterEntry entry = registerStatus.get((slot.value() as Register64Operand).bit) as RegisterEntry;
+  Null _pinRegister(Slot slot, Integer bit) {
+    RegisterEntry entry = registerStatus.get(bit) as RegisterEntry;
     if ((entry.operand.bit & nonvolatileRegister) > 0 && entry.operand != rsp) {
       usedRegisters.add(entry.operand);
     }
@@ -873,6 +908,14 @@ class SlotManager extends Object {
     assert(entry.slot == null, 'specified register is in use (slot assigned)');
     assert(entry.what == StoringNothing, 'specified register is in use (inconsistent storage)');
     entry.assignSlot(slot, StoringInternal);
+  }
+
+  Null pin(RegisterSlot slot) {
+    verifyInvariants();
+    _pinRegister(slot, (slot.value() as Register64Operand).bit);
+    if (slot is RegistersSlot) {
+      _pinRegister(slot, (slot.dynamicType() as Register64Operand).bit);
+    }
     verifyInvariants();
   }
 
@@ -1039,58 +1082,97 @@ class SlotManager extends Object {
     }
   }
 
-  Null emitDecref(DynamicSlot potentialString) {
-    assert(stringType.isSubtypeOf(potentialString.staticType), 'should not call emitDecref on something that is statically known to not be a string');
-    Operand typeOperand = potentialString.dynamicType();
-    if (typeOperand is ImmediateOperand) {
-      assert(typeOperand is ImmediateIntegerOperand, 'unexpected type operand in decref');
-      if ((typeOperand as ImmediateIntegerOperand).value != stringType.code) {
-        return;
+  Null emitDecref(DynamicSlot value, Boolean doDidRead) {
+    if (value.referenceCountStyle != rcNever) {
+      Boolean isGCRoot = value.referenceCountStyle == rcOnStack;
+      assert(isGCRoot || value.referenceCountStyle == rcOnHeap, concat('reference count style ', value.referenceCountStyle, ' unsupported'));
+      Operand typeOperand = value.dynamicType();
+      IntegerNullable typeCode = null;
+      if (typeOperand is ImmediateOperand) {
+        assert(typeOperand is ImmediateIntegerOperand, 'unexpected type operand in decref');
+        typeCode = (typeOperand as ImmediateIntegerOperand).value;
+      }
+      if (typeCode != sentinelType.code) {
+        AssemblerBlock block = blocks[nestedScopeDepth];
+        StringNullable decrefLabel;
+        if (value.staticType.isSubtypeOf(garbageCollectableType) && isGCRoot && !stringType.isSubtypeOf(value.staticType)) {
+          if (typeCode != null) {
+            // This is definitely garbage collectable.
+            Register64Operand scratch; 
+            if (value.value().isOperandKind(register)) {
+              scratch = value.value() as Register64Operand;
+            } else {
+              RegisterEntry entry = findRegisterEntry(register)!;
+              scratch = entry.operand;
+              clearRegisterEntry(entry);
+              emitMov(block, scratch, value.value(), 'move value to register for dereferencing');
+              updateOperandFor(value, StoringValue, scratch);
+            }
+            block.addCode('dec', [scratch.dereference().withOffset(_gcBlockHeaderRefCount)], 'decrement refcount');
+            decrefLabel = null;
+          } else {
+            // This might be garbage collectable, and is definitely not a string.
+            decrefLabel = scopes[nestedScopeDepth].lookupInternalProcedureLabel(ipDecrefMaybeGC);
+          }
+        } else if (typeCode == stringType.code) {
+          // This is definitely a string.
+          decrefLabel = scopes[nestedScopeDepth].lookupInternalProcedureLabel(ipDecrefString);
+        } else {
+          Boolean maybeGC = garbageCollectableType.isSubtypeOf(value.staticType) && isGCRoot;
+          Boolean maybeString = stringType.isSubtypeOf(value.staticType);
+          if (maybeGC && maybeString) {
+            decrefLabel = scopes[nestedScopeDepth].lookupInternalProcedureLabel(ipDecrefMaybeGCOrString);
+          } else if (maybeGC) {
+            decrefLabel = scopes[nestedScopeDepth].lookupInternalProcedureLabel(ipDecrefMaybeGC);
+          } else if (maybeString) {
+            decrefLabel = scopes[nestedScopeDepth].lookupInternalProcedureLabel(ipDecrefMaybeString);
+          } else {
+            decrefLabel = null;
+          }
+        }
+        if (decrefLabel != null) {
+          // Call the decref intrinsic.
+          // It expects arguments in rcx and rdx.
+          block.addComment(concat('Decrement reference count for ', value.debugName, ' (static type: ', value.staticType, ') via ', decrefLabel));
+          // TODO: find a way to reuse the manageSlot logic rather than handling these registers manually?
+          block.addCode('sub', [rsp, '20h'], 'allocate shadow space for decref function');
+          stackMetrics.push(4);
+          // Put the value and type into rcx and rdx.
+          // The checks below are trivial optimizations for the case where the values
+          // we want to pass happen to already be in those registers.
+          Boolean alreadyMovedValue = false;
+          if (value.dynamicType() != rdx) {
+            if (value.value() == rdx) {
+              emitMov(block, rcx, rdx, concat('arg #1: ', value.debugName, '\'s value'));
+              alreadyMovedValue = true;
+            } else {
+              assert(!value.value().equals(rdx), 'there are two rdxs');
+              assert(!((registerStatus.get(rdx.bit) as RegisterEntry).slot == value), 'uhh');
+              clearRegisterEntry(registerStatus.get(rdx.bit) as RegisterEntry);
+            }
+            emitMov(block, rdx, value.dynamicType(), concat('arg #2: ', value.debugName, '\'s type'));
+          } else {
+            block.addComment(concat('rdx already contains ', value.debugName, '\'s type'));
+          }
+          if (!alreadyMovedValue) {
+            if (value.value() != rcx) {
+              clearRegisterEntry(registerStatus.get(rcx.bit) as RegisterEntry);
+              emitMov(block, rcx, value.value(), concat('arg #1: ', value.debugName, '\'s value'));
+            } else {
+              block.addComment(concat('rcx already contains ', value.debugName, '\'s value'));
+            }
+          }
+          save(volatileRegister);
+          block.addCode('call', [decrefLabel], 'call decref');
+          releaseOperands(volatileRegister);
+          block.addCode('add', [rsp, '20h'], 'free shadow space for decref');
+          stackMetrics.pop(4);
+        }
+      }
+      if (doDidRead) {
+        value.didRead(scopes[nestedScopeDepth]);
       }
     }
-    AssemblerBlock block = blocks[nestedScopeDepth];
-    block.addComment(concat('Calling decref on ', potentialString.debugName, ' (static type: ', potentialString.staticType, ')'));
-    RegisterEntry register;
-    if (potentialString.value().isOperandKind(volatileRegister)) {
-      register = findRegisterEntry(nonvolatileRegister)!;
-      clearRegisterEntry(register);
-    }
-    RegisterEntry register2;
-    if (potentialString.dynamicType().isOperandKind(volatileRegister)) {
-      register2 = findRegisterEntry(nonvolatileRegister)!;
-      clearRegisterEntry(register2);
-    }
-    block.addCode('sub', [rsp, '20h'], 'allocate shadow space for decref');
-    stackMetrics.push(4);
-    Boolean skipValue = false;
-    if (potentialString.dynamicType() != rdx) {
-      if (potentialString.value() == rdx) {
-        emitMov(block, rcx, rdx, 'arg #1: type of potential string');
-        skipValue = true;
-      } else {
-        assert(!potentialString.value().equals(rdx), 'there are two rdxs');
-        assert(!((registerStatus.get(rdx.bit) as RegisterEntry).slot == potentialString), 'uhh');
-        clearRegisterEntry(registerStatus.get(rdx.bit) as RegisterEntry);
-      }
-      emitMov(block, rdx, potentialString.dynamicType(), 'arg #2: type of potential string');
-    }
-    if (!skipValue && potentialString.value() != rcx) {
-      clearRegisterEntry(registerStatus.get(rcx.bit) as RegisterEntry);
-      emitMov(block, rcx, potentialString.value(), 'arg #1: value of potential string');
-    }
-    if (potentialString.value().isOperandKind(volatileRegister)) {
-      block.addCode('mov', [register.operand, 'rcx'], 'save value of potential string');
-      updateOperandFor(potentialString, StoringValue, register.operand);
-    }
-    if (potentialString.dynamicType().isOperandKind(volatileRegister)) {
-      block.addCode('mov', [register2.operand, 'rdx'], 'save type of potential string');
-      updateOperandFor(potentialString, StoringType, register2.operand);
-    }
-    save(volatileRegister);
-    block.addCode('call', [decrefLabel], 'call decref');
-    releaseOperands(volatileRegister);
-    block.addCode('add', [rsp, '20h'], 'free shadow space for decref');
-    stackMetrics.pop(4);
   }
 
   Null doScopeExit(Set exitingScopes, Boolean doUpdates) {
@@ -1098,11 +1180,8 @@ class SlotManager extends Object {
     assertAllReleased();
     for (entry in trackedSlots.values()) {
       DynamicSlot slot = entry as DynamicSlot;
-      if (stringType.isSubtypeOf(slot.staticType) && exitingScopes.has(slot.homeScope)) {
-        emitDecref(slot);
-        if (doUpdates) {
-          slot.didRead(scopes[nestedScopeDepth]);
-        }
+      if (exitingScopes.has(slot.homeScope)) {
+        emitDecref(slot, doUpdates);
       }
     }
     Chains chains = Chains();
@@ -1119,8 +1198,8 @@ class SlotManager extends Object {
         Operand newDynamicType;
         newValue = slot.previousValue(scopeExitDelta);
         newDynamicType = slot.previousDynamicType(scopeExitDelta);
-        recordLink(chains, lastValue, newValue, doUpdates, concat('move ', slot.debugName, ' value from ', lastValue, ' back to ', newValue));
-        recordLink(chains, lastDynamicType, newDynamicType, doUpdates, concat(slot.debugName, ' type from ', lastDynamicType, ' back to ', newDynamicType));
+        recordLink(chains, lastValue, newValue, doUpdates, concat('move ', slot.debugName, '\'s value from ', lastValue, ' back to ', newValue));
+        recordLink(chains, lastDynamicType, newDynamicType, doUpdates, concat(slot.debugName, '\'s type from ', lastDynamicType, ' back to ', newDynamicType));
         if (doUpdates) {
           slot.exitNestedScope();
           remainingTrackedSlots.add(slot);
@@ -1174,9 +1253,12 @@ class SlotManager extends Object {
     verifyInvariants();
   }
 
-  Null constructor(Type stringTypeArg) {
+  Null constructor(Type stringTypeArg, Type garbageCollectableTypeArg, Type sentinelTypeArg, String debugNameArg) {
     super.constructor();
+    debugName = debugNameArg;
     stringType = stringTypeArg;
+    garbageCollectableType = garbageCollectableTypeArg;
+    sentinelType = sentinelTypeArg;
     for (register in preferredRegisters) {
       RegisterEntry entry = RegisterEntry(register);
       if (leastRecentlyUsed == null) {

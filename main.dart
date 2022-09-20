@@ -7,6 +7,7 @@ void main(List<String> args) {
   if (!(args.length == 0 || args.length == 2)) {
     print(
         "This program either takes no args or takes 2: the workspace of the file, and the filename.");
+    exit(1);
   }
   String workspace = args.isEmpty ? './compiler' : args.first;
   String arg = args.isEmpty ? 'syd.syd' : args.last;

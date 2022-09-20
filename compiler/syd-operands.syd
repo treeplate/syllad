@@ -24,7 +24,7 @@ Integer immediate64 = 0x0000800;
 Integer immediate = immediate8 | immediate32 | immediate64;
 Integer anywhere = 0xFFFFFFFF;
 
-enum cc { GreaterThan GreaterThanOrEqual LessThan LessThanOrEqual Equal NotEqual Negative Positive /* or zero */ }
+enum cc { GreaterThan GreaterThanOrEqual LessThan LessThanOrEqual Equal NotEqual Negative Positive /* or zero */ Zero NonZero }
 
 String ccSuffix(cc check) {
   if (check == ccGreaterThan) {
@@ -50,6 +50,12 @@ String ccSuffix(cc check) {
   }
   if (check == ccPositive) {
     return 'ns';
+  }
+  if (check == ccZero) {
+    return 'z';
+  }
+  if (check == ccNonZero) {
+    return 'nz';
   }
   assert(false, concat('unknown check ', check));
 }
@@ -191,7 +197,7 @@ class ImmediateIntegerOperand extends ImmediateOperand {
     if (value <= 0xFF) {
       return 8;
     }
-    if (value <= 0xFFFFFFFF) {
+    if (value <= 0x7FFFFFFF) {
       return 32;
     }
     return 64;
@@ -354,8 +360,8 @@ class MemoryOperand extends Operand {
 
 // operands like [rax+rbx*2+010h]
 class AddressComputationOperand extends MemoryOperand {
-  RegisterOperandNullable base;
-  RegisterOperandNullable index;
+  Register64OperandNullable base;
+  Register64OperandNullable index;
   Integer scale; // 1, 2, 4, 8
   Integer displacement; // 32 bit value
 
@@ -415,7 +421,11 @@ class AddressComputationOperand extends MemoryOperand {
     return true;
   }
 
-  Null constructor(RegisterOperandNullable baseArg, RegisterOperandNullable indexArg, Integer scaleArg, Integer displacementArg) {
+  AddressComputationOperand withOffset(Integer offset) {
+    return AddressComputationOperand(base, index, scale, displacement + offset);
+  }
+
+  Null constructor(Register64OperandNullable baseArg, Register64OperandNullable indexArg, Integer scaleArg, Integer displacementArg) {
     super.constructor();
     assert(scaleArg == 1 || scaleArg == 2 || scaleArg == 4 || scaleArg == 8, 'scale out of range');
     assert((displacementArg >= -0xFFFFFFFF) && (displacementArg < 0xFFFFFFFF), 'displacement out of range');
@@ -449,6 +459,10 @@ class DereferenceLabelOperand extends MemoryOperand {
   Boolean equals(Operand other) {
     return other is DereferenceLabelOperand
         && (other as DereferenceLabelOperand).value == value;
+  }
+
+  MemoryOperand withOffset(Integer offset) {
+    throw('not available');
   }
 
   Null constructor(String valueArg) {

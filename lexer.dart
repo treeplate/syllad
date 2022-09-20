@@ -26,7 +26,7 @@ enum TokenType {
   plus, // +
   minus, // -
   divide, // /
-  multiply, // *
+  star, // *
   remainder, // %
 
   equals, // ==
@@ -48,6 +48,8 @@ enum TokenType {
 
   set, // =
   colon,
+  starEquals,
+  starStar,
 }
 
 abstract class Token {
@@ -116,6 +118,7 @@ enum _LexerState {
   multiLineComment,
   multiLineCommentBackslash,
   multiLineCommentStar,
+  star,
 }
 
 Iterable<Token> lex(String file, String workspace, String filename) sync* {
@@ -160,7 +163,7 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
         yield CharToken(TokenType.closeParen, line, col);
         break;
       case 0x2a:
-        yield CharToken(TokenType.multiply, line, col);
+        state = _LexerState.star;
         break;
       case 0x2b:
         yield CharToken(TokenType.plus, line, col);
@@ -473,6 +476,21 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           state = _LexerState.top;
           yield* parseRuneFromTop(rune);
         }
+        break;
+      case _LexerState.star:
+        if (rune == 0x3d) {
+          yield CharToken(TokenType.starEquals, line, col);
+          state = _LexerState.top;
+          break;
+        }
+        if (rune == 0x2a) {
+          yield CharToken(TokenType.starStar, line, col);
+          state = _LexerState.top;
+          break;
+        }
+        yield CharToken(TokenType.star, line, col);
+        state = _LexerState.top;
+        yield* parseRuneFromTop(rune);
         break;
     }
     col++;

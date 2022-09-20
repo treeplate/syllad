@@ -1,0 +1,9 @@
+// expected output: 1
+// expected output: 2
+// expected output: [2]
+
+IntegerList foo = []:Integer;
+append(foo, 2);
+println(len(foo));
+println(foo[0]);
+println(foo);

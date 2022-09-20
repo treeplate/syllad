@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'parser-core.dart';
 import 'lexer.dart';
 
@@ -372,6 +374,29 @@ class DivideExpression extends Expression {
         integerType,
         av.valueC(scope, scope.stack, line, col, workspace, file) ~/
             bv.valueC(scope, scope.stack, line, col, workspace, file),
+        '$this result');
+  }
+
+  ValueType get type => integerType;
+}
+
+class PowExpression extends Expression {
+  final Expression a;
+  final Expression b;
+
+  PowExpression(this.a, this.b, int line, int col, String workspace, file)
+      : super(line, col, workspace, file);
+  @override
+  ValueWrapper eval(Scope scope) {
+    return ValueWrapper(
+        integerType,
+        pow(
+            a
+                .eval(scope)
+                .valueC(scope, scope.stack, line, col, workspace, file),
+            b
+                .eval(scope)
+                .valueC(scope, scope.stack, line, col, workspace, file)),
         '$this result');
   }
 
@@ -773,13 +798,24 @@ class AndExpression extends Expression {
       : super(line, col, workspace, file);
   @override
   ValueWrapper eval(Scope scope) {
-    return ValueWrapper(
-        booleanType,
-        a.eval(scope).valueC(scope, scope.stack, line, col, workspace, file) &&
-            b
-                .eval(scope)
-                .valueC(scope, scope.stack, line, col, workspace, file),
-        '$this result');
+    ValueWrapper av = a.eval(scope);
+    if (!av
+        .typeC(scope, scope.stack, line, col, workspace, file)
+        .isSubtypeOf(booleanType)) {
+      throw FileInvalid(
+          "$av ($a) is not an boolean; attempted $a&&$b ${formatCursorPosition(line, col, workspace, file)}\n ${scope.stack.reversed.join('\n')}");
+    }
+    if (!av.valueC(scope, scope.stack, line, col, workspace, file)) {
+      return av;
+    }
+    ValueWrapper bv = b.eval(scope);
+    if (!bv
+        .typeC(scope, scope.stack, line, col, workspace, file)
+        .isSubtypeOf(booleanType)) {
+      throw FileInvalid(
+          "$bv ($b) is not an boolean; attempted $a&&$b ${formatCursorPosition(line, col, workspace, file)}\n ${scope.stack.reversed.join('\n')}");
+    }
+    return bv;
   }
 
   ValueType get type => booleanType;

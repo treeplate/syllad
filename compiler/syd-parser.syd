@@ -65,6 +65,17 @@ Expression parseUnaryExpression(TokenConsumer source) {
     SourceLocation location = source.lastLocation();
     return BitwiseNotExpression(parseUnaryExpression(source), location);
   }
+  if (source.isNextIdentifier('__typeToCode')) {
+    source.expectIdentifier('__typeToCode');
+    SourceLocation location = source.lastLocation();
+    TypeIdentifier type = TypeIdentifier(source.readIdentifier(), source.lastLocation());
+    return TypeToCodeExpression(type, location);
+  }
+  if (source.isNextIdentifier('__typeOf')) {
+    source.expectIdentifier('__typeOf');
+    SourceLocation location = source.lastLocation();
+    return TypeOfExpression(parseUnaryExpression(source), location);
+  }
   Expression result = parseExpressionLeaves(source);
   while (true) {
     if (source.isNext(ttOpenParen)) {
@@ -114,6 +125,11 @@ Expression parseUnaryExpression(TokenConsumer source) {
       source.expectIdentifier('__as__');
       String typeName = source.readIdentifier();
       result = ReinterpretAsOperatorExpression(result, TypeIdentifier(typeName, source.lastLocation()), source.lastLocation());
+      continue;
+    }
+    if (source.isNextIdentifier('__dynamic_as__')) {
+      source.expectIdentifier('__dynamic_as__');
+      result = ReinterpretDynamicAsOperatorExpression(result, parseUnaryExpression(source), source.lastLocation());
       continue;
     }
     break;
@@ -542,7 +558,7 @@ Statement _parseStatement(TokenConsumer source) {
   }
   // Expression followed by some operator: must be assignment.
   // TODO: the following leads to a weird error when the input is just |''|.
-  if (!expression.isLValue()) {
+  if (!(expression is LValueExpression)) {
     throw(source.butFound('assignable lvalue expression', expression.toString()));
   }
   if (source.isNext(ttEquals)) {
@@ -550,70 +566,70 @@ Statement _parseStatement(TokenConsumer source) {
     SourceLocation location = source.lastLocation();
     Expression initializer = parseExpression(source);
     source.expectPunctuation(ttSemicolon);
-    return StraightAssignmentStatement(expression, initializer, location);
+    return StraightAssignmentStatement(expression as LValueExpression, initializer, location);
   }
   if (source.isNext(ttPlusEquals)) {
     source.expectPunctuation(ttPlusEquals);
     SourceLocation location = source.lastLocation();
     Expression initializer = parseExpression(source);
     source.expectPunctuation(ttSemicolon);
-    return PlusAssignmentStatement(expression, initializer, location);
+    return PlusAssignmentStatement(expression as LValueExpression, initializer, location);
   }
   if (source.isNext(ttMinusEquals)) {
     source.expectPunctuation(ttMinusEquals);
     SourceLocation location = source.lastLocation();
     Expression initializer = parseExpression(source);
     source.expectPunctuation(ttSemicolon);
-    return MinusAssignmentStatement(expression, initializer, location);
+    return MinusAssignmentStatement(expression as LValueExpression, initializer, location);
   }
   if (source.isNext(ttAsteriskEquals)) {
     source.expectPunctuation(ttAsteriskEquals);
     SourceLocation location = source.lastLocation();
     Expression initializer = parseExpression(source);
     source.expectPunctuation(ttSemicolon);
-    return AsteriskAssignmentStatement(expression, initializer, location);
+    return AsteriskAssignmentStatement(expression as LValueExpression, initializer, location);
   }
   if (source.isNext(ttAsteriskEquals)) {
     source.expectPunctuation(ttAsteriskEquals);
     SourceLocation location = source.lastLocation();
     Expression initializer = parseExpression(source);
     source.expectPunctuation(ttSemicolon);
-    return AsteriskAssignmentStatement(expression, initializer, location);
+    return AsteriskAssignmentStatement(expression as LValueExpression, initializer, location);
   }
   if (source.isNext(ttSlashEquals)) {
     source.expectPunctuation(ttSlashEquals);
     SourceLocation location = source.lastLocation();
     Expression initializer = parseExpression(source);
     source.expectPunctuation(ttSemicolon);
-    return SlashAssignmentStatement(expression, initializer, location);
+    return SlashAssignmentStatement(expression as LValueExpression, initializer, location);
   }
   if (source.isNext(ttModulusEquals)) {
     source.expectPunctuation(ttModulusEquals);
     SourceLocation location = source.lastLocation();
     Expression initializer = parseExpression(source);
     source.expectPunctuation(ttSemicolon);
-    return ModulusAssignmentStatement(expression, initializer, location);
+    return ModulusAssignmentStatement(expression as LValueExpression, initializer, location);
   }
   if (source.isNext(ttAmpersandEquals)) {
     source.expectPunctuation(ttAmpersandEquals);
     SourceLocation location = source.lastLocation();
     Expression initializer = parseExpression(source);
     source.expectPunctuation(ttSemicolon);
-    return BitwiseAndAssignmentStatement(expression, initializer, location);
+    return BitwiseAndAssignmentStatement(expression as LValueExpression, initializer, location);
   }
   if (source.isNext(ttCaretEquals)) {
     source.expectPunctuation(ttCaretEquals);
     SourceLocation location = source.lastLocation();
     Expression initializer = parseExpression(source);
     source.expectPunctuation(ttSemicolon);
-    return BitwiseXorAssignmentStatement(expression, initializer, location);
+    return BitwiseXorAssignmentStatement(expression as LValueExpression, initializer, location);
   }
   if (source.isNext(ttVerticalBarEquals)) {
     source.expectPunctuation(ttVerticalBarEquals);
     SourceLocation location = source.lastLocation();
     Expression initializer = parseExpression(source);
     source.expectPunctuation(ttSemicolon);
-    return BitwiseOrAssignmentStatement(expression, initializer, location);
+    return BitwiseOrAssignmentStatement(expression as LValueExpression, initializer, location);
   }
   throw(source.expected('assignment operator (e.g. "=")'));
 }

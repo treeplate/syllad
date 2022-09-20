@@ -41,4 +41,4 @@ Null allBottles() {
 println('99 BOTTLES OF BEER ON THE WALL');
 println();
 allBottles();
-assert(_blockCount == 0, 'memory leak');
+assert(_blockCount == 1, 'memory leak');
