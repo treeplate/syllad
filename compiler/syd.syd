@@ -53,11 +53,6 @@ print(b);
 // TODO
 // - verify that we keep the stack pointer 16-byte aligned
 // - something that runs each test in turn (and matches expectation)
-// - static type checking ("xxxx")
-// - joinList for StringLists
-// - lists, garbage collection
-// - stringification
-// - implement the real "println"
 // - put initialized globals into .data section
 
 import 'syd-tokenizer.syd';

@@ -732,6 +732,9 @@ class SlotManager extends Object {
   Null hardcode(Slot slot, ImmediateOperand operand, String comment) {
     if (slot is DynamicSlot) {
       slot.didWrite(scopes[nestedScopeDepth]);
+      if (slot.value().equals(operand)) {
+        return;
+      }
       updateOperandFor(slot as DynamicSlot, StoringValue, operand);
       (slot as DynamicSlot).updateValue(operand);
     } else {
@@ -783,6 +786,9 @@ class SlotManager extends Object {
   Null hardcodeType(Slot slot, ImmediateOperand operand, String comment) {
     if (slot is DynamicSlot) {
       slot.didWrite(scopes[nestedScopeDepth]);
+      if (slot.dynamicType().equals(operand)) {
+        return;
+      }
       updateOperandFor(slot as DynamicSlot, StoringType, operand);
       (slot as DynamicSlot).updateDynamicType(operand);
     } else {

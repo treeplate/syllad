@@ -792,7 +792,7 @@ class UnsignedMultiplyInstruction extends Instruction {
     if (lhs == rhs) {
       throw("not implemented"); // TODO
     } else if (lhs == result) {
-      mutatedValue = manager.readForMutation(lhs, result, rax.bit, null); // this must be first, otherwise operand might use up rax
+      mutatedValue = manager.readForMutation(lhs, result, rax.bit, null); // this must be first, otherwise operand might use up rax XXX readForMutation says 'move testByte to testByte'
       operand = manager.read(rhs, register | memory, concat('read operand of mul (', rhs.debugName, ') '));
     } else if (rhs == result) {
       mutatedValue = manager.readForMutation(rhs, result, rax.bit, null); // this must be first, otherwise operand might use up rax
@@ -834,7 +834,48 @@ class SignedMultiplyInstruction extends Instruction {
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     MopList operands = []:Mop;
-    if (rhs == result) {
+    IntegerNullable lhsValue = lhs.value().toInteger();
+    IntegerNullable rhsValue = rhs.value().toInteger();
+    if (lhsValue != null && rhsValue != null) {
+      manager.read(lhs, anywhere, 'record as read').release();
+      if (lhs != rhs) {
+        manager.read(rhs, anywhere, 'record as read').release();
+      }
+      manager.hardcode(result, ImmediateIntegerOperand(lhsValue * rhsValue), comment);
+      return;
+    } else if (lhsValue == 0) {
+      manager.read(lhs, anywhere, 'record as read').release();
+      if (lhs != rhs) {
+        manager.read(rhs, anywhere, 'record as read').release();
+      }
+      manager.hardcode(result, ImmediateIntegerOperand(0), comment);
+      return;
+    } else if (rhsValue == 0) {
+      manager.read(lhs, anywhere, 'record as read').release();
+      if (lhs != rhs) {
+        manager.read(rhs, anywhere, 'record as read').release();
+      }
+      manager.hardcode(result, ImmediateIntegerOperand(0), comment);
+      return;
+    } else if (lhsValue == 1) {
+      manager.read(lhs, anywhere, 'record as read').release();
+      if (rhsValue == result) {
+        manager.read(rhs, anywhere, 'record as read').release();
+        manager.write(result, register | memory).release();
+      } else {
+        manager.readForMutation(rhs, result, register | memory, comment).release();
+      }
+      return;
+    } else if (rhsValue == 1) {
+      manager.read(rhs, anywhere, 'record as read').release();
+      if (lhsValue == result) {
+        manager.read(lhs, anywhere, 'record as read').release();
+        manager.write(result, register | memory).release();
+      } else {
+        manager.readForMutation(lhs, result, register | memory, comment).release();
+      }
+      return;
+    } else if (rhs == result) {
       // we'll use the two operand form
       if (rhs == lhs) {
         // a = a * a

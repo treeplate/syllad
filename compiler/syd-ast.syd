@@ -75,7 +75,9 @@ class StringLiteralExpression extends Expression {
   String label;
 
   Slot generateInstructions(CompiledScope scope) {
-    return scope.environment().registerStringConstant('string', value, sourceLocation.lineNo, sourceLocation.colNo, sourceLocation.filename);
+    Slot result = scope.environment().registerStringConstant('string', value, sourceLocation.lineNo, sourceLocation.colNo, sourceLocation.filename);
+    scope.references.add(result); // TODO: ideally we would be able to tree shake references from dead code too, not just unreferenced functions
+    return result;
   }
 
   String toStringIndent(Integer indent) {

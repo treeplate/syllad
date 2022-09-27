@@ -42,6 +42,7 @@ import 'syd-utils.syd';
 // ============================================================================
 // FORWARD DECLARATIONS
 // ============================================================================
+fwdclass Constant extends Object;
 fwdclass CompilationEnvironment extends TypeRegistry;
 fwdclass CompiledScope extends SlotContext;
 fwdclass CompiledNestedScope(CompiledScope, String) extends CompiledScope;
@@ -63,6 +64,7 @@ fwdclass CompiledVarArgsSubroutine extends CompiledSubroutine;
 fwdclass SubroutineSlot extends CompileTimeLabelSlot;
 fwdclass CompiledInternalProcedure extends CompiledStackFrameScope;
 fwdclass CompiledInternalProcedureSlot extends CompileTimeLabelSlot;
+fwdclass ConstantSlot(Type, Constant, String) extends ImmediateDataLabelSlot;
 
 // CompiledScope
 fwdclassprop CompiledScopeNullable CompiledScope.parent;
@@ -145,6 +147,9 @@ fwdclassprop TypeFunction CompiledInternalProcedure.type;
 // CompiledInternalProcedureSlot
 fwdclassprop CompiledInternalProcedure CompiledInternalProcedureSlot.compiledInternalProcedure;
 
+// ConstantSlot
+fwdclassprop Constant ConstantSlot.constant;
+
 
 // ============================================================================
 // COMPILATION ENVIRONMENT
@@ -153,12 +158,19 @@ fwdclassprop CompiledInternalProcedure CompiledInternalProcedureSlot.compiledInt
 // Library State
 enum ls { Unknown Declared Defined }
 
-class Constant {
+class Constant extends Object {
   String label;
   StringList data;
   StringNullableList comments;
 
+  Boolean isUsed = false;
+
+  Null markUsed() {
+    isUsed = true;
+  }
+
   Null constructor(String labelArg, StringList dataArg, StringNullableList commentsArg) {
+    super.constructor();
     label = labelArg;
     data = dataArg;
     comments = commentsArg;
@@ -191,15 +203,13 @@ class CompilationEnvironment extends TypeRegistry {
   StringList libraryNames = []:String;
   CompiledIntrinsicsLibrary intrinsicsLibrary;
 
-  Map stringAtomTable = Map(); // String -> String
-  ConstantList constants = []:Constant;
+  Map stringAtomTable = Map(); // String -> Constant
 
-  Slot registerStringConstant(String labelBase, String value, Integer line, Integer col, String file) {
-    StringNullable maybeLabel = stringAtomTable.get(value) as StringNullable;
-    if (maybeLabel == null) {
+  ConstantSlot registerStringConstant(String labelBase, String value, Integer line, Integer col, String file) {
+    ConstantNullable maybeConstant = stringAtomTable.get(value) as ConstantNullable;
+    if (maybeConstant == null) {
       SourceLocation source = SourceLocation(line, col, file);
       String label = generateLabel(labelBase);
-      stringAtomTable.set(value, label);
       // XXX length is wrong, we should be giving the byte length in whatever encoding we use (probably UTF-8? though windows, so maybe UTF-16?)
       StringList data = ['dq -01h', concat('dq ', len(scalarValues(value)))]:String;
       StringNullableList comments = ['String constant (reference count)', 'Length']:StringNullable;
@@ -221,11 +231,11 @@ class CompilationEnvironment extends TypeRegistry {
           append(comments, 'padding to align to 8-byte boundary');
         }
       }
-      append(constants, Constant(label, data, comments));
+      maybeConstant = Constant(label, data, comments);
+      stringAtomTable.set(value, maybeConstant);
       intrinsicsLibrary.coreStringType.markConstructed();
-      maybeLabel = label;
     }
-    return ImmediateDataLabelSlot(intrinsicsLibrary.coreStringType, maybeLabel!, labelBase);
+    return ConstantSlot(intrinsicsLibrary.coreStringType, maybeConstant!, /* debugName: */ labelBase);
   }
 
   CompiledLibraryNullable runtimeLibrary = null; 
@@ -287,9 +297,10 @@ class CompilationEnvironment extends TypeRegistry {
           internalProcedure.markUsed();
           markUsedScopesFor(internalProcedure);
         }
+      } else if (slot is ConstantSlot) {
+        (slot as ConstantSlot).constant.markUsed();
       }
     }
-    // TODO: do the same with ImmediateDataLabelSlots
     for (subscope in scope.subscopes.values()) {
       markUsedScopesFor(subscope as CompiledScope);
     }
@@ -397,11 +408,7 @@ class CompilationEnvironment extends TypeRegistry {
     StringNullableList comments = map(data, genComments) as StringNullableList;
     comments[0] = 'Type table';
     comments[len(comments) - 1] = concat(comments[len(comments) - 1], '\n', join(comment, ''));
-    assembler.addConst(
-      label,
-      generatedBytes,
-      comments,
-    );
+    assembler.addConst(label, generatedBytes, comments);
     typeTableOffset = offset;
     typeTableWidth = width;
   }
@@ -423,7 +430,17 @@ class CompilationEnvironment extends TypeRegistry {
 
   Null generateAssembler(Assembler assembler) {
     AssemblerBlock mainBlock = assembler.createBlock();
-    for (constant in constants) {
+    Map constants = Map();
+    StringList labels = []:String;
+    for (constant in stringAtomTable.values() as ConstantList) {
+      if (constant.isUsed) {
+        constants.set(constant.label, constant);
+        append(labels, constant.label);
+      }
+    }
+    sort(labels);
+    for (label in labels) {
+      Constant constant = constants.get(label) as Constant;
       assembler.addConst(constant.label, constant.data, constant.comments);
     }
     intrinsicsLibrary.generateAssembler(assembler); // generates decrefs
@@ -581,6 +598,15 @@ class CompiledInternalProcedureSlot extends CompileTimeLabelSlot {
   Null constructor(CompiledInternalProcedure compiledInternalProcedureArg) {
     compiledInternalProcedure = compiledInternalProcedureArg;
     super.constructor(compiledInternalProcedure.type(), compiledInternalProcedure.name);
+  }
+}
+
+class ConstantSlot extends ImmediateDataLabelSlot {
+  Constant constant;
+
+  Null constructor(Type typeArg, Constant constantArg, String debugNameArg) {
+    super.constructor(typeArg, constantArg.label, debugNameArg);
+    constant = constantArg;
   }
 }
 
@@ -1052,7 +1078,6 @@ class CompiledScope extends SlotContext {
       instruction.generateAssemblerBlock(block, manager);
       manager.endOfInstruction();
     }
-    stderr('done generating assembler for ', this);
     generateAssemblerBlockPostamble(block);
     manager.exitNestedScope(this);
   }
@@ -1196,6 +1221,9 @@ class CompiledStackFrameScope extends CompiledScope {
   }
 
   Null generateAssemblerBlock(AssemblerBlock block) {
+    if (len(instructions) == 0) {
+      return;
+    }
     slotManager = SlotManager(environment().intrinsicsLibrary.coreStringType, environment().intrinsicsLibrary.coreGarbageCollectableType, environment().intrinsicsLibrary.coreSentinelType, concat(name, ' (slot manager)'));
     slotManager.pin(stackPointer);
     slotManager.pin(stackFramePointer);
@@ -1246,7 +1274,7 @@ class CompiledSubroutine extends CompiledStackFrameScope {
   }
 
   DynamicSlot parameterCount;
-  ImmediateDataLabelSlot nameConstant;
+  ConstantSlot nameConstant;
 
   Null prepareSlots() {
     label = environment().generateLabel(labelPrefix());
@@ -1255,7 +1283,8 @@ class CompiledSubroutine extends CompiledStackFrameScope {
     returnValueTypePointer = ReturnValueTypePointerSlot(environment().intrinsicsLibrary.coreIntegerType, concat('pointer to return value type of ', name));
     parameterCount = registerDynamicValue(environment().intrinsicsLibrary.coreIntegerType, rcNever, concat('parameter count of ', name));
     parameterCount.willInitialize();
-    nameConstant = environment().registerStringConstant(concat(label, '$annotation'), name, __LINE__, __COL__, __FILE__) as ImmediateDataLabelSlot;
+    nameConstant = environment().registerStringConstant(concat(label, '$annotation'), name, __LINE__, __COL__, __FILE__);
+    references.add(nameConstant);
     super.prepareSlots();
   }
 
@@ -1744,6 +1773,9 @@ class CompiledLibrary extends CompiledStackFrameScope {
   }
 
   Null generateAssemblerBlock(AssemblerBlock block) {
+    if (len(instructions) == 0) {
+      return;
+    }
     block.addBlankLine();
     block.addComment(name);
     block.addComment(stringTimes('=', len(scalarValues(name))));

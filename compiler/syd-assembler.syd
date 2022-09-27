@@ -218,23 +218,6 @@ class Assembler extends Object {
     }
   }
 
-  Null addData(String label, StringList lines, StringNullableList comments) {
-    // TODO: should save these in a map and print them in some reasonable order (like alphabetically by name)
-    assert(len(lines) > 0, 'addData got no data');
-    Integer index = 0;
-    String prefix = label;
-    while (index < len(lines)) {
-      String line = concat('  ', padRight(prefix, 12, ' '), ' ', lines[index]);
-      StringNullable comment = comments[index];
-      if (comment != null) {
-        line = concat(padRight(line, lineLength, ' '), ' ; ', comment);
-      }
-      append(const, line);
-      index += 1;
-      prefix = '';
-    }
-  }
-
   Null addBss(String label, Integer bytes, String comment) {
     String prefix;
     Integer count;

@@ -55,6 +55,64 @@ AnythingList map(WhateverList items, AnythingFunction callback) {
   return result;
 }
 
+Integer compareString(String a, String b) {
+  Integer index = 0;
+  IntegerList aChars = copy(scalarValues(a));
+  IntegerList bChars = copy(scalarValues(b));
+  while (true) {
+    if (index >= len(aChars)) {
+      if (index >= len(bChars)) {
+        return 0;
+      }
+      return -1;
+    }
+    if (index >= len(bChars)) {
+      return 1;
+    }
+    Integer result = aChars[index] - bChars[index];
+    if (result != 0) {
+      return result;
+    }
+    index += 1;
+  }
+}
+
+Integer quickSortPartition(StringList list, Integer begin, Integer end) {
+  String pivotValue = list[end - 1];
+  Integer leftIndex = begin - 1;
+  Integer rightIndex = begin;
+  while (rightIndex < end - 1) {
+    if (compareString(list[rightIndex], pivotValue) < 0) {
+      leftIndex += 1;
+      String temp = list[leftIndex];
+      list[leftIndex] = list[rightIndex];
+      list[rightIndex] = temp;
+    }
+    rightIndex += 1;
+  }
+  String temp = list[leftIndex + 1];
+  list[leftIndex + 1] = list[rightIndex];
+  list[rightIndex] = temp;
+  return leftIndex + 1;
+}
+
+Null quickSortRange(StringList list, Integer begin, Integer end) {
+  assert(begin + 1 < end, 'quickSortRange called with less than two items');
+  Integer pivot = quickSortPartition(list, begin, end);
+  if (begin + 1 < pivot) {
+    quickSortRange(list, begin, pivot);
+  }
+  if (pivot + 2 < end) {
+    quickSortRange(list, pivot + 1, end);
+  }
+}
+
+Null sort(StringList list) {
+  if (len(list) > 1) {
+    quickSortRange(list, 0, len(list));
+  }
+}
+
 Boolean contains(WhateverList list, Anything item) {
   for (entry in list) {
     if (entry == item) {

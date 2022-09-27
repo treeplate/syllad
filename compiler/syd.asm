@@ -57,202 +57,178 @@ extern HeapFree : proc
    ; 0 0 0 0 0 1 1 1 : 1 1 0   WhateverList'30
    ; 0 0 0 0 0 1 1 1 : 1 1 0   StringList'31
 
+  asOperatorFailureMessage dq -01h                               ; String constant (reference count)
+               dq 58                                             ; Length
+               db "error: type mismatch for as operator, expected %s, got %s", 0ah ; line 2075 column 25 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
+  assignmentTypeCheckFailureMessage dq -01h                      ; String constant (reference count)
+               dq 57                                             ; Length
+               db "error: type mismatch for assignment, expected %s, got %s", 0ah ; line 2060 column 25 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  boundsFailureMessage dq -01h                                   ; String constant (reference count)
+               dq 64                                             ; Length
+               db "error: subscript index out of range (%d is not in range %d..%d)", 0ah ; line 2080 column 25 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
+  func$__getProcessHeap$annotation dq -01h                       ; String constant (reference count)
+               dq 16                                             ; Length
+               db "__getProcessHeap"                             ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
+  func$__heapAlloc$annotation dq -01h                            ; String constant (reference count)
+               dq 11                                             ; Length
+               db "__heapAlloc"                                  ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
+  func$__heapFree$annotation dq -01h                             ; String constant (reference count)
+               dq 10                                             ; Length
+               db "__heapFree"                                   ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
+  func$__incref$annotation dq -01h                               ; String constant (reference count)
+               dq 8                                              ; Length
+               db "__incref"                                     ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   func$__print$annotation dq -01h                                ; String constant (reference count)
                dq 7                                              ; Length
-               db "__print"                                      ; line 1258 column 111 in file syd-compiler.syd
+               db "__print"                                      ; line 1286 column 111 in file syd-compiler.syd
                db 00h                                            ; padding to align to 8-byte boundary
-  func$exit$annotation dq -01h                                   ; String constant (reference count)
-               dq 4                                              ; Length
-               db "exit"                                         ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
-  func$len$annotation dq -01h                                    ; String constant (reference count)
-               dq 3                                              ; Length
-               db "len"                                          ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  func$__debugger$annotation dq -01h                             ; String constant (reference count)
-               dq 10                                             ; Length
-               db "__debugger"                                   ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   func$__readFromAddress$annotation dq -01h                      ; String constant (reference count)
                dq 17                                             ; Length
-               db "__readFromAddress"                            ; line 1258 column 111 in file syd-compiler.syd
+               db "__readFromAddress"                            ; line 1286 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   func$__writeToAddress$annotation dq -01h                       ; String constant (reference count)
                dq 16                                             ; Length
-               db "__writeToAddress"                             ; line 1258 column 111 in file syd-compiler.syd
+               db "__writeToAddress"                             ; line 1286 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
-  func$__incref$annotation dq -01h                               ; String constant (reference count)
+  func$_advanceToNextBlock$annotation dq -01h                    ; String constant (reference count)
+               dq 19                                             ; Length
+               db "_advanceToNextBlock"                          ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
+  func$_alloc$annotation dq -01h                                 ; String constant (reference count)
+               dq 6                                              ; Length
+               db "_alloc"                                       ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h                                       ; padding to align to 8-byte boundary
+  func$_blockListInit$annotation dq -01h                         ; String constant (reference count)
+               dq 14                                             ; Length
+               db "_blockListInit"                               ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h                                       ; padding to align to 8-byte boundary
+  func$_constructor$annotation dq -01h                           ; String constant (reference count)
+               dq 12                                             ; Length
+               db "_constructor"                                 ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
+  func$_fillQuadWords$annotation dq -01h                         ; String constant (reference count)
+               dq 14                                             ; Length
+               db "_fillQuadWords"                               ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h                                       ; padding to align to 8-byte boundary
+  func$_free$annotation dq -01h                                  ; String constant (reference count)
+               dq 5                                              ; Length
+               db "_free"                                        ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
+  func$_garbageCollectorImplementation$annotation dq -01h        ; String constant (reference count)
+               dq 31                                             ; Length
+               db "_garbageCollectorImplementation"              ; line 1286 column 111 in file syd-compiler.syd
+               db 00h                                            ; padding to align to 8-byte boundary
+  func$_growBlockList$annotation dq -01h                         ; String constant (reference count)
+               dq 14                                             ; Length
+               db "_growBlockList"                               ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h                                       ; padding to align to 8-byte boundary
+  func$_growList$annotation dq -01h                              ; String constant (reference count)
+               dq 9                                              ; Length
+               db "_growList"                                    ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  func$_joinOffset$annotation dq -01h                            ; String constant (reference count)
+               dq 11                                             ; Length
+               db "_joinOffset"                                  ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
+  func$_listConstructor$annotation dq -01h                       ; String constant (reference count)
+               dq 16                                             ; Length
+               db "_listConstructor"                             ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
+  func$_mark$annotation dq -01h                                  ; String constant (reference count)
+               dq 5                                              ; Length
+               db "_mark"                                        ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
+  func$_moveBytes$annotation dq -01h                             ; String constant (reference count)
+               dq 10                                             ; Length
+               db "_moveBytes"                                   ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
+  func$_stringByteLength$annotation dq -01h                      ; String constant (reference count)
+               dq 17                                             ; Length
+               db "_stringByteLength"                            ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  func$_stringify$annotation dq -01h                             ; String constant (reference count)
+               dq 10                                             ; Length
+               db "_stringify"                                   ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
+  func$append$annotation dq -01h                                 ; String constant (reference count)
+               dq 6                                              ; Length
+               db "append"                                       ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h                                       ; padding to align to 8-byte boundary
+  func$assert$annotation dq -01h                                 ; String constant (reference count)
+               dq 6                                              ; Length
+               db "assert"                                       ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h                                       ; padding to align to 8-byte boundary
+  func$concat$annotation dq -01h                                 ; String constant (reference count)
+               dq 6                                              ; Length
+               db "concat"                                       ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h                                       ; padding to align to 8-byte boundary
+  func$digitToStr$annotation dq -01h                             ; String constant (reference count)
+               dq 10                                             ; Length
+               db "digitToStr"                                   ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
+  func$exit$annotation dq -01h                                   ; String constant (reference count)
+               dq 4                                              ; Length
+               db "exit"                                         ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
+  func$foo$annotation dq -01h                                    ; String constant (reference count)
+               dq 3                                              ; Length
+               db "foo"                                          ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
+  func$intToStr$annotation dq -01h                               ; String constant (reference count)
                dq 8                                              ; Length
-               db "__incref"                                     ; line 1258 column 111 in file syd-compiler.syd
+               db "intToStr"                                     ; line 1286 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
+  func$join$annotation dq -01h                                   ; String constant (reference count)
+               dq 4                                              ; Length
+               db "join"                                         ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
+  func$len$annotation dq -01h                                    ; String constant (reference count)
+               dq 3                                              ; Length
+               db "len"                                          ; line 1286 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
+  func$println$annotation dq -01h                                ; String constant (reference count)
+               dq 7                                              ; Length
+               db "println"                                      ; line 1286 column 111 in file syd-compiler.syd
+               db 00h                                            ; padding to align to 8-byte boundary
+  operandTypeCheckFailureMessage dq -01h                         ; String constant (reference count)
+               dq 54                                             ; Length
+               db "error: type mismatch for operand, expected %s, got %s", 0ah ; line 2055 column 25 in file syd-compiler.syd
+               db 00h, 00h                                       ; padding to align to 8-byte boundary
   parameterCountCheckFailureMessage dq -01h                      ; String constant (reference count)
                dq 88                                             ; Length
-               db "error: function call received the wrong number of parameters (expected %d, received %d)", 0ah ; line 2008 column 25 in file syd-compiler.syd
+               db "error: function call received the wrong number of parameters (expected %d, received %d)", 0ah ; line 2040 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   parameterTypeCheckFailureMessage dq -01h                       ; String constant (reference count)
                dq 71                                             ; Length
-               db "error: type mismatch for function %s parameter %d, expected %s, got %s", 0ah ; line 2013 column 25 in file syd-compiler.syd
+               db "error: type mismatch for function %s parameter %d, expected %s, got %s", 0ah ; line 2045 column 25 in file syd-compiler.syd
                db 00h                                            ; padding to align to 8-byte boundary
   returnValueTypeCheckFailureMessage dq -01h                     ; String constant (reference count)
                dq 68                                             ; Length
-               db "error: type mismatch for function return value, expected %s, got %s", 0ah ; line 2018 column 25 in file syd-compiler.syd
+               db "error: type mismatch for function return value, expected %s, got %s", 0ah ; line 2050 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
-  operandTypeCheckFailureMessage dq -01h                         ; String constant (reference count)
-               dq 54                                             ; Length
-               db "error: type mismatch for operand, expected %s, got %s", 0ah ; line 2023 column 25 in file syd-compiler.syd
-               db 00h, 00h                                       ; padding to align to 8-byte boundary
-  assignmentTypeCheckFailureMessage dq -01h                      ; String constant (reference count)
-               dq 57                                             ; Length
-               db "error: type mismatch for assignment, expected %s, got %s", 0ah ; line 2028 column 25 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  subscriptTypeCheckFailureMessage dq -01h                       ; String constant (reference count)
-               dq 42                                             ; Length
-               db "error: subscript index must be %s, got %s", 0ah ; line 2033 column 25 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
-  subroutineCallTypeCheckFailureMessage dq -01h                  ; String constant (reference count)
-               dq 53                                             ; Length
-               db "error: function calls expect target to be %s, got %s", 0ah ; line 2038 column 25 in file syd-compiler.syd
-               db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
-  asOperatorFailureMessage dq -01h                               ; String constant (reference count)
-               dq 58                                             ; Length
-               db "error: type mismatch for as operator, expected %s, got %s", 0ah ; line 2043 column 25 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
-  boundsFailureMessage dq -01h                                   ; String constant (reference count)
-               dq 64                                             ; Length
-               db "error: subscript index out of range (%d is not in range %d..%d)", 0ah ; line 2048 column 25 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
-  func$assert$annotation dq -01h                                 ; String constant (reference count)
-               dq 6                                              ; Length
-               db "assert"                                       ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h                                       ; padding to align to 8-byte boundary
   string       dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
                db 0ah                                            ; line 7 column 16 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  func$throw$annotation dq -01h                                  ; String constant (reference count)
-               dq 5                                              ; Length
-               db "throw"                                        ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
-  func$__getLastError$annotation dq -01h                         ; String constant (reference count)
-               dq 14                                             ; Length
-               db "__getLastError"                               ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h                                       ; padding to align to 8-byte boundary
-  func$__getProcessHeap$annotation dq -01h                       ; String constant (reference count)
-               dq 16                                             ; Length
-               db "__getProcessHeap"                             ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
-  func$__heapAlloc$annotation dq -01h                            ; String constant (reference count)
-               dq 11                                             ; Length
-               db "__heapAlloc"                                  ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  func$_alloc$annotation dq -01h                                 ; String constant (reference count)
-               dq 6                                              ; Length
-               db "_alloc"                                       ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h                                       ; padding to align to 8-byte boundary
   string$1     dq -01h                                           ; String constant (reference count)
                dq 15                                             ; Length
                db "Out of memory.", 0ah                          ; line 48 column 28 in file runtime library
                db 00h                                            ; padding to align to 8-byte boundary
-  func$__heapFree$annotation dq -01h                             ; String constant (reference count)
-               dq 10                                             ; Length
-               db "__heapFree"                                   ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
-  func$_free$annotation dq -01h                                  ; String constant (reference count)
-               dq 5                                              ; Length
-               db "_free"                                        ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
-  func$_moveBytes$annotation dq -01h                             ; String constant (reference count)
-               dq 10                                             ; Length
-               db "_moveBytes"                                   ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
-  string$2     dq -01h                                           ; String constant (reference count)
-               dq 51                                             ; Length
-               db "_moveBytes expects positive number of bytes to copy" ; line 67 column 74 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  string$3     dq -01h                                           ; String constant (reference count)
-               dq 61                                             ; Length
-               db "internal error: zero extra bytes but fromCursor is before end" ; line 86 column 90 in file runtime library
-               db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
-  string$4     dq -01h                                           ; String constant (reference count)
-               dq 39                                             ; Length
-               db "internal error: more than 7 extra bytes"      ; line 87 column 68 in file runtime library
-               db 00h                                            ; padding to align to 8-byte boundary
-  func$_fillQuadWords$annotation dq -01h                         ; String constant (reference count)
-               dq 14                                             ; Length
-               db "_fillQuadWords"                               ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h                                       ; padding to align to 8-byte boundary
-  string$5     dq -01h                                           ; String constant (reference count)
-               dq 55                                             ; Length
-               db "_fillQuadWords expects positive number of bytes to fill" ; line 96 column 78 in file runtime library
-               db 00h                                            ; padding to align to 8-byte boundary
-  string$6     dq -01h                                           ; String constant (reference count)
-               dq 68                                             ; Length
-               db "_fillQuadWords expects number of bytes to fill to be a multiple of 8" ; line 97 column 96 in file runtime library
-               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
-  func$_blockListInit$annotation dq -01h                         ; String constant (reference count)
-               dq 14                                             ; Length
-               db "_blockListInit"                               ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h                                       ; padding to align to 8-byte boundary
-  func$_growBlockList$annotation dq -01h                         ; String constant (reference count)
-               dq 14                                             ; Length
-               db "_growBlockList"                               ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h                                       ; padding to align to 8-byte boundary
-  string$7     dq -01h                                           ; String constant (reference count)
-               dq 43                                             ; Length
-               db "_growBlockList called without _gcLocked set"  ; line 147 column 69 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  func$_advanceToNextBlock$annotation dq -01h                    ; String constant (reference count)
-               dq 19                                             ; Length
-               db "_advanceToNextBlock"                          ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  string$8     dq -01h                                           ; String constant (reference count)
-               dq 48                                             ; Length
-               db "_advanceToNextBlock called without _gcLocked set" ; line 160 column 74 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
-  func$_constructor$annotation dq -01h                           ; String constant (reference count)
-               dq 12                                             ; Length
-               db "_constructor"                                 ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
-  string$9     dq -01h                                           ; String constant (reference count)
-               dq 41                                             ; Length
-               db "_constructor called without _gcLocked set"    ; line 181 column 67 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$10    dq -01h                                           ; String constant (reference count)
                dq 33                                             ; Length
                db "length cannot be bigger than size"            ; line 182 column 60 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  func$_mark$annotation dq -01h                                  ; String constant (reference count)
-               dq 5                                              ; Length
-               db "_mark"                                        ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
-  func$_garbageCollectorImplementation$annotation dq -01h        ; String constant (reference count)
-               dq 31                                             ; Length
-               db "_garbageCollectorImplementation"              ; line 1258 column 111 in file syd-compiler.syd
-               db 00h                                            ; padding to align to 8-byte boundary
   string$11    dq -01h                                           ; String constant (reference count)
                dq 26                                             ; Length
                db "Reference count underflow."                   ; line 225 column 61 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
-  func$_listConstructor$annotation dq -01h                       ; String constant (reference count)
-               dq 16                                             ; Length
-               db "_listConstructor"                             ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
-  func$_growList$annotation dq -01h                              ; String constant (reference count)
-               dq 9                                              ; Length
-               db "_growList"                                    ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  func$append$annotation dq -01h                                 ; String constant (reference count)
-               dq 6                                              ; Length
-               db "append"                                       ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h                                       ; padding to align to 8-byte boundary
-  func$_stringByteLength$annotation dq -01h                      ; String constant (reference count)
-               dq 17                                             ; Length
-               db "_stringByteLength"                            ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  func$concat$annotation dq -01h                                 ; String constant (reference count)
-               dq 6                                              ; Length
-               db "concat"                                       ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h                                       ; padding to align to 8-byte boundary
   string$12    dq -01h                                           ; String constant (reference count)
                dq 24                                             ; Length
                db "negative length detected"                     ; line 314 column 48 in file runtime library
@@ -261,10 +237,6 @@ extern HeapFree : proc
                dq 38                                             ; Length
                db "absurd length detected (as exit code)", 0ah   ; line 316 column 53 in file runtime library
                db 00h, 00h                                       ; padding to align to 8-byte boundary
-  func$digitToStr$annotation dq -01h                             ; String constant (reference count)
-               dq 10                                             ; Length
-               db "digitToStr"                                   ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   string$14    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
                db "0"                                            ; line 339 column 14 in file runtime library
@@ -289,6 +261,10 @@ extern HeapFree : proc
                dq 1                                              ; Length
                db "5"                                            ; line 354 column 14 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  string$2     dq -01h                                           ; String constant (reference count)
+               dq 51                                             ; Length
+               db "_moveBytes expects positive number of bytes to copy" ; line 67 column 74 in file runtime library
+               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   string$20    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
                db "6"                                            ; line 357 column 14 in file runtime library
@@ -309,28 +285,12 @@ extern HeapFree : proc
                dq 56                                             ; Length
                db "Invalid digit passed to digitToStr (digit as exit code)", 0ah ; line 368 column 69 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
-  func$intToStr$annotation dq -01h                               ; String constant (reference count)
-               dq 8                                              ; Length
-               db "intToStr"                                     ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   string$25    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
                db "-"                                            ; line 377 column 21 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$26    dq -01h                                           ; String constant (reference count)
                dq 0                                              ; Length
-  func$_joinOffset$annotation dq -01h                            ; String constant (reference count)
-               dq 11                                             ; Length
-               db "_joinOffset"                                  ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  func$join$annotation dq -01h                                   ; String constant (reference count)
-               dq 4                                              ; Length
-               db "join"                                         ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
-  func$_stringify$annotation dq -01h                             ; String constant (reference count)
-               dq 10                                             ; Length
-               db "_stringify"                                   ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   string$27    dq -01h                                           ; String constant (reference count)
                dq 4                                              ; Length
                db "true"                                         ; line 410 column 19 in file runtime library
@@ -343,6 +303,10 @@ extern HeapFree : proc
                dq 4                                              ; Length
                db "null"                                         ; line 415 column 17 in file runtime library
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
+  string$3     dq -01h                                           ; String constant (reference count)
+               dq 61                                             ; Length
+               db "internal error: zero extra bytes but fromCursor is before end" ; line 86 column 90 in file runtime library
+               db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
   string$30    dq -01h                                           ; String constant (reference count)
                dq 11                                             ; Length
                db "<function ("                                  ; line 423 column 31 in file runtime library
@@ -371,146 +335,42 @@ extern HeapFree : proc
                dq 28                                             ; Length
                db "value cannot be stringified", 0ah             ; line 439 column 41 in file runtime library
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
-  func$print$annotation dq -01h                                  ; String constant (reference count)
-               dq 5                                              ; Length
-               db "print"                                        ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
   string$37    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
                db " "                                            ; line 448 column 17 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  func$println$annotation dq -01h                                ; String constant (reference count)
-               dq 7                                              ; Length
-               db "println"                                      ; line 1258 column 111 in file syd-compiler.syd
+  string$4     dq -01h                                           ; String constant (reference count)
+               dq 39                                             ; Length
+               db "internal error: more than 7 extra bytes"      ; line 87 column 68 in file runtime library
                db 00h                                            ; padding to align to 8-byte boundary
-  func$chr$annotation dq -01h                                    ; String constant (reference count)
-               dq 3                                              ; Length
-               db "chr"                                          ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  string$38    dq -01h                                           ; String constant (reference count)
-               dq 23                                             ; Length
-               db "chr is not implemented", 0ah                  ; line 475 column 36 in file runtime library
+  string$5     dq -01h                                           ; String constant (reference count)
+               dq 55                                             ; Length
+               db "_fillQuadWords expects positive number of bytes to fill" ; line 96 column 78 in file runtime library
                db 00h                                            ; padding to align to 8-byte boundary
-  func$_joinListOffset$annotation dq -01h                        ; String constant (reference count)
-               dq 15                                             ; Length
-               db "_joinListOffset"                              ; line 1258 column 111 in file syd-compiler.syd
-               db 00h                                            ; padding to align to 8-byte boundary
-  func$joinList$annotation dq -01h                               ; String constant (reference count)
-               dq 8                                              ; Length
-               db "joinList"                                     ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
-  func$stringTimes$annotation dq -01h                            ; String constant (reference count)
-               dq 11                                             ; Length
-               db "stringTimes"                                  ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  string$39    dq -01h                                           ; String constant (reference count)
-               dq 31                                             ; Length
-               db "stringTimes is not implemented", 0ah          ; line 496 column 44 in file runtime library
-               db 00h                                            ; padding to align to 8-byte boundary
-  func$charsOf$annotation dq -01h                                ; String constant (reference count)
-               dq 7                                              ; Length
-               db "charsOf"                                      ; line 1258 column 111 in file syd-compiler.syd
-               db 00h                                            ; padding to align to 8-byte boundary
-  string$40    dq -01h                                           ; String constant (reference count)
-               dq 27                                             ; Length
-               db "charsOf is not implemented", 0ah              ; line 502 column 40 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  func$scalarValues$annotation dq -01h                           ; String constant (reference count)
-               dq 12                                             ; Length
-               db "scalarValues"                                 ; line 1258 column 111 in file syd-compiler.syd
+  string$6     dq -01h                                           ; String constant (reference count)
+               dq 68                                             ; Length
+               db "_fillQuadWords expects number of bytes to fill to be a multiple of 8" ; line 97 column 96 in file runtime library
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
-  string$41    dq -01h                                           ; String constant (reference count)
-               dq 32                                             ; Length
-               db "scalarValues is not implemented", 0ah         ; line 508 column 45 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
-  func$hex$annotation dq -01h                                    ; String constant (reference count)
-               dq 3                                              ; Length
-               db "hex"                                          ; line 1258 column 111 in file syd-compiler.syd
+  string$7     dq -01h                                           ; String constant (reference count)
+               dq 43                                             ; Length
+               db "_growBlockList called without _gcLocked set"  ; line 147 column 69 in file runtime library
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  string$42    dq -01h                                           ; String constant (reference count)
-               dq 23                                             ; Length
-               db "hex is not implemented", 0ah                  ; line 514 column 36 in file runtime library
-               db 00h                                            ; padding to align to 8-byte boundary
-  func$readFile$annotation dq -01h                               ; String constant (reference count)
-               dq 8                                              ; Length
-               db "readFile"                                     ; line 1258 column 111 in file syd-compiler.syd
+  string$8     dq -01h                                           ; String constant (reference count)
+               dq 48                                             ; Length
+               db "_advanceToNextBlock called without _gcLocked set" ; line 160 column 74 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
-  string$43    dq -01h                                           ; String constant (reference count)
-               dq 28                                             ; Length
-               db "readFile is not implemented", 0ah             ; line 520 column 41 in file runtime library
-               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
-  func$stderr$annotation dq -01h                                 ; String constant (reference count)
-               dq 6                                              ; Length
-               db "stderr"                                       ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h                                       ; padding to align to 8-byte boundary
-  string$44    dq -01h                                           ; String constant (reference count)
-               dq 26                                             ; Length
-               db "stderr is not implemented", 0ah               ; line 526 column 39 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
-  func$_debugDescribeBlock$annotation dq -01h                    ; String constant (reference count)
-               dq 19                                             ; Length
-               db "_debugDescribeBlock"                          ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  string$45    dq -01h                                           ; String constant (reference count)
-               dq 7                                              ; Length
-               db ". type "                                      ; line 548 column 57 in file runtime library
-               db 00h                                            ; padding to align to 8-byte boundary
-  string$46    dq -01h                                           ; String constant (reference count)
-               dq 9                                              ; Length
-               db ": block #"                                    ; line 548 column 98 in file runtime library
+  string$9     dq -01h                                           ; String constant (reference count)
+               dq 41                                             ; Length
+               db "_constructor called without _gcLocked set"    ; line 181 column 67 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  string$47    dq -01h                                           ; String constant (reference count)
-               dq 2                                              ; Length
-               db " ("                                           ; line 548 column 123 in file runtime library
+  subroutineCallTypeCheckFailureMessage dq -01h                  ; String constant (reference count)
+               dq 53                                             ; Length
+               db "error: function calls expect target to be %s, got %s", 0ah ; line 2070 column 25 in file syd-compiler.syd
+               db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
+  subscriptTypeCheckFailureMessage dq -01h                       ; String constant (reference count)
+               dq 42                                             ; Length
+               db "error: subscript index must be %s, got %s", 0ah ; line 2065 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
-  string$48    dq -01h                                           ; String constant (reference count)
-               dq 25                                             ; Length
-               db " fields, referenced from "                    ; line 548 column 172 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
-  string$49    dq -01h                                           ; String constant (reference count)
-               dq 7                                              ; Length
-               db " roots)"                                      ; line 548 column 205 in file runtime library
-               db 00h                                            ; padding to align to 8-byte boundary
-  string$50    dq -01h                                           ; String constant (reference count)
-               dq 2                                              ; Length
-               db "  "                                           ; line 549 column 59 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
-  string$51    dq -01h                                           ; String constant (reference count)
-               dq 2                                              ; Length
-               db ": "                                           ; line 551 column 91 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
-  func$_debugDumpBlockList$annotation dq -01h                    ; String constant (reference count)
-               dq 19                                             ; Length
-               db "_debugDumpBlockList"                          ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  string$52    dq -01h                                           ; String constant (reference count)
-               dq 12                                             ; Length
-               db "Block list ("                                 ; line 560 column 31 in file runtime library
-               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
-  string$53    dq -01h                                           ; String constant (reference count)
-               dq 8                                              ; Length
-               db " out of "                                     ; line 560 column 73 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
-  string$54    dq -01h                                           ; String constant (reference count)
-               dq 14                                             ; Length
-               db " live blocks):"                               ; line 560 column 142 in file runtime library
-               db 00h, 00h                                       ; padding to align to 8-byte boundary
-  string$55    dq -01h                                           ; String constant (reference count)
-               dq 3                                              ; Length
-               db "  #"                                          ; line 568 column 26 in file runtime library
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
-  string$56    dq -01h                                           ; String constant (reference count)
-               dq 6                                              ; Length
-               db " roots"                                       ; line 568 column 132 in file runtime library
-               db 00h, 00h                                       ; padding to align to 8-byte boundary
-  string$57    dq -01h                                           ; String constant (reference count)
-               dq 4                                              ; Length
-               db "    "                                         ; line 569 column 41 in file runtime library
-               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
-  func$foo$annotation dq -01h                                    ; String constant (reference count)
-               dq 3                                              ; Length
-               db "foo"                                          ; line 1258 column 111 in file syd-compiler.syd
-               db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
 
 .data
 
@@ -695,16 +555,6 @@ decrefMaybeGC:
   ret                                                            ; return from compiler-internal function
 
 main:
-  ; intrinsics
-  ; ==========
-  ; Prolog
-  push rbp                                                       ; save non-volatile registers
-  sub rsp, 008h                                                  ; allocate space for stack
-  lea rbp, qword ptr [rsp + 010h]                                ; set up frame pointer
-  ; Epilog
-  add rsp, 008h                                                  ; free space for stack
-  pop rbp                                                        ; restore non-volatile registers
-
   ; runtime library
   ; ===============
   ; Prolog
@@ -783,38 +633,28 @@ main:
   mov qword ptr _blockEntrySizeValue, 008h                       ; value initialization of variable declaration for _blockEntrySize variable (8)
   mov qword ptr _blockEntrySizeType, 01bh                        ; type initialization of variable declaration for _blockEntrySize variable (Integer'27)
   ; Line 128: Integer _gcBlockHeaderRefCount = 0 * 8;
-  mov r15, 000h                                                  ; read left hand side operand of imul (0)
-  imul r14, r15, 008h                                            ; compute (0) * (8) (result in * operator result)
-  mov qword ptr _gcBlockHeaderRefCountValue, r14                 ; value initialization of variable declaration for _gcBlockHeaderRefCount variable (* operator result)
+  mov qword ptr _gcBlockHeaderRefCountValue, 000h                ; value initialization of variable declaration for _gcBlockHeaderRefCount variable (* operator result)
   mov qword ptr _gcBlockHeaderRefCountType, 01bh                 ; type initialization of variable declaration for _gcBlockHeaderRefCount variable (Integer'27)
   ; Line 129: Integer _gcBlockHeaderLength = 1 * 8;
-  mov rax, 001h                                                  ; read left hand side operand of imul (1)
-  imul r10, rax, 008h                                            ; compute (1) * (8) (result in * operator result)
-  mov qword ptr _gcBlockHeaderLengthValue, r10                   ; value initialization of variable declaration for _gcBlockHeaderLength variable (* operator result)
+  mov qword ptr _gcBlockHeaderLengthValue, 008h                  ; value initialization of variable declaration for _gcBlockHeaderLength variable (* operator result)
   mov qword ptr _gcBlockHeaderLengthType, 01bh                   ; type initialization of variable declaration for _gcBlockHeaderLength variable (Integer'27)
   ; Line 130: Integer _gcBlockHeaderScratchSpace = 2 * 8;
-  mov rsi, 002h                                                  ; read left hand side operand of imul (2)
-  imul rbx, rsi, 008h                                            ; compute (2) * (8) (result in * operator result)
-  mov qword ptr _gcBlockHeaderScratchSpaceValue, rbx             ; value initialization of variable declaration for _gcBlockHeaderScratchSpace variable (* operator result)
+  mov qword ptr _gcBlockHeaderScratchSpaceValue, 010h            ; value initialization of variable declaration for _gcBlockHeaderScratchSpace variable (* operator result)
   mov qword ptr _gcBlockHeaderScratchSpaceType, 01bh             ; type initialization of variable declaration for _gcBlockHeaderScratchSpace variable (Integer'27)
   ; Line 131: Integer _gcBlockHeaderEntryPointer = 3 * 8;
-  mov r12, 003h                                                  ; read left hand side operand of imul (3)
-  imul rdi, r12, 008h                                            ; compute (3) * (8) (result in * operator result)
-  mov qword ptr _gcBlockHeaderEntryPointerValue, rdi             ; value initialization of variable declaration for _gcBlockHeaderEntryPointer variable (* operator result)
+  mov qword ptr _gcBlockHeaderEntryPointerValue, 018h            ; value initialization of variable declaration for _gcBlockHeaderEntryPointer variable (* operator result)
   mov qword ptr _gcBlockHeaderEntryPointerType, 01bh             ; type initialization of variable declaration for _gcBlockHeaderEntryPointer variable (Integer'27)
   ; Line 132: Integer _gcBlockData = 4 * 8;
-  mov r14, 004h                                                  ; read left hand side operand of imul (4)
-  imul r13, r14, 008h                                            ; compute (4) * (8) (result in * operator result)
-  mov qword ptr _gcBlockDataValue, r13                           ; value initialization of variable declaration for _gcBlockData variable (* operator result)
+  mov qword ptr _gcBlockDataValue, 020h                          ; value initialization of variable declaration for _gcBlockData variable (* operator result)
   mov qword ptr _gcBlockDataType, 01bh                           ; type initialization of variable declaration for _gcBlockData variable (Integer'27)
   ; Line 144: _blockListInit(1024 /* 0x400 */);
   ; Call _blockListInit with 1 arguments
   push 000000400h                                                ; value of argument #1 (1024 /* 0x400 */)
   push 01bh                                                      ; type of argument #1 (Integer'27)
-  lea r12, qword ptr [rsp + 028h]                                ; load address of return value's value
-  push r12                                                       ; internal argument 6: pointer to return value slot's value
-  lea r12, qword ptr [rsp + 028h]                                ; load address of return value's type
-  push r12                                                       ; internal argument 5: pointer to return value slot's type
+  lea rdi, qword ptr [rsp + 028h]                                ; load address of return value's value
+  push rdi                                                       ; internal argument 6: pointer to return value slot's value
+  lea rdi, qword ptr [rsp + 028h]                                ; load address of return value's type
+  push rdi                                                       ; internal argument 5: pointer to return value slot's type
   sub rsp, 020h                                                  ; allocate shadow space
   mov r9, 000h                                                   ; internal argument 4: "this" pointer
   mov r8, 000h                                                   ; internal argument 3: "this" pointer type
@@ -4182,8 +4022,8 @@ func$_moveBytes:
       mov rcx, 001h                                              ; internal argument 1: number of actual arguments
       call func$exit                                             ; jump to subroutine
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
-      mov r10, qword ptr [rsp + 000h]                            ; restoring slots to previous scope state
       mov rbx, qword ptr [rsp + 018h]                            ; restoring slots to previous scope state
+      mov r10, qword ptr [rsp + 000h]                            ; restoring slots to previous scope state
     func$_moveBytes$Movebytes$if$extrabytes$TypeMatch$1:         ; after block
     xor r14, r14                                                 ; clear < operator result
     cmp r15, 008h                                                ; compare copy of extraBytes with 8
@@ -6444,8 +6284,8 @@ func$_advanceToNextBlock:
       call func$exit                                             ; jump to subroutine
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
       mov r10, qword ptr [rsp + 008h]                            ; restoring slots to previous scope state
-      mov r12, qword ptr [rsp + 018h]                            ; restoring slots to previous scope state
       mov rdi, qword ptr [rsp + 028h]                            ; restoring slots to previous scope state
+      mov r12, qword ptr [rsp + 018h]                            ; restoring slots to previous scope state
       mov r13, qword ptr [rsp + 010h]                            ; restoring slots to previous scope state
     func$_advanceToNextBlock$while$copyOfBlockentrysize$TypeMatch:  ; after block
     mov qword ptr [rsp + 028h], r14                              ; move copy of _blockListNext's type out of r14
@@ -10446,16 +10286,16 @@ func$_listConstructor:
     inc qword ptr [r12]                                          ; increment reference count of copy of list
     mov qword ptr [rsp + 008h], r12                              ; restoring slots to previous scope state
   func$_listConstructor$AfterGCIncref$9:                         ; after GarbageCollectable incref
-  ; Decrement reference count for copy of list (static type: WhateverList'30) via decrefMaybeGC
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 090h]                                ; arg #2: copy of list's type
-  mov rcx, qword ptr [rsp + 098h]                                ; arg #1: copy of list's value
-  call decrefMaybeGC                                             ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
   ; Decrement reference count for _constructor return value (static type: GarbageCollectable'33) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, qword ptr [rsp + 0c8h]                                ; arg #2: _constructor return value's type
   mov rcx, qword ptr [rsp + 0d0h]                                ; arg #1: _constructor return value's value
+  call decrefMaybeGC                                             ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for copy of list (static type: WhateverList'30) via decrefMaybeGC
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, qword ptr [rsp + 090h]                                ; arg #2: copy of list's type
+  mov rcx, qword ptr [rsp + 098h]                                ; arg #1: copy of list's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
   ; Decrement reference count for copy of list (static type: WhateverList'30) via decrefMaybeGC
@@ -10470,6 +10310,12 @@ func$_listConstructor:
   mov rcx, qword ptr [rsp + 0c0h]                                ; arg #1: _constructor return value's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for copy of list (static type: WhateverList'30) via decrefMaybeGC
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, qword ptr [rsp + 058h]                                ; arg #2: copy of list's type
+  mov rcx, qword ptr [rsp + 068h]                                ; arg #1: copy of list's value
+  call decrefMaybeGC                                             ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
   ; Decrement reference count for list variable (static type: WhateverList'30) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, qword ptr [rsp + 0a8h]                                ; arg #2: list variable's type
@@ -10478,8 +10324,8 @@ func$_listConstructor:
   add rsp, 20h                                                   ; free shadow space for decref
   ; Decrement reference count for copy of list (static type: WhateverList'30) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 058h]                                ; arg #2: copy of list's type
-  mov rcx, qword ptr [rsp + 068h]                                ; arg #1: copy of list's value
+  mov rdx, qword ptr [rsp + 040h]                                ; arg #2: copy of list's type
+  mov rcx, qword ptr [rsp + 050h]                                ; arg #1: copy of list's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
   ; Decrement reference count for copy of data (static type: __ListData'29) via decrefMaybeGC
@@ -10488,10 +10334,10 @@ func$_listConstructor:
   mov rcx, qword ptr [rsp + 070h]                                ; arg #1: copy of data's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for copy of list (static type: WhateverList'30) via decrefMaybeGC
+  ; Decrement reference count for copy of data (static type: __ListData'29) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 040h]                                ; arg #2: copy of list's type
-  mov rcx, qword ptr [rsp + 050h]                                ; arg #1: copy of list's value
+  mov rdx, qword ptr [rsp + 048h]                                ; arg #2: copy of data's type
+  mov rcx, qword ptr [rsp + 038h]                                ; arg #1: copy of data's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
   ; Decrement reference count for copy of list (static type: WhateverList'30) via decrefMaybeGC
@@ -10504,12 +10350,6 @@ func$_listConstructor:
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, qword ptr [rsp + 088h]                                ; arg #2: data variable's type
   mov rcx, qword ptr [rsp + 0a0h]                                ; arg #1: data variable's value
-  call decrefMaybeGC                                             ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for copy of data (static type: __ListData'29) via decrefMaybeGC
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 048h]                                ; arg #2: copy of data's type
-  mov rcx, qword ptr [rsp + 038h]                                ; arg #1: copy of data's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
@@ -11187,18 +11027,6 @@ func$_growList:
   mov qword ptr [rbx], 000h                                      ; _growList return value
   mov rsi, qword ptr [rbp + 028h]                                ; get pointer to return value type of _growList into register to dereference it
   mov qword ptr [rsi], 019h                                      ; type of _growList return value (Null'25)
-  ; Decrement reference count for newData variable (static type: __ListData'29) via decrefMaybeGC
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 078h]                                ; arg #2: newData variable's type
-  mov rcx, qword ptr [rsp + 080h]                                ; arg #1: newData variable's value
-  call decrefMaybeGC                                             ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for copy of newData (static type: __ListData'29) via decrefMaybeGC
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 038h]                                ; arg #2: copy of newData's type
-  mov rcx, qword ptr [rsp + 040h]                                ; arg #1: copy of newData's value
-  call decrefMaybeGC                                             ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
   ; Decrement reference count for _constructor return value (static type: GarbageCollectable'33) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, qword ptr [rsp + 088h]                                ; arg #2: _constructor return value's type
@@ -11221,6 +11049,18 @@ func$_growList:
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, qword ptr [rsp + 048h]                                ; arg #2: copy of newData's type
   mov rcx, qword ptr [rsp + 060h]                                ; arg #1: copy of newData's value
+  call decrefMaybeGC                                             ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for newData variable (static type: __ListData'29) via decrefMaybeGC
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, qword ptr [rsp + 078h]                                ; arg #2: newData variable's type
+  mov rcx, qword ptr [rsp + 080h]                                ; arg #1: newData variable's value
+  call decrefMaybeGC                                             ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for copy of newData (static type: __ListData'29) via decrefMaybeGC
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, qword ptr [rsp + 038h]                                ; arg #2: copy of newData's type
+  mov rcx, qword ptr [rsp + 040h]                                ; arg #1: copy of newData's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
@@ -11595,8 +11435,8 @@ func$append:
     call func$exit                                               ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     mov rsi, qword ptr [rsp + 030h]                              ; restoring slots to previous scope state
-    mov rdi, qword ptr [rsp + 020h]                              ; restoring slots to previous scope state
     mov r12, qword ptr [rsp + 018h]                              ; restoring slots to previous scope state
+    mov rdi, qword ptr [rsp + 020h]                              ; restoring slots to previous scope state
   func$append$Gcblockdata$TypeMatch$1:                           ; after block
   mov qword ptr [rsp + 030h], r13                                ; move copy of intermediaryAddress's type out of r13
   mov r13, r12                                                   ; assign value of copy of intermediaryAddress to value of + operator result
@@ -13544,16 +13384,16 @@ func$concat:
     mov rcx, qword ptr [rsp + 088h]                              ; arg #1: copy of arguments[copy of index]'s value
     call decrefMaybeString                                       ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
-    ; Decrement reference count for segment variable (static type: String'28) via decrefMaybeString
-    sub rsp, 20h                                                 ; allocate shadow space for decref function
-    mov rdx, qword ptr [rsp + 078h]                              ; arg #2: segment variable's type
-    mov rcx, qword ptr [rsp + 070h]                              ; arg #1: segment variable's value
-    call decrefMaybeString                                       ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
     ; Decrement reference count for copy of segment (static type: String'28) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 060h]                              ; arg #2: copy of segment's type
     mov rcx, rdi                                                 ; arg #1: copy of segment's value
+    call decrefMaybeString                                       ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    ; Decrement reference count for segment variable (static type: String'28) via decrefMaybeString
+    sub rsp, 20h                                                 ; allocate shadow space for decref function
+    mov rdx, qword ptr [rsp + 078h]                              ; arg #2: segment variable's type
+    mov rcx, qword ptr [rsp + 070h]                              ; arg #1: segment variable's value
     call decrefMaybeString                                       ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
     mov rbx, qword ptr [rsp + 098h]                              ; restoring slots to previous scope state
@@ -14257,17 +14097,17 @@ func$intToStr:
       func$intToStr$inttostr$if$1$StringIncref:                  ; real String
         inc qword ptr [r14]                                      ; increment reference count of concat return value
     func$intToStr$inttostr$if$1$AfterStringIncref:               ; after String incref
-    ; Decrement reference count for concat return value (static type: String'28) via decrefMaybeString
-    sub rsp, 20h                                                 ; allocate shadow space for decref function
-    mov rdx, r10                                                 ; arg #2: concat return value's type
-    mov rcx, r14                                                 ; arg #1: concat return value's value
-    mov qword ptr [rsp + 058h], r10                              ; move concat return value's type out of r10
-    call decrefMaybeString                                       ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
     ; Decrement reference count for intToStr return value (static type: String'28) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 060h]                              ; arg #2: intToStr return value's type
     mov rcx, qword ptr [rsp + 068h]                              ; arg #1: intToStr return value's value
+    mov qword ptr [rsp + 058h], r10                              ; move concat return value's type out of r10
+    call decrefMaybeString                                       ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    ; Decrement reference count for concat return value (static type: String'28) via decrefMaybeString
+    sub rsp, 20h                                                 ; allocate shadow space for decref function
+    mov rdx, qword ptr [rsp + 058h]                              ; arg #2: concat return value's type
+    mov rcx, r14                                                 ; arg #1: concat return value's value
     call decrefMaybeString                                       ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
     jmp func$intToStr$epilog                                     ; return
@@ -14579,12 +14419,6 @@ func$intToStr:
       mov qword ptr [rsp + 048h], rsi                            ; restoring slots to previous scope state
       mov rsi, qword ptr [rsp + 010h]                            ; restoring slots to previous scope state
     func$intToStr$while$AfterStringIncref$1:                     ; after String incref
-    ; Decrement reference count for copy of buffer (static type: String'28) via decrefMaybeString
-    sub rsp, 20h                                                 ; allocate shadow space for decref function
-    mov rdx, rsi                                                 ; arg #2: copy of buffer's type
-    mov rcx, rbx                                                 ; arg #1: copy of buffer's value
-    call decrefMaybeString                                       ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
     ; Decrement reference count for digitToStr return value (static type: String'28) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 048h]                              ; arg #2: digitToStr return value's type
@@ -14595,6 +14429,12 @@ func$intToStr:
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 038h]                              ; arg #2: concat return value's type
     mov rcx, qword ptr [rsp + 040h]                              ; arg #1: concat return value's value
+    call decrefMaybeString                                       ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    ; Decrement reference count for copy of buffer (static type: String'28) via decrefMaybeString
+    sub rsp, 20h                                                 ; allocate shadow space for decref function
+    mov rdx, rsi                                                 ; arg #2: copy of buffer's type
+    mov rcx, rbx                                                 ; arg #1: copy of buffer's value
     call decrefMaybeString                                       ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
     mov rax, qword ptr [rsp + 038h]                              ; restoring slots to previous scope state
@@ -14668,16 +14508,16 @@ func$intToStr:
     func$intToStr$StringIncref$2:                                ; real String
       inc qword ptr [r12]                                        ; increment reference count of copy of buffer
   func$intToStr$AfterStringIncref$2:                             ; after String incref
-  ; Decrement reference count for copy of buffer (static type: String'28) via decrefMaybeString
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, r13                                                   ; arg #2: copy of buffer's type
-  mov rcx, r12                                                   ; arg #1: copy of buffer's value
-  call decrefMaybeString                                         ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
   ; Decrement reference count for buffer variable (static type: String'28) via decrefMaybeString
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, r14                                                   ; arg #2: buffer variable's type
   mov rcx, qword ptr [rsp + 068h]                                ; arg #1: buffer variable's value
+  call decrefMaybeString                                         ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for copy of buffer (static type: String'28) via decrefMaybeString
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, r13                                                   ; arg #2: copy of buffer's type
+  mov rcx, r12                                                   ; arg #1: copy of buffer's value
   call decrefMaybeString                                         ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
   func$intToStr$epilog: 
@@ -15520,10 +15360,10 @@ func$_joinOffset:
     func$_joinOffset$StringIncref$1:                             ; real String
       inc qword ptr [r13]                                        ; increment reference count of concat return value
   func$_joinOffset$AfterStringIncref$1:                          ; after String incref
-  ; Decrement reference count for copy of args[offset] (static type: String'28) via decrefMaybeString
+  ; Decrement reference count for _joinOffset return value (static type: String'28) via decrefMaybeString
   sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, rdi                                                   ; arg #2: copy of args[offset]'s type
-  mov rcx, qword ptr [rsp + 058h]                                ; arg #1: copy of args[offset]'s value
+  mov rdx, qword ptr [rsp + 048h]                                ; arg #2: _joinOffset return value's type
+  mov rcx, qword ptr [rsp + 050h]                                ; arg #1: _joinOffset return value's value
   mov qword ptr [rsp + 040h], rax                                ; move concat return value's type out of rax
   call decrefMaybeString                                         ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
@@ -15533,10 +15373,10 @@ func$_joinOffset:
   mov rcx, r13                                                   ; arg #1: concat return value's value
   call decrefMaybeString                                         ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for _joinOffset return value (static type: String'28) via decrefMaybeString
+  ; Decrement reference count for copy of args[offset] (static type: String'28) via decrefMaybeString
   sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 048h]                                ; arg #2: _joinOffset return value's type
-  mov rcx, qword ptr [rsp + 050h]                                ; arg #1: _joinOffset return value's value
+  mov rdx, rdi                                                   ; arg #2: copy of args[offset]'s type
+  mov rcx, qword ptr [rsp + 058h]                                ; arg #1: copy of args[offset]'s value
   call decrefMaybeString                                         ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
   func$_joinOffset$epilog: 
@@ -16971,17 +16811,17 @@ func$_stringify:
     mov rcx, qword ptr [rsp + 0b8h]                              ; arg #1: _listConstructor return value's value
     call decrefMaybeGC                                           ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
-    ; Decrement reference count for join return value (static type: String'28) via decrefMaybeString
-    sub rsp, 20h                                                 ; allocate shadow space for decref function
-    mov rdx, qword ptr [rsp + 070h]                              ; arg #2: join return value's type
-    mov rcx, qword ptr [rsp + 080h]                              ; arg #1: join return value's value
-    call decrefMaybeString                                       ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
     ; Decrement reference count for old variable (static type: WhateverList'30) via decrefMaybeGC
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 090h]                              ; arg #2: old variable's type
     mov rcx, qword ptr [rsp + 0a0h]                              ; arg #1: old variable's value
     call decrefMaybeGC                                           ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    ; Decrement reference count for join return value (static type: String'28) via decrefMaybeString
+    sub rsp, 20h                                                 ; allocate shadow space for decref function
+    mov rdx, qword ptr [rsp + 070h]                              ; arg #2: join return value's type
+    mov rcx, qword ptr [rsp + 080h]                              ; arg #1: join return value's value
+    call decrefMaybeString                                       ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
     ; Decrement reference count for new variable (static type: StringList'31) via decrefMaybeGC
     sub rsp, 20h                                                 ; allocate shadow space for decref function
@@ -17467,17 +17307,17 @@ func$println:
     add r10, 001h                                                ; += operator
     mov qword ptr [rsp + 048h], r10                              ; store value
     mov qword ptr [rsp + 040h], 01bh                             ; store type (Integer'27)
-    ; Decrement reference count for _stringify return value (static type: String'28) via decrefMaybeString
-    sub rsp, 20h                                                 ; allocate shadow space for decref function
-    mov rdx, qword ptr [rsp + 048h]                              ; arg #2: _stringify return value's type
-    mov rcx, qword ptr [rsp + 050h]                              ; arg #1: _stringify return value's value
-    call decrefMaybeString                                       ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
     ; Decrement reference count for copy of parts[copy of index] (static type: Anything'32) via decrefMaybeGCOrString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 058h]                              ; arg #2: copy of parts[copy of index]'s type
     mov rcx, rdi                                                 ; arg #1: copy of parts[copy of index]'s value
     call decrefMaybeGCOrString                                   ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    ; Decrement reference count for _stringify return value (static type: String'28) via decrefMaybeString
+    sub rsp, 20h                                                 ; allocate shadow space for decref function
+    mov rdx, qword ptr [rsp + 048h]                              ; arg #2: _stringify return value's type
+    mov rcx, qword ptr [rsp + 050h]                              ; arg #1: _stringify return value's value
+    call decrefMaybeString                                       ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
     mov rax, qword ptr [rsp + 058h]                              ; restoring slots to previous scope state
     mov rbx, qword ptr [rsp + 040h]                              ; restoring slots to previous scope state
