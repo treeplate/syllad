@@ -149,13 +149,19 @@ class ListLiteralExpression extends Expression {
     }
     Type type = createOrFindListType(environment, evaluatedElementType);
     type.markConstructed();
-    return scope.emitSubroutineCall(
+    createOrFindIteratorType(environment, evaluatedElementType).markConstructed();
+    Slot subroutineResult = scope.emitSubroutineCall(
       scope.lookupIntrinsic(environment.listConstructorIntrinsicName),
       [
         TypeCodeSlot(environment, type),
         environment.integer(1), // initial size -- must not be zero, we double when growing
       ]:Slot,
     );
+    Slot list = scope.registerDynamicValue(type, rcNever, 'list literal');
+    // TODO: avoid the redundant code below (which is just here to make the static type right)
+    scope.emitInstruction(MoveInstruction(list, subroutineResult, 'copy list literal\'s value over to slot with better static type'));
+    scope.emitInstruction(MoveTypeToTypeInstruction(list, subroutineResult, scope.environment(), 'copy list literal\'s dynamic type over to slot with better static type'));
+    return list;
   }
 
   Null constructor(ExpressionList valuesArg, TypeIdentifierNullable elementTypeArg, SourceLocation sourceLocationArg) {
@@ -487,8 +493,8 @@ class AsOperatorExpression extends Expression {
     scope.emitTypeCheck(exprSlot, rhs, scope.environment().intrinsicsLibrary.asOperatorFailureMessage, concat(this), true);
     // TODO: this new slot should be identical to the source except for the static type, but right now the slot manager can't handle that
     DynamicSlot result = scope.registerDynamicValue(rhs, rcNever, concat('cast of ', exprSlot.debugName, ' to ', rhs.name));
-    scope.emitInstruction(MoveInstruction(result, exprSlot, result.debugName));
-    scope.emitInstruction(SetTypeInstruction(result, rhs));
+    scope.emitInstruction(MoveInstruction(result, exprSlot, concat('copy value of ', exprSlot.debugName, ' for cast to ', rhs.name)));
+    scope.emitInstruction(MoveTypeToTypeInstruction(result, exprSlot, scope.environment(), concat('copy type of ', exprSlot.debugName, ' for cast to ', rhs.name)));
     return result;
   }
 
@@ -706,6 +712,52 @@ class TypeOfExpression extends UnaryExpression {
 
   Null generateExpressionInstructions(Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
     scope.emitInstruction(MoveTypeToValueInstruction(result, rhsValue, 'get type of rhs'));
+  }
+}
+
+class IteratorTypeOfExpression extends UnaryExpression {
+  String describeOperator() {
+    return '__iteratorTypeOf';
+  }
+
+  Null generateTypeCheckInstructions(Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
+      throw(concat('Expected Integer, but found ', rhsValue.staticType.name, ', as operand of unary ', describeOperator(), ' operator at ', sourceLocation));
+    }
+    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true);
+  }
+
+  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
+    return intrinsics.coreIntegerType;
+  }
+
+  Null generateExpressionInstructions(Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(ShiftInstruction('shl', rhsValue, scope.environment().integer(2), result, 'multiply type code by 4'));
+    scope.emitInstruction(AddInstruction(result, ImmediateDataLabelSlot(scope.environment().intrinsicsLibrary.coreIntegerType, scope.environment().iteratorTypeTableLabel, 'iterator type table pointer'), result, 'offset by the start of the iterator type table'));
+    scope.emitInstruction(MoveDwordDerefInstruction(result, result, scope.registerDynamicValue(scope.environment().intrinsicsLibrary.coreIntegerType, rcNever, 'scratch'), 0, 'dereference to get iterator type'));
+  }
+}
+
+class ListTypeOfExpression extends UnaryExpression {
+  String describeOperator() {
+    return '__listTypeOf';
+  }
+
+  Null generateTypeCheckInstructions(Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
+      throw(concat('Expected Integer, but found ', rhsValue.staticType.name, ', as operand of unary ', describeOperator(), ' operator at ', sourceLocation));
+    }
+    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true);
+  }
+
+  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
+    return intrinsics.coreIntegerType;
+  }
+
+  Null generateExpressionInstructions(Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+    scope.emitInstruction(ShiftInstruction('shl', rhsValue, scope.environment().integer(2), result, 'multiply type code by 4'));
+    scope.emitInstruction(AddInstruction(result, ImmediateDataLabelSlot(scope.environment().intrinsicsLibrary.coreIntegerType, scope.environment().listTypeTableLabel, 'list type table pointer'), result, 'offset by the start of the list type table'));
+    scope.emitInstruction(MoveDwordDerefInstruction(result, result, scope.registerDynamicValue(scope.environment().intrinsicsLibrary.coreIntegerType, rcNever, 'scratch'), 0, 'dereference to get list type'));
   }
 }
 
@@ -1852,22 +1904,46 @@ class ForStatement extends Statement {
   }
 
   Null generateInstructions(CompiledScope scope) {
-    // TODO: implement for loop
-    throw('for not implemented');
-  }
-
-/*
-  Null generateInstructions(CompiledScope scope) {
+    CompilationEnvironment environment = scope.environment();
+    Slot iterableSlot = iterable.generateInstructions(scope);
+    if (!iterableSlot.staticType.isSubtypeOf(environment.iterableType)) {
+      throw(concat('Expected an iterable type in "for" statement, but ', iterable.toStringIndent(0), ' is of type ', iterableSlot.staticType.name, ' at ', iterable.sourceLocation));
+    }
+    scope.emitTypeCheck(iterableSlot, environment.iterableType, environment.intrinsicsLibrary.subscriptTypeCheckFailureMessage, concat(iterable), true);
+    Slot iterator = scope.emitSubroutineCall(
+      scope.lookupIntrinsic(environment.iteratorIntrinsicName),
+      [ iterableSlot ]:Slot,
+    );
     CompiledLoopScope loopScope = CompiledLoopScope(scope, 'for');
-    Slot expressionHandle = expression.generateInstructions(loopScope).read(loopScope);
-    // verify that expressionHandle is an *Iterable
-    // if it is statically a *ReadOnlyList
-    
-    loopScope.emitConditionalJump(loopScope.loopBottomLabel, expressionHandle, (scope.environment().intrinsicsLibrary.coreFalse as Slot), 'while condition');
+    String loopBodyLabel = environment.generateLabel(concat(scope.labelPrefix(), '$', loopScope.name, '$body'));
+    loopScope.emitInstruction(JumpIfNotEqualInstruction(
+      loopScope.emitSubroutineCall(
+        loopScope.lookupIntrinsic(environment.nextIntrinsicName),
+        [ iterator ]:Slot,
+      ),
+      environment.intrinsicsLibrary.coreFalse,
+      loopBodyLabel,
+      'for loop condition',
+    ));
+    Type variableType;
+    if (iterableSlot.staticType is IterableType) {
+      variableType = (iterableSlot.staticType as IterableType).elementType;
+    } else {
+      variableType = environment.intrinsicsLibrary.coreWhateverType;
+    }
+    loopScope.emitBreakInstructionFrom(loopScope);
+    loopScope.emitInstruction(LabelInstruction(loopBodyLabel, concat('start of ', loopScope.name)));
+    DynamicSlot variableSlot = loopScope.registerVariable(variable, variableType);
+    Slot currentValue = loopScope.emitSubroutineCall(
+      loopScope.lookupIntrinsic(environment.currentIntrinsicName),
+      [ iterator ]:Slot,
+    );
+    loopScope.emitInstruction(MoveInstruction(variableSlot, currentValue, concat('value initialization of for loop variable ', variable)));
+    loopScope.emitInstruction(MoveTypeToTypeInstruction(variableSlot, currentValue, environment, concat('type initialization of for loop variable ', variable)));
+    loopScope.emitIncref(variableSlot, true);
     block.generateInstructions(loopScope);
     scope.emitBlock(loopScope);
   }
-*/
 
   Null constructor(String variableArg, Expression iterableArg, StatementBlock blockArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);

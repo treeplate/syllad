@@ -65,11 +65,11 @@ class ParameterSlot extends Slot {
   }
 
   Operand value() {
-    return AddressComputationOperand(rbp, null, 1, offset);
+    return AddressComputationOperand(rbp, null, 1, offset, 'qword');
   }
 
   Operand dynamicType() {
-    return AddressComputationOperand(rbp, null, 1, offset - 0x08);
+    return AddressComputationOperand(rbp, null, 1, offset - 0x08, 'qword');
   }
 
   Null constructor(Type staticTypeArg, Integer parameterNumber, String debugNameArg) {
@@ -87,7 +87,7 @@ class ReturnValuePointerSlot extends Slot {
   }
 
   Operand value() {
-    return AddressComputationOperand(rbp, null, 1, 0x20 /* shadow space */ + 0x08 /* return address */ + 0x08 /* return value type pointer */);
+    return AddressComputationOperand(rbp, null, 1, 0x20 /* shadow space */ + 0x08 /* return address */ + 0x08 /* return value type pointer */, 'qword');
   }
 }
 
@@ -97,7 +97,7 @@ class ReturnValueTypePointerSlot extends Slot {
   }
   
   Operand value() {
-    return AddressComputationOperand(rbp, null, 1, 0x20 /* shadow space */ + 0x08 /* return address */);
+    return AddressComputationOperand(rbp, null, 1, 0x20 /* shadow space */ + 0x08 /* return address */, 'qword');
   }
 }
 
@@ -181,7 +181,7 @@ class VarArgsParameterSlot extends Slot {
 
   // points to type of first argument, value is 8 bytes later, next argument type 8 bytes after that, etc
   Slot baseAddress(IntegerType integerType) {
-    return OperandSlot(integerType, AddressComputationOperand(rbp, null, 1, offset), concat(debugName, ' base address'));
+    return OperandSlot(integerType, AddressComputationOperand(rbp, null, 1, offset, 'qword'), concat(debugName, ' base address'));
   }
 
   Slot length() {

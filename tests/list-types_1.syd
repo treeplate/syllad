@@ -1,0 +1,3 @@
+// expected error: []:Anything, a AnythingList, is not a StringList (line 3)
+
+StringList foo = []:Anything;

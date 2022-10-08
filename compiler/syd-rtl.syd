@@ -1,17 +1,17 @@
 // ERROR MANAGEMENT
 
+NullFunction println;
+
 // TODO: this should be a compiler intrinsic so that the message evaluation can be lazy and so it can be skipped in release builds
 Null assert(Boolean condition, String message) {
   if (!condition) {
-    __print(message);
-    __print('\n');
+    println(message);
     exit(1);
   }
 }
 
 Null throw(String message) {
-  __print(message);
-  __print('\n');
+  println(message);
   exit(1);
 }
 
@@ -45,7 +45,7 @@ Integer _alloc(Integer size) {
     _blockCount += 1;
     return pointer;
   }
-  __print('Out of memory.\n');
+  println('Out of memory.');
   exit(1);
 }
 
@@ -56,7 +56,7 @@ Integer __heapFree(Integer hHeap, Integer dwFlags, Integer lpMem) __extern 'kern
 Null _free(Integer pointer) __intrinsic {
   _blockCount -= 1;
   if (__heapFree(_heapHandle, 0x00, pointer) == 0) {
-    //println('failed to free pointer, error code: ', __getLastError());
+    println('failed to free pointer, error code: ', __getLastError());
     exit(1);
   }
 }
@@ -182,9 +182,9 @@ GarbageCollectable _constructor(Integer typeCode, Integer length, Integer size) 
   assert(size >= length, 'length cannot be bigger than size');
   Integer resultPointer = _alloc(64 + 16 * size);
   __writeToAddress(resultPointer + _gcBlockHeaderRefCount, 0); // ref count
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, length); // length
   __writeToAddress(resultPointer + _gcBlockHeaderScratchSpace, 0); // scratch space
   __writeToAddress(resultPointer + _gcBlockHeaderEntryPointer, _blockListNext - _blockListStart); // block pointer
-  __writeToAddress(resultPointer + _gcBlockHeaderLength, length); // length
   __writeToAddress(_blockListNext, resultPointer);
   _advanceToNextBlock();
   _debugLiveBlocks += 1;
@@ -273,9 +273,11 @@ WhateverList _listConstructor(Integer typeCode, Integer initialSize) __intrinsic
 
 Null _growList(WhateverList list) {
   _gcLocked += 1;
-  __ListData newData = _constructor(__typeToCode __ListData, len(list), len(list) * 2) as __ListData;
+  Integer newSize = len(list) * 2;
+  __ListData newData = _constructor(__typeToCode __ListData, len(list), newSize) as __ListData;
   __ListData oldData = __readFromAddress(list __as__ Integer + _gcBlockData + 16 + 8) __as__ __ListData;
   _moveBytes(oldData __as__ Integer + _gcBlockData, newData __as__ Integer + _gcBlockData, len(list) * 16);
+  __writeToAddress(list __as__ Integer + _gcBlockData + 8, newSize);
   __writeToAddress(list __as__ Integer + _gcBlockData + 16 + 8, newData __as__ Integer);
   _gcLocked -= 1;
 }
@@ -288,12 +290,98 @@ Null append(WhateverList list, Anything element) {
   Integer length = len(list);
   if (length == size) {
     _growList(list);
+    dataAddress = __readFromAddress(intermediaryAddress + _gcBlockData + 16 + 8);
   }
+  __writeToAddress(dataAddress + _gcBlockData + length * 16, __typeOf element);
+  __writeToAddress(dataAddress + _gcBlockData + length * 16 + 8, element __as__ Integer);
   __writeToAddress(dataAddress + _gcBlockHeaderLength, length + 1);
-  __writeToAddress(dataAddress + _gcBlockData, __typeOf element);
-  __writeToAddress(dataAddress + _gcBlockData + 8, element __as__ Integer);
   __incref(element);
   _gcLocked -= 1;
+}
+
+
+// ITERABLES AND ITERATORS
+
+// Iterators are blocks with the following values:
+//  1: pointer to iterable
+//  2: cursor (semantics vary based on the iterable)
+
+// Iterables are currently just lists. This will have to change when we implement scalarValues.
+
+// returns value at cursor of iterator
+// it is a fatal error to call current when the cursor
+// points before the beginning or after the end of the iterable
+// (i.e. if next() has not been called or has returned false)
+Whatever current(WhateverIterator iterator) __intrinsic {
+  WhateverList list = (__readFromAddress(iterator __as__ Integer + _gcBlockData + 8) __dynamic_as__ __readFromAddress(iterator __as__ Integer + _gcBlockData + 0)) as WhateverList;
+  Integer index = (__readFromAddress(iterator __as__ Integer + _gcBlockData + 24) __dynamic_as__ __readFromAddress(iterator __as__ Integer + _gcBlockData + 16)) as Integer;
+  return list[index];
+}
+
+// advances cursor of iterator by one
+// return true if cursor is before end of iterable; current returns value at cursor
+// return false if cursor is after end of iterable
+Boolean next(WhateverIterator iterator) __intrinsic {
+  WhateverList list = (__readFromAddress(iterator __as__ Integer + _gcBlockData + 8) __dynamic_as__ __readFromAddress(iterator __as__ Integer + _gcBlockData + 0)) as WhateverList;
+  Integer index = (__readFromAddress(iterator __as__ Integer + _gcBlockData + 24) __dynamic_as__ __readFromAddress(iterator __as__ Integer + _gcBlockData + 16)) as Integer;
+  index += 1;
+  __writeToAddress(iterator __as__ Integer + _gcBlockData + 24, index);
+  return index < len(list);
+}
+
+// creates an iterator for the iterable
+WhateverIterator iterator(WhateverIterable iterable) __intrinsic {
+  assert(iterable is WhateverList, 'iterables are only implemented for lists');
+  _gcLocked += 1;
+  WhateverIterator iterator = _constructor(__iteratorTypeOf __typeOf iterable, 2, 2) as WhateverIterator;
+  __writeToAddress(iterator __as__ Integer + _gcBlockData + 0, __typeOf iterable);
+  __writeToAddress(iterator __as__ Integer + _gcBlockData + 8, iterable __as__ Integer);
+  __writeToAddress(iterator __as__ Integer + _gcBlockData + 16, __typeToCode Integer);
+  __writeToAddress(iterator __as__ Integer + _gcBlockData + 24, -1);
+  _gcLocked -= 1;
+  return iterator;
+}
+
+WhateverList copy(WhateverIterable iterable) {
+  Integer length;
+  if (iterable is WhateverList) {
+    length = len(iterable as WhateverList);
+  } else {
+    length = 1;
+  }
+  WhateverList list = _listConstructor(__listTypeOf __typeOf iterable, length);
+  for (value in iterable) {
+    append(list, value);
+  }
+  return list;
+}
+
+Whatever first(WhateverIterable iterable) {
+  WhateverIterator i = iterator(iterable);
+  next(i);
+  return current(i);
+}
+
+Whatever last(WhateverIterable iterable) {
+  if (iterable is WhateverList) {
+    return (iterable as WhateverList)[len(iterable as WhateverList) - 1];
+  }
+  Whatever result;
+  for (value in iterable) {
+    result = value;
+  }
+  return result;
+}
+
+Whatever single(WhateverIterable iterable) {
+  WhateverIterator i = iterator(iterable);
+  next(i);
+  Whatever result = current(i);
+  if (next(i)) {
+    __print('single() called with Iterable with more than one element\n');
+    exit(1);
+  }
+  return result;
 }
 
 
@@ -386,17 +474,17 @@ String intToStr(Integer value) {
   return buffer;
 }
 
-String _joinOffset(StringList args, String joiner, Integer offset) {
-  if (len(args) - offset == 0) {
-    return '';
+String _joinOffset(StringList items, String joiner, Integer offset) {
+  if (len(items) - offset == 1) {
+    return items[offset];
   }
-  if (len(args) - offset == 1) {
-    return args[offset];
-  }
-  return concat(args[offset], joiner, _joinOffset(args, joiner, offset+1));
+  return concat(items[offset], joiner, _joinOffset(items, joiner, offset + 1));
 }
 
 String join(StringList items, String joiner) {
+  if (len(items) == 0) {
+    return '';
+  }
   // TODO: this should allocate the string ahead of time and just write each string in turn into the buffer
   return _joinOffset(items, joiner, 0);
 }
@@ -421,6 +509,9 @@ String _stringify(Anything arg) {
     Integer func = arg __as__ Integer;
     Integer annotation = __readFromAddress(func - 8);
     return concat('<function (', annotation __as__ String, ')>');
+  }
+  if (arg is StringList) {
+    return concat('[', join(arg as StringList, ', '), ']');
   }
   if (arg is WhateverList) {
     StringList new = []:String;
@@ -453,7 +544,7 @@ Null print(Anything... parts) {
   }
 }
 
-Null println(Anything... parts) {
+Null _println(Anything... parts) {
   Boolean first = true;
   Integer index = 0;
   while (index < len(parts)) {
@@ -466,6 +557,7 @@ Null println(Anything... parts) {
   }
   __print('\n');
 }
+println = _println;
 
 
 // STANDARD LIBRARY

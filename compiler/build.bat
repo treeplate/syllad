@@ -10,7 +10,7 @@ CD ..
 CALL "C:\dev\flutter\bin\dart.bat" main.dart > compiler\syd.asm
 CD compiler
 ECHO ASSEMBLING AND LINKING COMPILER
-ML64 syd.asm
+ML64 /Zd /Zi syd.asm
 IF EXIST "syd.exe" (
     ECHO RUNNING COMPILED COMPILER
     syd.exe

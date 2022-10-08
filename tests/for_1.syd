@@ -13,5 +13,3 @@ append(n12345, 'Five');
 for (foo in n12345) {
   println('Line', foo);
 }
-println(n12345);
-println(len(n12345));

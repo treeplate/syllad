@@ -60,6 +60,11 @@ class Mop extends Operand {
     return operand.low8Bits();
   }
 
+  Operand low32Bits() {
+    assert(debugValid, 'cannot use released Mop');
+    return operand.low32Bits();
+  }
+
   Boolean equals(Operand other) {
     assert(debugValid, 'cannot use released Mop');
     if (other is Mop) {

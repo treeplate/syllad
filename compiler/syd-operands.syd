@@ -7,7 +7,7 @@ fwdclass RegisterOperand extends Operand;
 fwdclassprop BooleanFunction RegisterOperand.equals;
 fwdclass Register64Operand extends RegisterOperand;
 fwdclass MemoryOperand extends Operand;
-fwdclass AddressComputationOperand(Register64OperandNullable, Register64OperandNullable, Integer, Integer) extends MemoryOperand;
+fwdclass AddressComputationOperand(Register64OperandNullable, Register64OperandNullable, Integer, Integer, String) extends MemoryOperand;
 
 Integer stack = 0x00000001;
 Integer global = 0x00000002;
@@ -102,6 +102,10 @@ class Operand extends Object {
   }
 
   Operand low8Bits() {
+    abstract();
+  }
+
+  Operand low32Bits() {
     abstract();
   }
 
@@ -289,6 +293,7 @@ class RegisterOperand extends Operand {
 }
 
 fwdclassprop String Register64Operand.r8;
+fwdclassprop String Register64Operand.r32;
 fwdclassprop Integer Register64Operand.bit;
 
 class Register8Operand extends RegisterOperand {
@@ -317,6 +322,32 @@ class Register8Operand extends RegisterOperand {
   }
 }
 
+class Register32Operand extends RegisterOperand {
+  Register64Operand register;
+
+  Boolean isOperandKind(Integer kind) {
+    return (kind & register.bit) > 0;
+  }
+
+  String toString() {
+    return register.r32;
+  }
+
+  Operand low8Bits() {
+    return this;
+  }
+
+  Boolean equals(Operand other) {
+    return other is Register32Operand
+        && (other as Register32Operand).register.equals(register);
+  }
+
+  Null constructor(Register64Operand registerArg) {
+    super.constructor();
+    register = registerArg;
+  }
+}
+
 class Register64Operand extends RegisterOperand {
   String r64;
   String r32;
@@ -335,12 +366,16 @@ class Register64Operand extends RegisterOperand {
     return Register8Operand(this);
   }
 
+  Operand low32Bits() {
+    return Register32Operand(this);
+  }
+
   Boolean equals(Operand other) {
     return this == other;
   }
 
   AddressComputationOperand dereference() {
-    return AddressComputationOperand(this, null, 1, 0);
+    return AddressComputationOperand(this, null, 1, 0, 'qword');
   }
 
   Null constructor(String r64Arg, String r32Arg, String r8Arg, Integer bitArg) {
@@ -364,6 +399,7 @@ class AddressComputationOperand extends MemoryOperand {
   Register64OperandNullable index;
   Integer scale; // 1, 2, 4, 8
   Integer displacement; // 32 bit value
+  String prefix; // e.g. qword, dword
 
   Boolean isOperandKind(Integer kind) {
     return (kind & heap) > 0; // ??? dubious
@@ -395,7 +431,7 @@ class AddressComputationOperand extends MemoryOperand {
       }
       append(parts, concat(hexH(displacement)));
     }
-    return concat('qword ptr [', joinList(parts), ']');
+    return concat(prefix, ' ptr [', joinList(parts), ']');
   }
 
   Operand low8Bits() {
@@ -422,16 +458,17 @@ class AddressComputationOperand extends MemoryOperand {
   }
 
   AddressComputationOperand withOffset(Integer offset) {
-    return AddressComputationOperand(base, index, scale, displacement + offset);
+    return AddressComputationOperand(base, index, scale, displacement + offset, 'qword');
   }
 
-  Null constructor(Register64OperandNullable baseArg, Register64OperandNullable indexArg, Integer scaleArg, Integer displacementArg) {
+  Null constructor(Register64OperandNullable baseArg, Register64OperandNullable indexArg, Integer scaleArg, Integer displacementArg, String prefixArg) {
     super.constructor();
     assert(scaleArg == 1 || scaleArg == 2 || scaleArg == 4 || scaleArg == 8, 'scale out of range');
     assert((displacementArg >= -0xFFFFFFFF) && (displacementArg < 0xFFFFFFFF), 'displacement out of range');
     base = baseArg;
     index = indexArg;
     scale = scaleArg;
+    prefix = prefixArg;
     displacement = displacementArg;
   }
 }

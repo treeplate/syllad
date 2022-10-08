@@ -132,9 +132,6 @@ fwdclassprop CompiledInternalProcedureSlotFunction CompiledIntrinsicsLibrary.loo
 
 // CompilationEnvironment
 fwdclassprop CompiledIntrinsicsLibrary CompilationEnvironment.intrinsicsLibrary;
-fwdclassprop Integer CompilationEnvironment.typeTableWidth;
-fwdclassprop Integer CompilationEnvironment.typeTableOffset;
-fwdclassprop String CompilationEnvironment.typeTableLabel;
 fwdclassprop StringFunction CompilationEnvironment.generateLabel;
 fwdclassprop SlotFunction CompilationEnvironment.integer;
 
@@ -204,6 +201,7 @@ class CompilationEnvironment extends TypeRegistry {
   CompiledIntrinsicsLibrary intrinsicsLibrary;
 
   Map stringAtomTable = Map(); // String -> Constant
+  ConstantList constants = []:Constant;
 
   ConstantSlot registerStringConstant(String labelBase, String value, Integer line, Integer col, String file) {
     ConstantNullable maybeConstant = stringAtomTable.get(value) as ConstantNullable;
@@ -233,6 +231,7 @@ class CompilationEnvironment extends TypeRegistry {
       }
       maybeConstant = Constant(label, data, comments);
       stringAtomTable.set(value, maybeConstant);
+      append(constants, maybeConstant);
       intrinsicsLibrary.coreStringType.markConstructed();
     }
     return ConstantSlot(intrinsicsLibrary.coreStringType, maybeConstant!, /* debugName: */ labelBase);
@@ -275,6 +274,9 @@ class CompilationEnvironment extends TypeRegistry {
 
   String freeIntrinsicName = '_free';
   String listConstructorIntrinsicName = '_listConstructor';
+  String iteratorIntrinsicName = 'iterator';
+  String currentIntrinsicName = 'current';
+  String nextIntrinsicName = 'next';
 
   // use CompiledScope.lookupIntrinsic() to reference this
   Map intrinsics = Map(); // String -> SubroutineSlot
@@ -335,11 +337,17 @@ class CompilationEnvironment extends TypeRegistry {
     }
   }
 
+  AbstractSubroutineType subroutineType;
+  AbstractListType subscriptableType;
+  IterableType iterableType;
+
   String typeTableLabel;
+  String iteratorTypeTableLabel;
+  String listTypeTableLabel;
   Integer typeTableOffset;
   Integer typeTableWidth;
 
-  Null generateTypeTable(Assembler assembler, String label) {
+  Null _generateTypeTable(Assembler assembler, String label) {
     StringList comment = []:String;
     IntegerList bytes = []:Integer;
     Integer byte = 0;
@@ -412,6 +420,100 @@ class CompilationEnvironment extends TypeRegistry {
     typeTableOffset = offset;
     typeTableWidth = width;
   }
+
+  Null _generateIteratorTypeTable(Assembler assembler, String label) {
+    IntegerListList iteratorTypes = []:IntegerList;
+    IntegerList buffer = []:Integer;
+    IntegerList debugCodes = []:Integer;
+    for (type in sortedTypes) {
+      if (type.isConstructed) {
+        append(debugCodes, type.code);
+        if (type.isSubtypeOf(iterableType)) {
+          if (type is IterableType) {
+            Type iteratorType = createOrFindIteratorType(this, (type as IterableType).elementType);
+            append(buffer, iteratorType.code);
+          } else if (type is AbstractListType) {
+            Type iteratorType = createOrFindIteratorType(this, (type as AbstractListType).elementType);
+            append(buffer, iteratorType.code);
+          } else {
+            throw(concat('Unrecognized iterable type: ', type));
+          }
+        } else {
+          append(buffer, 0xffffffff);
+        }
+      }
+      if (len(buffer) % 4 == 0) {
+        append(iteratorTypes, buffer);
+        buffer = []:Integer;
+      }
+    }
+    if (len(buffer) > 0) {
+      append(iteratorTypes, buffer);
+      buffer = []:Integer;
+    }
+    assert(first(debugCodes) == 0, 'expected sorted type codes to start at zero');
+    assert(last(debugCodes) == len(debugCodes) - 1, 'expected sorted type codes to be consecutive');
+    String genLines(IntegerList buffer) {
+      return concat('dd ', join(map(buffer, hex32) as StringList, ', '));
+    }
+    StringNullable genComment(IntegerList buffer) {
+      return null;
+    }
+    StringList data = copy(map(iteratorTypes, genLines)) as StringList;
+    StringNullableList comments = copy(map(iteratorTypes, genComment)) as StringNullableList;
+    comments[0] = 'Table mapping iterable types to iterator types';
+    assembler.addConst(label, data, comments);
+  }
+
+  Null _generateListTypeTable(Assembler assembler, String label) {
+    IntegerListList listTypes = []:IntegerList;
+    IntegerList buffer = []:Integer;
+    IntegerList debugCodes = []:Integer;
+    for (type in sortedTypes) {
+      if (type.isConstructed) {
+        append(debugCodes, type.code);
+        if (type.isSubtypeOf(iterableType)) {
+          if (type is IterableType) {
+            Type listType = createOrFindListType(this, (type as IterableType).elementType);
+            append(buffer, listType.code);
+          } else if (type is AbstractListType) {
+            Type listType = createOrFindListType(this, (type as AbstractListType).elementType);
+            append(buffer, listType.code);
+          } else {
+            throw(concat('Unrecognized iterable type: ', type));
+          }
+        } else {
+          append(buffer, 0xffffffff);
+        }
+      }
+      if (len(buffer) % 4 == 0) {
+        append(listTypes, buffer);
+        buffer = []:Integer;
+      }
+    }
+    if (len(buffer) > 0) {
+      append(listTypes, buffer);
+      buffer = []:Integer;
+    }
+    assert(first(debugCodes) == 0, 'expected sorted type codes to start at zero');
+    assert(last(debugCodes) == len(debugCodes) - 1, 'expected sorted type codes to be consecutive');
+    String genLines(IntegerList buffer) {
+      return concat('dd ', join(map(buffer, hex32) as StringList, ', '));
+    }
+    StringNullable genComment(IntegerList buffer) {
+      return null;
+    }
+    StringList data = copy(map(listTypes, genLines)) as StringList;
+    StringNullableList comments = copy(map(listTypes, genComment)) as StringNullableList;
+    comments[0] = 'Table mapping iterable types to list types';
+    assembler.addConst(label, data, comments);
+  }
+
+  Null generateTypeTables(Assembler assembler) {
+    _generateTypeTable(assembler, typeTableLabel);
+    _generateIteratorTypeTable(assembler, iteratorTypeTableLabel);
+    _generateListTypeTable(assembler, listTypeTableLabel);
+  }
   
   Null allocateSlots(Assembler assembler) {
     intrinsicsLibrary.allocateSlots(assembler);
@@ -430,17 +532,7 @@ class CompilationEnvironment extends TypeRegistry {
 
   Null generateAssembler(Assembler assembler) {
     AssemblerBlock mainBlock = assembler.createBlock();
-    Map constants = Map();
-    StringList labels = []:String;
-    for (constant in stringAtomTable.values() as ConstantList) {
-      if (constant.isUsed) {
-        constants.set(constant.label, constant);
-        append(labels, constant.label);
-      }
-    }
-    sort(labels);
-    for (label in labels) {
-      Constant constant = constants.get(label) as Constant;
+    for (constant in constants) {
       assembler.addConst(constant.label, constant.data, constant.comments);
     }
     intrinsicsLibrary.generateAssembler(assembler); // generates decrefs
@@ -471,23 +563,23 @@ class CompilationEnvironment extends TypeRegistry {
     stderr('assignTypeCodes...');
     assignTypeCodes();
     stderr('generateTypeTable...');
-    generateTypeTable(assembler, typeTableLabel);
+    generateTypeTables(assembler);
     stderr('allocateSlots...');
     allocateSlots(assembler);
     stderr('generateAssembler...');
     generateAssembler(assembler);
   }
 
-  AbstractSubroutineType subroutineType;
-  AbstractListType subscriptableType;
-
   Null constructor() {
     super.constructor();
     typeTableLabel = generateLabel('typeTable');
+    iteratorTypeTableLabel = generateLabel('iteratorTypeTable');
+    listTypeTableLabel = generateLabel('listTypeTable');
     intrinsicsLibrary = CompiledIntrinsicsLibrary(this, 'intrinsics');
     intrinsicsLibrary.generateScopes();
     subroutineType = createOrFindSubroutineTypeWithAnyArgs(this, intrinsicsLibrary.coreAnythingType);
     subscriptableType = createOrFindReadOnlyListType(this, intrinsicsLibrary.coreWhateverType);
+    iterableType = createOrFindIterableType(this, intrinsicsLibrary.coreWhateverType);
   }
 }
 
@@ -953,6 +1045,7 @@ class CompiledScope extends SlotContext {
   CompiledNestedScope createErrorHandlerBlock(Slot errorMessage, String what) {
     CompiledScope block = CompiledNestedScope(this, concat(camelCase(what), '$Error'));
     block.emitInstruction(CommentInstruction(concat('Error handling block for ', what)));
+    block.emitInstruction(Interrupt3Instruction());
     String label = environment().generateLabel(concat(block.labelPrefix(), '$', camelCase(what), '$Ok'));
     Slot printHandle = environment().intrinsicsLibrary.corePrint;
     block.emitInstruction(CommentInstruction(concat(' - print(', errorMessage.debugName, ')')));
@@ -1933,6 +2026,7 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
   Slot operandTypeCheckFailureMessage;
   Slot assignmentTypeCheckFailureMessage;
   Slot subscriptTypeCheckFailureMessage;
+  Slot forLoopIterableTypeCheckFailureMessage;
   Slot subroutineCallTypeCheckFailureMessage;
   Slot asOperatorFailureMessage;
   Slot boundsFailureMessage;
@@ -2062,6 +2156,11 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
     subscriptTypeCheckFailureMessage = environment.registerStringConstant(
       'subscriptTypeCheckFailureMessage',
       'error: subscript index must be %s, got %s\n',
+      __LINE__, __COL__, __FILE__,
+    );
+    forLoopIterableTypeCheckFailureMessage = environment.registerStringConstant(
+      'forLoopIterableTypeCheckFailureMessage',
+      'error: for loop iterable must be %s, got %s\n',
       __LINE__, __COL__, __FILE__,
     );
     subroutineCallTypeCheckFailureMessage = environment.registerStringConstant(

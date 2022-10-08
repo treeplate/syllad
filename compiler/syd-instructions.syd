@@ -792,7 +792,7 @@ class UnsignedMultiplyInstruction extends Instruction {
     if (lhs == rhs) {
       throw("not implemented"); // TODO
     } else if (lhs == result) {
-      mutatedValue = manager.readForMutation(lhs, result, rax.bit, null); // this must be first, otherwise operand might use up rax XXX readForMutation says 'move testByte to testByte'
+      mutatedValue = manager.readForMutation(lhs, result, rax.bit, 'multiplicand must be in rax for mul instruction'); // this must be first, otherwise operand might use up rax
       operand = manager.read(rhs, register | memory, concat('read operand of mul (', rhs.debugName, ') '));
     } else if (rhs == result) {
       mutatedValue = manager.readForMutation(rhs, result, rax.bit, null); // this must be first, otherwise operand might use up rax
@@ -1195,7 +1195,7 @@ class MonoOperandInstruction extends Instruction {
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     assert(source != target, 'MonoOperandInstruction does not yet support duplicate slots');
     Mop operand = manager.readForMutation(source, target, register | memory, null);
-    block.addCode(opcode, [operand], comment); // XXX we used to say "qword ptr" here
+    block.addCode(opcode, [operand], comment);
     operand.release();
   }
 
@@ -1364,7 +1364,7 @@ class LeaInstruction extends Instruction {
     Mop targetOperand = manager.write(target, register);
     Operand computedSource;
     if (offset != 0) {
-      computedSource = AddressComputationOperand(sourceOperand.operand as Register64Operand, null, 1, offset);
+      computedSource = AddressComputationOperand(sourceOperand.operand as Register64Operand, null, 1, offset, 'qword');
     } else {
       computedSource = sourceOperand;
     }
@@ -1438,10 +1438,16 @@ class MoveDerefInstruction extends Instruction {
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    assert(source != target, 'MoveDerefInstruction does not support duplicate slots');
+    if (source == target) {
+      Mop operand = manager.readForMutation(source, target, register, concat('(this comment from ./compiler/', __FILE__, ':', __LINE__, ':', __COL__, ' should not be used)'));
+      AddressComputationOperand sourceAddressComputationOperand = AddressComputationOperand(operand.operand as Register64Operand, null, 1, offset, 'qword');
+      emitMov(block, operand, sourceAddressComputationOperand, comment);
+      operand.release();
+      return;
+    }
     Mop sourceOperand = manager.read(source, register, concat('get ', source.debugName, ' into register to dereference it'));
     Mop targetOperand = manager.write(target, register);
-    AddressComputationOperand sourceAddressComputationOperand = AddressComputationOperand(sourceOperand.operand as Register64Operand, null, 1, offset);
+    AddressComputationOperand sourceAddressComputationOperand = AddressComputationOperand(sourceOperand.operand as Register64Operand, null, 1, offset, 'qword');
     emitMov(block, targetOperand, sourceAddressComputationOperand, comment);
     targetOperand.release();
     sourceOperand.release();
@@ -1451,6 +1457,50 @@ class MoveDerefInstruction extends Instruction {
     super.constructor();
     target = targetArg;
     source = sourceArg;
+    offset = offsetArg;
+    comment = commentArg;
+  }
+}
+
+// Dereferences source slot, whose contents represent a pointer,
+// and places the 32 bits at the pointed memory into the target slot, clearing the other 32.
+class MoveDwordDerefInstruction extends Instruction {
+  Slot source;
+  Slot target;
+  SlotNullable temp;
+  Integer offset;
+  String comment;
+
+  Null prepare(SlotContext scope) {
+    source.willRead(scope);
+    if (source == target) {
+      temp!.willWrite(scope);
+    }
+    target.willWrite(scope);
+  }
+
+  Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
+    Mop sourceOperand;
+    if (source == target) {
+      sourceOperand = manager.readForMutation(source, temp!, register, concat('get ', source.debugName, ' into register to avoid memory-to-memory mov'));
+    } else {
+      sourceOperand = manager.read(source, register, concat('get ', source.debugName, ' into register to dereference it'));
+    }
+    Mop targetOperand = manager.write(target, register);
+    block.addCode('xor', [targetOperand, targetOperand], 'clear target');
+    AddressComputationOperand sourceAddressComputationOperand = AddressComputationOperand(sourceOperand.operand as Register64Operand, null, 1, offset, 'dword');
+    emitMov(block, targetOperand.low32Bits(), sourceAddressComputationOperand, comment);
+    targetOperand.release();
+    sourceOperand.release();
+  }
+
+  // TODO: find a better API than this tempArg nonsense
+  Null constructor(Slot targetArg, Slot sourceArg, SlotNullable tempArg, Integer offsetArg, String commentArg) {
+    super.constructor();
+    target = targetArg;
+    source = sourceArg;
+    temp = tempArg;
+    assert((temp == null) == (target != source), 'if the source and target are the same, a temporary slot must be provided; otherwise tempArg must be null');
     offset = offsetArg;
     comment = commentArg;
   }
@@ -1474,7 +1524,7 @@ class MoveToDerefInstruction extends Instruction {
     assert(source != target, 'MoveToDerefInstruction does not support duplicate slots');
     Mop sourceOperand = manager.read(source, register | immediate8 | immediate32, concat('read second operand of mov (', source.debugName, ') for MoveToDerefInstruction'));
     Mop targetOperand = manager.read(target, register, concat('get ', target.debugName, ' into register to dereference it'));
-    AddressComputationOperand targetAddressComputationOperand = AddressComputationOperand(targetOperand.operand as Register64Operand, null, 1, offset);
+    AddressComputationOperand targetAddressComputationOperand = AddressComputationOperand(targetOperand.operand as Register64Operand, null, 1, offset, 'qword');
     emitMov(block, targetAddressComputationOperand, sourceOperand, comment);
     targetOperand.release();
     sourceOperand.release();
@@ -1508,7 +1558,7 @@ class MoveTypeToDerefInstruction extends Instruction {
     assert(source != target, 'MoveTypeToDerefInstruction does not support duplicate slots');
     Mop sourceOperand = manager.readType(source, register | immediate8 | immediate32, concat('reading type of ', source.debugName));
     Mop targetOperand = manager.read(target, register, concat('get ', target.debugName, ' into register to dereference it'));
-    AddressComputationOperand targetAddressComputationOperand = AddressComputationOperand(targetOperand.operand as Register64Operand, null, 1, offset);
+    AddressComputationOperand targetAddressComputationOperand = AddressComputationOperand(targetOperand.operand as Register64Operand, null, 1, offset, 'qword');
     emitMov(block, targetAddressComputationOperand, sourceOperand, typeRegistry.withConstantTypeParenthetical(comment, sourceOperand.operand));
     targetOperand.release();
     sourceOperand.release();
@@ -1541,7 +1591,7 @@ class MoveDerefToTypeInstruction extends Instruction {
     assert(source != target, 'MoveDerefToTypeInstruction does not support duplicate slots');
     Mop sourceOperand = manager.read(source, register, concat('read second operand of mov (', source.debugName, ') for MoveDerefToTypeInstruction'));
     Mop targetOperand = manager.writeType(target, register);
-    AddressComputationOperand sourceAddressComputationOperand = AddressComputationOperand(sourceOperand.operand as Register64Operand, null, 1, offset);
+    AddressComputationOperand sourceAddressComputationOperand = AddressComputationOperand(sourceOperand.operand as Register64Operand, null, 1, offset, 'qword');
     emitMov(block, targetOperand, sourceAddressComputationOperand, comment);
     targetOperand.release();
     sourceOperand.release();
@@ -1644,7 +1694,7 @@ class BtDerefInstruction extends Instruction {
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     Mop lhsOperand = manager.read(lhs, register, concat('read first operand of BtDerefInstruction (', lhs.debugName, ') into register to dereference it'));
-    AddressComputationOperand lhsDerefOperand = AddressComputationOperand(lhsOperand.operand as Register64Operand, null, 1, 0);
+    AddressComputationOperand lhsDerefOperand = AddressComputationOperand(lhsOperand.operand as Register64Operand, null, 1, 0, 'qword');
     Mop rhsOperand = manager.read(rhs, register | immediate8, concat('read second operand of bt (', rhs.debugName, ')'));
     block.addCode('bt', [lhsDerefOperand, rhsOperand], comment);
     lhsOperand.release();

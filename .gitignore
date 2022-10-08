@@ -5,3 +5,9 @@ build_test.bat
 compiler/notes.txt
 compiler/default.debugtarget
 test.syd
+
+# build products
+*.ilk
+*.pdb
+mllink$.lnk
+syd.obj

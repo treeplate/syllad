@@ -76,6 +76,16 @@ Expression parseUnaryExpression(TokenConsumer source) {
     SourceLocation location = source.lastLocation();
     return TypeOfExpression(parseUnaryExpression(source), location);
   }
+  if (source.isNextIdentifier('__iteratorTypeOf')) {
+    source.expectIdentifier('__iteratorTypeOf');
+    SourceLocation location = source.lastLocation();
+    return IteratorTypeOfExpression(parseUnaryExpression(source), location);
+  }
+  if (source.isNextIdentifier('__listTypeOf')) {
+    source.expectIdentifier('__listTypeOf');
+    SourceLocation location = source.lastLocation();
+    return ListTypeOfExpression(parseUnaryExpression(source), location);
+  }
   Expression result = parseExpressionLeaves(source);
   while (true) {
     if (source.isNext(ttOpenParen)) {

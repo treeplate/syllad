@@ -13,8 +13,9 @@ fwdclass AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutine
 fwdclass AbstractListType extends Type;
 fwdclass ReadOnlyListType extends AbstractListType;
 fwdclass ListType extends AbstractListType;
-fwdclass TypeRegistry extends Object;
 fwdclass IterableType extends Type;
+fwdclass IteratorType extends Type;
+fwdclass TypeRegistry extends Object;
 
 fwdclassprop Type NullableType.subtype;
 fwdclassprop TypeList AbstractSubroutineTypeWithSpecificParameters.parameterTypes;
@@ -28,6 +29,7 @@ fwdclassprop AbstractSubroutineTypeWithSpecificParametersList TypeRegistry.types
 fwdclassprop ReadOnlyListTypeList TypeRegistry.typesOfReadOnlyLists;
 fwdclassprop ListTypeList TypeRegistry.typesOfLists;
 fwdclassprop IterableTypeList TypeRegistry.typesOfIterables;
+fwdclassprop IteratorTypeList TypeRegistry.typesOfIterators;
 
 class Type extends Object {
   IntegerNullable code = null;
@@ -497,6 +499,9 @@ class ListType extends AbstractListType {
     return (other is AbstractListType &&
             elementType.isSubtypeOf((other as AbstractListType).elementType) &&
             (other as AbstractListType).elementType.isSubtypeOf(elementType))
+        || (other is IterableType &&
+            elementType.isSubtypeOf((other as IterableType).elementType) &&
+            (other as IterableType).elementType.isSubtypeOf(elementType))
         || other is AnythingType
         || other is WhateverType
         || other is GarbageCollectableType
@@ -597,7 +602,17 @@ class IteratorType extends Type {
   Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
     super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'Iterator'));
     elementType = elementTypeArg;
+    append(typeRegistryArg.typesOfIterators, this);
   }
+}
+
+IteratorType createOrFindIteratorType(TypeRegistry typeRegistry, Type elementType) {
+  for (entry in typeRegistry.typesOfIterators) {
+    if (entry.elementType == elementType) {
+      return entry;
+    }
+  }
+  return IteratorType(typeRegistry, elementType);
 }
 
 class ClosureType extends Type {
@@ -645,6 +660,7 @@ class TypeRegistry extends Object {
   ReadOnlyListTypeList typesOfReadOnlyLists = []:ReadOnlyListType;
   ListTypeList typesOfLists = []:ListType;
   IterableTypeList typesOfIterables = []:IterableType;
+  IteratorTypeList typesOfIterators = []:IteratorType;
 
   TypeList sortedTypes;
 
@@ -723,6 +739,10 @@ class TypeRegistry extends Object {
     prefix = getPrefix(name, 'Iterable', lookupType);
     if (prefix != null) {
       return createOrFindIterableType(this, prefix!);
+    }
+    prefix = getPrefix(name, 'Iterator', lookupType);
+    if (prefix != null) {
+      return createOrFindIteratorType(this, prefix!);
     }
     return lookupType(name);
   }

@@ -16,7 +16,7 @@ class CompiledLoopScope extends CompiledNestedScope {
 
   Null prepareInstructions() {
     super.prepareInstructions();
-    emitContinueInstructionFrom(this);
+    emitContinueInstructionFrom(this); // this is what implements the looping nature of the loop
   }
 
   Null generateAssemblerBlock(AssemblerBlock block) {
