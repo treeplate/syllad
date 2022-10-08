@@ -282,7 +282,7 @@ Null _growList(WhateverList list) {
   _gcLocked -= 1;
 }
 
-Null append(WhateverList list, Anything element) {
+Null append(WhateverList list, Anything element) __intrinsic {
   _gcLocked += 1;
   Integer intermediaryAddress = list __as__ Integer;
   Integer size = __readFromAddress(intermediaryAddress + _gcBlockData + 0 + 8);
@@ -312,7 +312,7 @@ Null append(WhateverList list, Anything element) {
 // it is a fatal error to call current when the cursor
 // points before the beginning or after the end of the iterable
 // (i.e. if next() has not been called or has returned false)
-Whatever current(WhateverIterator iterator) __intrinsic {
+Whatever current(WhateverIterator iteratorArg) __intrinsic {
   WhateverList list = (__readFromAddress(iterator __as__ Integer + _gcBlockData + 8) __dynamic_as__ __readFromAddress(iterator __as__ Integer + _gcBlockData + 0)) as WhateverList;
   Integer index = (__readFromAddress(iterator __as__ Integer + _gcBlockData + 24) __dynamic_as__ __readFromAddress(iterator __as__ Integer + _gcBlockData + 16)) as Integer;
   return list[index];
@@ -321,7 +321,7 @@ Whatever current(WhateverIterator iterator) __intrinsic {
 // advances cursor of iterator by one
 // return true if cursor is before end of iterable; current returns value at cursor
 // return false if cursor is after end of iterable
-Boolean next(WhateverIterator iterator) __intrinsic {
+Boolean next(WhateverIterator iteratorArg) __intrinsic {
   WhateverList list = (__readFromAddress(iterator __as__ Integer + _gcBlockData + 8) __dynamic_as__ __readFromAddress(iterator __as__ Integer + _gcBlockData + 0)) as WhateverList;
   Integer index = (__readFromAddress(iterator __as__ Integer + _gcBlockData + 24) __dynamic_as__ __readFromAddress(iterator __as__ Integer + _gcBlockData + 16)) as Integer;
   index += 1;
@@ -333,13 +333,13 @@ Boolean next(WhateverIterator iterator) __intrinsic {
 WhateverIterator iterator(WhateverIterable iterable) __intrinsic {
   assert(iterable is WhateverList, 'iterables are only implemented for lists');
   _gcLocked += 1;
-  WhateverIterator iterator = _constructor(__iteratorTypeOf __typeOf iterable, 2, 2) as WhateverIterator;
-  __writeToAddress(iterator __as__ Integer + _gcBlockData + 0, __typeOf iterable);
-  __writeToAddress(iterator __as__ Integer + _gcBlockData + 8, iterable __as__ Integer);
-  __writeToAddress(iterator __as__ Integer + _gcBlockData + 16, __typeToCode Integer);
-  __writeToAddress(iterator __as__ Integer + _gcBlockData + 24, -1);
+  WhateverIterator result = _constructor(__iteratorTypeOf __typeOf iterable, 2, 2) as WhateverIterator;
+  __writeToAddress(result __as__ Integer + _gcBlockData + 0, __typeOf iterable);
+  __writeToAddress(result __as__ Integer + _gcBlockData + 8, iterable __as__ Integer);
+  __writeToAddress(result __as__ Integer + _gcBlockData + 16, __typeToCode Integer);
+  __writeToAddress(result __as__ Integer + _gcBlockData + 24, -1);
   _gcLocked -= 1;
-  return iterator;
+  return result;
 }
 
 WhateverList copy(WhateverIterable iterable) {

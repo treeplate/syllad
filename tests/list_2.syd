@@ -1,0 +1,14 @@
+// expected output: success
+
+IntegerList numbers = [1, 2, 3]:Integer;
+IntegerList tripled = [3, 6, 9]:Integer;
+
+Integer index = 0;
+for (expected in tripled) {
+  if (expected != numbers[index] * 3) {
+    print('mismatch on index', index);
+    exit(1);
+  }
+  index += 1;
+}
+println('success');

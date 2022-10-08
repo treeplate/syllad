@@ -274,6 +274,7 @@ class CompilationEnvironment extends TypeRegistry {
 
   String freeIntrinsicName = '_free';
   String listConstructorIntrinsicName = '_listConstructor';
+  String appendIntrinsicName = 'append';
   String iteratorIntrinsicName = 'iterator';
   String currentIntrinsicName = 'current';
   String nextIntrinsicName = 'next';
