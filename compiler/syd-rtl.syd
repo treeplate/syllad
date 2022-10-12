@@ -313,8 +313,8 @@ Null append(WhateverList list, Anything element) __intrinsic {
 // points before the beginning or after the end of the iterable
 // (i.e. if next() has not been called or has returned false)
 Whatever current(WhateverIterator iteratorArg) __intrinsic {
-  WhateverList list = (__readFromAddress(iterator __as__ Integer + _gcBlockData + 8) __dynamic_as__ __readFromAddress(iterator __as__ Integer + _gcBlockData + 0)) as WhateverList;
-  Integer index = (__readFromAddress(iterator __as__ Integer + _gcBlockData + 24) __dynamic_as__ __readFromAddress(iterator __as__ Integer + _gcBlockData + 16)) as Integer;
+  WhateverList list = (__readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 8) __dynamic_as__ __readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 0)) as WhateverList;
+  Integer index = (__readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 24) __dynamic_as__ __readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 16)) as Integer;
   return list[index];
 }
 
@@ -322,10 +322,10 @@ Whatever current(WhateverIterator iteratorArg) __intrinsic {
 // return true if cursor is before end of iterable; current returns value at cursor
 // return false if cursor is after end of iterable
 Boolean next(WhateverIterator iteratorArg) __intrinsic {
-  WhateverList list = (__readFromAddress(iterator __as__ Integer + _gcBlockData + 8) __dynamic_as__ __readFromAddress(iterator __as__ Integer + _gcBlockData + 0)) as WhateverList;
-  Integer index = (__readFromAddress(iterator __as__ Integer + _gcBlockData + 24) __dynamic_as__ __readFromAddress(iterator __as__ Integer + _gcBlockData + 16)) as Integer;
+  WhateverList list = (__readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 8) __dynamic_as__ __readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 0)) as WhateverList;
+  Integer index = (__readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 24) __dynamic_as__ __readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 16)) as Integer;
   index += 1;
-  __writeToAddress(iterator __as__ Integer + _gcBlockData + 24, index);
+  __writeToAddress(iteratorArg __as__ Integer + _gcBlockData + 24, index);
   return index < len(list);
 }
 
