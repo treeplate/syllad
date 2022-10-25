@@ -443,7 +443,7 @@ class CompilationEnvironment extends TypeRegistry {
           append(buffer, 0xffffffff);
         }
       }
-      if (len(buffer) % 4 == 0) {
+      if (len(buffer) == 4) {
         append(iteratorTypes, buffer);
         buffer = []:Integer;
       }
@@ -487,7 +487,7 @@ class CompilationEnvironment extends TypeRegistry {
           append(buffer, 0xffffffff);
         }
       }
-      if (len(buffer) % 4 == 0) {
+      if (len(buffer) == 4) {
         append(listTypes, buffer);
         buffer = []:Integer;
       }
@@ -648,7 +648,7 @@ class TypeCodeSlot extends CompileTimeIntegerSlot {
     return typeArg.code;
   }
 
-  Operand dynamicType() {
+  Operand dynamicType(SlotContext scope) {
     return ImmediateIntegerOperand(staticType.code!);
   }
 
@@ -667,7 +667,7 @@ class SubroutineSlot extends CompileTimeLabelSlot {
     return subroutine.label;
   }
 
-  Operand value() {
+  Operand value(SlotContext scope) {
     return CodeAddressOperand(labelValue());
   }
 
@@ -833,6 +833,7 @@ class CompiledScope extends SlotContext {
     }
     DynamicSlot slot = DynamicSlot(type, this, referenceCountStyle, name, concat(name, ' variable'));
     identifiers.set(name, slot);
+    emitInstruction(TrackSlotInstruction(slot));
     return registerSlot(slot);
   }
 
@@ -1165,13 +1166,13 @@ class CompiledScope extends SlotContext {
     SlotManager manager = stackFrame().slotManager;
     manager.enterNestedScope(this, block);
     generateAssemblerBlockPreamble(block);
+    stderr(stringTimes('  ', block.currentIndent), '>>>', this, ':: generateAssemblerBlock');
     for (instruction in instructions) {
-      if (instruction is PendingCommentInstruction) {
-        stderr('generating assembler of', instruction, 'for', this);
-      }
+      stderr(stringTimes('  ', block.currentIndent), '  ', instruction);
       instruction.generateAssemblerBlock(block, manager);
       manager.endOfInstruction();
     }
+    stderr(stringTimes('  ', block.currentIndent), '<<<', this, ':: generateAssemblerBlock');
     generateAssemblerBlockPostamble(block);
     manager.exitNestedScope(this);
   }
@@ -1247,20 +1248,20 @@ class CompiledStackFrameScope extends CompiledScope {
 
   Null allocateSlots(Assembler assembler) {
     Slot sentinel = environment().intrinsicsLibrary.coreSentinel;
-    assert((sentinel.value() as ImmediateIntegerOperand).value == 0, 'bss won\'t work with non-zero sentinel');
-    assert((sentinel.dynamicType() as ImmediateIntegerOperand).value == 0, 'bss won\'t work with non-zero sentinel');
+    assert((sentinel.value(this) as ImmediateIntegerOperand).value == 0, 'bss won\'t work with non-zero sentinel');
+    assert((sentinel.dynamicType(this) as ImmediateIntegerOperand).value == 0, 'bss won\'t work with non-zero sentinel');
     for (slot in slots) {
       if (slot.referencedFromMultipleStackFrames) {
         assert(slot.homeScope is CompiledLibrary, 'closures not implemented');
         assert(slot.name != null, concat('slot has no name: ', slot));
         String valueLabel = environment().generateLabel(concat(slot.name, 'Value'));
         String typeLabel = environment().generateLabel(concat(slot.name, 'Type'));
-        slot.initialize(DereferenceLabelOperand(valueLabel), DereferenceLabelOperand(typeLabel));
+        slot.initialize(null, DereferenceLabelOperand(valueLabel), DereferenceLabelOperand(typeLabel));
         assembler.addBss(typeLabel, 4, concat('dynamic type of ', slot.debugName));
         assembler.addBss(valueLabel, 4, slot.debugName);
       } else {
-        if (!slot.initializeScheduled) { // e.g. parameter count
-          slot.initialize(sentinel.value(), sentinel.dynamicType());
+        if (!slot.initializeToRegisterScheduled) { // e.g. parameter count
+          slot.initialize(this, sentinel.value(this), sentinel.dynamicType(this));
         }
       }
     }
@@ -1318,7 +1319,7 @@ class CompiledStackFrameScope extends CompiledScope {
     if (len(instructions) == 0) {
       return;
     }
-    slotManager = SlotManager(environment().intrinsicsLibrary.coreStringType, environment().intrinsicsLibrary.coreGarbageCollectableType, environment().intrinsicsLibrary.coreSentinelType, concat(name, ' (slot manager)'));
+    slotManager = SlotManager(this, environment().intrinsicsLibrary.coreStringType, environment().intrinsicsLibrary.coreGarbageCollectableType, environment().intrinsicsLibrary.coreSentinelType, concat(name, ' (slot manager)'));
     slotManager.pin(stackPointer);
     slotManager.pin(stackFramePointer);
     AssemblerBlock subblock = block.createBlock();
@@ -1376,7 +1377,7 @@ class CompiledSubroutine extends CompiledStackFrameScope {
     returnValuePointer = ReturnValuePointerSlot(environment().intrinsicsLibrary.coreIntegerType, concat('pointer to return value of ', name));
     returnValueTypePointer = ReturnValueTypePointerSlot(environment().intrinsicsLibrary.coreIntegerType, concat('pointer to return value type of ', name));
     parameterCount = registerDynamicValue(environment().intrinsicsLibrary.coreIntegerType, rcNever, concat('parameter count of ', name));
-    parameterCount.willInitialize();
+    parameterCount.willInitializeToRegister(this);
     nameConstant = environment().registerStringConstant(concat(label, '$annotation'), name, __LINE__, __COL__, __FILE__);
     references.add(nameConstant);
     super.prepareSlots();
@@ -1936,7 +1937,7 @@ class DecrefCompiledInternalProcedure extends CompiledInternalProcedure {
   Null prepareSlots() {
     // We don't want our parameter to be automatically reference counted since we are going to manually decrement its reference count.
     value = registerDynamicValue(environment().intrinsicsLibrary.coreAnythingType, rcNever, 'value');
-    value.willInitialize();
+    value.willInitializeToRegister(this);
     super.prepareSlots();
   }
 

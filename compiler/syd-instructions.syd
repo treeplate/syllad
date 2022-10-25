@@ -107,7 +107,8 @@ class StoreCmpInstruction extends Instruction {
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    BooleanNullable hardcodedResult = compareOperands(a.value(), flag, b.value());
+    // TODO: bit dubious to be reading the value directly rather than via slot manager's read()
+    BooleanNullable hardcodedResult = compareOperands(a.value(manager.getScope()), flag, b.value(manager.getScope()));
     if (hardcodedResult == null) {
       Mop aOperand;
       if (a == b) {
@@ -192,9 +193,9 @@ class ConditionalJumpInstruction extends Instruction {
     if (b == null) {
       bValue = ImmediateIntegerOperand(0x00);
     } else {
-      bValue = b!.value();
+      bValue = b!.value(manager.getScope());
     }
-    BooleanNullable hardcodedResult = compareOperands(a.value(), check, bValue);
+    BooleanNullable hardcodedResult = compareOperands(a.value(manager.getScope()), check, bValue);
     if (hardcodedResult == null) {
       Mop aOperand = manager.read(a, register | memory, concat('reading first operand of cmp (', a.debugName, ') for a conditional jump'));
       if (b == null) {
@@ -282,7 +283,7 @@ class ConditionalDynamicTypeJumpInstruction extends Instruction {
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    BooleanNullable hardcodedResult = compareOperands(a.dynamicType(), check, b.asOperand());
+    BooleanNullable hardcodedResult = compareOperands(a.dynamicType(manager.getScope()), check, b.asOperand());
     if (hardcodedResult == null) {
       Mop aOperand = manager.readType(a, register | memory, concat('reading first operand of cmp (', a.debugName, ') for a conditional jump'));
       ImmediateOperand bOperand = b.asOperand();
@@ -834,8 +835,8 @@ class SignedMultiplyInstruction extends Instruction {
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     MopList operands = []:Mop;
-    IntegerNullable lhsValue = lhs.value().toInteger();
-    IntegerNullable rhsValue = rhs.value().toInteger();
+    IntegerNullable lhsValue = lhs.value(manager.getScope()).toInteger();
+    IntegerNullable rhsValue = rhs.value(manager.getScope()).toInteger();
     if (lhsValue != null && rhsValue != null) {
       manager.read(lhs, anywhere, 'record as read').release();
       if (lhs != rhs) {
@@ -1082,8 +1083,8 @@ class AddInstruction extends Instruction {
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    IntegerNullable lhsValue = lhs.value().toInteger();
-    IntegerNullable rhsValue = rhs.value().toInteger();
+    IntegerNullable lhsValue = lhs.value(manager.getScope()).toInteger();
+    IntegerNullable rhsValue = rhs.value(manager.getScope()).toInteger();
     if (lhsValue != null && rhsValue != null) {
       manager.read(lhs, anywhere, 'record as read').release();
       if (lhs != rhs) {
@@ -1765,7 +1766,7 @@ class PinSlotValueInstruction extends Instruction {
   DynamicSlot target;
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    target.pinValue();
+    target.pinValue(manager.getScope());
   }
 
   Null constructor(DynamicSlot targetArg) {
@@ -1778,8 +1779,8 @@ class UnpinSlotValueInstruction extends Instruction {
   DynamicSlot target;
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    if (target.stillAlive() || target.valuePinned) {
-      target.unpinValue();
+    if (target.stillAlive(manager.getScope()) || target.valuePinned(manager.getScope())) {
+      target.unpinValue(manager.getScope());
     }
   }
 
@@ -1793,7 +1794,7 @@ class PinSlotTypeInstruction extends Instruction {
   DynamicSlot target;
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    target.pinType();
+    target.pinType(manager.getScope());
   }
 
   Null constructor(DynamicSlot targetArg) {
@@ -1806,8 +1807,8 @@ class UnpinSlotTypeInstruction extends Instruction {
   DynamicSlot target;
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    if (target.stillAlive() || target.typePinned) {
-      target.unpinType();
+    if (target.stillAlive(manager.getScope()) || target.typePinned(manager.getScope())) {
+      target.unpinType(manager.getScope());
     }    
   }
 
@@ -1825,6 +1826,19 @@ class PinRegisterSlotInstruction extends Instruction {
   }
 
   Null constructor(RegisterSlot slotArg) {
+    super.constructor();
+    slot = slotArg;
+  }
+}
+
+class TrackSlotInstruction extends Instruction {
+  DynamicSlot slot;
+
+  Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
+    manager.trackSlot(slot);
+  }
+
+  Null constructor(DynamicSlot slotArg) {
     super.constructor();
     slot = slotArg;
   }

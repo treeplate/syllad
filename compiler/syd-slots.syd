@@ -9,6 +9,7 @@ class SlotContext extends Object {
     abstract();
   }
 
+  // returns the root SlotContext (same as walking getParent up to the root of the tree)
   SlotContext slotScope() {
     abstract();
   }
@@ -30,15 +31,16 @@ class Slot extends Object {
 
   Null didWrite(SlotContext scope) { }
 
+  // if false, it is not valid to call willWrite/didWrite on it
   Boolean isMutable() {
     abstract();
   }
 
-  Operand value() {
+  Operand value(SlotContext scope) {
     abstract();
   }
 
-  Operand dynamicType() {
+  Operand dynamicType(SlotContext scope) {
     return staticType.asOperand();
   }
 
@@ -64,11 +66,11 @@ class ParameterSlot extends Slot {
     return false;
   }
 
-  Operand value() {
+  Operand value(SlotContext scope) {
     return AddressComputationOperand(rbp, null, 1, offset, 'qword');
   }
 
-  Operand dynamicType() {
+  Operand dynamicType(SlotContext scope) {
     return AddressComputationOperand(rbp, null, 1, offset - 0x08, 'qword');
   }
 
@@ -86,7 +88,7 @@ class ReturnValuePointerSlot extends Slot {
     return false;
   }
 
-  Operand value() {
+  Operand value(SlotContext scope) {
     return AddressComputationOperand(rbp, null, 1, 0x20 /* shadow space */ + 0x08 /* return address */ + 0x08 /* return value type pointer */, 'qword');
   }
 }
@@ -96,7 +98,7 @@ class ReturnValueTypePointerSlot extends Slot {
     return false;
   }
   
-  Operand value() {
+  Operand value(SlotContext scope) {
     return AddressComputationOperand(rbp, null, 1, 0x20 /* shadow space */ + 0x08 /* return address */, 'qword');
   }
 }
@@ -108,7 +110,7 @@ class OperandSlot extends Slot {
     return true;
   }
 
-  Operand value() {
+  Operand value(SlotContext scope) {
     return operand;
   }
 
@@ -138,7 +140,7 @@ class RegisterSlot extends OperandSlot {
 class RegistersSlot extends RegisterSlot {
   Register64Operand dynamicTypeOperand;
 
-  Operand dynamicType() {
+  Operand dynamicType(SlotContext scope) {
     return dynamicTypeOperand;
   }
 
@@ -156,9 +158,9 @@ class SimpleMemorySlot extends Slot {
     return true;
   }
 
-  Operand value() {
-    assert(pointerSlot.value() is Register64Operand, concat('SimpleMemorySlot expects a pointer that becomes an Register64Operand, operand is ', pointerSlot.value()));
-    return (pointerSlot.value() as Register64Operand).dereference();
+  Operand value(SlotContext scope) {
+    assert(pointerSlot.value(scope) is Register64Operand, concat('SimpleMemorySlot expects a pointer that becomes an Register64Operand, operand is ', pointerSlot.value(scope)));
+    return (pointerSlot.value(scope) as Register64Operand).dereference();
   }
 
   Null constructor(Type typeArg, Slot pointerSlotArg, String debugNameArg) {
@@ -175,7 +177,7 @@ class VarArgsParameterSlot extends Slot {
     return false;
   }
 
-  Operand value() {
+  Operand value(SlotContext scope) {
     throw('dereferencing a varargs parameter is not implemented');
   }
 
@@ -211,7 +213,7 @@ class CompileTimeIntegerSlot extends ImmediateSlot {
     abstract();
   }
 
-  Operand value() {
+  Operand value(SlotContext scope) {
     return ImmediateIntegerOperand(numericValue());
   }
 }
@@ -242,7 +244,7 @@ class ImmediateDataLabelSlot extends CompileTimeLabelSlot {
     return label;
   }
 
-  Operand value() {
+  Operand value(SlotContext scope) {
     return DataAddressOperand(labelValue());
   }
 

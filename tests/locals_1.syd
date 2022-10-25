@@ -1,0 +1,9 @@
+// expected output: 1
+
+if (true) {
+  Integer x;
+  if (true) {
+    x = 1;
+  }
+  println(x);
+}
