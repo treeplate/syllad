@@ -202,8 +202,8 @@ class Assembler extends Object {
     append(externs, concat('extern ', procname, ' : proc'));
   }
 
-  Null addConst(String label, StringList lines, StringNullableList comments) {
-    assert(len(lines) > 0, 'addConst got no data');
+  Null _addRawBytes(StringList target, String label, StringList lines, StringNullableList comments) {
+    assert(len(lines) > 0, '_addRawBytes got no data');
     Integer index = 0;
     String prefix = label;
     while (index < len(lines)) {
@@ -212,10 +212,20 @@ class Assembler extends Object {
       if (comment != null) {
         line = concat(padRight(line, lineLength, ' '), ' ; ', comment);
       }
-      append(const, line);
+      append(target, line);
       index += 1;
       prefix = '';
     }
+  }
+
+  Null addConst(String label, StringList lines, StringNullableList comments) {
+    assert(len(lines) > 0, 'addConst got no data');
+    _addRawBytes(const, label, lines, comments);
+  }
+
+  Null addData(String label, StringList lines, StringNullableList comments) {
+    assert(len(lines) > 0, 'addData got no data');
+    _addRawBytes(data, label, lines, comments);
   }
 
   Null addBss(String label, Integer bytes, String comment) {

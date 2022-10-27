@@ -156,14 +156,14 @@ class ListLiteralExpression extends Expression {
     createOrFindIteratorType(environment, evaluatedElementType).markConstructed();
     Slot listContructor = scope.lookupIntrinsic(environment.listConstructorIntrinsicName);
     assert(initialLength > 0, 'List must not be constructed with zero elements.');
-    Slot subroutineResult = scope.emitSubroutineCall(listContructor, [ TypeCodeSlot(environment, type), environment.integer(initialLength) ]:Slot);
+    Slot subroutineResult = scope.emitSubroutineCall(listContructor, [ TypeCodeSlot(environment, type), environment.integer(initialLength) ]:Slot, null);
     Slot list = scope.registerDynamicValue(type, rcNever, 'list literal');
     // TODO: avoid the redundant code below (which is just here to make the static type right)
     scope.emitInstruction(MoveInstruction(list, subroutineResult, 'copy list literal\'s value over to slot with better static type'));
     scope.emitInstruction(MoveTypeToTypeInstruction(list, subroutineResult, scope.environment(), 'copy list literal\'s dynamic type over to slot with better static type'));
     Slot appendIntrinsic = scope.lookupIntrinsic(environment.appendIntrinsicName);
     for (element in elements) {
-      scope.emitSubroutineCall(appendIntrinsic, [ list, element ]:Slot);
+      scope.emitSubroutineCall(appendIntrinsic, [ list, element ]:Slot, null);
     }
     return list;
   }
@@ -401,10 +401,13 @@ class SubroutineCallExpression extends Expression {
   }
 
   Slot generateInstructions(CompiledScope scope) {
+    CompilationEnvironment environment = scope.environment();
     Slot subroutine = subroutineReference.generateInstructions(scope);
     SlotList argumentValues = []:Slot;
-    if (subroutine.staticType.isSubtypeOf(scope.environment().subroutineType)) {
+    SourceLocationList sourceLocations = []:SourceLocation;
+    if (subroutine.staticType.isSubtypeOf(environment.subroutineType)) {
       for (argument in arguments) {
+        append(sourceLocations, argument.sourceLocation);
         append(argumentValues, argument.generateInstructions(scope));
       }
     } else {
@@ -412,12 +415,12 @@ class SubroutineCallExpression extends Expression {
     }
     scope.emitTypeCheck(
       subroutine,
-      scope.environment().subroutineType,
-      scope.environment().intrinsicsLibrary.subroutineCallTypeCheckFailureMessage as Slot,
+      environment.subroutineType,
+      environment.intrinsicsLibrary.subroutineCallTypeCheckFailureMessage as Slot,
       subroutine.debugName,
       true,
     );
-    return scope.emitSubroutineCall(subroutine, argumentValues);
+    return scope.emitSubroutineCall(subroutine, argumentValues, sourceLocations);
   }
 
   Null constructor(Expression subroutineReferenceArg, ExpressionList argumentsArg, SourceLocation sourceLocationArg) {
@@ -1917,6 +1920,7 @@ class ForStatement extends Statement {
     Slot iteratorSlot = scope.emitSubroutineCall(
       scope.lookupIntrinsic(environment.iteratorIntrinsicName),
       [ iterableSlot ]:Slot,
+      null,
     );
     CompiledLoopScope loopScope = CompiledLoopScope(scope, 'for');
     String loopBodyLabel = environment.generateLabel(concat(scope.labelPrefix(), '$', loopScope.name, '$body'));
@@ -1924,6 +1928,7 @@ class ForStatement extends Statement {
       loopScope.emitSubroutineCall(
         loopScope.lookupIntrinsic(environment.nextIntrinsicName),
         [ iteratorSlot ]:Slot,
+        null,
       ),
       environment.intrinsicsLibrary.coreFalse,
       loopBodyLabel,
@@ -1941,6 +1946,7 @@ class ForStatement extends Statement {
     Slot currentValue = loopScope.emitSubroutineCall(
       loopScope.lookupIntrinsic(environment.currentIntrinsicName),
       [ iteratorSlot ]:Slot,
+      null,
     );
     loopScope.emitInstruction(MoveInstruction(variableSlot, currentValue, concat('value initialization of for loop variable ', variable)));
     loopScope.emitInstruction(MoveTypeToTypeInstruction(variableSlot, currentValue, environment, concat('type initialization of for loop variable ', variable)));
@@ -1979,6 +1985,6 @@ class Program extends Library {
     Slot exitCode = scope.environment().integer(0);
     Slot exit = scope.environment().intrinsicsLibrary.coreExit;
     scope.references.add(exit);
-    scope.emitSubroutineCall(exit, [exitCode]);
+    scope.emitSubroutineCall(exit, [exitCode], null);
   }
 }

@@ -385,6 +385,27 @@ Whatever single(WhateverIterable iterable) {
 }
 
 
+// FUNCTION POINTERS, METHOD POINTERS, CLOSURES
+
+// Code pointers are blocks with the following values:
+//  1: pointer to object or closure; null for global scope function pointers
+//  2: pointer to code (with annotation at -8 bytes) as an Integer
+
+WhateverFunction _createMethodPointer(Anything receiver, Integer codePointer, Integer functionTypeCode) __intrinsic {
+  _gcLocked += 1;
+  WhateverFunction result = _constructor(functionTypeCode, 2, 2) as WhateverFunction;
+  __writeToAddress(result __as__ Integer + _gcBlockData + 0, __typeOf receiver);
+  __writeToAddress(result __as__ Integer + _gcBlockData + 8, receiver __as__ Integer);
+  __writeToAddress(result __as__ Integer + _gcBlockData + 16, __typeToCode Integer);
+  __writeToAddress(result __as__ Integer + _gcBlockData + 24, codePointer);
+  _gcLocked -= 1;
+  return result;
+}
+
+
+
+
+
 // STRINGS AND PRINTING
 
 Integer _stringByteLength(String data) {

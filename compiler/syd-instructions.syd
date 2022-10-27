@@ -606,6 +606,7 @@ class PushTypeInstruction extends Instruction {
 // Call a function using the syd calling convention.
 // Arguments should be already positioned, including
 // the pointer for the return value and type.
+// Target should be the code address.
 class CallInstruction extends Instruction {
   Slot target;
   String comment;
@@ -626,6 +627,38 @@ class CallInstruction extends Instruction {
   Null constructor(Slot targetArg, String commentArg) {
     super.constructor();
     target = targetArg;
+    comment = commentArg;
+  }
+}
+
+// Call a function using the syd calling convention.
+// Arguments should be already positioned, including
+// the pointer for the return value and type.
+// The target should be a pointer to the code address,
+// rather than the code address itself.
+class CallDerefInstruction extends Instruction {
+  Slot target;
+  Integer offset;
+  String comment;
+
+  Null prepare(SlotContext scope) {
+    target.willRead(scope);
+  }
+
+  Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
+    manager.save(volatileRegister);
+    // TODO: tell manager to restore global variables
+    Mop targetOperand = manager.read(target, nonvolatileRegister, concat('reading ', target.debugName, ' to dereference it'));
+    AddressComputationOperand codeOperand = AddressComputationOperand(targetOperand.operand as Register64Operand, null, 1, offset, 'qword');
+    block.addCode('call', [codeOperand], comment);
+    targetOperand.release();
+    manager.releaseOperands(volatileRegister);
+  }
+
+  Null constructor(Slot targetArg, Integer offsetArg, String commentArg) {
+    super.constructor();
+    target = targetArg;
+    offset = offsetArg;
     comment = commentArg;
   }
 }

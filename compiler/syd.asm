@@ -16,50 +16,51 @@ extern HeapAlloc : proc
 extern HeapFree : proc
 
 .const
-  typeTable    db 000h, 000h, 080h, 004h, 080h, 004h, 080h, 004h ; Type table
-               db 080h, 004h, 080h, 004h, 080h, 004h, 080h, 004h ; ...
-               db 080h, 004h, 080h, 004h, 080h, 004h, 080h, 004h ; ...
-               db 080h, 004h, 080h, 004h, 080h, 004h, 080h, 004h ; ...
-               db 080h, 004h, 080h, 004h, 080h, 003h, 080h, 004h ; ...
-               db 080h, 004h, 080h, 004h, 080h, 004h, 080h, 021h ; ...
-               db 080h, 004h, 080h, 003h, 080h, 021h, 081h, 000h ; ...
-               db 082h, 000h, 084h, 000h, 088h, 000h, 090h, 001h ; ...
-               db 0a0h, 01bh, 0c0h, 01bh, 000h, 000h, 000h, 000h ; ...
-   ; Columns: Null'27 Boolean'28 Integer'29 String'30 __ListData'31 StringList'32 IntegerList'33 Anything'34 GarbageCollectable'35 WhateverReadOnlyList'36 AnythingFunction'37 WhateverIterable'38 WhateverList'39 WhateverIterator'40
-   ; 0 0 0 0 0 0 0 0 : 0 0 0 0 0 0   <sentinel>'0
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   NullFunction(String)'1
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   NullFunction(Integer)'2
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   IntegerFunction(WhateverReadOnlyList)'3
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   NullFunction()'4
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   IntegerFunction(Integer)'5
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   NullFunction(Integer, Integer)'6
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   NullFunction(Anything)'7
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   NullFunction(Boolean, String)'8
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   IntegerFunction()'9
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   IntegerFunction(Integer, Integer, Integer)'10
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   NullFunction(Integer, Integer, Integer)'11
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   GarbageCollectableFunction(Integer, Integer, Integer)'12
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   WhateverListFunction(Integer, Integer)'13
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   NullFunction(WhateverList)'14
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   NullFunction(WhateverList, Anything)'15
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   IntegerFunction(String)'16
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   StringFunction(String...)'17
-   ; 0 0 0 0 0 0 0 1 : 1 1 0 0 0 0   StringReadOnlyList'18
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   StringFunction(Integer)'19
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   StringFunction(StringList, String, Integer)'20
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   StringFunction(StringList, String)'21
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   StringFunction(Anything)'22
-   ; 0 0 0 0 0 0 0 1 : 1 0 0 0 0 1   StringIterator'23
-   ; 0 0 0 0 0 0 0 1 : 0 0 1 0 0 0   NullFunction(Anything...)'24
-   ; 0 0 0 0 0 0 0 1 : 1 1 0 0 0 0   AnythingReadOnlyList'25
-   ; 0 0 0 0 0 0 0 1 : 1 0 0 0 0 1   IntegerIterator'26
-   ; 1 0 0 0 0 0 0 1 : 0 0 0 0 0 0   Null'27
-   ; 0 1 0 0 0 0 0 1 : 0 0 0 0 0 0   Boolean'28
-   ; 0 0 1 0 0 0 0 1 : 0 0 0 0 0 0   Integer'29
-   ; 0 0 0 1 0 0 0 1 : 0 0 0 0 0 0   String'30
-   ; 0 0 0 0 1 0 0 1 : 1 0 0 0 0 0   __ListData'31
-   ; 0 0 0 0 0 1 0 1 : 1 1 0 1 1 0   StringList'32
-   ; 0 0 0 0 0 0 1 1 : 1 1 0 1 1 0   IntegerList'33
+  typeTable    db 000h, 000h, 000h, 000h, 080h, 045h, 080h, 045h ; Type table
+               db 080h, 045h, 080h, 045h, 080h, 045h, 080h, 045h ; ...
+               db 080h, 045h, 080h, 045h, 080h, 045h, 080h, 045h ; ...
+               db 080h, 045h, 080h, 045h, 080h, 045h, 080h, 045h ; ...
+               db 080h, 045h, 080h, 045h, 080h, 045h, 080h, 003h ; ...
+               db 080h, 045h, 080h, 045h, 080h, 045h, 080h, 045h ; ...
+               db 080h, 021h, 080h, 045h, 080h, 003h, 080h, 021h ; ...
+               db 081h, 000h, 082h, 000h, 084h, 000h, 088h, 000h ; ...
+               db 090h, 001h, 0a0h, 01bh, 0c0h, 01bh, 000h, 000h ; ...
+   ; Columns: Null'28 Boolean'29 Integer'30 String'31 __ListData'32 StringList'33 IntegerList'34 Anything'35 GarbageCollectable'36 WhateverReadOnlyList'37 AnythingFunction'38 WhateverIterable'39 WhateverList'40 WhateverIterator'41 WhateverFunction'42
+   ; 0 0 0 0 0 0 0 0 : 0 0 0 0 0 0 0   <sentinel>'0
+   ; 0 0 0 0 0 0 0 0 : 0 0 0 0 0 0 0   <subroutine code address>'1
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   NullFunction(String)'2
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   NullFunction(Integer)'3
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   IntegerFunction(WhateverReadOnlyList)'4
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   NullFunction()'5
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   IntegerFunction(Integer)'6
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   NullFunction(Integer, Integer)'7
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   NullFunction(Anything)'8
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   NullFunction(Boolean, String)'9
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   IntegerFunction()'10
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   IntegerFunction(Integer, Integer, Integer)'11
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   NullFunction(Integer, Integer, Integer)'12
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   GarbageCollectableFunction(Integer, Integer, Integer)'13
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   WhateverListFunction(Integer, Integer)'14
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   NullFunction(WhateverList)'15
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   NullFunction(WhateverList, Anything)'16
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   IntegerFunction(String)'17
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   StringFunction(String...)'18
+   ; 0 0 0 0 0 0 0 1 : 1 1 0 0 0 0 0   StringReadOnlyList'19
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   StringFunction(Integer)'20
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   StringFunction(StringList, String, Integer)'21
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   StringFunction(StringList, String)'22
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   StringFunction(Anything)'23
+   ; 0 0 0 0 0 0 0 1 : 1 0 0 0 0 1 0   StringIterator'24
+   ; 0 0 0 0 0 0 0 1 : 1 0 1 0 0 0 1   NullFunction(Anything...)'25
+   ; 0 0 0 0 0 0 0 1 : 1 1 0 0 0 0 0   AnythingReadOnlyList'26
+   ; 0 0 0 0 0 0 0 1 : 1 0 0 0 0 1 0   IntegerIterator'27
+   ; 1 0 0 0 0 0 0 1 : 0 0 0 0 0 0 0   Null'28
+   ; 0 1 0 0 0 0 0 1 : 0 0 0 0 0 0 0   Boolean'29
+   ; 0 0 1 0 0 0 0 1 : 0 0 0 0 0 0 0   Integer'30
+   ; 0 0 0 1 0 0 0 1 : 0 0 0 0 0 0 0   String'31
+   ; 0 0 0 0 1 0 0 1 : 1 0 0 0 0 0 0   __ListData'32
+   ; 0 0 0 0 0 1 0 1 : 1 1 0 1 1 0 0   StringList'33
+   ; 0 0 0 0 0 0 1 1 : 1 1 0 1 1 0 0   IntegerList'34
 
   iteratorTypeTable dd 0ffffffffh, 0ffffffffh, 0ffffffffh, 0ffffffffh ; Table mapping iterable types to iterator types
                dd 0ffffffffh, 0ffffffffh, 0ffffffffh, 0ffffffffh
@@ -69,7 +70,7 @@ extern HeapFree : proc
                dd 0ffffffffh, 0ffffffffh, 0ffffffffh, 0ffffffffh
                dd 0ffffffffh, 0ffffffffh, 0ffffffffh, 0ffffffffh
                dd 0ffffffffh, 0ffffffffh, 0ffffffffh, 0ffffffffh
-               dd 000000017h, 00000001ah
+               dd 0ffffffffh, 000000018h, 00000001bh
   listTypeTable dd 0ffffffffh, 0ffffffffh, 0ffffffffh, 0ffffffffh ; Table mapping iterable types to list types
                dd 0ffffffffh, 0ffffffffh, 0ffffffffh, 0ffffffffh
                dd 0ffffffffh, 0ffffffffh, 0ffffffffh, 0ffffffffh
@@ -78,98 +79,98 @@ extern HeapFree : proc
                dd 0ffffffffh, 0ffffffffh, 0ffffffffh, 0ffffffffh
                dd 0ffffffffh, 0ffffffffh, 0ffffffffh, 0ffffffffh
                dd 0ffffffffh, 0ffffffffh, 0ffffffffh, 0ffffffffh
-               dd 000000020h, 000000021h
+               dd 0ffffffffh, 000000021h, 000000022h
   func$__print$annotation dq -01h                                ; String constant (reference count)
                dq 7                                              ; Length
-               db "__print"                                      ; line 1381 column 111 in file syd-compiler.syd
+               db "__print"                                      ; line 1441 column 111 in file syd-compiler.syd
                db 00h                                            ; padding to align to 8-byte boundary
   func$exit$annotation dq -01h                                   ; String constant (reference count)
                dq 4                                              ; Length
-               db "exit"                                         ; line 1381 column 111 in file syd-compiler.syd
+               db "exit"                                         ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   func$len$annotation dq -01h                                    ; String constant (reference count)
                dq 3                                              ; Length
-               db "len"                                          ; line 1381 column 111 in file syd-compiler.syd
+               db "len"                                          ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   func$__debugger$annotation dq -01h                             ; String constant (reference count)
                dq 10                                             ; Length
-               db "__debugger"                                   ; line 1381 column 111 in file syd-compiler.syd
+               db "__debugger"                                   ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   func$__readFromAddress$annotation dq -01h                      ; String constant (reference count)
                dq 17                                             ; Length
-               db "__readFromAddress"                            ; line 1381 column 111 in file syd-compiler.syd
+               db "__readFromAddress"                            ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   func$__writeToAddress$annotation dq -01h                       ; String constant (reference count)
                dq 16                                             ; Length
-               db "__writeToAddress"                             ; line 1381 column 111 in file syd-compiler.syd
+               db "__writeToAddress"                             ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   func$__incref$annotation dq -01h                               ; String constant (reference count)
                dq 8                                              ; Length
-               db "__incref"                                     ; line 1381 column 111 in file syd-compiler.syd
+               db "__incref"                                     ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   parameterCountCheckFailureMessage dq -01h                      ; String constant (reference count)
                dq 88                                             ; Length
-               db "error: function call received the wrong number of parameters (expected %d, received %d)", 0ah ; line 2136 column 25 in file syd-compiler.syd
+               db "error: function call received the wrong number of parameters (expected %d, received %d)", 0ah ; line 2198 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   parameterTypeCheckFailureMessage dq -01h                       ; String constant (reference count)
                dq 71                                             ; Length
-               db "error: type mismatch for function %s parameter %d, expected %s, got %s", 0ah ; line 2141 column 25 in file syd-compiler.syd
+               db "error: type mismatch for function %s parameter %d, expected %s, got %s", 0ah ; line 2203 column 25 in file syd-compiler.syd
                db 00h                                            ; padding to align to 8-byte boundary
   returnValueTypeCheckFailureMessage dq -01h                     ; String constant (reference count)
                dq 68                                             ; Length
-               db "error: type mismatch for function return value, expected %s, got %s", 0ah ; line 2146 column 25 in file syd-compiler.syd
+               db "error: type mismatch for function return value, expected %s, got %s", 0ah ; line 2208 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   operandTypeCheckFailureMessage dq -01h                         ; String constant (reference count)
                dq 54                                             ; Length
-               db "error: type mismatch for operand, expected %s, got %s", 0ah ; line 2151 column 25 in file syd-compiler.syd
+               db "error: type mismatch for operand, expected %s, got %s", 0ah ; line 2213 column 25 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   assignmentTypeCheckFailureMessage dq -01h                      ; String constant (reference count)
                dq 57                                             ; Length
-               db "error: type mismatch for assignment, expected %s, got %s", 0ah ; line 2156 column 25 in file syd-compiler.syd
+               db "error: type mismatch for assignment, expected %s, got %s", 0ah ; line 2218 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   subscriptTypeCheckFailureMessage dq -01h                       ; String constant (reference count)
                dq 42                                             ; Length
-               db "error: subscript index must be %s, got %s", 0ah ; line 2161 column 25 in file syd-compiler.syd
+               db "error: subscript index must be %s, got %s", 0ah ; line 2223 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   forLoopIterableTypeCheckFailureMessage dq -01h                 ; String constant (reference count)
                dq 44                                             ; Length
-               db "error: for loop iterable must be %s, got %s", 0ah ; line 2166 column 25 in file syd-compiler.syd
+               db "error: for loop iterable must be %s, got %s", 0ah ; line 2228 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   subroutineCallTypeCheckFailureMessage dq -01h                  ; String constant (reference count)
                dq 53                                             ; Length
-               db "error: function calls expect target to be %s, got %s", 0ah ; line 2171 column 25 in file syd-compiler.syd
+               db "error: function calls expect target to be %s, got %s", 0ah ; line 2233 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
   asOperatorFailureMessage dq -01h                               ; String constant (reference count)
                dq 58                                             ; Length
-               db "error: type mismatch for as operator, expected %s, got %s", 0ah ; line 2176 column 25 in file syd-compiler.syd
+               db "error: type mismatch for as operator, expected %s, got %s", 0ah ; line 2238 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   boundsFailureMessage dq -01h                                   ; String constant (reference count)
                dq 64                                             ; Length
-               db "error: subscript index out of range (%d is not in range %d..%d)", 0ah ; line 2181 column 25 in file syd-compiler.syd
+               db "error: subscript index out of range (%d is not in range %d..%d)", 0ah ; line 2243 column 25 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   func$assert$annotation dq -01h                                 ; String constant (reference count)
                dq 6                                              ; Length
-               db "assert"                                       ; line 1381 column 111 in file syd-compiler.syd
+               db "assert"                                       ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   func$throw$annotation dq -01h                                  ; String constant (reference count)
                dq 5                                              ; Length
-               db "throw"                                        ; line 1381 column 111 in file syd-compiler.syd
+               db "throw"                                        ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
   func$__getLastError$annotation dq -01h                         ; String constant (reference count)
                dq 14                                             ; Length
-               db "__getLastError"                               ; line 1381 column 111 in file syd-compiler.syd
+               db "__getLastError"                               ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   func$__getProcessHeap$annotation dq -01h                       ; String constant (reference count)
                dq 16                                             ; Length
-               db "__getProcessHeap"                             ; line 1381 column 111 in file syd-compiler.syd
+               db "__getProcessHeap"                             ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   func$__heapAlloc$annotation dq -01h                            ; String constant (reference count)
                dq 11                                             ; Length
-               db "__heapAlloc"                                  ; line 1381 column 111 in file syd-compiler.syd
+               db "__heapAlloc"                                  ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   func$_alloc$annotation dq -01h                                 ; String constant (reference count)
                dq 6                                              ; Length
-               db "_alloc"                                       ; line 1381 column 111 in file syd-compiler.syd
+               db "_alloc"                                       ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   string       dq -01h                                           ; String constant (reference count)
                dq 14                                             ; Length
@@ -177,11 +178,11 @@ extern HeapFree : proc
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   func$__heapFree$annotation dq -01h                             ; String constant (reference count)
                dq 10                                             ; Length
-               db "__heapFree"                                   ; line 1381 column 111 in file syd-compiler.syd
+               db "__heapFree"                                   ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   func$_free$annotation dq -01h                                  ; String constant (reference count)
                dq 5                                              ; Length
-               db "_free"                                        ; line 1381 column 111 in file syd-compiler.syd
+               db "_free"                                        ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
   string$1     dq -01h                                           ; String constant (reference count)
                dq 36                                             ; Length
@@ -189,7 +190,7 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   func$_moveBytes$annotation dq -01h                             ; String constant (reference count)
                dq 10                                             ; Length
-               db "_moveBytes"                                   ; line 1381 column 111 in file syd-compiler.syd
+               db "_moveBytes"                                   ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   string$2     dq -01h                                           ; String constant (reference count)
                dq 51                                             ; Length
@@ -205,7 +206,7 @@ extern HeapFree : proc
                db 00h                                            ; padding to align to 8-byte boundary
   func$_fillQuadWords$annotation dq -01h                         ; String constant (reference count)
                dq 14                                             ; Length
-               db "_fillQuadWords"                               ; line 1381 column 111 in file syd-compiler.syd
+               db "_fillQuadWords"                               ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   string$5     dq -01h                                           ; String constant (reference count)
                dq 55                                             ; Length
@@ -217,11 +218,11 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   func$_blockListInit$annotation dq -01h                         ; String constant (reference count)
                dq 14                                             ; Length
-               db "_blockListInit"                               ; line 1381 column 111 in file syd-compiler.syd
+               db "_blockListInit"                               ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   func$_growBlockList$annotation dq -01h                         ; String constant (reference count)
                dq 14                                             ; Length
-               db "_growBlockList"                               ; line 1381 column 111 in file syd-compiler.syd
+               db "_growBlockList"                               ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   string$7     dq -01h                                           ; String constant (reference count)
                dq 43                                             ; Length
@@ -229,7 +230,7 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   func$_advanceToNextBlock$annotation dq -01h                    ; String constant (reference count)
                dq 19                                             ; Length
-               db "_advanceToNextBlock"                          ; line 1381 column 111 in file syd-compiler.syd
+               db "_advanceToNextBlock"                          ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   string$8     dq -01h                                           ; String constant (reference count)
                dq 48                                             ; Length
@@ -237,7 +238,7 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   func$_constructor$annotation dq -01h                           ; String constant (reference count)
                dq 12                                             ; Length
-               db "_constructor"                                 ; line 1381 column 111 in file syd-compiler.syd
+               db "_constructor"                                 ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   string$9     dq -01h                                           ; String constant (reference count)
                dq 41                                             ; Length
@@ -249,11 +250,11 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   func$_mark$annotation dq -01h                                  ; String constant (reference count)
                dq 5                                              ; Length
-               db "_mark"                                        ; line 1381 column 111 in file syd-compiler.syd
+               db "_mark"                                        ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
   func$_garbageCollectorImplementation$annotation dq -01h        ; String constant (reference count)
                dq 31                                             ; Length
-               db "_garbageCollectorImplementation"              ; line 1381 column 111 in file syd-compiler.syd
+               db "_garbageCollectorImplementation"              ; line 1441 column 111 in file syd-compiler.syd
                db 00h                                            ; padding to align to 8-byte boundary
   string$11    dq -01h                                           ; String constant (reference count)
                dq 26                                             ; Length
@@ -261,27 +262,27 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   func$_listConstructor$annotation dq -01h                       ; String constant (reference count)
                dq 16                                             ; Length
-               db "_listConstructor"                             ; line 1381 column 111 in file syd-compiler.syd
+               db "_listConstructor"                             ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   func$_growList$annotation dq -01h                              ; String constant (reference count)
                dq 9                                              ; Length
-               db "_growList"                                    ; line 1381 column 111 in file syd-compiler.syd
+               db "_growList"                                    ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   func$append$annotation dq -01h                                 ; String constant (reference count)
                dq 6                                              ; Length
-               db "append"                                       ; line 1381 column 111 in file syd-compiler.syd
+               db "append"                                       ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   func$current$annotation dq -01h                                ; String constant (reference count)
                dq 7                                              ; Length
-               db "current"                                      ; line 1381 column 111 in file syd-compiler.syd
+               db "current"                                      ; line 1441 column 111 in file syd-compiler.syd
                db 00h                                            ; padding to align to 8-byte boundary
   func$next$annotation dq -01h                                   ; String constant (reference count)
                dq 4                                              ; Length
-               db "next"                                         ; line 1381 column 111 in file syd-compiler.syd
+               db "next"                                         ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   func$iterator$annotation dq -01h                               ; String constant (reference count)
                dq 8                                              ; Length
-               db "iterator"                                     ; line 1381 column 111 in file syd-compiler.syd
+               db "iterator"                                     ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   string$12    dq -01h                                           ; String constant (reference count)
                dq 40                                             ; Length
@@ -289,297 +290,564 @@ extern HeapFree : proc
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   func$copy$annotation dq -01h                                   ; String constant (reference count)
                dq 4                                              ; Length
-               db "copy"                                         ; line 1381 column 111 in file syd-compiler.syd
+               db "copy"                                         ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   func$first$annotation dq -01h                                  ; String constant (reference count)
                dq 5                                              ; Length
-               db "first"                                        ; line 1381 column 111 in file syd-compiler.syd
+               db "first"                                        ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
   func$last$annotation dq -01h                                   ; String constant (reference count)
                dq 4                                              ; Length
-               db "last"                                         ; line 1381 column 111 in file syd-compiler.syd
+               db "last"                                         ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   func$single$annotation dq -01h                                 ; String constant (reference count)
                dq 6                                              ; Length
-               db "single"                                       ; line 1381 column 111 in file syd-compiler.syd
+               db "single"                                       ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   string$13    dq -01h                                           ; String constant (reference count)
                dq 57                                             ; Length
                db "single() called with Iterable with more than one element", 0ah ; line 381 column 72 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
+  func$_createMethodPointer$annotation dq -01h                   ; String constant (reference count)
+               dq 20                                             ; Length
+               db "_createMethodPointer"                         ; line 1441 column 111 in file syd-compiler.syd
+               db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   func$_stringByteLength$annotation dq -01h                      ; String constant (reference count)
                dq 17                                             ; Length
-               db "_stringByteLength"                            ; line 1381 column 111 in file syd-compiler.syd
+               db "_stringByteLength"                            ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   func$concat$annotation dq -01h                                 ; String constant (reference count)
                dq 6                                              ; Length
-               db "concat"                                       ; line 1381 column 111 in file syd-compiler.syd
+               db "concat"                                       ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   string$14    dq -01h                                           ; String constant (reference count)
                dq 24                                             ; Length
-               db "negative length detected"                     ; line 402 column 48 in file runtime library
+               db "negative length detected"                     ; line 423 column 48 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   string$15    dq -01h                                           ; String constant (reference count)
                dq 38                                             ; Length
-               db "absurd length detected (as exit code)", 0ah   ; line 404 column 53 in file runtime library
+               db "absurd length detected (as exit code)", 0ah   ; line 425 column 53 in file runtime library
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   func$digitToStr$annotation dq -01h                             ; String constant (reference count)
                dq 10                                             ; Length
-               db "digitToStr"                                   ; line 1381 column 111 in file syd-compiler.syd
+               db "digitToStr"                                   ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   string$16    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db "0"                                            ; line 427 column 14 in file runtime library
+               db "0"                                            ; line 448 column 14 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$17    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db "1"                                            ; line 430 column 14 in file runtime library
+               db "1"                                            ; line 451 column 14 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$18    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db "2"                                            ; line 433 column 14 in file runtime library
+               db "2"                                            ; line 454 column 14 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$19    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db "3"                                            ; line 436 column 14 in file runtime library
+               db "3"                                            ; line 457 column 14 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$20    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db "4"                                            ; line 439 column 14 in file runtime library
+               db "4"                                            ; line 460 column 14 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$21    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db "5"                                            ; line 442 column 14 in file runtime library
+               db "5"                                            ; line 463 column 14 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$22    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db "6"                                            ; line 445 column 14 in file runtime library
+               db "6"                                            ; line 466 column 14 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$23    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db "7"                                            ; line 448 column 14 in file runtime library
+               db "7"                                            ; line 469 column 14 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$24    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db "8"                                            ; line 451 column 14 in file runtime library
+               db "8"                                            ; line 472 column 14 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$25    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db "9"                                            ; line 454 column 14 in file runtime library
+               db "9"                                            ; line 475 column 14 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$26    dq -01h                                           ; String constant (reference count)
                dq 56                                             ; Length
-               db "Invalid digit passed to digitToStr (digit as exit code)", 0ah ; line 456 column 69 in file runtime library
+               db "Invalid digit passed to digitToStr (digit as exit code)", 0ah ; line 477 column 69 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   func$intToStr$annotation dq -01h                               ; String constant (reference count)
                dq 8                                              ; Length
-               db "intToStr"                                     ; line 1381 column 111 in file syd-compiler.syd
+               db "intToStr"                                     ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   string$27    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db "-"                                            ; line 465 column 21 in file runtime library
+               db "-"                                            ; line 486 column 21 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$28    dq -01h                                           ; String constant (reference count)
                dq 0                                              ; Length
   func$_joinOffset$annotation dq -01h                            ; String constant (reference count)
                dq 11                                             ; Length
-               db "_joinOffset"                                  ; line 1381 column 111 in file syd-compiler.syd
+               db "_joinOffset"                                  ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   func$join$annotation dq -01h                                   ; String constant (reference count)
                dq 4                                              ; Length
-               db "join"                                         ; line 1381 column 111 in file syd-compiler.syd
+               db "join"                                         ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   func$_stringify$annotation dq -01h                             ; String constant (reference count)
                dq 10                                             ; Length
-               db "_stringify"                                   ; line 1381 column 111 in file syd-compiler.syd
+               db "_stringify"                                   ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   string$29    dq -01h                                           ; String constant (reference count)
                dq 4                                              ; Length
-               db "true"                                         ; line 498 column 19 in file runtime library
+               db "true"                                         ; line 519 column 19 in file runtime library
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   string$30    dq -01h                                           ; String constant (reference count)
                dq 5                                              ; Length
-               db "false"                                        ; line 500 column 18 in file runtime library
+               db "false"                                        ; line 521 column 18 in file runtime library
                db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
   string$31    dq -01h                                           ; String constant (reference count)
                dq 4                                              ; Length
-               db "null"                                         ; line 503 column 17 in file runtime library
+               db "null"                                         ; line 524 column 17 in file runtime library
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   string$32    dq -01h                                           ; String constant (reference count)
                dq 11                                             ; Length
-               db "<function ("                                  ; line 511 column 31 in file runtime library
+               db "<function ("                                  ; line 532 column 31 in file runtime library
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   string$33    dq -01h                                           ; String constant (reference count)
                dq 2                                              ; Length
-               db ")>"                                           ; line 511 column 63 in file runtime library
+               db ")>"                                           ; line 532 column 63 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   string$34    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db "["                                            ; line 514 column 21 in file runtime library
+               db "["                                            ; line 535 column 21 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$35    dq -01h                                           ; String constant (reference count)
                dq 2                                              ; Length
-               db ", "                                           ; line 514 column 51 in file runtime library
+               db ", "                                           ; line 535 column 51 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   string$36    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db "]"                                            ; line 514 column 57 in file runtime library
+               db "]"                                            ; line 535 column 57 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$37    dq -01h                                           ; String constant (reference count)
                dq 12                                             ; Length
-               db "<__ListData>"                                 ; line 528 column 25 in file runtime library
+               db "<__ListData>"                                 ; line 549 column 25 in file runtime library
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   string$38    dq -01h                                           ; String constant (reference count)
                dq 28                                             ; Length
-               db "value cannot be stringified", 0ah             ; line 530 column 41 in file runtime library
+               db "value cannot be stringified", 0ah             ; line 551 column 41 in file runtime library
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   func$print$annotation dq -01h                                  ; String constant (reference count)
                dq 5                                              ; Length
-               db "print"                                        ; line 1381 column 111 in file syd-compiler.syd
+               db "print"                                        ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h                                  ; padding to align to 8-byte boundary
   string$39    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db " "                                            ; line 539 column 17 in file runtime library
+               db " "                                            ; line 560 column 17 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   func$_println$annotation dq -01h                               ; String constant (reference count)
                dq 8                                              ; Length
-               db "_println"                                     ; line 1381 column 111 in file syd-compiler.syd
+               db "_println"                                     ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   string$40    dq -01h                                           ; String constant (reference count)
                dq 1                                              ; Length
-               db 0ah                                            ; line 558 column 14 in file runtime library
+               db 0ah                                            ; line 579 column 14 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   func$chr$annotation dq -01h                                    ; String constant (reference count)
                dq 3                                              ; Length
-               db "chr"                                          ; line 1381 column 111 in file syd-compiler.syd
+               db "chr"                                          ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   string$41    dq -01h                                           ; String constant (reference count)
                dq 23                                             ; Length
-               db "chr is not implemented", 0ah                  ; line 567 column 36 in file runtime library
+               db "chr is not implemented", 0ah                  ; line 588 column 36 in file runtime library
                db 00h                                            ; padding to align to 8-byte boundary
   func$_joinListOffset$annotation dq -01h                        ; String constant (reference count)
                dq 15                                             ; Length
-               db "_joinListOffset"                              ; line 1381 column 111 in file syd-compiler.syd
+               db "_joinListOffset"                              ; line 1441 column 111 in file syd-compiler.syd
                db 00h                                            ; padding to align to 8-byte boundary
   func$joinList$annotation dq -01h                               ; String constant (reference count)
                dq 8                                              ; Length
-               db "joinList"                                     ; line 1381 column 111 in file syd-compiler.syd
+               db "joinList"                                     ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   func$stringTimes$annotation dq -01h                            ; String constant (reference count)
                dq 11                                             ; Length
-               db "stringTimes"                                  ; line 1381 column 111 in file syd-compiler.syd
+               db "stringTimes"                                  ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   string$42    dq -01h                                           ; String constant (reference count)
                dq 31                                             ; Length
-               db "stringTimes is not implemented", 0ah          ; line 588 column 44 in file runtime library
+               db "stringTimes is not implemented", 0ah          ; line 609 column 44 in file runtime library
                db 00h                                            ; padding to align to 8-byte boundary
   func$charsOf$annotation dq -01h                                ; String constant (reference count)
                dq 7                                              ; Length
-               db "charsOf"                                      ; line 1381 column 111 in file syd-compiler.syd
+               db "charsOf"                                      ; line 1441 column 111 in file syd-compiler.syd
                db 00h                                            ; padding to align to 8-byte boundary
   string$43    dq -01h                                           ; String constant (reference count)
                dq 27                                             ; Length
-               db "charsOf is not implemented", 0ah              ; line 594 column 40 in file runtime library
+               db "charsOf is not implemented", 0ah              ; line 615 column 40 in file runtime library
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   func$scalarValues$annotation dq -01h                           ; String constant (reference count)
                dq 12                                             ; Length
-               db "scalarValues"                                 ; line 1381 column 111 in file syd-compiler.syd
+               db "scalarValues"                                 ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   string$44    dq -01h                                           ; String constant (reference count)
                dq 32                                             ; Length
-               db "scalarValues is not implemented", 0ah         ; line 600 column 45 in file runtime library
+               db "scalarValues is not implemented", 0ah         ; line 621 column 45 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   func$hex$annotation dq -01h                                    ; String constant (reference count)
                dq 3                                              ; Length
-               db "hex"                                          ; line 1381 column 111 in file syd-compiler.syd
+               db "hex"                                          ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   string$45    dq -01h                                           ; String constant (reference count)
                dq 23                                             ; Length
-               db "hex is not implemented", 0ah                  ; line 606 column 36 in file runtime library
+               db "hex is not implemented", 0ah                  ; line 627 column 36 in file runtime library
                db 00h                                            ; padding to align to 8-byte boundary
   func$readFile$annotation dq -01h                               ; String constant (reference count)
                dq 8                                              ; Length
-               db "readFile"                                     ; line 1381 column 111 in file syd-compiler.syd
+               db "readFile"                                     ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   string$46    dq -01h                                           ; String constant (reference count)
                dq 28                                             ; Length
-               db "readFile is not implemented", 0ah             ; line 612 column 41 in file runtime library
+               db "readFile is not implemented", 0ah             ; line 633 column 41 in file runtime library
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   func$stderr$annotation dq -01h                                 ; String constant (reference count)
                dq 6                                              ; Length
-               db "stderr"                                       ; line 1381 column 111 in file syd-compiler.syd
+               db "stderr"                                       ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   string$47    dq -01h                                           ; String constant (reference count)
                dq 26                                             ; Length
-               db "stderr is not implemented", 0ah               ; line 618 column 39 in file runtime library
+               db "stderr is not implemented", 0ah               ; line 639 column 39 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   func$_debugDescribeBlock$annotation dq -01h                    ; String constant (reference count)
                dq 19                                             ; Length
-               db "_debugDescribeBlock"                          ; line 1381 column 111 in file syd-compiler.syd
+               db "_debugDescribeBlock"                          ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   string$48    dq -01h                                           ; String constant (reference count)
                dq 7                                              ; Length
-               db ". type "                                      ; line 640 column 57 in file runtime library
+               db ". type "                                      ; line 661 column 57 in file runtime library
                db 00h                                            ; padding to align to 8-byte boundary
   string$49    dq -01h                                           ; String constant (reference count)
                dq 9                                              ; Length
-               db ": block #"                                    ; line 640 column 98 in file runtime library
+               db ": block #"                                    ; line 661 column 98 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$50    dq -01h                                           ; String constant (reference count)
                dq 2                                              ; Length
-               db " ("                                           ; line 640 column 123 in file runtime library
+               db " ("                                           ; line 661 column 123 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   string$51    dq -01h                                           ; String constant (reference count)
                dq 25                                             ; Length
-               db " fields, referenced from "                    ; line 640 column 172 in file runtime library
+               db " fields, referenced from "                    ; line 661 column 172 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h              ; padding to align to 8-byte boundary
   string$52    dq -01h                                           ; String constant (reference count)
                dq 7                                              ; Length
-               db " roots)"                                      ; line 640 column 205 in file runtime library
+               db " roots)"                                      ; line 661 column 205 in file runtime library
                db 00h                                            ; padding to align to 8-byte boundary
   string$53    dq -01h                                           ; String constant (reference count)
                dq 2                                              ; Length
-               db "  "                                           ; line 641 column 59 in file runtime library
+               db "  "                                           ; line 662 column 59 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   string$54    dq -01h                                           ; String constant (reference count)
                dq 2                                              ; Length
-               db ": "                                           ; line 643 column 91 in file runtime library
+               db ": "                                           ; line 664 column 91 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h                   ; padding to align to 8-byte boundary
   func$_debugDumpBlockList$annotation dq -01h                    ; String constant (reference count)
                dq 19                                             ; Length
-               db "_debugDumpBlockList"                          ; line 1381 column 111 in file syd-compiler.syd
+               db "_debugDumpBlockList"                          ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   string$55    dq -01h                                           ; String constant (reference count)
                dq 12                                             ; Length
-               db "Block list ("                                 ; line 652 column 31 in file runtime library
+               db "Block list ("                                 ; line 673 column 31 in file runtime library
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   string$56    dq -01h                                           ; String constant (reference count)
                dq 8                                              ; Length
-               db " out of "                                     ; line 652 column 73 in file runtime library
+               db " out of "                                     ; line 673 column 73 in file runtime library
                db 00h, 00h, 00h, 00h, 00h, 00h, 00h, 00h         ; padding to align to 8-byte boundary
   string$57    dq -01h                                           ; String constant (reference count)
                dq 14                                             ; Length
-               db " live blocks):"                               ; line 652 column 142 in file runtime library
+               db " live blocks):"                               ; line 673 column 142 in file runtime library
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   string$58    dq -01h                                           ; String constant (reference count)
                dq 3                                              ; Length
-               db "  #"                                          ; line 660 column 26 in file runtime library
+               db "  #"                                          ; line 681 column 26 in file runtime library
                db 00h, 00h, 00h, 00h, 00h                        ; padding to align to 8-byte boundary
   string$59    dq -01h                                           ; String constant (reference count)
                dq 6                                              ; Length
-               db " roots"                                       ; line 660 column 132 in file runtime library
+               db " roots"                                       ; line 681 column 132 in file runtime library
                db 00h, 00h                                       ; padding to align to 8-byte boundary
   string$60    dq -01h                                           ; String constant (reference count)
                dq 4                                              ; Length
-               db "    "                                         ; line 661 column 41 in file runtime library
+               db "    "                                         ; line 682 column 41 in file runtime library
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
   func$test$annotation dq -01h                                   ; String constant (reference count)
                dq 4                                              ; Length
-               db "test"                                         ; line 1381 column 111 in file syd-compiler.syd
+               db "test"                                         ; line 1441 column 111 in file syd-compiler.syd
                db 00h, 00h, 00h, 00h                             ; padding to align to 8-byte boundary
 
 .data
-
+  func$__print$functionPointer dq 1                              ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$__print                                   ; code pointer
+  func$exit$functionPointer dq 1                                 ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$exit                                      ; code pointer
+  func$len$functionPointer dq 1                                  ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$len                                       ; code pointer
+  func$__readFromAddress$functionPointer dq 1                    ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$__readFromAddress                         ; code pointer
+  func$__writeToAddress$functionPointer dq 1                     ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$__writeToAddress                          ; code pointer
+  func$__incref$functionPointer dq 1                             ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$__incref                                  ; code pointer
+  func$assert$functionPointer dq 1                               ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$assert                                    ; code pointer
+  func$__getLastError$functionPointer dq 1                       ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$__getLastError                            ; code pointer
+  func$__getProcessHeap$functionPointer dq 1                     ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$__getProcessHeap                          ; code pointer
+  func$__heapAlloc$functionPointer dq 1                          ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$__heapAlloc                               ; code pointer
+  func$_alloc$functionPointer dq 1                               ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$_alloc                                    ; code pointer
+  func$__heapFree$functionPointer dq 1                           ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$__heapFree                                ; code pointer
+  func$_free$functionPointer dq 1                                ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$_free                                     ; code pointer
+  func$_moveBytes$functionPointer dq 1                           ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$_moveBytes                                ; code pointer
+  func$_fillQuadWords$functionPointer dq 1                       ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$_fillQuadWords                            ; code pointer
+  func$_blockListInit$functionPointer dq 1                       ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$_blockListInit                            ; code pointer
+  func$_growBlockList$functionPointer dq 1                       ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$_growBlockList                            ; code pointer
+  func$_advanceToNextBlock$functionPointer dq 1                  ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$_advanceToNextBlock                       ; code pointer
+  func$_constructor$functionPointer dq 1                         ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$_constructor                              ; code pointer
+  func$_mark$functionPointer dq 1                                ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$_mark                                     ; code pointer
+  func$_garbageCollectorImplementation$functionPointer dq 1      ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$_garbageCollectorImplementation           ; code pointer
+  func$_listConstructor$functionPointer dq 1                     ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$_listConstructor                          ; code pointer
+  func$_growList$functionPointer dq 1                            ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$_growList                                 ; code pointer
+  func$append$functionPointer dq 1                               ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$append                                    ; code pointer
+  func$_stringByteLength$functionPointer dq 1                    ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$_stringByteLength                         ; code pointer
+  func$concat$functionPointer dq 1                               ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$concat                                    ; code pointer
+  func$digitToStr$functionPointer dq 1                           ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$digitToStr                                ; code pointer
+  func$intToStr$functionPointer dq 1                             ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$intToStr                                  ; code pointer
+  func$_joinOffset$functionPointer dq 1                          ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$_joinOffset                               ; code pointer
+  func$join$functionPointer dq 1                                 ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$join                                      ; code pointer
+  func$_stringify$functionPointer dq 1                           ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$_stringify                                ; code pointer
+  func$_println$functionPointer dq 1                             ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$_println                                  ; code pointer
+  func$test$functionPointer dq 1                                 ; reference count
+               dq 2                                              ; number of fields in function pointer block
+               dq 0                                              ; scratch space for garbage collector
+               dq -1                                             ; block list entry pointer (invalid for function pointers as they are not in the block list)
+               dq 28                                             ; type of receiver (Null)
+               dq 0                                              ; pointer to receiver (null)
+               dq 1                                              ; type of code pointer (Integer)
+               dq func$test                                      ; code pointer
 
 _BSS segment
   printlnType dq ?                                               ; dynamic type of println variable
@@ -633,7 +901,7 @@ decrefString:
   mov r10, rcx                                                   ; copy value of value to pointer
   ; Call _free with 1 arguments
   push r10                                                       ; value of argument #1 (value cast to integer)
-  push 01dh                                                      ; type of argument #1 (Integer'29)
+  push 01eh                                                      ; type of argument #1 (Integer'30)
   lea rax, qword ptr [rsp + 018h]                                ; load address of return value's value
   push rax                                                       ; internal argument 6: pointer to return value slot's value
   lea rax, qword ptr [rsp + 018h]                                ; load address of return value's type
@@ -674,7 +942,7 @@ decrefMaybeGCOrString:
   dec qword ptr [rcx]                                            ; decref GarbageCollectable reference count of value
   jmp decrefMaybeGCOrString$end                                  ; return
   decrefMaybeGCOrString$string:                                  ; string decref
-  cmp qword ptr [rsp + 008h], 01eh                               ; compare type of value to String
+  cmp qword ptr [rsp + 008h], 01fh                               ; compare type of value to String
   jne decrefMaybeGCOrString$end                                  ; skip string decref block if the value is not a String
   cmp qword ptr [rcx], 000h                                      ; compare value dereferenced to 0 (integer)
   jl decrefMaybeGCOrString$end                                   ; skip string decref block for string constants
@@ -683,7 +951,7 @@ decrefMaybeGCOrString:
   mov rdi, rcx                                                   ; copy value of value to pointer
   ; Call _free with 1 arguments
   push rdi                                                       ; value of argument #1 (value cast to integer)
-  push 01dh                                                      ; type of argument #1 (Integer'29)
+  push 01eh                                                      ; type of argument #1 (Integer'30)
   lea r12, qword ptr [rsp + 018h]                                ; load address of return value's value
   push r12                                                       ; internal argument 6: pointer to return value slot's value
   lea r12, qword ptr [rsp + 018h]                                ; load address of return value's type
@@ -711,7 +979,7 @@ decrefMaybeString:
   sub rsp, 018h                                                  ; allocate space for stack
   lea rbp, qword ptr [rsp + 020h]                                ; set up frame pointer
   ; Body
-  cmp rdx, 01eh                                                  ; compare type of value to String
+  cmp rdx, 01fh                                                  ; compare type of value to String
   jne decrefMaybeString$end                                      ; skip string decref block if the value is not a String
   cmp qword ptr [rcx], 000h                                      ; compare value dereferenced to 0 (integer)
   jl decrefMaybeString$end                                       ; skip string decref block for string constants
@@ -720,7 +988,7 @@ decrefMaybeString:
   mov r10, rcx                                                   ; copy value of value to pointer
   ; Call _free with 1 arguments
   push r10                                                       ; value of argument #1 (value cast to integer)
-  push 01dh                                                      ; type of argument #1 (Integer'29)
+  push 01eh                                                      ; type of argument #1 (Integer'30)
   lea rax, qword ptr [rsp + 018h]                                ; load address of return value's value
   push rax                                                       ; internal argument 6: pointer to return value slot's value
   lea rax, qword ptr [rsp + 018h]                                ; load address of return value's type
@@ -799,7 +1067,7 @@ main:
     ; Call __print with 1 arguments
     mov rdi, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -814,7 +1082,7 @@ main:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -833,35 +1101,35 @@ main:
   mov qword ptr _heapHandleType, r11                             ; type initialization of variable declaration for _heapHandle variable
   ; Line 29: Integer _blockCount = 0;
   mov qword ptr _blockCountValue, 000h                           ; value initialization of variable declaration for _blockCount variable (0)
-  mov qword ptr _blockCountType, 01dh                            ; type initialization of variable declaration for _blockCount variable (Integer'29)
+  mov qword ptr _blockCountType, 01eh                            ; type initialization of variable declaration for _blockCount variable (Integer'30)
   ; Line 121: Integer _gcLocked = 0;
   mov qword ptr _gcLockedValue, 000h                             ; value initialization of variable declaration for _gcLocked variable (0)
-  mov qword ptr _gcLockedType, 01dh                              ; type initialization of variable declaration for _gcLocked variable (Integer'29)
+  mov qword ptr _gcLockedType, 01eh                              ; type initialization of variable declaration for _gcLocked variable (Integer'30)
   ; Line 125: Integer _debugLiveBlocks = 0;
   mov qword ptr _debugLiveBlocksValue, 000h                      ; value initialization of variable declaration for _debugLiveBlocks variable (0)
-  mov qword ptr _debugLiveBlocksType, 01dh                       ; type initialization of variable declaration for _debugLiveBlocks variable (Integer'29)
+  mov qword ptr _debugLiveBlocksType, 01eh                       ; type initialization of variable declaration for _debugLiveBlocks variable (Integer'30)
   ; Line 127: Integer _blockEntrySize = 8;
   mov qword ptr _blockEntrySizeValue, 008h                       ; value initialization of variable declaration for _blockEntrySize variable (8)
-  mov qword ptr _blockEntrySizeType, 01dh                        ; type initialization of variable declaration for _blockEntrySize variable (Integer'29)
+  mov qword ptr _blockEntrySizeType, 01eh                        ; type initialization of variable declaration for _blockEntrySize variable (Integer'30)
   ; Line 128: Integer _gcBlockHeaderRefCount = 0 * 8;
   mov qword ptr _gcBlockHeaderRefCountValue, 000h                ; value initialization of variable declaration for _gcBlockHeaderRefCount variable (* operator result)
-  mov qword ptr _gcBlockHeaderRefCountType, 01dh                 ; type initialization of variable declaration for _gcBlockHeaderRefCount variable (Integer'29)
+  mov qword ptr _gcBlockHeaderRefCountType, 01eh                 ; type initialization of variable declaration for _gcBlockHeaderRefCount variable (Integer'30)
   ; Line 129: Integer _gcBlockHeaderLength = 1 * 8;
   mov qword ptr _gcBlockHeaderLengthValue, 008h                  ; value initialization of variable declaration for _gcBlockHeaderLength variable (* operator result)
-  mov qword ptr _gcBlockHeaderLengthType, 01dh                   ; type initialization of variable declaration for _gcBlockHeaderLength variable (Integer'29)
+  mov qword ptr _gcBlockHeaderLengthType, 01eh                   ; type initialization of variable declaration for _gcBlockHeaderLength variable (Integer'30)
   ; Line 130: Integer _gcBlockHeaderScratchSpace = 2 * 8;
   mov qword ptr _gcBlockHeaderScratchSpaceValue, 010h            ; value initialization of variable declaration for _gcBlockHeaderScratchSpace variable (* operator result)
-  mov qword ptr _gcBlockHeaderScratchSpaceType, 01dh             ; type initialization of variable declaration for _gcBlockHeaderScratchSpace variable (Integer'29)
+  mov qword ptr _gcBlockHeaderScratchSpaceType, 01eh             ; type initialization of variable declaration for _gcBlockHeaderScratchSpace variable (Integer'30)
   ; Line 131: Integer _gcBlockHeaderEntryPointer = 3 * 8;
   mov qword ptr _gcBlockHeaderEntryPointerValue, 018h            ; value initialization of variable declaration for _gcBlockHeaderEntryPointer variable (* operator result)
-  mov qword ptr _gcBlockHeaderEntryPointerType, 01dh             ; type initialization of variable declaration for _gcBlockHeaderEntryPointer variable (Integer'29)
+  mov qword ptr _gcBlockHeaderEntryPointerType, 01eh             ; type initialization of variable declaration for _gcBlockHeaderEntryPointer variable (Integer'30)
   ; Line 132: Integer _gcBlockData = 4 * 8;
   mov qword ptr _gcBlockDataValue, 020h                          ; value initialization of variable declaration for _gcBlockData variable (* operator result)
-  mov qword ptr _gcBlockDataType, 01dh                           ; type initialization of variable declaration for _gcBlockData variable (Integer'29)
+  mov qword ptr _gcBlockDataType, 01eh                           ; type initialization of variable declaration for _gcBlockData variable (Integer'30)
   ; Line 144: _blockListInit(1024 /* 0x400 */);
   ; Call _blockListInit with 1 arguments
   push 000000400h                                                ; value of argument #1 (1024 /* 0x400 */)
-  push 01dh                                                      ; type of argument #1 (Integer'29)
+  push 01eh                                                      ; type of argument #1 (Integer'30)
   lea rdi, qword ptr [rsp + 028h]                                ; load address of return value's value
   push rdi                                                       ; internal argument 6: pointer to return value slot's value
   lea rdi, qword ptr [rsp + 028h]                                ; load address of return value's type
@@ -875,15 +1143,43 @@ main:
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
   ; Line 212: Integer _currentTag = 0;
   mov qword ptr _currentTagValue, 000h                           ; value initialization of variable declaration for _currentTag variable (0)
-  mov qword ptr _currentTagType, 01dh                            ; type initialization of variable declaration for _currentTag variable (Integer'29)
+  mov qword ptr _currentTagType, 01eh                            ; type initialization of variable declaration for _currentTag variable (Integer'30)
   ; Line 247: _garbageCollector = _garbageCollectorImplementation;
-  mov r11, func$_garbageCollectorImplementation                  ; indirect through r11 because operand pair (qword ptr _garbageCollectorValue, func$_garbageCollectorImplementation) is not allowed with mov
+  mov r11, offset func$_garbageCollectorImplementation$functionPointer ; indirect through r11 because operand pair (qword ptr _garbageCollectorValue, offset func$_garbageCollectorImplementation$functionPointer) is not allowed with mov
   mov qword ptr _garbageCollectorValue, r11                      ; store value
-  mov qword ptr _garbageCollectorType, 004h                      ; store type (NullFunction()'4)
-  ; Line 560: println = _println;
-  mov r11, func$_println                                         ; indirect through r11 because operand pair (qword ptr printlnValue, func$_println) is not allowed with mov
+  mov qword ptr _garbageCollectorType, 005h                      ; store type (NullFunction()'5)
+  ; increment reference count for _garbageCollector variable if necessary
+  mov rbx, qword ptr _garbageCollectorType                       ; store _garbageCollector variable's type in testByte value slot
+  mov rax, rbx                                                   ; move testByte to testByte
+  mov rsi, 002h                                                  ; read operand of mul (type table width in bytes) 
+  mul rsi                                                        ; adjust to the relative start of that type's entry in the type table
+  add rax, 001h                                                  ; adjust to the byte containing the bit to check against (result in testByte)
+  mov rdi, offset typeTable                                      ; read second operand of + (type table pointer)
+  add rax, rdi                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
+  bt qword ptr [rax], 000h                                       ; check that possibly GarbageCollectable value is GarbageCollectable
+  jnc runtimeLibrary$AfterGCIncref                               ; if not a GarbageCollectable, skip incref
+    mov r12, qword ptr _garbageCollectorValue                    ; read slot into register for dereferencing
+    inc qword ptr [r12]                                          ; increment reference count of _garbageCollector variable
+    mov qword ptr _garbageCollectorValue, r12                    ; restoring slots to previous scope state
+  runtimeLibrary$AfterGCIncref:                                  ; after GarbageCollectable incref
+  ; Line 581: println = _println;
+  mov r11, offset func$_println$functionPointer                  ; indirect through r11 because operand pair (qword ptr printlnValue, offset func$_println$functionPointer) is not allowed with mov
   mov qword ptr printlnValue, r11                                ; store value
-  mov qword ptr printlnType, 018h                                ; store type (NullFunction(Anything...)'24)
+  mov qword ptr printlnType, 019h                                ; store type (NullFunction(Anything...)'25)
+  ; increment reference count for println variable if necessary
+  mov r10, qword ptr printlnType                                 ; store println variable's type in testByte value slot
+  mov rax, r10                                                   ; move testByte to testByte
+  mov rbx, 002h                                                  ; read operand of mul (type table width in bytes) 
+  mul rbx                                                        ; adjust to the relative start of that type's entry in the type table
+  add rax, 001h                                                  ; adjust to the byte containing the bit to check against (result in testByte)
+  mov rsi, offset typeTable                                      ; read second operand of + (type table pointer)
+  add rax, rsi                                                   ; finally offset all of that by the start of the type table itself (result in testByte)
+  bt qword ptr [rax], 000h                                       ; check that possibly GarbageCollectable value is GarbageCollectable
+  jnc runtimeLibrary$AfterGCIncref$1                             ; if not a GarbageCollectable, skip incref
+    mov rdi, qword ptr printlnValue                              ; read slot into register for dereferencing
+    inc qword ptr [rdi]                                          ; increment reference count of println variable
+    mov qword ptr printlnValue, rdi                              ; restoring slots to previous scope state
+  runtimeLibrary$AfterGCIncref$1:                                ; after GarbageCollectable incref
   ; Epilog
   add rsp, 028h                                                  ; free space for stack
   pop r14                                                        ; restore non-volatile registers
@@ -911,9 +1207,9 @@ main:
   ; Line 1: IntegerList x = [0]:Integer;
   ; Call _listConstructor with 2 arguments
   push 001h                                                      ; value of argument #2 (1 (integer))
-  push 01dh                                                      ; type of argument #2 (Integer'29)
-  push 021h                                                      ; value of argument #1 (code of IntegerList)
-  push 01dh                                                      ; type of argument #1 (Integer'29)
+  push 01eh                                                      ; type of argument #2 (Integer'30)
+  push 022h                                                      ; value of argument #1 (code of IntegerList)
+  push 01eh                                                      ; type of argument #1 (Integer'30)
   lea r10, qword ptr [rsp + 060h]                                ; load address of return value's value
   push r10                                                       ; internal argument 6: pointer to return value slot's value
   lea r10, qword ptr [rsp + 060h]                                ; load address of return value's type
@@ -929,7 +1225,7 @@ main:
   mov rbx, qword ptr [rsp + 038h]                                ; copy list literal's dynamic type over to slot with better static type
   ; Call append with 2 arguments
   push 000h                                                      ; value of argument #2 (0)
-  push 01dh                                                      ; type of argument #2 (Integer'29)
+  push 01eh                                                      ; type of argument #2 (Integer'30)
   push rax                                                       ; value of argument #1 (list literal)
   push rbx                                                       ; type of argument #1
   lea rsi, qword ptr [rsp + 050h]                                ; load address of return value's value
@@ -952,7 +1248,7 @@ main:
     ; Call __print with 1 arguments
     mov rdi, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -967,7 +1263,7 @@ main:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -1028,7 +1324,7 @@ main:
   tempSyd$AfterGCIncref$1:                                       ; after GarbageCollectable incref
   ; Call append with 2 arguments
   push 002h                                                      ; value of argument #2 (2)
-  push 01dh                                                      ; type of argument #2 (Integer'29)
+  push 01eh                                                      ; type of argument #2 (Integer'30)
   push r14                                                       ; value of argument #1 (copy of x)
   push qword ptr [rsp + 048h]                                    ; type of argument #1
   lea r13, qword ptr [rsp + 048h]                                ; load address of return value's value
@@ -1071,7 +1367,7 @@ main:
     ; Call __print with 1 arguments
     mov r13, offset subroutineCallTypeCheckFailureMessage        ; reading subroutineCallTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (subroutineCallTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r9, qword ptr [rsp + 028h]                               ; load address of return value's value
     push r9                                                      ; internal argument 6: pointer to return value slot's value
     lea r9, qword ptr [rsp + 028h]                               ; load address of return value's type
@@ -1087,7 +1383,7 @@ main:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     mov qword ptr [rsp + 020h], r14                              ; move copy of println's value out of r14
     lea r14, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
@@ -1117,12 +1413,12 @@ main:
   mov rdx, 000h                                                  ; internal argument 2: closure pointer
   mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
   mov qword ptr [rsp + 040h], r10                                ; move copy of x's type out of r10
-  call r14                                                       ; jump to subroutine
+  call qword ptr [r14 + 038h]                                    ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
   ; Terminate application - call exit(0)
   ; Call exit with 1 arguments
   push 000h                                                      ; value of argument #1 (0 (integer))
-  push 01dh                                                      ; type of argument #1 (Integer'29)
+  push 01eh                                                      ; type of argument #1 (Integer'30)
   lea r10, qword ptr [rsp + 028h]                                ; load address of return value's value
   push r10                                                       ; internal argument 6: pointer to return value slot's value
   lea r10, qword ptr [rsp + 028h]                                ; load address of return value's type
@@ -1134,25 +1430,25 @@ main:
   mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
   call func$exit                                                 ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Decrement reference count for copy of x (static type: IntegerList'33) via decrefMaybeGC
+  ; Decrement reference count for copy of x (static type: IntegerList'34) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, qword ptr [rsp + 050h]                                ; arg #2: copy of x's type
   mov rcx, qword ptr [rsp + 048h]                                ; arg #1: copy of x's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for copy of x (static type: IntegerList'33) via decrefMaybeGC
+  ; Decrement reference count for copy of x (static type: IntegerList'34) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, qword ptr [rsp + 020h]                                ; arg #2: copy of x's type
   mov rcx, qword ptr [rsp + 040h]                                ; arg #1: copy of x's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for _listConstructor return value (static type: WhateverList'39) via decrefMaybeGC
+  ; Decrement reference count for _listConstructor return value (static type: WhateverList'40) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, qword ptr [rsp + 058h]                                ; arg #2: _listConstructor return value's type
   mov rcx, qword ptr [rsp + 060h]                                ; arg #1: _listConstructor return value's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for x variable (static type: IntegerList'33) via decrefMaybeGC
+  ; Decrement reference count for x variable (static type: IntegerList'34) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, qword ptr xType                                       ; arg #2: x variable's type
   mov rcx, qword ptr xValue                                      ; arg #1: x variable's value
@@ -1195,7 +1491,7 @@ func$__print:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1210,7 +1506,7 @@ func$__print:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1238,7 +1534,7 @@ func$__print:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1253,7 +1549,7 @@ func$__print:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1286,7 +1582,7 @@ func$__print:
   mov r12, qword ptr [rbp + 030h]                                ; get pointer to return value of __print into register to dereference it
   mov qword ptr [r12], 000h                                      ; __print return value
   mov r13, qword ptr [rbp + 028h]                                ; get pointer to return value type of __print into register to dereference it
-  mov qword ptr [r13], 01bh                                      ; type of __print return value (Null'27)
+  mov qword ptr [r13], 01ch                                      ; type of __print return value (Null'28)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 018h                                                  ; free space for stack
@@ -1323,7 +1619,7 @@ func$exit:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1338,7 +1634,7 @@ func$exit:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1366,7 +1662,7 @@ func$exit:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1381,7 +1677,7 @@ func$exit:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1403,7 +1699,7 @@ func$exit:
   mov rax, qword ptr [rbp + 030h]                                ; get pointer to return value of exit into register to dereference it
   mov qword ptr [rax], 000h                                      ; exit return value
   mov rdi, qword ptr [rbp + 028h]                                ; get pointer to return value type of exit into register to dereference it
-  mov qword ptr [rdi], 01bh                                      ; type of exit return value (Null'27)
+  mov qword ptr [rdi], 01ch                                      ; type of exit return value (Null'28)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 018h                                                  ; free space for stack
@@ -1440,7 +1736,7 @@ func$len:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1455,7 +1751,7 @@ func$len:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1484,7 +1780,7 @@ func$len:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1499,7 +1795,7 @@ func$len:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1518,7 +1814,7 @@ func$len:
   mov r13, qword ptr [rbp + 030h]                                ; get pointer to return value of len into register to dereference it
   mov qword ptr [r13], rsi                                       ; len return value
   mov r14, qword ptr [rbp + 028h]                                ; get pointer to return value type of len into register to dereference it
-  mov qword ptr [r14], 01dh                                      ; type of len return value (Integer'29)
+  mov qword ptr [r14], 01eh                                      ; type of len return value (Integer'30)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 018h                                                  ; free space for stack
@@ -1555,7 +1851,7 @@ func$__readFromAddress:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1570,7 +1866,7 @@ func$__readFromAddress:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1598,7 +1894,7 @@ func$__readFromAddress:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1613,7 +1909,7 @@ func$__readFromAddress:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1627,7 +1923,7 @@ func$__readFromAddress:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
   func$__readFromAddress$address$TypeMatch:                      ; after block
   ; Implicit return from __readFromAddress
-  mov r10, 01bh                                                  ; store null's type in testByte value slot
+  mov r10, 01ch                                                  ; store null's type in testByte value slot
   mov rax, r10                                                   ; move testByte to testByte
   mov rbx, 002h                                                  ; read operand of mul (type table width in bytes) 
   mul rbx                                                        ; adjust to the relative start of that type's entry in the type table
@@ -1641,7 +1937,7 @@ func$__readFromAddress:
     ; Call __print with 1 arguments
     mov rdi, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1656,7 +1952,7 @@ func$__readFromAddress:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1672,7 +1968,7 @@ func$__readFromAddress:
   mov r14, qword ptr [rbp + 030h]                                ; get pointer to return value of __readFromAddress into register to dereference it
   mov qword ptr [r14], 000h                                      ; __readFromAddress return value
   mov r15, qword ptr [rbp + 028h]                                ; get pointer to return value type of __readFromAddress into register to dereference it
-  mov qword ptr [r15], 01bh                                      ; type of __readFromAddress return value (Null'27)
+  mov qword ptr [r15], 01ch                                      ; type of __readFromAddress return value (Null'28)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 018h                                                  ; free space for stack
@@ -1709,7 +2005,7 @@ func$__writeToAddress:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1724,7 +2020,7 @@ func$__writeToAddress:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1752,7 +2048,7 @@ func$__writeToAddress:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1767,7 +2063,7 @@ func$__writeToAddress:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1795,7 +2091,7 @@ func$__writeToAddress:
     ; Call __print with 1 arguments
     mov rdi, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1810,7 +2106,7 @@ func$__writeToAddress:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1827,7 +2123,7 @@ func$__writeToAddress:
   mov rax, qword ptr [rbp + 030h]                                ; get pointer to return value of __writeToAddress into register to dereference it
   mov qword ptr [rax], 000h                                      ; __writeToAddress return value
   mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of __writeToAddress into register to dereference it
-  mov qword ptr [rbx], 01bh                                      ; type of __writeToAddress return value (Null'27)
+  mov qword ptr [rbx], 01ch                                      ; type of __writeToAddress return value (Null'28)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 018h                                                  ; free space for stack
@@ -1864,7 +2160,7 @@ func$__incref:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1879,7 +2175,7 @@ func$__incref:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1907,7 +2203,7 @@ func$__incref:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1922,7 +2218,7 @@ func$__incref:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1939,7 +2235,7 @@ func$__incref:
   mov rax, qword ptr [rbp + 030h]                                ; get pointer to return value of __incref into register to dereference it
   mov qword ptr [rax], 000h                                      ; __incref return value
   mov rdi, qword ptr [rbp + 028h]                                ; get pointer to return value type of __incref into register to dereference it
-  mov qword ptr [rdi], 01bh                                      ; type of __incref return value (Null'27)
+  mov qword ptr [rdi], 01ch                                      ; type of __incref return value (Null'28)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 018h                                                  ; free space for stack
@@ -1976,7 +2272,7 @@ func$assert:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -1991,7 +2287,7 @@ func$assert:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -2019,7 +2315,7 @@ func$assert:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -2034,7 +2330,7 @@ func$assert:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -2062,7 +2358,7 @@ func$assert:
     ; Call __print with 1 arguments
     mov rdi, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -2077,7 +2373,7 @@ func$assert:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -2099,7 +2395,7 @@ func$assert:
     ; Call __print with 1 arguments
     mov r14, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r14                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -2114,7 +2410,7 @@ func$assert:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r10, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -2130,7 +2426,7 @@ func$assert:
   xor rax, rax                                                   ; zero ! unary operator result to put the boolean in
   cmp qword ptr [rbp + 040h], 000h                               ; ! unary operator
   sete al                                                        ; put result in ! unary operator result
-  mov rbx, 01ch                                                  ; ! unary operator result is a Boolean'28
+  mov rbx, 01dh                                                  ; ! unary operator result is a Boolean'29
   cmp rax, 000h                                                  ; compare ! unary operator result to false
   je func$assert$if$continuation                                 ; !condition
     ; Line 8: println(message);
@@ -2144,7 +2440,7 @@ func$assert:
       ; Call __print with 1 arguments
       mov r12, offset subroutineCallTypeCheckFailureMessage      ; reading subroutineCallTypeCheckFailureMessage for push
       push r12                                                   ; value of argument #1 (subroutineCallTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r13, qword ptr [rsp + 018h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 018h]                            ; load address of return value's type
@@ -2159,7 +2455,7 @@ func$assert:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r14, qword ptr [rsp + 018h]                            ; load address of return value's value
       push r14                                                   ; internal argument 6: pointer to return value slot's value
       lea r14, qword ptr [rsp + 018h]                            ; load address of return value's type
@@ -2184,12 +2480,12 @@ func$assert:
     mov r8, 000h                                                 ; internal argument 3: "this" pointer type
     mov rdx, 000h                                                ; internal argument 2: closure pointer
     mov rcx, 001h                                                ; internal argument 1: number of actual arguments
-    call rsi                                                     ; jump to subroutine
+    call qword ptr [rsi + 038h]                                  ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
     ; Line 9: exit(1);
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1)
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rsi, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -2206,7 +2502,7 @@ func$assert:
   mov r14, qword ptr [rbp + 030h]                                ; get pointer to return value of assert into register to dereference it
   mov qword ptr [r14], 000h                                      ; assert return value
   mov r15, qword ptr [rbp + 028h]                                ; get pointer to return value type of assert into register to dereference it
-  mov qword ptr [r15], 01bh                                      ; type of assert return value (Null'27)
+  mov qword ptr [r15], 01ch                                      ; type of assert return value (Null'28)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 018h                                                  ; free space for stack
@@ -2242,7 +2538,7 @@ func$__getLastError:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 020h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -2257,7 +2553,7 @@ func$__getLastError:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -2277,7 +2573,7 @@ func$__getLastError:
   mov r13, qword ptr [rbp + 030h]                                ; get pointer to return value of __getLastError into register to dereference it
   mov qword ptr [r13], rax                                       ; __getLastError return value
   mov r14, qword ptr [rbp + 028h]                                ; get pointer to return value type of __getLastError into register to dereference it
-  mov qword ptr [r14], 01dh                                      ; type of __getLastError return value (Integer'29)
+  mov qword ptr [r14], 01eh                                      ; type of __getLastError return value (Integer'30)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -2312,7 +2608,7 @@ func$__getProcessHeap:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 020h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -2327,7 +2623,7 @@ func$__getProcessHeap:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -2347,7 +2643,7 @@ func$__getProcessHeap:
   mov r13, qword ptr [rbp + 030h]                                ; get pointer to return value of __getProcessHeap into register to dereference it
   mov qword ptr [r13], rax                                       ; __getProcessHeap return value
   mov r14, qword ptr [rbp + 028h]                                ; get pointer to return value type of __getProcessHeap into register to dereference it
-  mov qword ptr [r14], 01dh                                      ; type of __getProcessHeap return value (Integer'29)
+  mov qword ptr [r14], 01eh                                      ; type of __getProcessHeap return value (Integer'30)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -2383,7 +2679,7 @@ func$__heapAlloc:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 020h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -2398,7 +2694,7 @@ func$__heapAlloc:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -2426,7 +2722,7 @@ func$__heapAlloc:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -2441,7 +2737,7 @@ func$__heapAlloc:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -2469,7 +2765,7 @@ func$__heapAlloc:
     ; Call __print with 1 arguments
     mov rdi, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 020h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -2484,7 +2780,7 @@ func$__heapAlloc:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 020h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -2512,7 +2808,7 @@ func$__heapAlloc:
     ; Call __print with 1 arguments
     mov rbx, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 020h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -2527,7 +2823,7 @@ func$__heapAlloc:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 020h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -2550,7 +2846,7 @@ func$__heapAlloc:
   mov r15, qword ptr [rbp + 030h]                                ; get pointer to return value of __heapAlloc into register to dereference it
   mov qword ptr [r15], rax                                       ; __heapAlloc return value
   mov r10, qword ptr [rbp + 028h]                                ; get pointer to return value type of __heapAlloc into register to dereference it
-  mov qword ptr [r10], 01dh                                      ; type of __heapAlloc return value (Integer'29)
+  mov qword ptr [r10], 01eh                                      ; type of __heapAlloc return value (Integer'30)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -2587,7 +2883,7 @@ func$_alloc:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -2602,7 +2898,7 @@ func$_alloc:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -2630,7 +2926,7 @@ func$_alloc:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 038h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -2645,7 +2941,7 @@ func$_alloc:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 038h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -2665,7 +2961,7 @@ func$_alloc:
   push qword ptr [rbp + 040h]                                    ; value of argument #3 (size)
   push qword ptr [rbp + 038h]                                    ; type of argument #3
   push 000h                                                      ; value of argument #2 (0)
-  push 01dh                                                      ; type of argument #2 (Integer'29)
+  push 01eh                                                      ; type of argument #2 (Integer'30)
   push r10                                                       ; value of argument #1 (copy of _heapHandle)
   push rbx                                                       ; type of argument #1
   lea r12, qword ptr [rsp + 048h]                                ; load address of return value's value
@@ -2687,7 +2983,7 @@ func$_alloc:
     ; Call __print with 1 arguments
     mov r13, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -2702,7 +2998,7 @@ func$_alloc:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -2730,7 +3026,7 @@ func$_alloc:
     ; Call __print with 1 arguments
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 028h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -2746,7 +3042,7 @@ func$_alloc:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 028h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -2776,7 +3072,7 @@ func$_alloc:
       ; Call __print with 1 arguments
       mov rsi, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rsi                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rax, qword ptr [rsp + 028h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -2792,7 +3088,7 @@ func$_alloc:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rdi, qword ptr [rsp + 028h]                            ; load address of return value's value
       push rdi                                                   ; internal argument 6: pointer to return value slot's value
       lea rdi, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -2809,7 +3105,7 @@ func$_alloc:
     mov r15, r10                                                 ; assign value of copy of _blockCount to value of += operator result
     add r15, 001h                                                ; += operator
     mov qword ptr _blockCountValue, r15                          ; store value
-    mov qword ptr _blockCountType, 01dh                          ; store type (Integer'29)
+    mov qword ptr _blockCountType, 01eh                          ; store type (Integer'30)
     ; Line 40: return pointer;
     mov rax, qword ptr [rsp + 028h]                              ; make a copy of pointer's value in case it changes before we use it
     mov rdi, qword ptr [rsp + 020h]                              ; make a copy of pointer's type in case it changes before we use it
@@ -2821,7 +3117,7 @@ func$_alloc:
       ; Call __print with 1 arguments
       mov r12, offset returnValueTypeCheckFailureMessage         ; reading returnValueTypeCheckFailureMessage for push
       push r12                                                   ; value of argument #1 (returnValueTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r13, qword ptr [rsp + 028h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -2837,7 +3133,7 @@ func$_alloc:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r14, qword ptr [rsp + 028h]                            ; load address of return value's value
       push r14                                                   ; internal argument 6: pointer to return value slot's value
       lea r14, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -2868,7 +3164,7 @@ func$_alloc:
     ; Call __print with 1 arguments
     mov rax, offset subroutineCallTypeCheckFailureMessage        ; reading subroutineCallTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (subroutineCallTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rdi, qword ptr [rsp + 028h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -2883,7 +3179,7 @@ func$_alloc:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r12, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -2906,7 +3202,7 @@ func$_alloc:
   mov r8, 000h                                                   ; internal argument 3: "this" pointer type
   mov rdx, 000h                                                  ; internal argument 2: closure pointer
   mov rcx, 000h                                                  ; internal argument 1: number of actual arguments
-  call rbx                                                       ; jump to subroutine
+  call qword ptr [rbx + 038h]                                    ; jump to subroutine
   add rsp, 030h                                                  ; release shadow space and arguments (result in stack pointer)
   ; Line 43: pointer = __heapAlloc(_heapHandle, 0, size);
   mov r14, qword ptr _heapHandleValue                            ; make a copy of _heapHandle's value in case it changes before we use it
@@ -2915,7 +3211,7 @@ func$_alloc:
   push qword ptr [rbp + 040h]                                    ; value of argument #3 (size)
   push qword ptr [rbp + 038h]                                    ; type of argument #3
   push 000h                                                      ; value of argument #2 (0)
-  push 01dh                                                      ; type of argument #2 (Integer'29)
+  push 01eh                                                      ; type of argument #2 (Integer'30)
   push r14                                                       ; value of argument #1 (copy of _heapHandle)
   push r15                                                       ; type of argument #1
   lea rax, qword ptr [rsp + 048h]                                ; load address of return value's value
@@ -2937,7 +3233,7 @@ func$_alloc:
     ; Call __print with 1 arguments
     mov rdi, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -2952,7 +3248,7 @@ func$_alloc:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -2980,7 +3276,7 @@ func$_alloc:
     ; Call __print with 1 arguments
     mov r10, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rbx, qword ptr [rsp + 028h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -2995,7 +3291,7 @@ func$_alloc:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rsi, qword ptr [rsp + 028h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -3024,7 +3320,7 @@ func$_alloc:
       ; Call __print with 1 arguments
       mov r10, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r10                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rbx, qword ptr [rsp + 028h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
       lea rbx, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -3039,7 +3335,7 @@ func$_alloc:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rsi, qword ptr [rsp + 028h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -3055,7 +3351,7 @@ func$_alloc:
     mov r13, r14                                                 ; assign value of copy of _blockCount to value of += operator result
     add r13, 001h                                                ; += operator
     mov qword ptr _blockCountValue, r13                          ; store value
-    mov qword ptr _blockCountType, 01dh                          ; store type (Integer'29)
+    mov qword ptr _blockCountType, 01eh                          ; store type (Integer'30)
     ; Line 46: return pointer;
     mov rbx, qword ptr [rsp + 028h]                              ; make a copy of pointer's value in case it changes before we use it
     mov rsi, qword ptr [rsp + 020h]                              ; make a copy of pointer's type in case it changes before we use it
@@ -3067,7 +3363,7 @@ func$_alloc:
       ; Call __print with 1 arguments
       mov rax, offset returnValueTypeCheckFailureMessage         ; reading returnValueTypeCheckFailureMessage for push
       push rax                                                   ; value of argument #1 (returnValueTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rdi, qword ptr [rsp + 028h]                            ; load address of return value's value
       push rdi                                                   ; internal argument 6: pointer to return value slot's value
       lea rdi, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -3082,7 +3378,7 @@ func$_alloc:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r12, qword ptr [rsp + 028h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -3112,7 +3408,7 @@ func$_alloc:
     ; Call __print with 1 arguments
     mov rbx, offset subroutineCallTypeCheckFailureMessage        ; reading subroutineCallTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (subroutineCallTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -3128,7 +3424,7 @@ func$_alloc:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rax, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -3145,7 +3441,7 @@ func$_alloc:
   ; Call copy of println with 1 arguments
   mov rdi, offset string                                         ; reading string for push
   push rdi                                                       ; value of argument #1 (string)
-  push 01eh                                                      ; type of argument #1 (String'30)
+  push 01fh                                                      ; type of argument #1 (String'31)
   lea r12, qword ptr [rsp + 038h]                                ; load address of return value's value
   push r12                                                       ; internal argument 6: pointer to return value slot's value
   lea r12, qword ptr [rsp + 038h]                                ; load address of return value's type
@@ -3156,12 +3452,12 @@ func$_alloc:
   mov rdx, 000h                                                  ; internal argument 2: closure pointer
   mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
   mov qword ptr [rsp + 058h], r10                                ; move copy of println's type out of r10
-  call r15                                                       ; jump to subroutine
+  call qword ptr [r15 + 038h]                                    ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
   ; Line 49: exit(1);
   ; Call exit with 1 arguments
   push 001h                                                      ; value of argument #1 (1)
-  push 01dh                                                      ; type of argument #1 (Integer'29)
+  push 01eh                                                      ; type of argument #1 (Integer'30)
   lea r10, qword ptr [rsp + 038h]                                ; load address of return value's value
   push r10                                                       ; internal argument 6: pointer to return value slot's value
   lea r10, qword ptr [rsp + 038h]                                ; load address of return value's type
@@ -3174,7 +3470,7 @@ func$_alloc:
   call func$exit                                                 ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
   ; Implicit return from _alloc
-  mov rbx, 01bh                                                  ; store null's type in testByte value slot
+  mov rbx, 01ch                                                  ; store null's type in testByte value slot
   mov rax, rbx                                                   ; move testByte to testByte
   mov rsi, 002h                                                  ; read operand of mul (type table width in bytes) 
   mul rsi                                                        ; adjust to the relative start of that type's entry in the type table
@@ -3188,7 +3484,7 @@ func$_alloc:
     ; Call __print with 1 arguments
     mov r12, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r13, qword ptr [rsp + 038h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -3203,7 +3499,7 @@ func$_alloc:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 038h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -3219,7 +3515,7 @@ func$_alloc:
   mov r15, qword ptr [rbp + 030h]                                ; get pointer to return value of _alloc into register to dereference it
   mov qword ptr [r15], 000h                                      ; _alloc return value
   mov r10, qword ptr [rbp + 028h]                                ; get pointer to return value type of _alloc into register to dereference it
-  mov qword ptr [r10], 01bh                                      ; type of _alloc return value (Null'27)
+  mov qword ptr [r10], 01ch                                      ; type of _alloc return value (Null'28)
   func$_alloc$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
@@ -3257,7 +3553,7 @@ func$__heapFree:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 020h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -3272,7 +3568,7 @@ func$__heapFree:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -3300,7 +3596,7 @@ func$__heapFree:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -3315,7 +3611,7 @@ func$__heapFree:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 020h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -3343,7 +3639,7 @@ func$__heapFree:
     ; Call __print with 1 arguments
     mov rdi, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 020h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -3358,7 +3654,7 @@ func$__heapFree:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 020h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -3386,7 +3682,7 @@ func$__heapFree:
     ; Call __print with 1 arguments
     mov rbx, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 020h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -3401,7 +3697,7 @@ func$__heapFree:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 020h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -3424,7 +3720,7 @@ func$__heapFree:
   mov r15, qword ptr [rbp + 030h]                                ; get pointer to return value of __heapFree into register to dereference it
   mov qword ptr [r15], rax                                       ; __heapFree return value
   mov r10, qword ptr [rbp + 028h]                                ; get pointer to return value type of __heapFree into register to dereference it
-  mov qword ptr [r10], 01dh                                      ; type of __heapFree return value (Integer'29)
+  mov qword ptr [r10], 01eh                                      ; type of __heapFree return value (Integer'30)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 020h                                                  ; free space for stack
@@ -3461,7 +3757,7 @@ func$_free:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 028h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -3476,7 +3772,7 @@ func$_free:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 028h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -3504,7 +3800,7 @@ func$_free:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -3519,7 +3815,7 @@ func$_free:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -3543,7 +3839,7 @@ func$_free:
     ; Call __print with 1 arguments
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 028h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -3559,7 +3855,7 @@ func$_free:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 028h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -3576,7 +3872,7 @@ func$_free:
   mov r15, r10                                                   ; assign value of copy of _blockCount to value of -= operator result
   sub r15, 001h                                                  ; -= operator
   mov qword ptr _blockCountValue, r15                            ; store value
-  mov qword ptr _blockCountType, 01dh                            ; store type (Integer'29)
+  mov qword ptr _blockCountType, 01eh                            ; store type (Integer'30)
   ; Line 58: if (__heapFree(_heapHandle, 0, pointer) == 0) { ...
   mov rax, qword ptr _heapHandleValue                            ; make a copy of _heapHandle's value in case it changes before we use it
   mov rdi, qword ptr _heapHandleType                             ; make a copy of _heapHandle's type in case it changes before we use it
@@ -3584,7 +3880,7 @@ func$_free:
   push qword ptr [rbp + 040h]                                    ; value of argument #3 (pointer)
   push qword ptr [rbp + 038h]                                    ; type of argument #3
   push 000h                                                      ; value of argument #2 (0)
-  push 01dh                                                      ; type of argument #2 (Integer'29)
+  push 01eh                                                      ; type of argument #2 (Integer'30)
   push rax                                                       ; value of argument #1 (copy of _heapHandle)
   push rdi                                                       ; type of argument #1
   lea r15, qword ptr [rsp + 048h]                                ; load address of return value's value
@@ -3601,11 +3897,11 @@ func$_free:
   xor r10, r10                                                   ; zero value result of == (testing __heapFree return value and 0) to put the boolean in
   cmp qword ptr [rsp + 018h], 000h                               ; values equal?
   sete r10b                                                      ; put result in value result of == (testing __heapFree return value and 0)
-  mov rbx, 01ch                                                  ; value result of == (testing __heapFree return value and 0) is a Boolean'28
+  mov rbx, 01dh                                                  ; value result of == (testing __heapFree return value and 0) is a Boolean'29
   xor rsi, rsi                                                   ; zero type result of == (testing __heapFree return value and 0) to put the boolean in
-  cmp qword ptr [rsp + 010h], 01dh                               ; types equal?
+  cmp qword ptr [rsp + 010h], 01eh                               ; types equal?
   sete sil                                                       ; put result in type result of == (testing __heapFree return value and 0)
-  mov rax, 01ch                                                  ; type result of == (testing __heapFree return value and 0) is a Boolean'28
+  mov rax, 01dh                                                  ; type result of == (testing __heapFree return value and 0) is a Boolean'29
   mov rdi, r10                                                   ; assign value of value result of == (testing __heapFree return value and 0) to value of == operator result
   and rdi, rsi                                                   ; && type temp and value temp
   cmp rdi, 000h                                                  ; compare == operator result to false
@@ -3633,7 +3929,7 @@ func$_free:
       ; Call __print with 1 arguments
       mov rsi, offset subroutineCallTypeCheckFailureMessage      ; reading subroutineCallTypeCheckFailureMessage for push
       push rsi                                                   ; value of argument #1 (subroutineCallTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rax, qword ptr [rsp + 018h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 018h]                            ; load address of return value's type
@@ -3648,7 +3944,7 @@ func$_free:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rdi, qword ptr [rsp + 018h]                            ; load address of return value's value
       push rdi                                                   ; internal argument 6: pointer to return value slot's value
       lea rdi, qword ptr [rsp + 018h]                            ; load address of return value's type
@@ -3667,7 +3963,7 @@ func$_free:
     mov qword ptr [rsp + 028h], r12                              ; move copy of println's value out of r12
     mov r12, offset string$1                                     ; reading string for push
     push r12                                                     ; value of argument #1 (string)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     mov qword ptr [rsp + 028h], r13                              ; move copy of println's type out of r13
     lea r13, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
@@ -3678,16 +3974,17 @@ func$_free:
     mov r8, 000h                                                 ; internal argument 3: "this" pointer type
     mov rdx, 000h                                                ; internal argument 2: closure pointer
     mov rcx, 002h                                                ; internal argument 1: number of actual arguments
-    call qword ptr [rsp + 068h]                                  ; jump to subroutine
+    mov r14, qword ptr [rsp + 068h]                              ; reading copy of println to dereference it
+    call qword ptr [r14 + 038h]                                  ; jump to subroutine
     add rsp, 050h                                                ; release shadow space and arguments (result in stack pointer)
     ; Line 60: exit(1);
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1)
-    push 01dh                                                    ; type of argument #1 (Integer'29)
-    lea rbx, qword ptr [rsp + 028h]                              ; load address of return value's value
-    push rbx                                                     ; internal argument 6: pointer to return value slot's value
-    lea rbx, qword ptr [rsp + 028h]                              ; load address of return value's type
-    push rbx                                                     ; internal argument 5: pointer to return value slot's type
+    push 01eh                                                    ; type of argument #1 (Integer'30)
+    lea rsi, qword ptr [rsp + 028h]                              ; load address of return value's value
+    push rsi                                                     ; internal argument 6: pointer to return value slot's value
+    lea rsi, qword ptr [rsp + 028h]                              ; load address of return value's type
+    push rsi                                                     ; internal argument 5: pointer to return value slot's type
     sub rsp, 020h                                                ; allocate shadow space
     mov r9, 000h                                                 ; internal argument 4: "this" pointer
     mov r8, 000h                                                 ; internal argument 3: "this" pointer type
@@ -3697,10 +3994,10 @@ func$_free:
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
   func$_free$if$continuation:                                    ; end of if
   ; Implicit return from _free
-  mov r12, qword ptr [rbp + 030h]                                ; get pointer to return value of _free into register to dereference it
-  mov qword ptr [r12], 000h                                      ; _free return value
-  mov r13, qword ptr [rbp + 028h]                                ; get pointer to return value type of _free into register to dereference it
-  mov qword ptr [r13], 01bh                                      ; type of _free return value (Null'27)
+  mov r13, qword ptr [rbp + 030h]                                ; get pointer to return value of _free into register to dereference it
+  mov qword ptr [r13], 000h                                      ; _free return value
+  mov r14, qword ptr [rbp + 028h]                                ; get pointer to return value type of _free into register to dereference it
+  mov qword ptr [r14], 01ch                                      ; type of _free return value (Null'28)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 028h                                                  ; free space for stack
@@ -3737,7 +4034,7 @@ func$_moveBytes:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 088h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 088h]                              ; load address of return value's type
@@ -3752,7 +4049,7 @@ func$_moveBytes:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 088h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 088h]                              ; load address of return value's type
@@ -3780,7 +4077,7 @@ func$_moveBytes:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 088h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 088h]                              ; load address of return value's type
@@ -3795,7 +4092,7 @@ func$_moveBytes:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 088h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 088h]                              ; load address of return value's type
@@ -3823,7 +4120,7 @@ func$_moveBytes:
     ; Call __print with 1 arguments
     mov rdi, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 088h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 088h]                              ; load address of return value's type
@@ -3838,7 +4135,7 @@ func$_moveBytes:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 088h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 088h]                              ; load address of return value's type
@@ -3866,7 +4163,7 @@ func$_moveBytes:
     ; Call __print with 1 arguments
     mov rbx, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 088h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 088h]                              ; load address of return value's type
@@ -3881,7 +4178,7 @@ func$_moveBytes:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 088h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 088h]                              ; load address of return value's type
@@ -3903,7 +4200,7 @@ func$_moveBytes:
     ; Call __print with 1 arguments
     mov r12, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r13, qword ptr [rsp + 088h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 088h]                              ; load address of return value's type
@@ -3918,7 +4215,7 @@ func$_moveBytes:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 088h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 088h]                              ; load address of return value's type
@@ -3937,9 +4234,9 @@ func$_moveBytes:
   ; Call assert with 2 arguments
   mov r13, offset string$2                                       ; reading string for push
   push r13                                                       ; value of argument #2 (string)
-  push 01eh                                                      ; type of argument #2 (String'30)
+  push 01fh                                                      ; type of argument #2 (String'31)
   push rbx                                                       ; value of argument #1 (> operator result)
-  push 01ch                                                      ; type of argument #1 (Boolean'28)
+  push 01dh                                                      ; type of argument #1 (Boolean'29)
   lea r14, qword ptr [rsp + 098h]                                ; load address of return value's value
   push r14                                                       ; internal argument 6: pointer to return value slot's value
   lea r14, qword ptr [rsp + 098h]                                ; load address of return value's type
@@ -3962,7 +4259,7 @@ func$_moveBytes:
     ; Call __print with 1 arguments
     mov rax, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r15, qword ptr [rsp + 078h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 078h]                              ; load address of return value's type
@@ -3977,7 +4274,7 @@ func$_moveBytes:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r10, qword ptr [rsp + 078h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 078h]                              ; load address of return value's type
@@ -4005,7 +4302,7 @@ func$_moveBytes:
     ; Call __print with 1 arguments
     mov rbx, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -4020,7 +4317,7 @@ func$_moveBytes:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -4048,7 +4345,7 @@ func$_moveBytes:
     ; Call __print with 1 arguments
     mov r12, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r13, qword ptr [rsp + 058h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -4063,7 +4360,7 @@ func$_moveBytes:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 058h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -4089,7 +4386,7 @@ func$_moveBytes:
     ; Call __print with 1 arguments
     mov rax, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rbx, qword ptr [rsp + 058h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -4105,7 +4402,7 @@ func$_moveBytes:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rsi, qword ptr [rsp + 058h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -4122,7 +4419,7 @@ func$_moveBytes:
   mov r14, qword ptr [rbp + 040h]                                ; assign value of from to value of + operator result
   add r14, r10                                                   ; compute (from) + (* operator result) (result in + operator result)
   mov qword ptr [rsp + 058h], r14                                ; value initialization of variable declaration for end variable (+ operator result)
-  mov qword ptr [rsp + 050h], 01dh                               ; type initialization of variable declaration for end variable (Integer'29)
+  mov qword ptr [rsp + 050h], 01eh                               ; type initialization of variable declaration for end variable (Integer'30)
   func$_moveBytes$while$top:                                     ; top of while
     mov rbx, qword ptr [rsp + 078h]                              ; make a copy of fromCursor's value in case it changes before we use it
     mov rsi, qword ptr [rsp + 070h]                              ; make a copy of fromCursor's type in case it changes before we use it
@@ -4136,7 +4433,7 @@ func$_moveBytes:
       ; Call __print with 1 arguments
       mov r13, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r13                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r14, qword ptr [rsp + 058h]                            ; load address of return value's value
       push r14                                                   ; internal argument 6: pointer to return value slot's value
       lea r14, qword ptr [rsp + 058h]                            ; load address of return value's type
@@ -4151,7 +4448,7 @@ func$_moveBytes:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r15, qword ptr [rsp + 058h]                            ; load address of return value's value
       push r15                                                   ; internal argument 6: pointer to return value slot's value
       lea r15, qword ptr [rsp + 058h]                            ; load address of return value's type
@@ -4172,7 +4469,7 @@ func$_moveBytes:
       ; Call __print with 1 arguments
       mov r10, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r10                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rax, qword ptr [rsp + 058h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 058h]                            ; load address of return value's type
@@ -4187,7 +4484,7 @@ func$_moveBytes:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       mov qword ptr [rsp + 050h], rbx                            ; move copy of fromCursor's value out of rbx
       lea rbx, qword ptr [rsp + 058h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
@@ -4215,7 +4512,7 @@ func$_moveBytes:
     ; Call __readFromAddress with 1 arguments
     mov r10, qword ptr [rdi]                                     ; dereference first argument of __readFromAddress
     mov qword ptr [rsp + 048h], r10                              ; value initialization of variable declaration for value variable (dereferenced copy of fromCursor)
-    mov qword ptr [rsp + 040h], 01dh                             ; type initialization of variable declaration for value variable (Integer'29)
+    mov qword ptr [rsp + 040h], 01eh                             ; type initialization of variable declaration for value variable (Integer'30)
     ; Line 76: __writeToAddress(toCursor, value);
     mov rdi, qword ptr [rsp + 068h]                              ; make a copy of toCursor's value in case it changes before we use it
     mov r12, qword ptr [rsp + 060h]                              ; make a copy of toCursor's type in case it changes before we use it
@@ -4234,7 +4531,7 @@ func$_moveBytes:
       ; Call __print with 1 arguments
       mov rdi, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rdi                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r12, qword ptr [rsp + 058h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 058h]                            ; load address of return value's type
@@ -4249,7 +4546,7 @@ func$_moveBytes:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r13, qword ptr [rsp + 058h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 058h]                            ; load address of return value's type
@@ -4265,7 +4562,7 @@ func$_moveBytes:
     mov rax, rbx                                                 ; assign value of copy of fromCursor to value of += operator result
     add rax, 008h                                                ; += operator
     mov qword ptr [rsp + 078h], rax                              ; store value
-    mov qword ptr [rsp + 070h], 01dh                             ; store type (Integer'29)
+    mov qword ptr [rsp + 070h], 01eh                             ; store type (Integer'30)
     ; Line 78: toCursor += 8;
     mov r12, qword ptr [rsp + 068h]                              ; make a copy of toCursor's value in case it changes before we use it
     mov r13, qword ptr [rsp + 060h]                              ; make a copy of toCursor's type in case it changes before we use it
@@ -4277,7 +4574,7 @@ func$_moveBytes:
       ; Call __print with 1 arguments
       mov r14, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r14                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r15, qword ptr [rsp + 058h]                            ; load address of return value's value
       push r15                                                   ; internal argument 6: pointer to return value slot's value
       lea r15, qword ptr [rsp + 058h]                            ; load address of return value's type
@@ -4292,7 +4589,7 @@ func$_moveBytes:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r10, qword ptr [rsp + 058h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 058h]                            ; load address of return value's type
@@ -4308,7 +4605,7 @@ func$_moveBytes:
     mov rdi, r12                                                 ; assign value of copy of toCursor to value of += operator result
     add rdi, 008h                                                ; += operator
     mov qword ptr [rsp + 068h], rdi                              ; store value
-    mov qword ptr [rsp + 060h], 01dh                             ; store type (Integer'29)
+    mov qword ptr [rsp + 060h], 01eh                             ; store type (Integer'30)
     jmp func$_moveBytes$while$top                                ; return to top of while
   func$_moveBytes$while$bottom:                                  ; bottom of while
   ; Line 80: end = from + length;
@@ -4320,7 +4617,7 @@ func$_moveBytes:
     ; Call __print with 1 arguments
     mov r15, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r15                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r10, qword ptr [rsp + 058h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -4335,7 +4632,7 @@ func$_moveBytes:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rax, qword ptr [rsp + 058h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -4356,7 +4653,7 @@ func$_moveBytes:
     ; Call __print with 1 arguments
     mov rbx, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 058h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -4371,7 +4668,7 @@ func$_moveBytes:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 058h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -4387,7 +4684,7 @@ func$_moveBytes:
   mov r12, qword ptr [rbp + 040h]                                ; assign value of from to value of + operator result
   add r12, qword ptr [rbp + 060h]                                ; compute (from) + (length) (result in + operator result)
   mov qword ptr [rsp + 058h], r12                                ; store value
-  mov qword ptr [rsp + 050h], 01dh                               ; store type (Integer'29)
+  mov qword ptr [rsp + 050h], 01eh                               ; store type (Integer'30)
   ; Line 82: if (fromCursor < end) { ...
   mov r10, qword ptr [rsp + 078h]                                ; make a copy of fromCursor's value in case it changes before we use it
   mov rax, qword ptr [rsp + 070h]                                ; make a copy of fromCursor's type in case it changes before we use it
@@ -4401,7 +4698,7 @@ func$_moveBytes:
     ; Call __print with 1 arguments
     mov rdi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 058h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -4418,7 +4715,7 @@ func$_moveBytes:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 058h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -4441,7 +4738,7 @@ func$_moveBytes:
     ; Call __print with 1 arguments
     mov r14, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r14                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r15, qword ptr [rsp + 058h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -4458,7 +4755,7 @@ func$_moveBytes:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r10, qword ptr [rsp + 058h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -4484,14 +4781,14 @@ func$_moveBytes:
     ; Call __readFromAddress with 1 arguments
     mov r14, qword ptr [rbx]                                     ; dereference first argument of __readFromAddress
     mov qword ptr [rsp + 048h], r14                              ; value initialization of variable declaration for newValue variable (dereferenced copy of fromCursor)
-    mov qword ptr [rsp + 040h], 01dh                             ; type initialization of variable declaration for newValue variable (Integer'29)
+    mov qword ptr [rsp + 040h], 01eh                             ; type initialization of variable declaration for newValue variable (Integer'30)
     ; Line 84: Integer oldValue = __readFromAddress(toCursor);
     mov rbx, qword ptr [rsp + 068h]                              ; make a copy of toCursor's value in case it changes before we use it
     mov rsi, qword ptr [rsp + 060h]                              ; make a copy of toCursor's type in case it changes before we use it
     ; Call __readFromAddress with 1 arguments
     mov r14, qword ptr [rbx]                                     ; dereference first argument of __readFromAddress
     mov qword ptr [rsp + 038h], r14                              ; value initialization of variable declaration for oldValue variable (dereferenced copy of toCursor)
-    mov qword ptr [rsp + 030h], 01dh                             ; type initialization of variable declaration for oldValue variable (Integer'29)
+    mov qword ptr [rsp + 030h], 01eh                             ; type initialization of variable declaration for oldValue variable (Integer'30)
     ; Line 85: Integer extraBytes = end - fromCursor;
     mov rbx, qword ptr [rsp + 058h]                              ; make a copy of end's value in case it changes before we use it
     mov rsi, qword ptr [rsp + 050h]                              ; make a copy of end's type in case it changes before we use it
@@ -4507,7 +4804,7 @@ func$_moveBytes:
       ; Call __print with 1 arguments
       mov r13, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r13                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r14, qword ptr [rsp + 028h]                            ; load address of return value's value
       push r14                                                   ; internal argument 6: pointer to return value slot's value
       lea r14, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -4522,7 +4819,7 @@ func$_moveBytes:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r15, qword ptr [rsp + 028h]                            ; load address of return value's value
       push r15                                                   ; internal argument 6: pointer to return value slot's value
       lea r15, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -4543,7 +4840,7 @@ func$_moveBytes:
       ; Call __print with 1 arguments
       mov r10, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r10                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rax, qword ptr [rsp + 028h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -4558,7 +4855,7 @@ func$_moveBytes:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       mov qword ptr [rsp + 020h], rbx                            ; move copy of end's value out of rbx
       lea rbx, qword ptr [rsp + 028h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
@@ -4577,7 +4874,7 @@ func$_moveBytes:
     mov rsi, rbx                                                 ; assign value of copy of end to value of - operator result
     sub rsi, rdi                                                 ; compute (copy of end) - (copy of fromCursor)
     mov qword ptr [rsp + 028h], rsi                              ; value initialization of variable declaration for extraBytes variable (- operator result)
-    mov qword ptr [rsp + 020h], 01dh                             ; type initialization of variable declaration for extraBytes variable (Integer'29)
+    mov qword ptr [rsp + 020h], 01eh                             ; type initialization of variable declaration for extraBytes variable (Integer'30)
     ; Line 86: assert(extraBytes > 0, 'internal error: zero extra bytes but fro...
     mov r14, qword ptr [rsp + 028h]                              ; make a copy of extraBytes's value in case it changes before we use it
     mov r15, qword ptr [rsp + 020h]                              ; make a copy of extraBytes's type in case it changes before we use it
@@ -4589,7 +4886,7 @@ func$_moveBytes:
       ; Call __print with 1 arguments
       mov r10, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r10                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rax, qword ptr [rsp + 028h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -4604,7 +4901,7 @@ func$_moveBytes:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rbx, qword ptr [rsp + 028h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
       lea rbx, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -4623,9 +4920,9 @@ func$_moveBytes:
     ; Call assert with 2 arguments
     mov rax, offset string$3                                     ; reading string for push
     push rax                                                     ; value of argument #2 (string)
-    push 01eh                                                    ; type of argument #2 (String'30)
+    push 01fh                                                    ; type of argument #2 (String'31)
     push r13                                                     ; value of argument #1 (> operator result)
-    push 01ch                                                    ; type of argument #1 (Boolean'28)
+    push 01dh                                                    ; type of argument #1 (Boolean'29)
     lea rbx, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -4648,7 +4945,7 @@ func$_moveBytes:
       ; Call __print with 1 arguments
       mov r12, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r12                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r13, qword ptr [rsp + 028h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -4663,7 +4960,7 @@ func$_moveBytes:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r14, qword ptr [rsp + 028h]                            ; load address of return value's value
       push r14                                                   ; internal argument 6: pointer to return value slot's value
       lea r14, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -4682,9 +4979,9 @@ func$_moveBytes:
     ; Call assert with 2 arguments
     mov r13, offset string$4                                     ; reading string for push
     push r13                                                     ; value of argument #2 (string)
-    push 01eh                                                    ; type of argument #2 (String'30)
+    push 01fh                                                    ; type of argument #2 (String'31)
     push rbx                                                     ; value of argument #1 (< operator result)
-    push 01ch                                                    ; type of argument #1 (Boolean'28)
+    push 01dh                                                    ; type of argument #1 (Boolean'29)
     lea r14, qword ptr [rsp + 038h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -4709,7 +5006,7 @@ func$_moveBytes:
       ; Call __print with 1 arguments
       mov rax, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rax                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rbx, qword ptr [rsp + 028h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
       lea rbx, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -4725,7 +5022,7 @@ func$_moveBytes:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rsi, qword ptr [rsp + 028h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -4740,11 +5037,11 @@ func$_moveBytes:
       mov r10, qword ptr [rsp + 008h]                            ; restoring slots to previous scope state
     func$_moveBytes$Movebytes$if$extrabytes$TypeMatch$2:         ; after block
     imul r14, r15, 008h                                          ; compute (copy of extraBytes) * (8) (result in * operator result)
-    mov rcx, r14                                                 ; read <DynamicSlot:Integer'29 ("* operator result")> into imm8 or cl forshl
+    mov rcx, r14                                                 ; read <DynamicSlot:Integer'30 ("* operator result")> into imm8 or cl forshl
     mov r12, -001h                                               ; assign value of -1 to value of << operator result
     shl r12, cl                                                  ; compute (-1) << (* operator result)
     mov qword ptr [rsp + 028h], r12                              ; value initialization of variable declaration for mask variable (<< operator result)
-    mov qword ptr [rsp + 020h], 01dh                             ; type initialization of variable declaration for mask variable (Integer'29)
+    mov qword ptr [rsp + 020h], 01eh                             ; type initialization of variable declaration for mask variable (Integer'30)
     ; Line 89: Integer finalValue = newValue & ~mask | oldValue & mask;
     mov r10, qword ptr [rsp + 048h]                              ; make a copy of newValue's value in case it changes before we use it
     mov rax, qword ptr [rsp + 040h]                              ; make a copy of newValue's type in case it changes before we use it
@@ -4760,7 +5057,7 @@ func$_moveBytes:
       ; Call __print with 1 arguments
       mov rdi, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rdi                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r12, qword ptr [rsp + 028h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -4777,7 +5074,7 @@ func$_moveBytes:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r13, qword ptr [rsp + 028h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -4802,7 +5099,7 @@ func$_moveBytes:
       ; Call __print with 1 arguments
       mov r15, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r15                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       mov qword ptr [rsp + 020h], r10                            ; move copy of newValue's value out of r10
       lea r10, qword ptr [rsp + 028h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
@@ -4819,7 +5116,7 @@ func$_moveBytes:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rax, qword ptr [rsp + 028h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 020h]                            ; load address of return value's type
@@ -4848,7 +5145,7 @@ func$_moveBytes:
       ; Call __print with 1 arguments
       mov rax, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rax                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rbx, qword ptr [rsp + 048h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
       lea rbx, qword ptr [rsp + 048h]                            ; load address of return value's type
@@ -4864,7 +5161,7 @@ func$_moveBytes:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rsi, qword ptr [rsp + 048h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 048h]                            ; load address of return value's type
@@ -4886,7 +5183,7 @@ func$_moveBytes:
       ; Call __print with 1 arguments
       mov rdi, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rdi                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       mov qword ptr [rsp + 040h], r12                            ; move & operator result's value out of r12
       lea r12, qword ptr [rsp + 048h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
@@ -4903,7 +5200,7 @@ func$_moveBytes:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       mov qword ptr [rsp + 038h], r13                            ; move copy of oldValue's value out of r13
       lea r13, qword ptr [rsp + 048h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
@@ -4927,7 +5224,7 @@ func$_moveBytes:
     mov r12, qword ptr [rsp + 038h]                              ; assign value of & operator result to value of | operator result
     or r12, r14                                                  ; compute (& operator result) | (& operator result)
     mov qword ptr [rsp + 048h], r12                              ; value initialization of variable declaration for finalValue variable (| operator result)
-    mov qword ptr [rsp + 040h], 01dh                             ; type initialization of variable declaration for finalValue variable (Integer'29)
+    mov qword ptr [rsp + 040h], 01eh                             ; type initialization of variable declaration for finalValue variable (Integer'30)
     ; Line 90: __writeToAddress(toCursor, finalValue);
     mov r10, qword ptr [rsp + 068h]                              ; make a copy of toCursor's value in case it changes before we use it
     mov rax, qword ptr [rsp + 060h]                              ; make a copy of toCursor's type in case it changes before we use it
@@ -4940,7 +5237,7 @@ func$_moveBytes:
   mov rax, qword ptr [rbp + 030h]                                ; get pointer to return value of _moveBytes into register to dereference it
   mov qword ptr [rax], 000h                                      ; _moveBytes return value
   mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of _moveBytes into register to dereference it
-  mov qword ptr [rbx], 01bh                                      ; type of _moveBytes return value (Null'27)
+  mov qword ptr [rbx], 01ch                                      ; type of _moveBytes return value (Null'28)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 088h                                                  ; free space for stack
@@ -4977,7 +5274,7 @@ func$_fillQuadWords:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -4992,7 +5289,7 @@ func$_fillQuadWords:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -5020,7 +5317,7 @@ func$_fillQuadWords:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -5035,7 +5332,7 @@ func$_fillQuadWords:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -5063,7 +5360,7 @@ func$_fillQuadWords:
     ; Call __print with 1 arguments
     mov rdi, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -5078,7 +5375,7 @@ func$_fillQuadWords:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -5106,7 +5403,7 @@ func$_fillQuadWords:
     ; Call __print with 1 arguments
     mov rbx, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -5121,7 +5418,7 @@ func$_fillQuadWords:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -5143,7 +5440,7 @@ func$_fillQuadWords:
     ; Call __print with 1 arguments
     mov r12, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r13, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -5158,7 +5455,7 @@ func$_fillQuadWords:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -5177,9 +5474,9 @@ func$_fillQuadWords:
   ; Call assert with 2 arguments
   mov r13, offset string$5                                       ; reading string for push
   push r13                                                       ; value of argument #2 (string)
-  push 01eh                                                      ; type of argument #2 (String'30)
+  push 01fh                                                      ; type of argument #2 (String'31)
   push rbx                                                       ; value of argument #1 (> operator result)
-  push 01ch                                                      ; type of argument #1 (Boolean'28)
+  push 01dh                                                      ; type of argument #1 (Boolean'29)
   lea r14, qword ptr [rsp + 058h]                                ; load address of return value's value
   push r14                                                       ; internal argument 6: pointer to return value slot's value
   lea r14, qword ptr [rsp + 058h]                                ; load address of return value's type
@@ -5200,7 +5497,7 @@ func$_fillQuadWords:
     ; Call __print with 1 arguments
     mov rax, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r15, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -5215,7 +5512,7 @@ func$_fillQuadWords:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r10, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -5228,27 +5525,27 @@ func$_fillQuadWords:
     call func$exit                                               ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
   func$_fillQuadWords$length$TypeMatch$2:                        ; after block
-  mov rax, qword ptr [rbp + 050h]                                ; put lhs of rdx division (<ParameterSlot:Integer'29 ("length")>) in rax
+  mov rax, qword ptr [rbp + 050h]                                ; put lhs of rdx division (<ParameterSlot:Integer'30 ("length")>) in rax
   cqo                                                            ; zero-extend dividend (rax into rdx:rax)
-  mov r12, 008h                                                  ; read visible operand of div (<ImmediateIntegerSlot:Integer'29 ("8")>) 
+  mov r12, 008h                                                  ; read visible operand of div (<ImmediateIntegerSlot:Integer'30 ("8")>) 
   idiv r12                                                       ; compute (length) % (8) (result, % operator result, ends up in rdx)
   xor r13, r13                                                   ; zero value result of == (testing % operator result and 0) to put the boolean in
   cmp rdx, 000h                                                  ; values equal?
   sete r13b                                                      ; put result in value result of == (testing % operator result and 0)
-  mov r14, 01ch                                                  ; value result of == (testing % operator result and 0) is a Boolean'28
+  mov r14, 01dh                                                  ; value result of == (testing % operator result and 0) is a Boolean'29
   xor r15, r15                                                   ; zero type result of == (testing % operator result and 0) to put the boolean in
-  mov r10, 01dh                                                  ; reading type of % operator result for comparison with type of 0
-  cmp r10, 01dh                                                  ; types equal?
+  mov r10, 01eh                                                  ; reading type of % operator result for comparison with type of 0
+  cmp r10, 01eh                                                  ; types equal?
   sete r15b                                                      ; put result in type result of == (testing % operator result and 0)
-  mov rbx, 01ch                                                  ; type result of == (testing % operator result and 0) is a Boolean'28
+  mov rbx, 01dh                                                  ; type result of == (testing % operator result and 0) is a Boolean'29
   mov rsi, r13                                                   ; assign value of value result of == (testing % operator result and 0) to value of == operator result
   and rsi, r15                                                   ; && type temp and value temp
   ; Call assert with 2 arguments
   mov r12, offset string$6                                       ; reading string for push
   push r12                                                       ; value of argument #2 (string)
-  push 01eh                                                      ; type of argument #2 (String'30)
+  push 01fh                                                      ; type of argument #2 (String'31)
   push rsi                                                       ; value of argument #1 (== operator result)
-  push 01ch                                                      ; type of argument #1 (Boolean'28)
+  push 01dh                                                      ; type of argument #1 (Boolean'29)
   lea r13, qword ptr [rsp + 058h]                                ; load address of return value's value
   push r13                                                       ; internal argument 6: pointer to return value slot's value
   lea r13, qword ptr [rsp + 058h]                                ; load address of return value's type
@@ -5271,7 +5568,7 @@ func$_fillQuadWords:
     ; Call __print with 1 arguments
     mov r14, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push r14                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r15, qword ptr [rsp + 038h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -5286,7 +5583,7 @@ func$_fillQuadWords:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r10, qword ptr [rsp + 038h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -5314,7 +5611,7 @@ func$_fillQuadWords:
     ; Call __print with 1 arguments
     mov rbx, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 028h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -5329,7 +5626,7 @@ func$_fillQuadWords:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 028h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -5350,7 +5647,7 @@ func$_fillQuadWords:
     ; Call __print with 1 arguments
     mov rax, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -5365,7 +5662,7 @@ func$_fillQuadWords:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -5381,7 +5678,7 @@ func$_fillQuadWords:
   mov r14, qword ptr [rbp + 040h]                                ; assign value of destination to value of + operator result
   add r14, qword ptr [rbp + 050h]                                ; compute (destination) + (length) (result in + operator result)
   mov qword ptr [rsp + 028h], r14                                ; value initialization of variable declaration for end variable (+ operator result)
-  mov qword ptr [rsp + 020h], 01dh                               ; type initialization of variable declaration for end variable (Integer'29)
+  mov qword ptr [rsp + 020h], 01eh                               ; type initialization of variable declaration for end variable (Integer'30)
   func$_fillQuadWords$while$top:                                 ; top of while
     mov rsi, qword ptr [rsp + 038h]                              ; make a copy of cursor's value in case it changes before we use it
     mov rdi, qword ptr [rsp + 030h]                              ; make a copy of cursor's type in case it changes before we use it
@@ -5395,7 +5692,7 @@ func$_fillQuadWords:
       ; Call __print with 1 arguments
       mov r13, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r13                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r14, qword ptr [rsp + 028h]                            ; load address of return value's value
       push r14                                                   ; internal argument 6: pointer to return value slot's value
       lea r14, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -5411,7 +5708,7 @@ func$_fillQuadWords:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r15, qword ptr [rsp + 028h]                            ; load address of return value's value
       push r15                                                   ; internal argument 6: pointer to return value slot's value
       lea r15, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -5433,7 +5730,7 @@ func$_fillQuadWords:
       ; Call __print with 1 arguments
       mov r10, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r10                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rbx, qword ptr [rsp + 028h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
       lea rbx, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -5449,7 +5746,7 @@ func$_fillQuadWords:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       mov qword ptr [rsp + 020h], rsi                            ; move copy of cursor's value out of rsi
       lea rsi, qword ptr [rsp + 028h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
@@ -5489,7 +5786,7 @@ func$_fillQuadWords:
       ; Call __print with 1 arguments
       mov rdi, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rdi                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rax, qword ptr [rsp + 028h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -5504,7 +5801,7 @@ func$_fillQuadWords:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r12, qword ptr [rsp + 028h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 028h]                            ; load address of return value's type
@@ -5520,14 +5817,14 @@ func$_fillQuadWords:
     mov r10, rbx                                                 ; assign value of copy of cursor to value of += operator result
     add r10, 008h                                                ; += operator
     mov qword ptr [rsp + 038h], r10                              ; store value
-    mov qword ptr [rsp + 030h], 01dh                             ; store type (Integer'29)
+    mov qword ptr [rsp + 030h], 01eh                             ; store type (Integer'30)
     jmp func$_fillQuadWords$while$top                            ; return to top of while
   func$_fillQuadWords$while$bottom:                              ; bottom of while
   ; Implicit return from _fillQuadWords
   mov r14, qword ptr [rbp + 030h]                                ; get pointer to return value of _fillQuadWords into register to dereference it
   mov qword ptr [r14], 000h                                      ; _fillQuadWords return value
   mov r15, qword ptr [rbp + 028h]                                ; get pointer to return value type of _fillQuadWords into register to dereference it
-  mov qword ptr [r15], 01bh                                      ; type of _fillQuadWords return value (Null'27)
+  mov qword ptr [r15], 01ch                                      ; type of _fillQuadWords return value (Null'28)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 048h                                                  ; free space for stack
@@ -5564,7 +5861,7 @@ func$_blockListInit:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -5579,7 +5876,7 @@ func$_blockListInit:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -5607,7 +5904,7 @@ func$_blockListInit:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 038h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -5622,7 +5919,7 @@ func$_blockListInit:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 038h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -5646,7 +5943,7 @@ func$_blockListInit:
     ; Call __print with 1 arguments
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -5662,7 +5959,7 @@ func$_blockListInit:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -5679,7 +5976,7 @@ func$_blockListInit:
   mov r15, r10                                                   ; assign value of copy of _gcLocked to value of += operator result
   add r15, 001h                                                  ; += operator
   mov qword ptr _gcLockedValue, r15                              ; store value
-  mov qword ptr _gcLockedType, 01dh                              ; store type (Integer'29)
+  mov qword ptr _gcLockedType, 01eh                              ; store type (Integer'30)
   ; Line 136: Integer initialSize = initialCount * _blockEntrySize;
   mov rax, qword ptr _blockEntrySizeValue                        ; make a copy of _blockEntrySize's value in case it changes before we use it
   mov rdi, qword ptr _blockEntrySizeType                         ; make a copy of _blockEntrySize's type in case it changes before we use it
@@ -5693,7 +5990,7 @@ func$_blockListInit:
     ; Call __print with 1 arguments
     mov r12, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r13, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -5709,7 +6006,7 @@ func$_blockListInit:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -5731,7 +6028,7 @@ func$_blockListInit:
     ; Call __print with 1 arguments
     mov r15, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r15                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r10, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -5747,7 +6044,7 @@ func$_blockListInit:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 028h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -5764,7 +6061,7 @@ func$_blockListInit:
   mov rsi, qword ptr [rbp + 040h]                                ; read left hand side operand of imul (initialCount), which is also the result
   imul rsi, rax                                                  ; compute (initialCount) * (copy of _blockEntrySize) (result in * operator result)
   mov qword ptr [rsp + 028h], rsi                                ; value initialization of variable declaration for initialSize variable (* operator result)
-  mov qword ptr [rsp + 020h], 01dh                               ; type initialization of variable declaration for initialSize variable (Integer'29)
+  mov qword ptr [rsp + 020h], 01eh                               ; type initialization of variable declaration for initialSize variable (Integer'30)
   ; Line 137: _blockListStart = _alloc(initialSize);
   mov r13, qword ptr [rsp + 028h]                                ; make a copy of initialSize's value in case it changes before we use it
   mov r14, qword ptr [rsp + 020h]                                ; make a copy of initialSize's type in case it changes before we use it
@@ -5790,7 +6087,7 @@ func$_blockListInit:
     ; Call __print with 1 arguments
     mov rax, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rdi, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -5805,7 +6102,7 @@ func$_blockListInit:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r12, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -5835,7 +6132,7 @@ func$_blockListInit:
     ; Call __print with 1 arguments
     mov rbx, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 028h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -5851,7 +6148,7 @@ func$_blockListInit:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rax, qword ptr [rsp + 028h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -5873,7 +6170,7 @@ func$_blockListInit:
     ; Call __print with 1 arguments
     mov rdi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -5889,7 +6186,7 @@ func$_blockListInit:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     mov qword ptr [rsp + 020h], r13                              ; move copy of _blockListStart's value out of r13
     lea r13, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
@@ -5902,14 +6199,14 @@ func$_blockListInit:
     mov rcx, 001h                                                ; internal argument 1: number of actual arguments
     call func$exit                                               ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov r10, qword ptr [rsp + 008h]                              ; restoring slots to previous scope state
     mov r13, qword ptr [rsp + 010h]                              ; restoring slots to previous scope state
+    mov r10, qword ptr [rsp + 008h]                              ; restoring slots to previous scope state
   func$_blockListInit$initialsize$TypeMatch:                     ; after block
   mov qword ptr [rsp + 018h], r14                                ; move copy of _blockListStart's type out of r14
   mov r14, r13                                                   ; assign value of copy of _blockListStart to value of + operator result
   add r14, r15                                                   ; compute (copy of _blockListStart) + (copy of initialSize) (result in + operator result)
   mov qword ptr _blockListEndValue, r14                          ; store value
-  mov qword ptr _blockListEndType, 01dh                          ; store type (Integer'29)
+  mov qword ptr _blockListEndType, 01eh                          ; store type (Integer'30)
   ; Line 139: _blockListNext = _blockListStart;
   mov rsi, qword ptr _blockListStartValue                        ; make a copy of _blockListStart's value in case it changes before we use it
   mov rax, qword ptr _blockListStartType                         ; make a copy of _blockListStart's type in case it changes before we use it
@@ -5921,7 +6218,7 @@ func$_blockListInit:
     ; Call __print with 1 arguments
     mov rdi, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -5937,7 +6234,7 @@ func$_blockListInit:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -5960,7 +6257,7 @@ func$_blockListInit:
   mov rbx, qword ptr [rsp + 020h]                                ; make a copy of initialSize's type in case it changes before we use it
   ; Call _fillQuadWords with 3 arguments
   push 000h                                                      ; value of argument #3 (0)
-  push 01dh                                                      ; type of argument #3 (Integer'29)
+  push 01eh                                                      ; type of argument #3 (Integer'30)
   push r10                                                       ; value of argument #2 (copy of initialSize)
   push rbx                                                       ; type of argument #2
   push r14                                                       ; value of argument #1 (copy of _blockListStart)
@@ -5987,7 +6284,7 @@ func$_blockListInit:
     ; Call __print with 1 arguments
     mov r15, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r15                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r10, qword ptr [rsp + 038h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -6002,7 +6299,7 @@ func$_blockListInit:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -6018,12 +6315,12 @@ func$_blockListInit:
   mov r12, r13                                                   ; assign value of copy of _gcLocked to value of -= operator result
   sub r12, 001h                                                  ; -= operator
   mov qword ptr _gcLockedValue, r12                              ; store value
-  mov qword ptr _gcLockedType, 01dh                              ; store type (Integer'29)
+  mov qword ptr _gcLockedType, 01eh                              ; store type (Integer'30)
   ; Implicit return from _blockListInit
   mov rax, qword ptr [rbp + 030h]                                ; get pointer to return value of _blockListInit into register to dereference it
   mov qword ptr [rax], 000h                                      ; _blockListInit return value
   mov rdi, qword ptr [rbp + 028h]                                ; get pointer to return value type of _blockListInit into register to dereference it
-  mov qword ptr [rdi], 01bh                                      ; type of _blockListInit return value (Null'27)
+  mov qword ptr [rdi], 01ch                                      ; type of _blockListInit return value (Null'28)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 038h                                                  ; free space for stack
@@ -6060,7 +6357,7 @@ func$_growBlockList:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 060h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -6075,7 +6372,7 @@ func$_growBlockList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 060h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -6099,7 +6396,7 @@ func$_growBlockList:
     ; Call __print with 1 arguments
     mov r12, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r13, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -6114,7 +6411,7 @@ func$_growBlockList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -6133,9 +6430,9 @@ func$_growBlockList:
   ; Call assert with 2 arguments
   mov r13, offset string$7                                       ; reading string for push
   push r13                                                       ; value of argument #2 (string)
-  push 01eh                                                      ; type of argument #2 (String'30)
+  push 01fh                                                      ; type of argument #2 (String'31)
   push rbx                                                       ; value of argument #1 (> operator result)
-  push 01ch                                                      ; type of argument #1 (Boolean'28)
+  push 01dh                                                      ; type of argument #1 (Boolean'29)
   lea r14, qword ptr [rsp + 070h]                                ; load address of return value's value
   push r14                                                       ; internal argument 6: pointer to return value slot's value
   lea r14, qword ptr [rsp + 070h]                                ; load address of return value's type
@@ -6162,7 +6459,7 @@ func$_growBlockList:
     ; Call __print with 1 arguments
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rdi, qword ptr [rsp + 050h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 050h]                              ; load address of return value's type
@@ -6179,7 +6476,7 @@ func$_growBlockList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r12, qword ptr [rsp + 050h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 050h]                              ; load address of return value's type
@@ -6202,7 +6499,7 @@ func$_growBlockList:
     ; Call __print with 1 arguments
     mov r13, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 050h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 050h]                              ; load address of return value's type
@@ -6219,7 +6516,7 @@ func$_growBlockList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     mov qword ptr [rsp + 048h], r15                              ; move copy of _blockListEnd's value out of r15
     lea r15, qword ptr [rsp + 050h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
@@ -6240,7 +6537,7 @@ func$_growBlockList:
   mov r10, r15                                                   ; assign value of copy of _blockListEnd to value of - operator result
   sub r10, rax                                                   ; compute (copy of _blockListEnd) - (copy of _blockListStart)
   mov qword ptr [rsp + 050h], r10                                ; value initialization of variable declaration for oldLength variable (- operator result)
-  mov qword ptr [rsp + 048h], 01dh                               ; type initialization of variable declaration for oldLength variable (Integer'29)
+  mov qword ptr [rsp + 048h], 01eh                               ; type initialization of variable declaration for oldLength variable (Integer'30)
   ; Line 149: Integer newLength = oldLength * 2;
   mov rdi, qword ptr [rsp + 050h]                                ; make a copy of oldLength's value in case it changes before we use it
   mov r12, qword ptr [rsp + 048h]                                ; make a copy of oldLength's type in case it changes before we use it
@@ -6254,7 +6551,7 @@ func$_growBlockList:
     ; Call __print with 1 arguments
     mov r13, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -6269,7 +6566,7 @@ func$_growBlockList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -6284,7 +6581,7 @@ func$_growBlockList:
   func$_growBlockList$oldlength$TypeMatch:                       ; after block
   imul rsi, rdi, 002h                                            ; compute (copy of oldLength) * (2) (result in * operator result)
   mov qword ptr [rsp + 040h], rsi                                ; value initialization of variable declaration for newLength variable (* operator result)
-  mov qword ptr [rsp + 038h], 01dh                               ; type initialization of variable declaration for newLength variable (Integer'29)
+  mov qword ptr [rsp + 038h], 01eh                               ; type initialization of variable declaration for newLength variable (Integer'30)
   ; Line 150: Integer newBlock = _alloc(newLength);
   mov r14, qword ptr [rsp + 040h]                                ; make a copy of newLength's value in case it changes before we use it
   mov r15, qword ptr [rsp + 038h]                                ; make a copy of newLength's type in case it changes before we use it
@@ -6310,7 +6607,7 @@ func$_growBlockList:
     ; Call __print with 1 arguments
     mov rdi, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 020h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -6325,7 +6622,7 @@ func$_growBlockList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 020h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -6380,7 +6677,7 @@ func$_growBlockList:
     ; Call __print with 1 arguments
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rdi, qword ptr [rsp + 030h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -6397,7 +6694,7 @@ func$_growBlockList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r12, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -6420,7 +6717,7 @@ func$_growBlockList:
     ; Call __print with 1 arguments
     mov r13, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -6437,7 +6734,7 @@ func$_growBlockList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     mov qword ptr [rsp + 028h], r15                              ; move copy of newBlock's value out of r15
     lea r15, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
@@ -6461,11 +6758,11 @@ func$_growBlockList:
   mov rbx, qword ptr [rsp + 048h]                                ; make a copy of oldLength's type in case it changes before we use it
   ; Call _fillQuadWords with 3 arguments
   push 000h                                                      ; value of argument #3 (0)
-  push 01dh                                                      ; type of argument #3 (Integer'29)
+  push 01eh                                                      ; type of argument #3 (Integer'30)
   push rax                                                       ; value of argument #2 (copy of oldLength)
   push rbx                                                       ; type of argument #2
   push r10                                                       ; value of argument #1 (+ operator result)
-  push 01dh                                                      ; type of argument #1 (Integer'29)
+  push 01eh                                                      ; type of argument #1 (Integer'30)
   lea r13, qword ptr [rsp + 050h]                                ; load address of return value's value
   push r13                                                       ; internal argument 6: pointer to return value slot's value
   lea r13, qword ptr [rsp + 050h]                                ; load address of return value's type
@@ -6505,7 +6802,7 @@ func$_growBlockList:
     ; Call __print with 1 arguments
     mov r13, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -6520,7 +6817,7 @@ func$_growBlockList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -6548,7 +6845,7 @@ func$_growBlockList:
     ; Call __print with 1 arguments
     mov rdi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -6565,7 +6862,7 @@ func$_growBlockList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -6588,7 +6885,7 @@ func$_growBlockList:
     ; Call __print with 1 arguments
     mov r14, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r14                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r15, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -6605,7 +6902,7 @@ func$_growBlockList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r10, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -6624,7 +6921,7 @@ func$_growBlockList:
   mov rax, r10                                                   ; assign value of copy of newBlock to value of + operator result
   add rax, rbx                                                   ; compute (copy of newBlock) + (copy of oldLength) (result in + operator result)
   mov qword ptr _blockListNextValue, rax                         ; store value
-  mov qword ptr _blockListNextType, 01dh                         ; store type (Integer'29)
+  mov qword ptr _blockListNextType, 01eh                         ; store type (Integer'30)
   ; Line 156: _blockListEnd = newBlock + newLength;
   mov r12, qword ptr [rsp + 030h]                                ; make a copy of newBlock's value in case it changes before we use it
   mov r13, qword ptr [rsp + 028h]                                ; make a copy of newBlock's type in case it changes before we use it
@@ -6638,7 +6935,7 @@ func$_growBlockList:
     ; Call __print with 1 arguments
     mov r10, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 060h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -6653,7 +6950,7 @@ func$_growBlockList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 060h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -6674,7 +6971,7 @@ func$_growBlockList:
     ; Call __print with 1 arguments
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rdi, qword ptr [rsp + 060h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -6689,7 +6986,7 @@ func$_growBlockList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     mov qword ptr [rsp + 058h], r12                              ; move copy of newBlock's value out of r12
     lea r12, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
@@ -6708,12 +7005,12 @@ func$_growBlockList:
   mov r13, r12                                                   ; assign value of copy of newBlock to value of + operator result
   add r13, r14                                                   ; compute (copy of newBlock) + (copy of newLength) (result in + operator result)
   mov qword ptr _blockListEndValue, r13                          ; store value
-  mov qword ptr _blockListEndType, 01dh                          ; store type (Integer'29)
+  mov qword ptr _blockListEndType, 01eh                          ; store type (Integer'30)
   ; Implicit return from _growBlockList
   mov rdi, qword ptr [rbp + 030h]                                ; get pointer to return value of _growBlockList into register to dereference it
   mov qword ptr [rdi], 000h                                      ; _growBlockList return value
   mov r12, qword ptr [rbp + 028h]                                ; get pointer to return value type of _growBlockList into register to dereference it
-  mov qword ptr [r12], 01bh                                      ; type of _growBlockList return value (Null'27)
+  mov qword ptr [r12], 01ch                                      ; type of _growBlockList return value (Null'28)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 060h                                                  ; free space for stack
@@ -6750,7 +7047,7 @@ func$_advanceToNextBlock:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 040h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -6765,7 +7062,7 @@ func$_advanceToNextBlock:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 040h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -6789,7 +7086,7 @@ func$_advanceToNextBlock:
     ; Call __print with 1 arguments
     mov r12, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r13, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -6804,7 +7101,7 @@ func$_advanceToNextBlock:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -6823,9 +7120,9 @@ func$_advanceToNextBlock:
   ; Call assert with 2 arguments
   mov r13, offset string$8                                       ; reading string for push
   push r13                                                       ; value of argument #2 (string)
-  push 01eh                                                      ; type of argument #2 (String'30)
+  push 01fh                                                      ; type of argument #2 (String'31)
   push rbx                                                       ; value of argument #1 (> operator result)
-  push 01ch                                                      ; type of argument #1 (Boolean'28)
+  push 01dh                                                      ; type of argument #1 (Boolean'29)
   lea r14, qword ptr [rsp + 050h]                                ; load address of return value's value
   push r14                                                       ; internal argument 6: pointer to return value slot's value
   lea r14, qword ptr [rsp + 050h]                                ; load address of return value's type
@@ -6850,7 +7147,7 @@ func$_advanceToNextBlock:
     ; Call __print with 1 arguments
     mov rax, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rbx, qword ptr [rsp + 030h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -6866,7 +7163,7 @@ func$_advanceToNextBlock:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rsi, qword ptr [rsp + 030h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -6896,7 +7193,7 @@ func$_advanceToNextBlock:
       ; Call __print with 1 arguments
       mov r15, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r15                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r10, qword ptr [rsp + 030h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 030h]                            ; load address of return value's type
@@ -6911,7 +7208,7 @@ func$_advanceToNextBlock:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rax, qword ptr [rsp + 030h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 030h]                            ; load address of return value's type
@@ -6932,7 +7229,7 @@ func$_advanceToNextBlock:
       ; Call __print with 1 arguments
       mov rbx, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rbx                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rsi, qword ptr [rsp + 030h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 030h]                            ; load address of return value's type
@@ -6947,7 +7244,7 @@ func$_advanceToNextBlock:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       mov qword ptr [rsp + 028h], rdi                            ; move copy of _blockListNext's value out of rdi
       lea rdi, qword ptr [rsp + 030h]                            ; load address of return value's value
       push rdi                                                   ; internal argument 6: pointer to return value slot's value
@@ -6966,7 +7263,7 @@ func$_advanceToNextBlock:
     mov r12, rdi                                                 ; assign value of copy of _blockListNext to value of += operator result
     add r12, r13                                                 ; += operator
     mov qword ptr _blockListNextValue, r12                       ; store value
-    mov qword ptr _blockListNextType, 01dh                       ; store type (Integer'29)
+    mov qword ptr _blockListNextType, 01eh                       ; store type (Integer'30)
     ; Line 164: if (_blockListNext == last) { ...
     mov r10, qword ptr _blockListNextValue                       ; make a copy of _blockListNext's value in case it changes before we use it
     mov rax, qword ptr _blockListNextType                        ; make a copy of _blockListNext's type in case it changes before we use it
@@ -6975,11 +7272,11 @@ func$_advanceToNextBlock:
     xor rdi, rdi                                                 ; zero value result of == (testing copy of _blockListNext and copy of last) to put the boolean in
     cmp r10, rbx                                                 ; values equal?
     sete dil                                                     ; put result in value result of == (testing copy of _blockListNext and copy of last)
-    mov r12, 01ch                                                ; value result of == (testing copy of _blockListNext and copy of last) is a Boolean'28
+    mov r12, 01dh                                                ; value result of == (testing copy of _blockListNext and copy of last) is a Boolean'29
     xor r13, r13                                                 ; zero type result of == (testing copy of _blockListNext and copy of last) to put the boolean in
     cmp rax, rsi                                                 ; types equal?
     sete r13b                                                    ; put result in type result of == (testing copy of _blockListNext and copy of last)
-    mov r14, 01ch                                                ; type result of == (testing copy of _blockListNext and copy of last) is a Boolean'28
+    mov r14, 01dh                                                ; type result of == (testing copy of _blockListNext and copy of last) is a Boolean'29
     mov r15, rdi                                                 ; assign value of value result of == (testing copy of _blockListNext and copy of last) to value of == operator result
     and r15, r13                                                 ; && type temp and value temp
     cmp r15, 000h                                                ; compare == operator result to false
@@ -7001,7 +7298,7 @@ func$_advanceToNextBlock:
       mov r12, qword ptr [rbp + 030h]                            ; get pointer to return value of _advanceToNextBlock into register to dereference it
       mov qword ptr [r12], 000h                                  ; _advanceToNextBlock return value
       mov r13, qword ptr [rbp + 028h]                            ; get pointer to return value type of _advanceToNextBlock into register to dereference it
-      mov qword ptr [r13], 01bh                                  ; type of _advanceToNextBlock return value (Null'27)
+      mov qword ptr [r13], 01ch                                  ; type of _advanceToNextBlock return value (Null'28)
       jmp func$_advanceToNextBlock$epilog                        ; return
     func$_advanceToNextBlock$while$if$continuation:              ; end of if
     ; Line 169: if (_blockListNext == _blockListEnd) { ...
@@ -7012,11 +7309,11 @@ func$_advanceToNextBlock:
     xor rbx, rbx                                                 ; zero value result of == (testing copy of _blockListNext and copy of _blockListEnd) to put the boolean in
     cmp r14, r10                                                 ; values equal?
     sete bl                                                      ; put result in value result of == (testing copy of _blockListNext and copy of _blockListEnd)
-    mov rsi, 01ch                                                ; value result of == (testing copy of _blockListNext and copy of _blockListEnd) is a Boolean'28
+    mov rsi, 01dh                                                ; value result of == (testing copy of _blockListNext and copy of _blockListEnd) is a Boolean'29
     xor rdi, rdi                                                 ; zero type result of == (testing copy of _blockListNext and copy of _blockListEnd) to put the boolean in
     cmp r15, rax                                                 ; types equal?
     sete dil                                                     ; put result in type result of == (testing copy of _blockListNext and copy of _blockListEnd)
-    mov r9, 01ch                                                 ; type result of == (testing copy of _blockListNext and copy of _blockListEnd) is a Boolean'28
+    mov r9, 01dh                                                 ; type result of == (testing copy of _blockListNext and copy of _blockListEnd) is a Boolean'29
     mov r8, rbx                                                  ; assign value of value result of == (testing copy of _blockListNext and copy of _blockListEnd) to value of == operator result
     and r8, rdi                                                  ; && type temp and value temp
     cmp r8, 000h                                                 ; compare == operator result to false
@@ -7032,7 +7329,7 @@ func$_advanceToNextBlock:
         ; Call __print with 1 arguments
         mov r12, offset assignmentTypeCheckFailureMessage        ; reading assignmentTypeCheckFailureMessage for push
         push r12                                                 ; value of argument #1 (assignmentTypeCheckFailureMessage)
-        push 01eh                                                ; type of argument #1 (String'30)
+        push 01fh                                                ; type of argument #1 (String'31)
         lea r13, qword ptr [rsp + 030h]                          ; load address of return value's value
         push r13                                                 ; internal argument 6: pointer to return value slot's value
         lea r13, qword ptr [rsp + 030h]                          ; load address of return value's type
@@ -7049,7 +7346,7 @@ func$_advanceToNextBlock:
         ;  - exit(1)
         ; Call exit with 1 arguments
         push 001h                                                ; value of argument #1 (1 (integer))
-        push 01dh                                                ; type of argument #1 (Integer'29)
+        push 01eh                                                ; type of argument #1 (Integer'30)
         lea r14, qword ptr [rsp + 030h]                          ; load address of return value's value
         push r14                                                 ; internal argument 6: pointer to return value slot's value
         lea r14, qword ptr [rsp + 030h]                          ; load address of return value's type
@@ -7073,18 +7370,18 @@ func$_advanceToNextBlock:
     ; Call __readFromAddress with 1 arguments
     mov rdi, qword ptr [r15]                                     ; dereference first argument of __readFromAddress
     mov qword ptr [rsp + 020h], rdi                              ; value initialization of variable declaration for pointer variable (dereferenced copy of _blockListNext)
-    mov qword ptr [rsp + 018h], 01dh                             ; type initialization of variable declaration for pointer variable (Integer'29)
+    mov qword ptr [rsp + 018h], 01eh                             ; type initialization of variable declaration for pointer variable (Integer'30)
     ; Line 173: if (pointer == 0) { ...
     mov r15, qword ptr [rsp + 020h]                              ; make a copy of pointer's value in case it changes before we use it
     mov r10, qword ptr [rsp + 018h]                              ; make a copy of pointer's type in case it changes before we use it
     xor rax, rax                                                 ; zero value result of == (testing copy of pointer and 0) to put the boolean in
     cmp r15, 000h                                                ; values equal?
     sete al                                                      ; put result in value result of == (testing copy of pointer and 0)
-    mov rbx, 01ch                                                ; value result of == (testing copy of pointer and 0) is a Boolean'28
+    mov rbx, 01dh                                                ; value result of == (testing copy of pointer and 0) is a Boolean'29
     xor rsi, rsi                                                 ; zero type result of == (testing copy of pointer and 0) to put the boolean in
-    cmp r10, 01dh                                                ; types equal?
+    cmp r10, 01eh                                                ; types equal?
     sete sil                                                     ; put result in type result of == (testing copy of pointer and 0)
-    mov rdi, 01ch                                                ; type result of == (testing copy of pointer and 0) is a Boolean'28
+    mov rdi, 01dh                                                ; type result of == (testing copy of pointer and 0) is a Boolean'29
     mov r12, rax                                                 ; assign value of value result of == (testing copy of pointer and 0) to value of == operator result
     and r12, rsi                                                 ; && type temp and value temp
     cmp r12, 000h                                                ; compare == operator result to false
@@ -7093,7 +7390,7 @@ func$_advanceToNextBlock:
       mov r10, qword ptr [rbp + 030h]                            ; get pointer to return value of _advanceToNextBlock into register to dereference it
       mov qword ptr [r10], 000h                                  ; _advanceToNextBlock return value
       mov rax, qword ptr [rbp + 028h]                            ; get pointer to return value type of _advanceToNextBlock into register to dereference it
-      mov qword ptr [rax], 01bh                                  ; type of _advanceToNextBlock return value (Null'27)
+      mov qword ptr [rax], 01ch                                  ; type of _advanceToNextBlock return value (Null'28)
       jmp func$_advanceToNextBlock$epilog                        ; return
     func$_advanceToNextBlock$while$if$continuation$2:            ; end of if
     jmp func$_advanceToNextBlock$while$top                       ; return to top of while
@@ -7102,7 +7399,7 @@ func$_advanceToNextBlock:
   mov r12, qword ptr [rbp + 030h]                                ; get pointer to return value of _advanceToNextBlock into register to dereference it
   mov qword ptr [r12], 000h                                      ; _advanceToNextBlock return value
   mov r13, qword ptr [rbp + 028h]                                ; get pointer to return value type of _advanceToNextBlock into register to dereference it
-  mov qword ptr [r13], 01bh                                      ; type of _advanceToNextBlock return value (Null'27)
+  mov qword ptr [r13], 01ch                                      ; type of _advanceToNextBlock return value (Null'28)
   func$_advanceToNextBlock$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
@@ -7140,7 +7437,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 040h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -7155,7 +7452,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 040h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -7183,7 +7480,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -7198,7 +7495,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -7226,7 +7523,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov rdi, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -7241,7 +7538,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -7269,7 +7566,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov rbx, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 040h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -7284,7 +7581,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 040h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -7308,7 +7605,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov r14, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r14                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 040h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -7323,7 +7620,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -7342,9 +7639,9 @@ func$_constructor:
   ; Call assert with 2 arguments
   mov rax, offset string$9                                       ; reading string for push
   push rax                                                       ; value of argument #2 (string)
-  push 01eh                                                      ; type of argument #2 (String'30)
+  push 01fh                                                      ; type of argument #2 (String'31)
   push rdi                                                       ; value of argument #1 (> operator result)
-  push 01ch                                                      ; type of argument #1 (Boolean'28)
+  push 01dh                                                      ; type of argument #1 (Boolean'29)
   lea r15, qword ptr [rsp + 050h]                                ; load address of return value's value
   push r15                                                       ; internal argument 6: pointer to return value slot's value
   lea r15, qword ptr [rsp + 050h]                                ; load address of return value's type
@@ -7365,7 +7662,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov r10, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rbx, qword ptr [rsp + 040h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -7380,7 +7677,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rsi, qword ptr [rsp + 040h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -7401,7 +7698,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov rdi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -7416,7 +7713,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -7429,16 +7726,16 @@ func$_constructor:
     call func$exit                                               ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
   func$_constructor$length$TypeMatch$1:                          ; after block
-  mov r14, qword ptr [rbp + 050h]                                ; reading second value to compare (<ParameterSlot:Integer'29 ("length")>)
+  mov r14, qword ptr [rbp + 050h]                                ; reading second value to compare (<ParameterSlot:Integer'30 ("length")>)
   xor rax, rax                                                   ; clear >= operator result
   cmp qword ptr [rbp + 060h], r14                                ; compare size with length
   setge al                                                       ; store result in >= operator result
   ; Call assert with 2 arguments
   mov rsi, offset string$10                                      ; reading string for push
   push rsi                                                       ; value of argument #2 (string)
-  push 01eh                                                      ; type of argument #2 (String'30)
+  push 01fh                                                      ; type of argument #2 (String'31)
   push rax                                                       ; value of argument #1 (>= operator result)
-  push 01ch                                                      ; type of argument #1 (Boolean'28)
+  push 01dh                                                      ; type of argument #1 (Boolean'29)
   lea rdi, qword ptr [rsp + 050h]                                ; load address of return value's value
   push rdi                                                       ; internal argument 6: pointer to return value slot's value
   lea rdi, qword ptr [rsp + 050h]                                ; load address of return value's type
@@ -7459,7 +7756,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov rax, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r15, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7474,7 +7771,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r10, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7493,7 +7790,7 @@ func$_constructor:
   add r15, rbx                                                   ; compute (64 /* 0x40 */) + (* operator result) (result in + operator result)
   ; Call _alloc with 1 arguments
   push r15                                                       ; value of argument #1 (+ operator result)
-  push 01dh                                                      ; type of argument #1 (Integer'29)
+  push 01eh                                                      ; type of argument #1 (Integer'30)
   lea rdi, qword ptr [rsp + 030h]                                ; load address of return value's value
   push rdi                                                       ; internal argument 6: pointer to return value slot's value
   lea rdi, qword ptr [rsp + 030h]                                ; load address of return value's type
@@ -7513,7 +7810,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov r12, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r13, qword ptr [rsp + 020h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -7528,7 +7825,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -7558,7 +7855,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rdi, qword ptr [rsp + 030h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7575,7 +7872,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r12, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7598,7 +7895,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov r13, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7615,7 +7912,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rax, qword ptr [rsp + 030h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7648,7 +7945,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov rax, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r15, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7663,7 +7960,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r10, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7684,7 +7981,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov rbx, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 030h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7699,7 +7996,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     mov qword ptr [rsp + 028h], rdi                              ; move copy of resultPointer's value out of rdi
     lea rdi, qword ptr [rsp + 030h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
@@ -7733,7 +8030,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov r12, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r13, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7749,7 +8046,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7771,7 +8068,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov rax, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r15, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7787,7 +8084,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r10, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7819,7 +8116,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov r10, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rbx, qword ptr [rsp + 030h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7835,7 +8132,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rsi, qword ptr [rsp + 030h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7857,7 +8154,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov rdi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7873,7 +8170,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     mov qword ptr [rsp + 028h], r13                              ; move copy of resultPointer's value out of r13
     lea r13, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
@@ -7904,7 +8201,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rdi, qword ptr [rsp + 030h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7921,7 +8218,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r12, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -7944,7 +8241,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov r13, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     mov qword ptr [rsp + 028h], r14                              ; move + operator result's value out of r14
     lea r14, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
@@ -7962,7 +8259,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rax, qword ptr [rsp + 030h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -7974,8 +8271,8 @@ func$_constructor:
     mov rcx, 001h                                                ; internal argument 1: number of actual arguments
     call func$exit                                               ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov rax, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
     mov r14, qword ptr [rsp + 018h]                              ; restoring slots to previous scope state
+    mov rax, qword ptr [rsp + 000h]                              ; restoring slots to previous scope state
     mov r10, qword ptr [rsp + 008h]                              ; restoring slots to previous scope state
   func$_constructor$Blockliststart$TypeMatch:                    ; after block
   mov qword ptr [rsp + 020h], r15                                ; move copy of _blockListNext's type out of r15
@@ -8014,7 +8311,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov rax, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r15, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -8029,7 +8326,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r10, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -8045,7 +8342,7 @@ func$_constructor:
   mov r12, r13                                                   ; assign value of copy of _debugLiveBlocks to value of += operator result
   add r12, 001h                                                  ; += operator
   mov qword ptr _debugLiveBlocksValue, r12                       ; store value
-  mov qword ptr _debugLiveBlocksType, 01dh                       ; store type (Integer'29)
+  mov qword ptr _debugLiveBlocksType, 01eh                       ; store type (Integer'30)
   ; Line 191: return resultPointer __dynamic_as__ typeCode;
   mov r15, qword ptr [rsp + 030h]                                ; make a copy of resultPointer's value in case it changes before we use it
   mov r10, qword ptr [rsp + 028h]                                ; make a copy of resultPointer's type in case it changes before we use it
@@ -8066,7 +8363,7 @@ func$_constructor:
     ; Call __print with 1 arguments
     mov r14, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
     push r14                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r9, qword ptr [rsp + 040h]                               ; load address of return value's value
     push r9                                                      ; internal argument 6: pointer to return value slot's value
     lea r9, qword ptr [rsp + 040h]                               ; load address of return value's type
@@ -8081,7 +8378,7 @@ func$_constructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -8114,7 +8411,7 @@ func$_constructor:
     inc qword ptr [r13]                                          ; increment reference count of force cast of copy of resultPointer to the type with code typeCode
     mov qword ptr [rsp + 030h], r13                              ; restoring slots to previous scope state
   func$_constructor$AfterGCIncref:                               ; after GarbageCollectable incref
-  cmp qword ptr [rsp + 028h], 01eh                               ; compare type of force cast of copy of resultPointer to the type with code typeCode to String
+  cmp qword ptr [rsp + 028h], 01fh                               ; compare type of force cast of copy of resultPointer to the type with code typeCode to String
   jne func$_constructor$AfterStringIncref                        ; if not a String, skip incref
     mov r14, qword ptr [rsp + 030h]                              ; get force cast of copy of resultPointer to the type with code typeCode into register to dereference it
     mov r15, qword ptr [r14]                                     ; dereference string to get to reference count
@@ -8162,7 +8459,7 @@ func$_mark:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -8177,7 +8474,7 @@ func$_mark:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -8205,7 +8502,7 @@ func$_mark:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -8220,7 +8517,7 @@ func$_mark:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -8248,7 +8545,7 @@ func$_mark:
     ; Call __print with 1 arguments
     mov rdi, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -8263,7 +8560,7 @@ func$_mark:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -8289,7 +8586,7 @@ func$_mark:
     ; Call __print with 1 arguments
     mov r10, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 058h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -8304,7 +8601,7 @@ func$_mark:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 058h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -8325,7 +8622,7 @@ func$_mark:
     ; Call __print with 1 arguments
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rdi, qword ptr [rsp + 058h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -8340,7 +8637,7 @@ func$_mark:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r12, qword ptr [rsp + 058h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -8358,18 +8655,18 @@ func$_mark:
   ; Call __readFromAddress with 1 arguments
   mov rax, qword ptr [r13]                                       ; dereference first argument of __readFromAddress
   mov qword ptr [rsp + 058h], rax                                ; value initialization of variable declaration for blockScratchSpace variable (dereferenced + operator result)
-  mov qword ptr [rsp + 050h], 01dh                               ; type initialization of variable declaration for blockScratchSpace variable (Integer'29)
+  mov qword ptr [rsp + 050h], 01eh                               ; type initialization of variable declaration for blockScratchSpace variable (Integer'30)
   ; Line 196: if (blockScratchSpace == tag) { ...
   mov r12, qword ptr [rsp + 058h]                                ; make a copy of blockScratchSpace's value in case it changes before we use it
   mov r13, qword ptr [rsp + 050h]                                ; make a copy of blockScratchSpace's type in case it changes before we use it
   xor r14, r14                                                   ; zero value result of == (testing copy of blockScratchSpace and tag) to put the boolean in
   cmp r12, qword ptr [rbp + 050h]                                ; values equal?
   sete r14b                                                      ; put result in value result of == (testing copy of blockScratchSpace and tag)
-  mov r15, 01ch                                                  ; value result of == (testing copy of blockScratchSpace and tag) is a Boolean'28
+  mov r15, 01dh                                                  ; value result of == (testing copy of blockScratchSpace and tag) is a Boolean'29
   xor r10, r10                                                   ; zero type result of == (testing copy of blockScratchSpace and tag) to put the boolean in
   cmp r13, qword ptr [rbp + 048h]                                ; types equal?
   sete r10b                                                      ; put result in type result of == (testing copy of blockScratchSpace and tag)
-  mov rax, 01ch                                                  ; type result of == (testing copy of blockScratchSpace and tag) is a Boolean'28
+  mov rax, 01dh                                                  ; type result of == (testing copy of blockScratchSpace and tag) is a Boolean'29
   mov rbx, r14                                                   ; assign value of value result of == (testing copy of blockScratchSpace and tag) to value of == operator result
   and rbx, r10                                                   ; && type temp and value temp
   cmp rbx, 000h                                                  ; compare == operator result to false
@@ -8378,7 +8675,7 @@ func$_mark:
     mov r13, qword ptr [rbp + 030h]                              ; get pointer to return value of _mark into register to dereference it
     mov qword ptr [r13], 000h                                    ; _mark return value
     mov r14, qword ptr [rbp + 028h]                              ; get pointer to return value type of _mark into register to dereference it
-    mov qword ptr [r14], 01bh                                    ; type of _mark return value (Null'27)
+    mov qword ptr [r14], 01ch                                    ; type of _mark return value (Null'28)
     jmp func$_mark$epilog                                        ; return
   func$_mark$if$continuation:                                    ; end of if
   ; Line 199: __writeToAddress(pointer + _gcBlockHeaderScratchSpace, tag);
@@ -8392,7 +8689,7 @@ func$_mark:
     ; Call __print with 1 arguments
     mov rax, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rbx, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -8408,7 +8705,7 @@ func$_mark:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rsi, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -8430,7 +8727,7 @@ func$_mark:
     ; Call __print with 1 arguments
     mov rdi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -8446,7 +8743,7 @@ func$_mark:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -8478,7 +8775,7 @@ func$_mark:
     ; Call __print with 1 arguments
     mov r12, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r13, qword ptr [rsp + 058h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -8493,7 +8790,7 @@ func$_mark:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 058h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -8514,7 +8811,7 @@ func$_mark:
     ; Call __print with 1 arguments
     mov r15, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r15                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r10, qword ptr [rsp + 058h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -8529,7 +8826,7 @@ func$_mark:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rax, qword ptr [rsp + 058h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -8547,7 +8844,7 @@ func$_mark:
   ; Call __readFromAddress with 1 arguments
   mov r13, qword ptr [rbx]                                       ; dereference first argument of __readFromAddress
   mov qword ptr [rsp + 058h], r13                                ; value initialization of variable declaration for blockLength variable (dereferenced + operator result)
-  mov qword ptr [rsp + 050h], 01dh                               ; type initialization of variable declaration for blockLength variable (Integer'29)
+  mov qword ptr [rsp + 050h], 01eh                               ; type initialization of variable declaration for blockLength variable (Integer'30)
   ; Line 201: Integer cursor = pointer + _gcBlockData;
   mov rax, qword ptr _gcBlockDataValue                           ; make a copy of _gcBlockData's value in case it changes before we use it
   mov rbx, qword ptr _gcBlockDataType                            ; make a copy of _gcBlockData's type in case it changes before we use it
@@ -8561,7 +8858,7 @@ func$_mark:
     ; Call __print with 1 arguments
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rdi, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -8577,7 +8874,7 @@ func$_mark:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r12, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -8599,7 +8896,7 @@ func$_mark:
     ; Call __print with 1 arguments
     mov r13, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -8615,7 +8912,7 @@ func$_mark:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -8632,7 +8929,7 @@ func$_mark:
   mov r10, qword ptr [rbp + 040h]                                ; assign value of pointer to value of + operator result
   add r10, rax                                                   ; compute (pointer) + (copy of _gcBlockData) (result in + operator result)
   mov qword ptr [rsp + 048h], r10                                ; value initialization of variable declaration for cursor variable (+ operator result)
-  mov qword ptr [rsp + 040h], 01dh                               ; type initialization of variable declaration for cursor variable (Integer'29)
+  mov qword ptr [rsp + 040h], 01eh                               ; type initialization of variable declaration for cursor variable (Integer'30)
   ; Line 202: Integer end = cursor + blockLength * 16 /* 0x10 */;
   mov rdi, qword ptr [rsp + 048h]                                ; make a copy of cursor's value in case it changes before we use it
   mov r12, qword ptr [rsp + 040h]                                ; make a copy of cursor's type in case it changes before we use it
@@ -8648,7 +8945,7 @@ func$_mark:
     ; Call __print with 1 arguments
     mov r15, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r15                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r10, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -8663,7 +8960,7 @@ func$_mark:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rax, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -8686,7 +8983,7 @@ func$_mark:
     ; Call __print with 1 arguments
     mov r13, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -8701,7 +8998,7 @@ func$_mark:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -8717,7 +9014,7 @@ func$_mark:
   mov rsi, rdi                                                   ; assign value of copy of cursor to value of + operator result
   add rsi, r12                                                   ; compute (copy of cursor) + (* operator result) (result in + operator result)
   mov qword ptr [rsp + 058h], rsi                                ; value initialization of variable declaration for end variable (+ operator result)
-  mov qword ptr [rsp + 050h], 01dh                               ; type initialization of variable declaration for end variable (Integer'29)
+  mov qword ptr [rsp + 050h], 01eh                               ; type initialization of variable declaration for end variable (Integer'30)
   func$_mark$while$top:                                          ; top of while
     mov r14, qword ptr [rsp + 048h]                              ; make a copy of cursor's value in case it changes before we use it
     mov r15, qword ptr [rsp + 040h]                              ; make a copy of cursor's type in case it changes before we use it
@@ -8731,7 +9028,7 @@ func$_mark:
       ; Call __print with 1 arguments
       mov rbx, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rbx                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rsi, qword ptr [rsp + 048h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 048h]                            ; load address of return value's type
@@ -8748,7 +9045,7 @@ func$_mark:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rdi, qword ptr [rsp + 048h]                            ; load address of return value's value
       push rdi                                                   ; internal argument 6: pointer to return value slot's value
       lea rdi, qword ptr [rsp + 048h]                            ; load address of return value's type
@@ -8771,7 +9068,7 @@ func$_mark:
       ; Call __print with 1 arguments
       mov r12, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r12                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r13, qword ptr [rsp + 048h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 048h]                            ; load address of return value's type
@@ -8788,7 +9085,7 @@ func$_mark:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       mov qword ptr [rsp + 040h], r14                            ; move copy of cursor's value out of r14
       lea r14, qword ptr [rsp + 048h]                            ; load address of return value's value
       push r14                                                   ; internal argument 6: pointer to return value slot's value
@@ -8825,7 +9122,7 @@ func$_mark:
       ; Call __print with 1 arguments
       mov rbx, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rbx                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rsi, qword ptr [rsp + 038h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 038h]                            ; load address of return value's type
@@ -8842,7 +9139,7 @@ func$_mark:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rdi, qword ptr [rsp + 038h]                            ; load address of return value's value
       push rdi                                                   ; internal argument 6: pointer to return value slot's value
       lea rdi, qword ptr [rsp + 038h]                            ; load address of return value's type
@@ -8871,7 +9168,7 @@ func$_mark:
       ; Call __print with 1 arguments
       mov r13, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r13                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r14, qword ptr [rsp + 038h]                            ; load address of return value's value
       push r14                                                   ; internal argument 6: pointer to return value slot's value
       lea r14, qword ptr [rsp + 038h]                            ; load address of return value's type
@@ -8886,7 +9183,7 @@ func$_mark:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r15, qword ptr [rsp + 038h]                            ; load address of return value's value
       push r15                                                   ; internal argument 6: pointer to return value slot's value
       lea r15, qword ptr [rsp + 038h]                            ; load address of return value's type
@@ -8913,7 +9210,7 @@ func$_mark:
       ; Call __print with 1 arguments
       mov rax, offset assignmentTypeCheckFailureMessage          ; reading assignmentTypeCheckFailureMessage for push
       push rax                                                   ; value of argument #1 (assignmentTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rbx, qword ptr [rsp + 038h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
       lea rbx, qword ptr [rsp + 038h]                            ; load address of return value's type
@@ -8929,7 +9226,7 @@ func$_mark:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rsi, qword ptr [rsp + 038h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 038h]                            ; load address of return value's type
@@ -8959,7 +9256,7 @@ func$_mark:
       inc qword ptr [r14]                                        ; increment reference count of value variable
       mov qword ptr [rsp + 038h], r14                            ; restoring slots to previous scope state
     func$_mark$while$AfterGCIncref:                              ; after GarbageCollectable incref
-    cmp qword ptr [rsp + 030h], 01eh                             ; compare type of value variable to String
+    cmp qword ptr [rsp + 030h], 01fh                             ; compare type of value variable to String
     jne func$_mark$while$AfterStringIncref                       ; if not a String, skip incref
       mov r15, qword ptr [rsp + 038h]                            ; get value variable into register to dereference it
       mov r10, qword ptr [r15]                                   ; dereference string to get to reference count
@@ -8986,7 +9283,7 @@ func$_mark:
     jnc func$_mark$while$AfterGCIncref$1                         ; if not a GarbageCollectable, skip incref
       inc qword ptr [rbx]                                        ; increment reference count of copy of value
     func$_mark$while$AfterGCIncref$1:                            ; after GarbageCollectable incref
-    cmp rsi, 01eh                                                ; compare type of copy of value to String
+    cmp rsi, 01fh                                                ; compare type of copy of value to String
     jne func$_mark$while$AfterStringIncref$1                     ; if not a String, skip incref
       mov rcx, qword ptr [rbx]                                   ; dereference string to get to reference count
       cmp rcx, 0                                                 ; compare string reference count to 0
@@ -9024,7 +9321,7 @@ func$_mark:
       jnc func$_mark$while$while$if$3$AfterGCIncref              ; if not a GarbageCollectable, skip incref
         inc qword ptr [r15]                                      ; increment reference count of copy of value
       func$_mark$while$while$if$3$AfterGCIncref:                 ; after GarbageCollectable incref
-      cmp r10, 01eh                                              ; compare type of copy of value to String
+      cmp r10, 01fh                                              ; compare type of copy of value to String
       jne func$_mark$while$while$if$3$AfterStringIncref          ; if not a String, skip incref
         mov r8, qword ptr [r15]                                  ; dereference string to get to reference count
         cmp r8, 0                                                ; compare string reference count to 0
@@ -9038,7 +9335,7 @@ func$_mark:
       push qword ptr [rbp + 050h]                                ; value of argument #2 (tag)
       push qword ptr [rbp + 048h]                                ; type of argument #2
       push rdx                                                   ; value of argument #1 (force cast of copy of value to Integer)
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r13, qword ptr [rsp + 038h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 038h]                            ; load address of return value's type
@@ -9071,7 +9368,7 @@ func$_mark:
       ; Call __print with 1 arguments
       mov r10, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r10                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       mov qword ptr [rsp + 030h], rbx                            ; move copy of value's value out of rbx
       lea rbx, qword ptr [rsp + 038h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
@@ -9087,7 +9384,7 @@ func$_mark:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rax, qword ptr [rsp + 038h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 030h]                            ; load address of return value's type
@@ -9104,17 +9401,17 @@ func$_mark:
     mov r13, r14                                                 ; assign value of copy of cursor to value of += operator result
     add r13, 010h                                                ; += operator
     mov qword ptr [rsp + 048h], r13                              ; store value
-    mov qword ptr [rsp + 040h], 01dh                             ; store type (Integer'29)
-    ; Decrement reference count for copy of value (static type: Whatever) via decrefMaybeGCOrString
-    sub rsp, 20h                                                 ; allocate shadow space for decref function
-    mov rdx, rsi                                                 ; arg #2: copy of value's type
-    mov rcx, rbx                                                 ; arg #1: copy of value's value
-    call decrefMaybeGCOrString                                   ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
+    mov qword ptr [rsp + 040h], 01eh                             ; store type (Integer'30)
     ; Decrement reference count for value variable (static type: Whatever) via decrefMaybeGCOrString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 050h]                              ; arg #2: value variable's type
     mov rcx, qword ptr [rsp + 058h]                              ; arg #1: value variable's value
+    call decrefMaybeGCOrString                                   ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    ; Decrement reference count for copy of value (static type: Whatever) via decrefMaybeGCOrString
+    sub rsp, 20h                                                 ; allocate shadow space for decref function
+    mov rdx, rsi                                                 ; arg #2: copy of value's type
+    mov rcx, rbx                                                 ; arg #1: copy of value's value
     call decrefMaybeGCOrString                                   ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
     jmp func$_mark$while$top                                     ; return to top of while
@@ -9123,7 +9420,7 @@ func$_mark:
   mov rdi, qword ptr [rbp + 030h]                                ; get pointer to return value of _mark into register to dereference it
   mov qword ptr [rdi], 000h                                      ; _mark return value
   mov r12, qword ptr [rbp + 028h]                                ; get pointer to return value type of _mark into register to dereference it
-  mov qword ptr [r12], 01bh                                      ; type of _mark return value (Null'27)
+  mov qword ptr [r12], 01ch                                      ; type of _mark return value (Null'28)
   func$_mark$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
@@ -9161,7 +9458,7 @@ func$_garbageCollectorImplementation:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 060h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -9176,7 +9473,7 @@ func$_garbageCollectorImplementation:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 060h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -9200,7 +9497,7 @@ func$_garbageCollectorImplementation:
     ; Call __print with 1 arguments
     mov r12, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r13, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -9215,7 +9512,7 @@ func$_garbageCollectorImplementation:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -9237,7 +9534,7 @@ func$_garbageCollectorImplementation:
     mov r13, qword ptr [rbp + 030h]                              ; get pointer to return value of _garbageCollectorImplementation into register to dereference it
     mov qword ptr [r13], 000h                                    ; _garbageCollectorImplementation return value
     mov r14, qword ptr [rbp + 028h]                              ; get pointer to return value type of _garbageCollectorImplementation into register to dereference it
-    mov qword ptr [r14], 01bh                                    ; type of _garbageCollectorImplementation return value (Null'27)
+    mov qword ptr [r14], 01ch                                    ; type of _garbageCollectorImplementation return value (Null'28)
     jmp func$_garbageCollectorImplementation$epilog              ; return
   func$_garbageCollectorImplementation$if$continuation:          ; end of if
   ; Line 218: _gcLocked += 1;
@@ -9251,7 +9548,7 @@ func$_garbageCollectorImplementation:
     ; Call __print with 1 arguments
     mov rax, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rbx, qword ptr [rsp + 060h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -9267,7 +9564,7 @@ func$_garbageCollectorImplementation:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rsi, qword ptr [rsp + 060h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -9284,7 +9581,7 @@ func$_garbageCollectorImplementation:
   mov r14, r15                                                   ; assign value of copy of _gcLocked to value of += operator result
   add r14, 001h                                                  ; += operator
   mov qword ptr _gcLockedValue, r14                              ; store value
-  mov qword ptr _gcLockedType, 01dh                              ; store type (Integer'29)
+  mov qword ptr _gcLockedType, 01eh                              ; store type (Integer'30)
   ; Line 219: _currentTag += 1;
   mov rbx, qword ptr _currentTagValue                            ; make a copy of _currentTag's value in case it changes before we use it
   mov rsi, qword ptr _currentTagType                             ; make a copy of _currentTag's type in case it changes before we use it
@@ -9296,7 +9593,7 @@ func$_garbageCollectorImplementation:
     ; Call __print with 1 arguments
     mov rdi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -9311,7 +9608,7 @@ func$_garbageCollectorImplementation:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -9327,7 +9624,7 @@ func$_garbageCollectorImplementation:
   mov rax, rbx                                                   ; assign value of copy of _currentTag to value of += operator result
   add rax, 001h                                                  ; += operator
   mov qword ptr _currentTagValue, rax                            ; store value
-  mov qword ptr _currentTagType, 01dh                            ; store type (Integer'29)
+  mov qword ptr _currentTagType, 01eh                            ; store type (Integer'30)
   ; Line 220: Integer cursor = _blockListStart;
   mov r12, qword ptr _blockListStartValue                        ; make a copy of _blockListStart's value in case it changes before we use it
   mov r13, qword ptr _blockListStartType                         ; make a copy of _blockListStart's type in case it changes before we use it
@@ -9341,7 +9638,7 @@ func$_garbageCollectorImplementation:
     ; Call __print with 1 arguments
     mov r14, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push r14                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r15, qword ptr [rsp + 050h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 050h]                              ; load address of return value's type
@@ -9356,7 +9653,7 @@ func$_garbageCollectorImplementation:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r10, qword ptr [rsp + 050h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 050h]                              ; load address of return value's type
@@ -9384,7 +9681,7 @@ func$_garbageCollectorImplementation:
       ; Call __print with 1 arguments
       mov r12, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r12                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r13, qword ptr [rsp + 050h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 050h]                            ; load address of return value's type
@@ -9400,7 +9697,7 @@ func$_garbageCollectorImplementation:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r14, qword ptr [rsp + 050h]                            ; load address of return value's value
       push r14                                                   ; internal argument 6: pointer to return value slot's value
       lea r14, qword ptr [rsp + 050h]                            ; load address of return value's type
@@ -9422,7 +9719,7 @@ func$_garbageCollectorImplementation:
       ; Call __print with 1 arguments
       mov r15, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r15                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r10, qword ptr [rsp + 050h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 050h]                            ; load address of return value's type
@@ -9438,7 +9735,7 @@ func$_garbageCollectorImplementation:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rax, qword ptr [rsp + 050h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 050h]                            ; load address of return value's type
@@ -9465,18 +9762,18 @@ func$_garbageCollectorImplementation:
     ; Call __readFromAddress with 1 arguments
     mov r15, qword ptr [rsi]                                     ; dereference first argument of __readFromAddress
     mov qword ptr [rsp + 040h], r15                              ; value initialization of variable declaration for pointer variable (dereferenced copy of cursor)
-    mov qword ptr [rsp + 038h], 01dh                             ; type initialization of variable declaration for pointer variable (Integer'29)
+    mov qword ptr [rsp + 038h], 01eh                             ; type initialization of variable declaration for pointer variable (Integer'30)
     ; Line 223: if (pointer != 0) { ...
     mov rsi, qword ptr [rsp + 040h]                              ; make a copy of pointer's value in case it changes before we use it
     mov rdi, qword ptr [rsp + 038h]                              ; make a copy of pointer's type in case it changes before we use it
     xor r12, r12                                                 ; zero value result of == (testing copy of pointer and 0) to put the boolean in
     cmp rsi, 000h                                                ; values equal?
     sete r12b                                                    ; put result in value result of == (testing copy of pointer and 0)
-    mov r13, 01ch                                                ; value result of == (testing copy of pointer and 0) is a Boolean'28
+    mov r13, 01dh                                                ; value result of == (testing copy of pointer and 0) is a Boolean'29
     xor r14, r14                                                 ; zero type result of == (testing copy of pointer and 0) to put the boolean in
-    cmp rdi, 01dh                                                ; types equal?
+    cmp rdi, 01eh                                                ; types equal?
     sete r14b                                                    ; put result in type result of == (testing copy of pointer and 0)
-    mov r15, 01ch                                                ; type result of == (testing copy of pointer and 0) is a Boolean'28
+    mov r15, 01dh                                                ; type result of == (testing copy of pointer and 0) is a Boolean'29
     mov r10, r12                                                 ; assign value of value result of == (testing copy of pointer and 0) to value of != operator result
     and r10, r14                                                 ; && type temp and value temp
     xor r10, 001h                                                ; negating <DynamicSlot:Boolean ("!= operator result")>
@@ -9497,7 +9794,7 @@ func$_garbageCollectorImplementation:
         ; Call __print with 1 arguments
         mov rdx, offset operandTypeCheckFailureMessage           ; reading operandTypeCheckFailureMessage for push
         push rdx                                                 ; value of argument #1 (operandTypeCheckFailureMessage)
-        push 01eh                                                ; type of argument #1 (String'30)
+        push 01fh                                                ; type of argument #1 (String'31)
         lea rcx, qword ptr [rsp + 030h]                          ; load address of return value's value
         push rcx                                                 ; internal argument 6: pointer to return value slot's value
         lea rcx, qword ptr [rsp + 030h]                          ; load address of return value's type
@@ -9515,7 +9812,7 @@ func$_garbageCollectorImplementation:
         ;  - exit(1)
         ; Call exit with 1 arguments
         push 001h                                                ; value of argument #1 (1 (integer))
-        push 01dh                                                ; type of argument #1 (Integer'29)
+        push 01eh                                                ; type of argument #1 (Integer'30)
         lea rsi, qword ptr [rsp + 030h]                          ; load address of return value's value
         push rsi                                                 ; internal argument 6: pointer to return value slot's value
         lea rsi, qword ptr [rsp + 030h]                          ; load address of return value's type
@@ -9539,7 +9836,7 @@ func$_garbageCollectorImplementation:
         ; Call __print with 1 arguments
         mov rdi, offset operandTypeCheckFailureMessage           ; reading operandTypeCheckFailureMessage for push
         push rdi                                                 ; value of argument #1 (operandTypeCheckFailureMessage)
-        push 01eh                                                ; type of argument #1 (String'30)
+        push 01fh                                                ; type of argument #1 (String'31)
         lea r12, qword ptr [rsp + 030h]                          ; load address of return value's value
         push r12                                                 ; internal argument 6: pointer to return value slot's value
         lea r12, qword ptr [rsp + 030h]                          ; load address of return value's type
@@ -9557,7 +9854,7 @@ func$_garbageCollectorImplementation:
         ;  - exit(1)
         ; Call exit with 1 arguments
         push 001h                                                ; value of argument #1 (1 (integer))
-        push 01dh                                                ; type of argument #1 (Integer'29)
+        push 01eh                                                ; type of argument #1 (Integer'30)
         lea r13, qword ptr [rsp + 030h]                          ; load address of return value's value
         push r13                                                 ; internal argument 6: pointer to return value slot's value
         lea r13, qword ptr [rsp + 030h]                          ; load address of return value's type
@@ -9578,7 +9875,7 @@ func$_garbageCollectorImplementation:
       ; Call __readFromAddress with 1 arguments
       mov rbx, qword ptr [r14]                                   ; dereference first argument of __readFromAddress
       mov qword ptr [rsp + 030h], rbx                            ; value initialization of variable declaration for blockRefCount variable (dereferenced + operator result)
-      mov qword ptr [rsp + 028h], 01dh                           ; type initialization of variable declaration for blockRefCount variable (Integer'29)
+      mov qword ptr [rsp + 028h], 01eh                           ; type initialization of variable declaration for blockRefCount variable (Integer'30)
       ; Line 225: assert(blockRefCount >= 0, 'Reference count underflow.');
       mov r13, qword ptr [rsp + 030h]                            ; make a copy of blockRefCount's value in case it changes before we use it
       mov r14, qword ptr [rsp + 028h]                            ; make a copy of blockRefCount's type in case it changes before we use it
@@ -9590,7 +9887,7 @@ func$_garbageCollectorImplementation:
         ; Call __print with 1 arguments
         mov r15, offset operandTypeCheckFailureMessage           ; reading operandTypeCheckFailureMessage for push
         push r15                                                 ; value of argument #1 (operandTypeCheckFailureMessage)
-        push 01eh                                                ; type of argument #1 (String'30)
+        push 01fh                                                ; type of argument #1 (String'31)
         lea r10, qword ptr [rsp + 030h]                          ; load address of return value's value
         push r10                                                 ; internal argument 6: pointer to return value slot's value
         lea r10, qword ptr [rsp + 030h]                          ; load address of return value's type
@@ -9605,7 +9902,7 @@ func$_garbageCollectorImplementation:
         ;  - exit(1)
         ; Call exit with 1 arguments
         push 001h                                                ; value of argument #1 (1 (integer))
-        push 01dh                                                ; type of argument #1 (Integer'29)
+        push 01eh                                                ; type of argument #1 (Integer'30)
         lea rax, qword ptr [rsp + 030h]                          ; load address of return value's value
         push rax                                                 ; internal argument 6: pointer to return value slot's value
         lea rax, qword ptr [rsp + 030h]                          ; load address of return value's type
@@ -9624,9 +9921,9 @@ func$_garbageCollectorImplementation:
       ; Call assert with 2 arguments
       mov r10, offset string$11                                  ; reading string for push
       push r10                                                   ; value of argument #2 (string)
-      push 01eh                                                  ; type of argument #2 (String'30)
+      push 01fh                                                  ; type of argument #2 (String'31)
       push r12                                                   ; value of argument #1 (>= operator result)
-      push 01ch                                                  ; type of argument #1 (Boolean'28)
+      push 01dh                                                  ; type of argument #1 (Boolean'29)
       lea rax, qword ptr [rsp + 040h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 040h]                            ; load address of return value's type
@@ -9644,11 +9941,11 @@ func$_garbageCollectorImplementation:
       xor rdi, rdi                                               ; zero value result of == (testing copy of blockRefCount and 0) to put the boolean in
       cmp rbx, 000h                                              ; values equal?
       sete dil                                                   ; put result in value result of == (testing copy of blockRefCount and 0)
-      mov r12, 01ch                                              ; value result of == (testing copy of blockRefCount and 0) is a Boolean'28
+      mov r12, 01dh                                              ; value result of == (testing copy of blockRefCount and 0) is a Boolean'29
       xor r13, r13                                               ; zero type result of == (testing copy of blockRefCount and 0) to put the boolean in
-      cmp rsi, 01dh                                              ; types equal?
+      cmp rsi, 01eh                                              ; types equal?
       sete r13b                                                  ; put result in type result of == (testing copy of blockRefCount and 0)
-      mov r14, 01ch                                              ; type result of == (testing copy of blockRefCount and 0) is a Boolean'28
+      mov r14, 01dh                                              ; type result of == (testing copy of blockRefCount and 0) is a Boolean'29
       mov r15, rdi                                               ; assign value of value result of == (testing copy of blockRefCount and 0) to value of != operator result
       and r15, r13                                               ; && type temp and value temp
       xor r15, 001h                                              ; negating <DynamicSlot:Boolean ("!= operator result")>
@@ -9690,7 +9987,7 @@ func$_garbageCollectorImplementation:
       ; Call __print with 1 arguments
       mov r15, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r15                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r10, qword ptr [rsp + 050h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 050h]                            ; load address of return value's type
@@ -9705,7 +10002,7 @@ func$_garbageCollectorImplementation:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rax, qword ptr [rsp + 050h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 050h]                            ; load address of return value's type
@@ -9726,7 +10023,7 @@ func$_garbageCollectorImplementation:
       ; Call __print with 1 arguments
       mov rbx, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rbx                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rsi, qword ptr [rsp + 050h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 050h]                            ; load address of return value's type
@@ -9741,7 +10038,7 @@ func$_garbageCollectorImplementation:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       mov qword ptr [rsp + 048h], rdi                            ; move copy of cursor's value out of rdi
       lea rdi, qword ptr [rsp + 050h]                            ; load address of return value's value
       push rdi                                                   ; internal argument 6: pointer to return value slot's value
@@ -9760,7 +10057,7 @@ func$_garbageCollectorImplementation:
     mov r12, rdi                                                 ; assign value of copy of cursor to value of += operator result
     add r12, r13                                                 ; += operator
     mov qword ptr [rsp + 050h], r12                              ; store value
-    mov qword ptr [rsp + 048h], 01dh                             ; store type (Integer'29)
+    mov qword ptr [rsp + 048h], 01eh                             ; store type (Integer'30)
     jmp func$_garbageCollectorImplementation$while$top           ; return to top of while
   func$_garbageCollectorImplementation$while$bottom:             ; bottom of while
   func$_garbageCollectorImplementation$while$top$1:              ; top of while
@@ -9776,7 +10073,7 @@ func$_garbageCollectorImplementation:
       ; Call __print with 1 arguments
       mov rdi, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rdi                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r12, qword ptr [rsp + 050h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 050h]                            ; load address of return value's type
@@ -9793,7 +10090,7 @@ func$_garbageCollectorImplementation:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r13, qword ptr [rsp + 050h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 050h]                            ; load address of return value's type
@@ -9816,7 +10113,7 @@ func$_garbageCollectorImplementation:
       ; Call __print with 1 arguments
       mov r14, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r14                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r15, qword ptr [rsp + 050h]                            ; load address of return value's value
       push r15                                                   ; internal argument 6: pointer to return value slot's value
       lea r15, qword ptr [rsp + 050h]                            ; load address of return value's type
@@ -9833,7 +10130,7 @@ func$_garbageCollectorImplementation:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r10, qword ptr [rsp + 050h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 050h]                            ; load address of return value's type
@@ -9868,7 +10165,7 @@ func$_garbageCollectorImplementation:
       ; Call __print with 1 arguments
       mov r13, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r13                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r14, qword ptr [rsp + 050h]                            ; load address of return value's value
       push r14                                                   ; internal argument 6: pointer to return value slot's value
       lea r14, qword ptr [rsp + 050h]                            ; load address of return value's type
@@ -9883,7 +10180,7 @@ func$_garbageCollectorImplementation:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r15, qword ptr [rsp + 050h]                            ; load address of return value's value
       push r15                                                   ; internal argument 6: pointer to return value slot's value
       lea r15, qword ptr [rsp + 050h]                            ; load address of return value's type
@@ -9904,7 +10201,7 @@ func$_garbageCollectorImplementation:
       ; Call __print with 1 arguments
       mov r10, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r10                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rax, qword ptr [rsp + 050h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 050h]                            ; load address of return value's type
@@ -9919,7 +10216,7 @@ func$_garbageCollectorImplementation:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       mov qword ptr [rsp + 048h], rbx                            ; move copy of cursor's value out of rbx
       lea rbx, qword ptr [rsp + 050h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
@@ -9938,25 +10235,25 @@ func$_garbageCollectorImplementation:
     mov rsi, rbx                                                 ; assign value of copy of cursor to value of -= operator result
     sub rsi, rdi                                                 ; -= operator
     mov qword ptr [rsp + 050h], rsi                              ; store value
-    mov qword ptr [rsp + 048h], 01dh                             ; store type (Integer'29)
+    mov qword ptr [rsp + 048h], 01eh                             ; store type (Integer'30)
     ; Line 234: Integer pointer = __readFromAddress(cursor);
     mov r14, qword ptr [rsp + 050h]                              ; make a copy of cursor's value in case it changes before we use it
     mov r15, qword ptr [rsp + 048h]                              ; make a copy of cursor's type in case it changes before we use it
     ; Call __readFromAddress with 1 arguments
     mov rsi, qword ptr [r14]                                     ; dereference first argument of __readFromAddress
     mov qword ptr [rsp + 040h], rsi                              ; value initialization of variable declaration for pointer variable (dereferenced copy of cursor)
-    mov qword ptr [rsp + 038h], 01dh                             ; type initialization of variable declaration for pointer variable (Integer'29)
+    mov qword ptr [rsp + 038h], 01eh                             ; type initialization of variable declaration for pointer variable (Integer'30)
     ; Line 235: if (pointer != 0) { ...
     mov r14, qword ptr [rsp + 040h]                              ; make a copy of pointer's value in case it changes before we use it
     mov r15, qword ptr [rsp + 038h]                              ; make a copy of pointer's type in case it changes before we use it
     xor r10, r10                                                 ; zero value result of == (testing copy of pointer and 0) to put the boolean in
     cmp r14, 000h                                                ; values equal?
     sete r10b                                                    ; put result in value result of == (testing copy of pointer and 0)
-    mov rax, 01ch                                                ; value result of == (testing copy of pointer and 0) is a Boolean'28
+    mov rax, 01dh                                                ; value result of == (testing copy of pointer and 0) is a Boolean'29
     xor rbx, rbx                                                 ; zero type result of == (testing copy of pointer and 0) to put the boolean in
-    cmp r15, 01dh                                                ; types equal?
+    cmp r15, 01eh                                                ; types equal?
     sete bl                                                      ; put result in type result of == (testing copy of pointer and 0)
-    mov rsi, 01ch                                                ; type result of == (testing copy of pointer and 0) is a Boolean'28
+    mov rsi, 01dh                                                ; type result of == (testing copy of pointer and 0) is a Boolean'29
     mov rdi, r10                                                 ; assign value of value result of == (testing copy of pointer and 0) to value of != operator result
     and rdi, rbx                                                 ; && type temp and value temp
     xor rdi, 001h                                                ; negating <DynamicSlot:Boolean ("!= operator result")>
@@ -9977,7 +10274,7 @@ func$_garbageCollectorImplementation:
         ; Call __print with 1 arguments
         mov rdx, offset operandTypeCheckFailureMessage           ; reading operandTypeCheckFailureMessage for push
         push rdx                                                 ; value of argument #1 (operandTypeCheckFailureMessage)
-        push 01eh                                                ; type of argument #1 (String'30)
+        push 01fh                                                ; type of argument #1 (String'31)
         lea rcx, qword ptr [rsp + 030h]                          ; load address of return value's value
         push rcx                                                 ; internal argument 6: pointer to return value slot's value
         lea rcx, qword ptr [rsp + 030h]                          ; load address of return value's type
@@ -9994,7 +10291,7 @@ func$_garbageCollectorImplementation:
         ;  - exit(1)
         ; Call exit with 1 arguments
         push 001h                                                ; value of argument #1 (1 (integer))
-        push 01dh                                                ; type of argument #1 (Integer'29)
+        push 01eh                                                ; type of argument #1 (Integer'30)
         lea r14, qword ptr [rsp + 030h]                          ; load address of return value's value
         push r14                                                 ; internal argument 6: pointer to return value slot's value
         lea r14, qword ptr [rsp + 030h]                          ; load address of return value's type
@@ -10017,7 +10314,7 @@ func$_garbageCollectorImplementation:
         ; Call __print with 1 arguments
         mov r15, offset operandTypeCheckFailureMessage           ; reading operandTypeCheckFailureMessage for push
         push r15                                                 ; value of argument #1 (operandTypeCheckFailureMessage)
-        push 01eh                                                ; type of argument #1 (String'30)
+        push 01fh                                                ; type of argument #1 (String'31)
         lea r10, qword ptr [rsp + 030h]                          ; load address of return value's value
         push r10                                                 ; internal argument 6: pointer to return value slot's value
         lea r10, qword ptr [rsp + 030h]                          ; load address of return value's type
@@ -10034,7 +10331,7 @@ func$_garbageCollectorImplementation:
         ;  - exit(1)
         ; Call exit with 1 arguments
         push 001h                                                ; value of argument #1 (1 (integer))
-        push 01dh                                                ; type of argument #1 (Integer'29)
+        push 01eh                                                ; type of argument #1 (Integer'30)
         lea rax, qword ptr [rsp + 030h]                          ; load address of return value's value
         push rax                                                 ; internal argument 6: pointer to return value slot's value
         lea rax, qword ptr [rsp + 030h]                          ; load address of return value's type
@@ -10054,7 +10351,7 @@ func$_garbageCollectorImplementation:
       ; Call __readFromAddress with 1 arguments
       mov r13, qword ptr [rbx]                                   ; dereference first argument of __readFromAddress
       mov qword ptr [rsp + 030h], r13                            ; value initialization of variable declaration for blockScratchSpace variable (dereferenced + operator result)
-      mov qword ptr [rsp + 028h], 01dh                           ; type initialization of variable declaration for blockScratchSpace variable (Integer'29)
+      mov qword ptr [rsp + 028h], 01eh                           ; type initialization of variable declaration for blockScratchSpace variable (Integer'30)
       ; Line 237: if (blockScratchSpace != _currentTag) { ...
       mov rax, qword ptr [rsp + 030h]                            ; make a copy of blockScratchSpace's value in case it changes before we use it
       mov rbx, qword ptr [rsp + 028h]                            ; make a copy of blockScratchSpace's type in case it changes before we use it
@@ -10063,11 +10360,11 @@ func$_garbageCollectorImplementation:
       xor r12, r12                                               ; zero value result of == (testing copy of blockScratchSpace and copy of _currentTag) to put the boolean in
       cmp rax, rsi                                               ; values equal?
       sete r12b                                                  ; put result in value result of == (testing copy of blockScratchSpace and copy of _currentTag)
-      mov r13, 01ch                                              ; value result of == (testing copy of blockScratchSpace and copy of _currentTag) is a Boolean'28
+      mov r13, 01dh                                              ; value result of == (testing copy of blockScratchSpace and copy of _currentTag) is a Boolean'29
       xor r14, r14                                               ; zero type result of == (testing copy of blockScratchSpace and copy of _currentTag) to put the boolean in
       cmp rbx, rdi                                               ; types equal?
       sete r14b                                                  ; put result in type result of == (testing copy of blockScratchSpace and copy of _currentTag)
-      mov r15, 01ch                                              ; type result of == (testing copy of blockScratchSpace and copy of _currentTag) is a Boolean'28
+      mov r15, 01dh                                              ; type result of == (testing copy of blockScratchSpace and copy of _currentTag) is a Boolean'29
       mov r10, r12                                               ; assign value of value result of == (testing copy of blockScratchSpace and copy of _currentTag) to value of != operator result
       and r10, r14                                               ; && type temp and value temp
       xor r10, 001h                                              ; negating <DynamicSlot:Boolean ("!= operator result")>
@@ -10106,7 +10403,7 @@ func$_garbageCollectorImplementation:
           ; Call __print with 1 arguments
           mov rax, offset operandTypeCheckFailureMessage         ; reading operandTypeCheckFailureMessage for push
           push rax                                               ; value of argument #1 (operandTypeCheckFailureMessage)
-          push 01eh                                              ; type of argument #1 (String'30)
+          push 01fh                                              ; type of argument #1 (String'31)
           lea rbx, qword ptr [rsp + 040h]                        ; load address of return value's value
           push rbx                                               ; internal argument 6: pointer to return value slot's value
           lea rbx, qword ptr [rsp + 040h]                        ; load address of return value's type
@@ -10122,7 +10419,7 @@ func$_garbageCollectorImplementation:
           ;  - exit(1)
           ; Call exit with 1 arguments
           push 001h                                              ; value of argument #1 (1 (integer))
-          push 01dh                                              ; type of argument #1 (Integer'29)
+          push 01eh                                              ; type of argument #1 (Integer'30)
           lea rsi, qword ptr [rsp + 040h]                        ; load address of return value's value
           push rsi                                               ; internal argument 6: pointer to return value slot's value
           lea rsi, qword ptr [rsp + 040h]                        ; load address of return value's type
@@ -10139,7 +10436,7 @@ func$_garbageCollectorImplementation:
         mov r14, r15                                             ; assign value of copy of _debugLiveBlocks to value of -= operator result
         sub r14, 001h                                            ; -= operator
         mov qword ptr _debugLiveBlocksValue, r14                 ; store value
-        mov qword ptr _debugLiveBlocksType, 01dh                 ; store type (Integer'29)
+        mov qword ptr _debugLiveBlocksType, 01eh                 ; store type (Integer'30)
       func$_garbageCollectorImplementation$while$while$if$5$if$continuation:  ; end of if
     func$_garbageCollectorImplementation$while$if$continuation$1:  ; end of if
     jmp func$_garbageCollectorImplementation$while$top$1         ; return to top of while
@@ -10155,7 +10452,7 @@ func$_garbageCollectorImplementation:
     ; Call __print with 1 arguments
     mov rdi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -10170,7 +10467,7 @@ func$_garbageCollectorImplementation:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -10186,12 +10483,12 @@ func$_garbageCollectorImplementation:
   mov rax, rbx                                                   ; assign value of copy of _gcLocked to value of -= operator result
   sub rax, 001h                                                  ; -= operator
   mov qword ptr _gcLockedValue, rax                              ; store value
-  mov qword ptr _gcLockedType, 01dh                              ; store type (Integer'29)
+  mov qword ptr _gcLockedType, 01eh                              ; store type (Integer'30)
   ; Implicit return from _garbageCollectorImplementation
   mov r15, qword ptr [rbp + 030h]                                ; get pointer to return value of _garbageCollectorImplementation into register to dereference it
   mov qword ptr [r15], 000h                                      ; _garbageCollectorImplementation return value
   mov r10, qword ptr [rbp + 028h]                                ; get pointer to return value type of _garbageCollectorImplementation into register to dereference it
-  mov qword ptr [r10], 01bh                                      ; type of _garbageCollectorImplementation return value (Null'27)
+  mov qword ptr [r10], 01ch                                      ; type of _garbageCollectorImplementation return value (Null'28)
   func$_garbageCollectorImplementation$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
@@ -10229,7 +10526,7 @@ func$_listConstructor:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 0c0h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 0c0h]                              ; load address of return value's type
@@ -10244,7 +10541,7 @@ func$_listConstructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 0c0h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 0c0h]                              ; load address of return value's type
@@ -10272,7 +10569,7 @@ func$_listConstructor:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 0c0h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 0c0h]                              ; load address of return value's type
@@ -10287,7 +10584,7 @@ func$_listConstructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 0c0h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 0c0h]                              ; load address of return value's type
@@ -10315,7 +10612,7 @@ func$_listConstructor:
     ; Call __print with 1 arguments
     mov rdi, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 0c0h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 0c0h]                              ; load address of return value's type
@@ -10330,7 +10627,7 @@ func$_listConstructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 0c0h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 0c0h]                              ; load address of return value's type
@@ -10354,7 +10651,7 @@ func$_listConstructor:
     ; Call __print with 1 arguments
     mov r10, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 0c0h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 0c0h]                              ; load address of return value's type
@@ -10369,7 +10666,7 @@ func$_listConstructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 0c0h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 0c0h]                              ; load address of return value's type
@@ -10385,13 +10682,13 @@ func$_listConstructor:
   mov r13, r14                                                   ; assign value of copy of _gcLocked to value of += operator result
   add r13, 001h                                                  ; += operator
   mov qword ptr _gcLockedValue, r13                              ; store value
-  mov qword ptr _gcLockedType, 01dh                              ; store type (Integer'29)
+  mov qword ptr _gcLockedType, 01eh                              ; store type (Integer'30)
   ; Line 264: WhateverList list = _constructor(typeCode, 2, 2) as WhateverList...
   ; Call _constructor with 3 arguments
   push 002h                                                      ; value of argument #3 (2)
-  push 01dh                                                      ; type of argument #3 (Integer'29)
+  push 01eh                                                      ; type of argument #3 (Integer'30)
   push 002h                                                      ; value of argument #2 (2)
-  push 01dh                                                      ; type of argument #2 (Integer'29)
+  push 01eh                                                      ; type of argument #2 (Integer'30)
   push qword ptr [rbp + 040h]                                    ; value of argument #1 (typeCode)
   push qword ptr [rbp + 038h]                                    ; type of argument #1
   lea rdi, qword ptr [rsp + 0d0h]                                ; load address of return value's value
@@ -10420,7 +10717,7 @@ func$_listConstructor:
     ; Call __print with 1 arguments
     mov r15, offset asOperatorFailureMessage                     ; reading asOperatorFailureMessage for push
     push r15                                                     ; value of argument #1 (asOperatorFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r10, qword ptr [rsp + 0a0h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 0a0h]                              ; load address of return value's type
@@ -10435,7 +10732,7 @@ func$_listConstructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 0a0h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 0a0h]                              ; load address of return value's type
@@ -10458,7 +10755,7 @@ func$_listConstructor:
     ; Call __print with 1 arguments
     mov r12, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 0a0h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 0a0h]                              ; load address of return value's type
@@ -10473,7 +10770,7 @@ func$_listConstructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 0a0h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 0a0h]                              ; load address of return value's type
@@ -10507,9 +10804,9 @@ func$_listConstructor:
   push qword ptr [rbp + 050h]                                    ; value of argument #3 (initialSize)
   push qword ptr [rbp + 048h]                                    ; type of argument #3
   push 000h                                                      ; value of argument #2 (0)
-  push 01dh                                                      ; type of argument #2 (Integer'29)
-  push 01fh                                                      ; value of argument #1 (code of __ListData)
-  push 01dh                                                      ; type of argument #1 (Integer'29)
+  push 01eh                                                      ; type of argument #2 (Integer'30)
+  push 020h                                                      ; value of argument #1 (code of __ListData)
+  push 01eh                                                      ; type of argument #1 (Integer'30)
   lea r13, qword ptr [rsp + 0b0h]                                ; load address of return value's value
   push r13                                                       ; internal argument 6: pointer to return value slot's value
   lea r13, qword ptr [rsp + 0b0h]                                ; load address of return value's type
@@ -10535,7 +10832,7 @@ func$_listConstructor:
     ; Call __print with 1 arguments
     mov rbx, offset asOperatorFailureMessage                     ; reading asOperatorFailureMessage for push
     push rbx                                                     ; value of argument #1 (asOperatorFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 080h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 080h]                              ; load address of return value's type
@@ -10550,7 +10847,7 @@ func$_listConstructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 080h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 080h]                              ; load address of return value's type
@@ -10573,7 +10870,7 @@ func$_listConstructor:
     ; Call __print with 1 arguments
     mov r14, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push r14                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 080h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 080h]                              ; load address of return value's type
@@ -10588,7 +10885,7 @@ func$_listConstructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 080h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 080h]                              ; load address of return value's type
@@ -10643,7 +10940,7 @@ func$_listConstructor:
     ; Call __print with 1 arguments
     mov rdi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     mov qword ptr [rsp + 078h], r12                              ; move copy of list's value out of r12
     lea r12, qword ptr [rsp + 080h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
@@ -10662,7 +10959,7 @@ func$_listConstructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     mov qword ptr [rsp + 070h], r13                              ; move copy of list's type out of r13
     lea r13, qword ptr [rsp + 080h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
@@ -10716,7 +11013,7 @@ func$_listConstructor:
     mov qword ptr [rsp + 060h], rbx                              ; move copy of list's type out of rbx
     mov rbx, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -10732,7 +11029,7 @@ func$_listConstructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rax, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -10783,7 +11080,7 @@ func$_listConstructor:
     mov qword ptr [rsp + 050h], r15                              ; move copy of list's type out of r15
     mov r15, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r15                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r10, qword ptr [rsp + 058h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -10798,7 +11095,7 @@ func$_listConstructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rax, qword ptr [rsp + 058h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 058h]                              ; load address of return value's type
@@ -10865,7 +11162,7 @@ func$_listConstructor:
     mov qword ptr [rsp + 030h], rsi                              ; move copy of list's type out of rsi
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -10880,7 +11177,7 @@ func$_listConstructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -10929,7 +11226,7 @@ func$_listConstructor:
     ; Call __print with 1 arguments
     mov r14, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r14                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r15, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -10945,7 +11242,7 @@ func$_listConstructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r10, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -10962,7 +11259,7 @@ func$_listConstructor:
   mov r12, r13                                                   ; assign value of copy of _gcLocked to value of -= operator result
   sub r12, 001h                                                  ; -= operator
   mov qword ptr _gcLockedValue, r12                              ; store value
-  mov qword ptr _gcLockedType, 01dh                              ; store type (Integer'29)
+  mov qword ptr _gcLockedType, 01eh                              ; store type (Integer'30)
   ; Line 271: return list;
   mov r15, qword ptr [rsp + 0b0h]                                ; make a copy of list's value in case it changes before we use it
   mov r10, qword ptr [rsp + 0a8h]                                ; make a copy of list's type in case it changes before we use it
@@ -10989,7 +11286,7 @@ func$_listConstructor:
     ; Call __print with 1 arguments
     mov r12, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r13, qword ptr [rsp + 020h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -11005,7 +11302,7 @@ func$_listConstructor:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 020h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 020h]                              ; load address of return value's type
@@ -11039,70 +11336,70 @@ func$_listConstructor:
     inc qword ptr [r12]                                          ; increment reference count of copy of list
     mov qword ptr [rsp + 008h], r12                              ; restoring slots to previous scope state
   func$_listConstructor$AfterGCIncref$9:                         ; after GarbageCollectable incref
-  ; Decrement reference count for copy of list (static type: WhateverList'39) via decrefMaybeGC
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 088h]                                ; arg #2: copy of list's type
-  mov rcx, qword ptr [rsp + 090h]                                ; arg #1: copy of list's value
-  call decrefMaybeGC                                             ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for copy of data (static type: __ListData'31) via decrefMaybeGC
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 048h]                                ; arg #2: copy of data's type
-  mov rcx, qword ptr [rsp + 038h]                                ; arg #1: copy of data's value
-  call decrefMaybeGC                                             ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for _constructor return value (static type: GarbageCollectable'35) via decrefMaybeGC
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 098h]                                ; arg #2: _constructor return value's type
-  mov rcx, qword ptr [rsp + 0a0h]                                ; arg #1: _constructor return value's value
-  call decrefMaybeGC                                             ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for copy of list (static type: WhateverList'39) via decrefMaybeGC
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 078h]                                ; arg #2: copy of list's type
-  mov rcx, qword ptr [rsp + 080h]                                ; arg #1: copy of list's value
-  call decrefMaybeGC                                             ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for copy of list (static type: WhateverList'39) via decrefMaybeGC
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 058h]                                ; arg #2: copy of list's type
-  mov rcx, qword ptr [rsp + 068h]                                ; arg #1: copy of list's value
-  call decrefMaybeGC                                             ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for data variable (static type: __ListData'31) via decrefMaybeGC
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 0a8h]                                ; arg #2: data variable's type
-  mov rcx, qword ptr [rsp + 0b0h]                                ; arg #1: data variable's value
-  call decrefMaybeGC                                             ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for _constructor return value (static type: GarbageCollectable'35) via decrefMaybeGC
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 0b8h]                                ; arg #2: _constructor return value's type
-  mov rcx, qword ptr [rsp + 0c0h]                                ; arg #1: _constructor return value's value
-  call decrefMaybeGC                                             ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for copy of data (static type: __ListData'31) via decrefMaybeGC
+  ; Decrement reference count for copy of data (static type: __ListData'32) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, qword ptr [rsp + 060h]                                ; arg #2: copy of data's type
   mov rcx, qword ptr [rsp + 070h]                                ; arg #1: copy of data's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for copy of list (static type: WhateverList'39) via decrefMaybeGC
+  ; Decrement reference count for copy of list (static type: WhateverList'40) via decrefMaybeGC
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, qword ptr [rsp + 058h]                                ; arg #2: copy of list's type
+  mov rcx, qword ptr [rsp + 068h]                                ; arg #1: copy of list's value
+  call decrefMaybeGC                                             ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for copy of data (static type: __ListData'32) via decrefMaybeGC
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, qword ptr [rsp + 048h]                                ; arg #2: copy of data's type
+  mov rcx, qword ptr [rsp + 038h]                                ; arg #1: copy of data's value
+  call decrefMaybeGC                                             ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for copy of list (static type: WhateverList'40) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, qword ptr [rsp + 040h]                                ; arg #2: copy of list's type
   mov rcx, qword ptr [rsp + 050h]                                ; arg #1: copy of list's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for list variable (static type: WhateverList'39) via decrefMaybeGC
+  ; Decrement reference count for _constructor return value (static type: GarbageCollectable'36) via decrefMaybeGC
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, qword ptr [rsp + 0b8h]                                ; arg #2: _constructor return value's type
+  mov rcx, qword ptr [rsp + 0c0h]                                ; arg #1: _constructor return value's value
+  call decrefMaybeGC                                             ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for copy of list (static type: WhateverList'40) via decrefMaybeGC
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, qword ptr [rsp + 078h]                                ; arg #2: copy of list's type
+  mov rcx, qword ptr [rsp + 080h]                                ; arg #1: copy of list's value
+  call decrefMaybeGC                                             ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for _constructor return value (static type: GarbageCollectable'36) via decrefMaybeGC
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, qword ptr [rsp + 098h]                                ; arg #2: _constructor return value's type
+  mov rcx, qword ptr [rsp + 0a0h]                                ; arg #1: _constructor return value's value
+  call decrefMaybeGC                                             ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for list variable (static type: WhateverList'40) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, qword ptr [rsp + 0c8h]                                ; arg #2: list variable's type
   mov rcx, qword ptr [rsp + 0d0h]                                ; arg #1: list variable's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for copy of list (static type: WhateverList'39) via decrefMaybeGC
+  ; Decrement reference count for copy of list (static type: WhateverList'40) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, r15                                                   ; arg #2: copy of list's type
   mov rcx, qword ptr [rsp + 028h]                                ; arg #1: copy of list's value
+  call decrefMaybeGC                                             ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for data variable (static type: __ListData'32) via decrefMaybeGC
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, qword ptr [rsp + 0a8h]                                ; arg #2: data variable's type
+  mov rcx, qword ptr [rsp + 0b0h]                                ; arg #1: data variable's value
+  call decrefMaybeGC                                             ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for copy of list (static type: WhateverList'40) via decrefMaybeGC
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, qword ptr [rsp + 088h]                                ; arg #2: copy of list's type
+  mov rcx, qword ptr [rsp + 090h]                                ; arg #1: copy of list's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
@@ -11141,7 +11438,7 @@ func$_growList:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 090h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 090h]                              ; load address of return value's type
@@ -11156,7 +11453,7 @@ func$_growList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 090h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 090h]                              ; load address of return value's type
@@ -11185,7 +11482,7 @@ func$_growList:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 090h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 090h]                              ; load address of return value's type
@@ -11200,7 +11497,7 @@ func$_growList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 090h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 090h]                              ; load address of return value's type
@@ -11224,7 +11521,7 @@ func$_growList:
     ; Call __print with 1 arguments
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 090h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 090h]                              ; load address of return value's type
@@ -11240,7 +11537,7 @@ func$_growList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 090h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 090h]                              ; load address of return value's type
@@ -11257,7 +11554,7 @@ func$_growList:
   mov r15, r10                                                   ; assign value of copy of _gcLocked to value of += operator result
   add r15, 001h                                                  ; += operator
   mov qword ptr _gcLockedValue, r15                              ; store value
-  mov qword ptr _gcLockedType, 01dh                              ; store type (Integer'29)
+  mov qword ptr _gcLockedType, 01eh                              ; store type (Integer'30)
   ; Line 276: Integer newSize = len(list) * 2;
   ; Call len with 1 arguments
   push qword ptr [rbp + 040h]                                    ; value of argument #1 (list)
@@ -11281,7 +11578,7 @@ func$_growList:
     ; Call __print with 1 arguments
     mov r14, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r14                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r15, qword ptr [rsp + 070h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 070h]                              ; load address of return value's type
@@ -11296,7 +11593,7 @@ func$_growList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r10, qword ptr [rsp + 070h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 070h]                              ; load address of return value's type
@@ -11312,7 +11609,7 @@ func$_growList:
   mov r12, qword ptr [rsp + 070h]                                ; read left hand side operand of imul (len return value)
   imul rdi, r12, 002h                                            ; compute (len return value) * (2) (result in * operator result)
   mov qword ptr [rsp + 080h], rdi                                ; value initialization of variable declaration for newSize variable (* operator result)
-  mov qword ptr [rsp + 078h], 01dh                               ; type initialization of variable declaration for newSize variable (Integer'29)
+  mov qword ptr [rsp + 078h], 01eh                               ; type initialization of variable declaration for newSize variable (Integer'30)
   ; Line 277: __ListData newData = _constructor(__typeToCode __ListData, len(l...
   ; Call len with 1 arguments
   push qword ptr [rbp + 040h]                                    ; value of argument #1 (list)
@@ -11335,8 +11632,8 @@ func$_growList:
   push r12                                                       ; type of argument #3
   push qword ptr [rsp + 070h]                                    ; value of argument #2 (len return value)
   push qword ptr [rsp + 070h]                                    ; type of argument #2
-  push 01fh                                                      ; value of argument #1 (code of __ListData)
-  push 01dh                                                      ; type of argument #1 (Integer'29)
+  push 020h                                                      ; value of argument #1 (code of __ListData)
+  push 01eh                                                      ; type of argument #1 (Integer'30)
   lea r10, qword ptr [rsp + 090h]                                ; load address of return value's value
   push r10                                                       ; internal argument 6: pointer to return value slot's value
   lea r10, qword ptr [rsp + 090h]                                ; load address of return value's type
@@ -11362,7 +11659,7 @@ func$_growList:
     ; Call __print with 1 arguments
     mov r12, offset asOperatorFailureMessage                     ; reading asOperatorFailureMessage for push
     push r12                                                     ; value of argument #1 (asOperatorFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r13, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -11377,7 +11674,7 @@ func$_growList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -11400,7 +11697,7 @@ func$_growList:
     ; Call __print with 1 arguments
     mov rbx, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 060h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -11416,7 +11713,7 @@ func$_growList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rsi, qword ptr [rsp + 060h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -11458,7 +11755,7 @@ func$_growList:
     ; Call __print with 1 arguments
     mov rax, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 050h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 050h]                              ; load address of return value's type
@@ -11474,7 +11771,7 @@ func$_growList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 050h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 050h]                              ; load address of return value's type
@@ -11498,7 +11795,7 @@ func$_growList:
   mov r14, qword ptr [rdi]                                       ; dereference first argument of __readFromAddress
   mov r15, r14                                                   ; force cast of dereferenced + operator result to __ListData
   mov qword ptr [rsp + 050h], r15                                ; value initialization of variable declaration for oldData variable (force cast of dereferenced + operator result to __ListData)
-  mov qword ptr [rsp + 048h], 01fh                               ; type initialization of variable declaration for oldData variable (__ListData'31)
+  mov qword ptr [rsp + 048h], 020h                               ; type initialization of variable declaration for oldData variable (__ListData'32)
   ; increment reference count for oldData variable if necessary
   mov rdi, qword ptr [rsp + 048h]                                ; store oldData variable's type in testByte value slot
   mov rax, rdi                                                   ; move testByte to testByte
@@ -11539,7 +11836,7 @@ func$_growList:
     ; Call __print with 1 arguments
     mov r14, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r14                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     mov qword ptr [rsp + 048h], r15                              ; move copy of oldData's value out of r15
     lea r15, qword ptr [rsp + 050h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
@@ -11559,7 +11856,7 @@ func$_growList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r10, qword ptr [rsp + 050h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -11610,7 +11907,7 @@ func$_growList:
     mov qword ptr [rsp + 028h], rsi                              ; move copy of newData's type out of rsi
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rdi, qword ptr [rsp + 030h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -11627,7 +11924,7 @@ func$_growList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rax, qword ptr [rsp + 030h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -11668,7 +11965,7 @@ func$_growList:
     mov qword ptr [rsp + 018h], rbx                              ; move + operator result's value out of rbx
     mov rbx, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     mov qword ptr [rsp + 018h], rsi                              ; move copy of newData's type out of rsi
     lea rsi, qword ptr [rsp + 020h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
@@ -11684,7 +11981,7 @@ func$_growList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 020h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -11703,11 +12000,11 @@ func$_growList:
   imul r14, r15, 010h                                            ; compute (len return value) * (16 /* 0x10 */) (result in * operator result)
   ; Call _moveBytes with 3 arguments
   push r14                                                       ; value of argument #3 (* operator result)
-  push 01dh                                                      ; type of argument #3 (Integer'29)
+  push 01eh                                                      ; type of argument #3 (Integer'30)
   push r12                                                       ; value of argument #2 (+ operator result)
-  push 01dh                                                      ; type of argument #2 (Integer'29)
+  push 01eh                                                      ; type of argument #2 (Integer'30)
   push rbx                                                       ; value of argument #1 (+ operator result)
-  push 01dh                                                      ; type of argument #1 (Integer'29)
+  push 01eh                                                      ; type of argument #1 (Integer'30)
   lea rdi, qword ptr [rsp + 058h]                                ; load address of return value's value
   push rdi                                                       ; internal argument 6: pointer to return value slot's value
   lea rdi, qword ptr [rsp + 058h]                                ; load address of return value's type
@@ -11731,7 +12028,7 @@ func$_growList:
     ; Call __print with 1 arguments
     mov rbx, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     mov qword ptr [rsp + 030h], rsi                              ; move copy of newData's type out of rsi
     lea rsi, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
@@ -11748,7 +12045,7 @@ func$_growList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -11785,7 +12082,7 @@ func$_growList:
     ; Call __print with 1 arguments
     mov r12, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r13, qword ptr [rsp + 090h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 090h]                              ; load address of return value's type
@@ -11801,7 +12098,7 @@ func$_growList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 090h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 090h]                              ; load address of return value's type
@@ -11853,7 +12150,7 @@ func$_growList:
     ; Call __print with 1 arguments
     mov r15, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r15                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r10, qword ptr [rsp + 090h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -11869,7 +12166,7 @@ func$_growList:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 090h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -11886,47 +12183,47 @@ func$_growList:
   mov r13, r14                                                   ; assign value of copy of _gcLocked to value of -= operator result
   sub r13, 001h                                                  ; -= operator
   mov qword ptr _gcLockedValue, r13                              ; store value
-  mov qword ptr _gcLockedType, 01dh                              ; store type (Integer'29)
+  mov qword ptr _gcLockedType, 01eh                              ; store type (Integer'30)
   ; Implicit return from _growList
   mov rdi, qword ptr [rbp + 030h]                                ; get pointer to return value of _growList into register to dereference it
   mov qword ptr [rdi], 000h                                      ; _growList return value
   mov qword ptr [rsp + 080h], r12                                ; move copy of newData's value out of r12
   mov r12, qword ptr [rbp + 028h]                                ; get pointer to return value type of _growList into register to dereference it
-  mov qword ptr [r12], 01bh                                      ; type of _growList return value (Null'27)
-  ; Decrement reference count for oldData variable (static type: __ListData'31) via decrefMaybeGC
+  mov qword ptr [r12], 01ch                                      ; type of _growList return value (Null'28)
+  ; Decrement reference count for newData variable (static type: __ListData'32) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 068h]                                ; arg #2: oldData variable's type
-  mov rcx, qword ptr [rsp + 070h]                                ; arg #1: oldData variable's value
+  mov rdx, qword ptr [rsp + 088h]                                ; arg #2: newData variable's type
+  mov rcx, qword ptr [rsp + 090h]                                ; arg #1: newData variable's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for copy of oldData (static type: __ListData'31) via decrefMaybeGC
+  ; Decrement reference count for copy of oldData (static type: __ListData'32) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, qword ptr [rsp + 050h]                                ; arg #2: copy of oldData's type
   mov rcx, qword ptr [rsp + 058h]                                ; arg #1: copy of oldData's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for _constructor return value (static type: GarbageCollectable'35) via decrefMaybeGC
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 078h]                                ; arg #2: _constructor return value's type
-  mov rcx, qword ptr [rsp + 080h]                                ; arg #1: _constructor return value's value
-  call decrefMaybeGC                                             ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for copy of newData (static type: __ListData'31) via decrefMaybeGC
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 098h]                                ; arg #2: copy of newData's type
-  mov rcx, qword ptr [rsp + 0a0h]                                ; arg #1: copy of newData's value
-  call decrefMaybeGC                                             ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for copy of newData (static type: __ListData'31) via decrefMaybeGC
+  ; Decrement reference count for copy of newData (static type: __ListData'32) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, qword ptr [rsp + 048h]                                ; arg #2: copy of newData's type
   mov rcx, qword ptr [rsp + 060h]                                ; arg #1: copy of newData's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for newData variable (static type: __ListData'31) via decrefMaybeGC
+  ; Decrement reference count for copy of newData (static type: __ListData'32) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 088h]                                ; arg #2: newData variable's type
-  mov rcx, qword ptr [rsp + 090h]                                ; arg #1: newData variable's value
+  mov rdx, qword ptr [rsp + 098h]                                ; arg #2: copy of newData's type
+  mov rcx, qword ptr [rsp + 0a0h]                                ; arg #1: copy of newData's value
+  call decrefMaybeGC                                             ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for _constructor return value (static type: GarbageCollectable'36) via decrefMaybeGC
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, qword ptr [rsp + 078h]                                ; arg #2: _constructor return value's type
+  mov rcx, qword ptr [rsp + 080h]                                ; arg #1: _constructor return value's value
+  call decrefMaybeGC                                             ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for oldData variable (static type: __ListData'32) via decrefMaybeGC
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, qword ptr [rsp + 068h]                                ; arg #2: oldData variable's type
+  mov rcx, qword ptr [rsp + 070h]                                ; arg #1: oldData variable's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
@@ -11965,7 +12262,7 @@ func$append:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -11980,7 +12277,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12009,7 +12306,7 @@ func$append:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12024,7 +12321,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12052,7 +12349,7 @@ func$append:
     ; Call __print with 1 arguments
     mov rdi, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12067,7 +12364,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12091,7 +12388,7 @@ func$append:
     ; Call __print with 1 arguments
     mov r10, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12106,7 +12403,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12122,11 +12419,11 @@ func$append:
   mov r13, r14                                                   ; assign value of copy of _gcLocked to value of += operator result
   add r13, 001h                                                  ; += operator
   mov qword ptr _gcLockedValue, r13                              ; store value
-  mov qword ptr _gcLockedType, 01dh                              ; store type (Integer'29)
+  mov qword ptr _gcLockedType, 01eh                              ; store type (Integer'30)
   ; Line 287: Integer intermediaryAddress = list __as__ Integer;
   mov rax, qword ptr [rbp + 040h]                                ; force cast of list to Integer
   mov qword ptr [rsp + 058h], rax                                ; value initialization of variable declaration for intermediaryAddress variable (force cast of list to Integer)
-  mov qword ptr [rsp + 050h], 01dh                               ; type initialization of variable declaration for intermediaryAddress variable (Integer'29)
+  mov qword ptr [rsp + 050h], 01eh                               ; type initialization of variable declaration for intermediaryAddress variable (Integer'30)
   ; Line 288: Integer size = __readFromAddress(intermediaryAddress + _gcBlockD...
   mov r12, qword ptr [rsp + 058h]                                ; make a copy of intermediaryAddress's value in case it changes before we use it
   mov r13, qword ptr [rsp + 050h]                                ; make a copy of intermediaryAddress's type in case it changes before we use it
@@ -12142,7 +12439,7 @@ func$append:
     ; Call __print with 1 arguments
     mov r10, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -12157,7 +12454,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -12178,7 +12475,7 @@ func$append:
     ; Call __print with 1 arguments
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rdi, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -12193,7 +12490,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     mov qword ptr [rsp + 040h], r12                              ; move copy of intermediaryAddress's value out of r12
     lea r12, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
@@ -12217,7 +12514,7 @@ func$append:
   ; Call __readFromAddress with 1 arguments
   mov r13, qword ptr [rbx]                                       ; dereference first argument of __readFromAddress
   mov qword ptr [rsp + 048h], r13                                ; value initialization of variable declaration for size variable (dereferenced + operator result)
-  mov qword ptr [rsp + 040h], 01dh                               ; type initialization of variable declaration for size variable (Integer'29)
+  mov qword ptr [rsp + 040h], 01eh                               ; type initialization of variable declaration for size variable (Integer'30)
   ; Line 289: Integer dataAddress = __readFromAddress(intermediaryAddress + _g...
   mov rax, qword ptr [rsp + 058h]                                ; make a copy of intermediaryAddress's value in case it changes before we use it
   mov rbx, qword ptr [rsp + 050h]                                ; make a copy of intermediaryAddress's type in case it changes before we use it
@@ -12233,7 +12530,7 @@ func$append:
     ; Call __print with 1 arguments
     mov r12, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r13, qword ptr [rsp + 038h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -12249,7 +12546,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 038h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -12271,7 +12568,7 @@ func$append:
     ; Call __print with 1 arguments
     mov r15, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r15                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r10, qword ptr [rsp + 038h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -12287,7 +12584,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rax, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -12311,7 +12608,7 @@ func$append:
   ; Call __readFromAddress with 1 arguments
   mov rbx, qword ptr [r14]                                       ; dereference first argument of __readFromAddress
   mov qword ptr [rsp + 038h], rbx                                ; value initialization of variable declaration for dataAddress variable (dereferenced + operator result)
-  mov qword ptr [rsp + 030h], 01dh                               ; type initialization of variable declaration for dataAddress variable (Integer'29)
+  mov qword ptr [rsp + 030h], 01eh                               ; type initialization of variable declaration for dataAddress variable (Integer'30)
   ; Line 290: Integer length = len(list);
   ; Call len with 1 arguments
   push qword ptr [rbp + 040h]                                    ; value of argument #1 (list)
@@ -12335,7 +12632,7 @@ func$append:
     ; Call __print with 1 arguments
     mov rax, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -12350,7 +12647,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rsi, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -12375,11 +12672,11 @@ func$append:
   xor r15, r15                                                   ; zero value result of == (testing copy of length and copy of size) to put the boolean in
   cmp rdi, r13                                                   ; values equal?
   sete r15b                                                      ; put result in value result of == (testing copy of length and copy of size)
-  mov r10, 01ch                                                  ; value result of == (testing copy of length and copy of size) is a Boolean'28
+  mov r10, 01dh                                                  ; value result of == (testing copy of length and copy of size) is a Boolean'29
   xor rax, rax                                                   ; zero type result of == (testing copy of length and copy of size) to put the boolean in
   cmp r12, r14                                                   ; types equal?
   sete al                                                        ; put result in type result of == (testing copy of length and copy of size)
-  mov rbx, 01ch                                                  ; type result of == (testing copy of length and copy of size) is a Boolean'28
+  mov rbx, 01dh                                                  ; type result of == (testing copy of length and copy of size) is a Boolean'29
   mov rsi, r15                                                   ; assign value of value result of == (testing copy of length and copy of size) to value of == operator result
   and rsi, rax                                                   ; && type temp and value temp
   cmp rsi, 000h                                                  ; compare == operator result to false
@@ -12412,7 +12709,7 @@ func$append:
       ; Call __print with 1 arguments
       mov rax, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rax                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rbx, qword ptr [rsp + 058h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
       lea rbx, qword ptr [rsp + 058h]                            ; load address of return value's type
@@ -12428,7 +12725,7 @@ func$append:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rsi, qword ptr [rsp + 058h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 058h]                            ; load address of return value's type
@@ -12450,7 +12747,7 @@ func$append:
       ; Call __print with 1 arguments
       mov rdi, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rdi                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r12, qword ptr [rsp + 058h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 058h]                            ; load address of return value's type
@@ -12466,7 +12763,7 @@ func$append:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       mov qword ptr [rsp + 050h], r13                            ; move copy of intermediaryAddress's value out of r13
       lea r13, qword ptr [rsp + 058h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
@@ -12479,8 +12776,8 @@ func$append:
       mov rcx, 001h                                              ; internal argument 1: number of actual arguments
       call func$exit                                             ; jump to subroutine
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
-      mov r10, qword ptr [rsp + 018h]                            ; restoring slots to previous scope state
       mov r13, qword ptr [rsp + 040h]                            ; restoring slots to previous scope state
+      mov r10, qword ptr [rsp + 018h]                            ; restoring slots to previous scope state
     func$append$append$if$Gcblockdata$TypeMatch:                 ; after block
     mov qword ptr [rsp + 048h], r14                              ; move copy of intermediaryAddress's type out of r14
     mov r14, r13                                                 ; assign value of copy of intermediaryAddress to value of + operator result
@@ -12492,7 +12789,7 @@ func$append:
     ; Call __readFromAddress with 1 arguments
     mov r14, qword ptr [rsi]                                     ; dereference first argument of __readFromAddress
     mov qword ptr [rsp + 038h], r14                              ; store value
-    mov qword ptr [rsp + 030h], 01dh                             ; store type (Integer'29)
+    mov qword ptr [rsp + 030h], 01eh                             ; store type (Integer'30)
   func$append$if$continuation:                                   ; end of if
   ; Line 295: __writeToAddress(dataAddress + _gcBlockData + length * 16 /* 0x1...
   mov rbx, qword ptr [rsp + 038h]                                ; make a copy of dataAddress's value in case it changes before we use it
@@ -12507,7 +12804,7 @@ func$append:
     ; Call __print with 1 arguments
     mov r13, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12522,7 +12819,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12543,7 +12840,7 @@ func$append:
     ; Call __print with 1 arguments
     mov r10, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12558,7 +12855,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     mov qword ptr [rsp + 060h], rbx                              ; move copy of dataAddress's value out of rbx
     lea rbx, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
@@ -12586,7 +12883,7 @@ func$append:
     ; Call __print with 1 arguments
     mov r13, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12601,7 +12898,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12634,7 +12931,7 @@ func$append:
     ; Call __print with 1 arguments
     mov rax, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rbx, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12650,7 +12947,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rsi, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12672,7 +12969,7 @@ func$append:
     ; Call __print with 1 arguments
     mov rdi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12688,7 +12985,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     mov qword ptr [rsp + 060h], r13                              ; move copy of dataAddress's value out of r13
     lea r13, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
@@ -12701,8 +12998,8 @@ func$append:
     mov rcx, 001h                                                ; internal argument 1: number of actual arguments
     call func$exit                                               ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    mov r10, qword ptr [rsp + 048h]                              ; restoring slots to previous scope state
     mov r13, qword ptr [rsp + 050h]                              ; restoring slots to previous scope state
+    mov r10, qword ptr [rsp + 048h]                              ; restoring slots to previous scope state
   func$append$Gcblockdata$TypeMatch$3:                           ; after block
   mov qword ptr [rsp + 058h], r14                                ; move copy of dataAddress's type out of r14
   mov r14, r13                                                   ; assign value of copy of dataAddress to value of + operator result
@@ -12717,7 +13014,7 @@ func$append:
     ; Call __print with 1 arguments
     mov rax, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rbx, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12733,7 +13030,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rsi, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12769,7 +13066,7 @@ func$append:
     ; Call __print with 1 arguments
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rdi, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12786,7 +13083,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r12, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12809,7 +13106,7 @@ func$append:
     ; Call __print with 1 arguments
     mov r13, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12826,7 +13123,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     mov qword ptr [rsp + 060h], r15                              ; move copy of dataAddress's value out of r15
     lea r15, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
@@ -12856,7 +13153,7 @@ func$append:
     ; Call __print with 1 arguments
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rdi, qword ptr [rsp + 068h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12873,7 +13170,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r12, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12897,7 +13194,7 @@ func$append:
   ; Line 298: __incref(element);
   ; Call __incref with 1 arguments
   ; increment reference count for element if necessary
-  cmp qword ptr [rbp + 048h], 01eh                               ; compare type of element to String
+  cmp qword ptr [rbp + 048h], 01fh                               ; compare type of element to String
   jne func$append$AfterStringIncref                              ; if not a String, skip incref
     mov r15, qword ptr [rbp + 050h]                              ; get element into register to dereference it
     mov r10, qword ptr [r15]                                     ; dereference string to get to reference count
@@ -12919,7 +13216,7 @@ func$append:
     ; Call __print with 1 arguments
     mov rdi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12934,7 +13231,7 @@ func$append:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -12950,12 +13247,12 @@ func$append:
   mov rax, rbx                                                   ; assign value of copy of _gcLocked to value of -= operator result
   sub rax, 001h                                                  ; -= operator
   mov qword ptr _gcLockedValue, rax                              ; store value
-  mov qword ptr _gcLockedType, 01dh                              ; store type (Integer'29)
+  mov qword ptr _gcLockedType, 01eh                              ; store type (Integer'30)
   ; Implicit return from append
   mov r15, qword ptr [rbp + 030h]                                ; get pointer to return value of append into register to dereference it
   mov qword ptr [r15], 000h                                      ; append return value
   mov r10, qword ptr [rbp + 028h]                                ; get pointer to return value type of append into register to dereference it
-  mov qword ptr [r10], 01bh                                      ; type of append return value (Null'27)
+  mov qword ptr [r10], 01ch                                      ; type of append return value (Null'28)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 068h                                                  ; free space for stack
@@ -12992,7 +13289,7 @@ func$_stringByteLength:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 030h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -13007,7 +13304,7 @@ func$_stringByteLength:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 030h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -13035,7 +13332,7 @@ func$_stringByteLength:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -13050,7 +13347,7 @@ func$_stringByteLength:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -13063,11 +13360,11 @@ func$_stringByteLength:
     call func$exit                                               ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
   func$_stringByteLength$data$TypeMatch:                         ; after block
-  ; Line 391: Integer pointer = data __as__ Integer;
+  ; Line 412: Integer pointer = data __as__ Integer;
   mov r10, qword ptr [rbp + 040h]                                ; force cast of data to Integer
   mov qword ptr [rsp + 020h], r10                                ; value initialization of variable declaration for pointer variable (force cast of data to Integer)
-  mov qword ptr [rsp + 018h], 01dh                               ; type initialization of variable declaration for pointer variable (Integer'29)
-  ; Line 392: return __readFromAddress(pointer + 8);
+  mov qword ptr [rsp + 018h], 01eh                               ; type initialization of variable declaration for pointer variable (Integer'30)
+  ; Line 413: return __readFromAddress(pointer + 8);
   mov rdi, qword ptr [rsp + 020h]                                ; make a copy of pointer's value in case it changes before we use it
   mov r12, qword ptr [rsp + 018h]                                ; make a copy of pointer's type in case it changes before we use it
   cmp r12, 000h                                                  ; compare type of copy of pointer to <sentinel>
@@ -13078,7 +13375,7 @@ func$_stringByteLength:
     ; Call __print with 1 arguments
     mov r13, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -13093,7 +13390,7 @@ func$_stringByteLength:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 030h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 030h]                              ; load address of return value's type
@@ -13113,7 +13410,7 @@ func$_stringByteLength:
   mov rsi, qword ptr [rbp + 030h]                                ; get pointer to return value of _stringByteLength into register to dereference it
   mov qword ptr [rsi], r14                                       ; _stringByteLength return value
   mov rax, qword ptr [rbp + 028h]                                ; get pointer to return value type of _stringByteLength into register to dereference it
-  mov qword ptr [rax], 01dh                                      ; type of _stringByteLength return value (Integer'29)
+  mov qword ptr [rax], 01eh                                      ; type of _stringByteLength return value (Integer'30)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 030h                                                  ; free space for stack
@@ -13167,7 +13464,7 @@ func$concat:
       ; Call __print with 1 arguments
       mov r14, offset parameterTypeCheckFailureMessage           ; reading parameterTypeCheckFailureMessage for push
       push r14                                                   ; value of argument #1 (parameterTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r15, qword ptr [rsp + 0a0h]                            ; load address of return value's value
       push r15                                                   ; internal argument 6: pointer to return value slot's value
       lea r15, qword ptr [rsp + 0a0h]                            ; load address of return value's type
@@ -13184,7 +13481,7 @@ func$concat:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r10, qword ptr [rsp + 0a0h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 0a0h]                            ; load address of return value's type
@@ -13204,12 +13501,12 @@ func$concat:
     jmp func$concat$varargTypeChecks$Loop                        ; return to top of loop
     func$concat$varargTypeChecks$TypesAllMatch:                  ; after loop
     mov rax, qword ptr [rsp + 098h]                              ; restoring slots to previous scope state
-  ; Line 396: Integer length = 0;
+  ; Line 417: Integer length = 0;
   mov qword ptr [rsp + 0a0h], 000h                               ; value initialization of variable declaration for length variable (0)
-  mov qword ptr [rsp + 098h], 01dh                               ; type initialization of variable declaration for length variable (Integer'29)
-  ; Line 397: Integer index = 0;
+  mov qword ptr [rsp + 098h], 01eh                               ; type initialization of variable declaration for length variable (Integer'30)
+  ; Line 418: Integer index = 0;
   mov qword ptr [rsp + 090h], 000h                               ; value initialization of variable declaration for index variable (0)
-  mov qword ptr [rsp + 088h], 01dh                               ; type initialization of variable declaration for index variable (Integer'29)
+  mov qword ptr [rsp + 088h], 01eh                               ; type initialization of variable declaration for index variable (Integer'30)
   func$concat$while$top:                                         ; top of while
     mov r14, qword ptr [rsp + 090h]                              ; make a copy of index's value in case it changes before we use it
     mov r15, qword ptr [rsp + 088h]                              ; make a copy of index's type in case it changes before we use it
@@ -13222,7 +13519,7 @@ func$concat:
       ; Call __print with 1 arguments
       mov rdi, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rdi                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rax, qword ptr [rsp + 090h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 090h]                            ; load address of return value's type
@@ -13238,7 +13535,7 @@ func$concat:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r12, qword ptr [rsp + 090h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 090h]                            ; load address of return value's type
@@ -13259,7 +13556,7 @@ func$concat:
     jne func$concat$while$body                                   ; while condition
     jmp func$concat$while$bottom                                 ; break out of while
     func$concat$while$body:                                      ; start of while
-    ; Line 399: length += _stringByteLength(arguments[index]);
+    ; Line 420: length += _stringByteLength(arguments[index]);
     mov rbx, qword ptr [rsp + 0a0h]                              ; make a copy of length's value in case it changes before we use it
     mov rsi, qword ptr [rsp + 098h]                              ; make a copy of length's type in case it changes before we use it
     mov r13, qword ptr [rsp + 090h]                              ; make a copy of index's value in case it changes before we use it
@@ -13272,7 +13569,7 @@ func$concat:
       ; Call __print with 1 arguments
       mov r15, offset subscriptTypeCheckFailureMessage           ; reading subscriptTypeCheckFailureMessage for push
       push r15                                                   ; value of argument #1 (subscriptTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r10, qword ptr [rsp + 090h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 090h]                            ; load address of return value's type
@@ -13288,7 +13585,7 @@ func$concat:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       mov qword ptr [rsp + 088h], rbx                            ; move copy of length's value out of rbx
       lea rbx, qword ptr [rsp + 090h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
@@ -13317,7 +13614,7 @@ func$concat:
       ; Call __print with 1 arguments
       mov rdi, offset boundsFailureMessage                       ; reading boundsFailureMessage for push
       push rdi                                                   ; value of argument #1 (boundsFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rax, qword ptr [rsp + 088h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 088h]                            ; load address of return value's type
@@ -13333,7 +13630,7 @@ func$concat:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r12, qword ptr [rsp + 088h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 088h]                            ; load address of return value's type
@@ -13355,7 +13652,7 @@ func$concat:
     mov r15, qword ptr [r14 + 008h]                              ; value of arguments[copy of index]
     mov r10, qword ptr [r14]                                     ; type of arguments[copy of index]
     ; increment reference count for copy of arguments[copy of index] if necessary
-    cmp r10, 01eh                                                ; compare type of copy of arguments[copy of index] to String
+    cmp r10, 01fh                                                ; compare type of copy of arguments[copy of index] to String
     jne func$concat$while$AfterStringIncref                      ; if not a String, skip incref
       mov qword ptr [rsp + 078h], rbx                            ; move copy of length's value out of rbx
       mov rbx, qword ptr [r15]                                   ; dereference string to get to reference count
@@ -13391,7 +13688,7 @@ func$concat:
       ; Call __print with 1 arguments
       mov r13, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r13                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r14, qword ptr [rsp + 068h]                            ; load address of return value's value
       push r14                                                   ; internal argument 6: pointer to return value slot's value
       lea r14, qword ptr [rsp + 068h]                            ; load address of return value's type
@@ -13406,7 +13703,7 @@ func$concat:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       mov qword ptr [rsp + 060h], r15                            ; move copy of arguments[copy of index]'s value out of r15
       lea r15, qword ptr [rsp + 068h]                            ; load address of return value's value
       push r15                                                   ; internal argument 6: pointer to return value slot's value
@@ -13429,7 +13726,7 @@ func$concat:
       ; Call __print with 1 arguments
       mov r10, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r10                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       mov qword ptr [rsp + 060h], rbx                            ; move copy of length's value out of rbx
       lea rbx, qword ptr [rsp + 068h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
@@ -13445,7 +13742,7 @@ func$concat:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rsi, qword ptr [rsp + 068h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 060h]                            ; load address of return value's type
@@ -13462,8 +13759,8 @@ func$concat:
     mov rdi, rbx                                                 ; assign value of copy of length to value of += operator result
     add rdi, qword ptr [rsp + 078h]                              ; += operator
     mov qword ptr [rsp + 0a0h], rdi                              ; store value
-    mov qword ptr [rsp + 098h], 01dh                             ; store type (Integer'29)
-    ; Line 400: index += 1;
+    mov qword ptr [rsp + 098h], 01eh                             ; store type (Integer'30)
+    ; Line 421: index += 1;
     mov r14, qword ptr [rsp + 090h]                              ; make a copy of index's value in case it changes before we use it
     mov qword ptr [rsp + 080h], r15                              ; move copy of arguments[copy of index]'s value out of r15
     mov r15, qword ptr [rsp + 088h]                              ; make a copy of index's type in case it changes before we use it
@@ -13475,7 +13772,7 @@ func$concat:
       ; Call __print with 1 arguments
       mov r10, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r10                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rbx, qword ptr [rsp + 088h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
       lea rbx, qword ptr [rsp + 088h]                            ; load address of return value's type
@@ -13490,7 +13787,7 @@ func$concat:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rsi, qword ptr [rsp + 088h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 088h]                            ; load address of return value's type
@@ -13506,8 +13803,8 @@ func$concat:
     mov r13, r14                                                 ; assign value of copy of index to value of += operator result
     add r13, 001h                                                ; += operator
     mov qword ptr [rsp + 090h], r13                              ; store value
-    mov qword ptr [rsp + 088h], 01dh                             ; store type (Integer'29)
-    ; Decrement reference count for copy of arguments[copy of index] (static type: String'30) via decrefMaybeString
+    mov qword ptr [rsp + 088h], 01eh                             ; store type (Integer'30)
+    ; Decrement reference count for copy of arguments[copy of index] (static type: String'31) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 080h]                              ; arg #2: copy of arguments[copy of index]'s type
     mov rcx, qword ptr [rsp + 0a0h]                              ; arg #1: copy of arguments[copy of index]'s value
@@ -13516,7 +13813,7 @@ func$concat:
     mov rcx, qword ptr [rsp + 068h]                              ; restoring slots to previous scope state
     jmp func$concat$while$top                                    ; return to top of while
   func$concat$while$bottom:                                      ; bottom of while
-  ; Line 402: assert(length >= 0, 'negative length detected');
+  ; Line 423: assert(length >= 0, 'negative length detected');
   mov rbx, qword ptr [rsp + 0a0h]                                ; make a copy of length's value in case it changes before we use it
   mov rsi, qword ptr [rsp + 098h]                                ; make a copy of length's type in case it changes before we use it
   cmp rsi, 000h                                                  ; compare type of copy of length to <sentinel>
@@ -13527,7 +13824,7 @@ func$concat:
     ; Call __print with 1 arguments
     mov rdi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 090h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 090h]                              ; load address of return value's type
@@ -13543,7 +13840,7 @@ func$concat:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r12, qword ptr [rsp + 090h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 090h]                              ; load address of return value's type
@@ -13563,9 +13860,9 @@ func$concat:
   ; Call assert with 2 arguments
   mov rax, offset string$14                                      ; reading string for push
   push rax                                                       ; value of argument #2 (string)
-  push 01eh                                                      ; type of argument #2 (String'30)
+  push 01fh                                                      ; type of argument #2 (String'31)
   push r10                                                       ; value of argument #1 (>= operator result)
-  push 01ch                                                      ; type of argument #1 (Boolean'28)
+  push 01dh                                                      ; type of argument #1 (Boolean'29)
   lea r12, qword ptr [rsp + 0a0h]                                ; load address of return value's value
   push r12                                                       ; internal argument 6: pointer to return value slot's value
   lea r12, qword ptr [rsp + 0a0h]                                ; load address of return value's type
@@ -13578,7 +13875,7 @@ func$concat:
   mov rcx, 002h                                                  ; internal argument 1: number of actual arguments
   call func$assert                                               ; jump to subroutine
   add rsp, 050h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 403: if (length >= 2147483648 /* 0x80000000 */) { ...
+  ; Line 424: if (length >= 2147483648 /* 0x80000000 */) { ...
   mov r13, qword ptr [rsp + 0a0h]                                ; make a copy of length's value in case it changes before we use it
   mov r14, qword ptr [rsp + 098h]                                ; make a copy of length's type in case it changes before we use it
   cmp r14, 000h                                                  ; compare type of copy of length to <sentinel>
@@ -13589,7 +13886,7 @@ func$concat:
     ; Call __print with 1 arguments
     mov r15, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r15                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r10, qword ptr [rsp + 090h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 090h]                              ; load address of return value's type
@@ -13604,7 +13901,7 @@ func$concat:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 090h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 090h]                              ; load address of return value's type
@@ -13617,17 +13914,17 @@ func$concat:
     call func$exit                                               ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
   func$concat$length$TypeMatch$1:                                ; after block
-  mov r12, 080000000h                                            ; reading second value to compare (<ImmediateIntegerSlot:Integer'29 ("2147483648 /* 0x80000000 */")>)
+  mov r12, 080000000h                                            ; reading second value to compare (<ImmediateIntegerSlot:Integer'30 ("2147483648 /* 0x80000000 */")>)
   xor r14, r14                                                   ; clear >= operator result
   cmp r13, r12                                                   ; compare copy of length with 2147483648 /* 0x80000000 */
   setge r14b                                                     ; store result in >= operator result
   cmp r14, 000h                                                  ; compare >= operator result to false
   je func$concat$if$continuation                                 ; length >= 2147483648 /* 0x80000000 */
-    ; Line 404: __print('absurd length detected (as exit code)\n');
+    ; Line 425: __print('absurd length detected (as exit code)\n');
     ; Call __print with 1 arguments
     mov rbx, offset string$15                                    ; reading string for push
     push rbx                                                     ; value of argument #1 (string)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 090h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 090h]                              ; load address of return value's type
@@ -13639,7 +13936,7 @@ func$concat:
     mov rcx, 001h                                                ; internal argument 1: number of actual arguments
     call func$__print                                            ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ; Line 405: exit(length);
+    ; Line 426: exit(length);
     mov rdi, qword ptr [rsp + 0a0h]                              ; make a copy of length's value in case it changes before we use it
     mov rax, qword ptr [rsp + 098h]                              ; make a copy of length's type in case it changes before we use it
     ; Call exit with 1 arguments
@@ -13657,7 +13954,7 @@ func$concat:
     call func$exit                                               ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
   func$concat$if$continuation:                                   ; end of if
-  ; Line 407: Integer resultPointer = _alloc(16 /* 0x10 */ + length);
+  ; Line 428: Integer resultPointer = _alloc(16 /* 0x10 */ + length);
   mov r10, qword ptr [rsp + 0a0h]                                ; make a copy of length's value in case it changes before we use it
   mov rbx, qword ptr [rsp + 098h]                                ; make a copy of length's type in case it changes before we use it
   cmp rbx, 000h                                                  ; compare type of copy of length to <sentinel>
@@ -13668,7 +13965,7 @@ func$concat:
     ; Call __print with 1 arguments
     mov r12, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 078h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 078h]                              ; load address of return value's type
@@ -13684,7 +13981,7 @@ func$concat:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 078h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 078h]                              ; load address of return value's type
@@ -13702,7 +13999,7 @@ func$concat:
   add r15, r10                                                   ; compute (16 /* 0x10 */) + (copy of length) (result in + operator result)
   ; Call _alloc with 1 arguments
   push r15                                                       ; value of argument #1 (+ operator result)
-  push 01dh                                                      ; type of argument #1 (Integer'29)
+  push 01eh                                                      ; type of argument #1 (Integer'30)
   lea rdi, qword ptr [rsp + 078h]                                ; load address of return value's value
   push rdi                                                       ; internal argument 6: pointer to return value slot's value
   lea rdi, qword ptr [rsp + 078h]                                ; load address of return value's type
@@ -13722,7 +14019,7 @@ func$concat:
     ; Call __print with 1 arguments
     mov rax, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push rax                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -13737,7 +14034,7 @@ func$concat:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 068h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 068h]                              ; load address of return value's type
@@ -13754,12 +14051,12 @@ func$concat:
   mov qword ptr [rsp + 080h], r11                                ; value initialization of variable declaration for resultPointer variable (_alloc return value)
   mov r11, qword ptr [rsp + 060h]                                ; indirect through r11 because operand pair (stack operand #6, stack operand #9) is not allowed with mov
   mov qword ptr [rsp + 078h], r11                                ; type initialization of variable declaration for resultPointer variable
-  ; Line 408: __writeToAddress(resultPointer, 0);
+  ; Line 429: __writeToAddress(resultPointer, 0);
   mov r13, qword ptr [rsp + 080h]                                ; make a copy of resultPointer's value in case it changes before we use it
   mov r15, qword ptr [rsp + 078h]                                ; make a copy of resultPointer's type in case it changes before we use it
   ; Call __writeToAddress with 2 arguments
   mov qword ptr [r13], 000h                                      ; __writeToAddress
-  ; Line 409: __writeToAddress(resultPointer + 8, length);
+  ; Line 430: __writeToAddress(resultPointer + 8, length);
   mov rdi, qword ptr [rsp + 080h]                                ; make a copy of resultPointer's value in case it changes before we use it
   mov rax, qword ptr [rsp + 078h]                                ; make a copy of resultPointer's type in case it changes before we use it
   cmp rax, 000h                                                  ; compare type of copy of resultPointer to <sentinel>
@@ -13770,7 +14067,7 @@ func$concat:
     ; Call __print with 1 arguments
     mov r12, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r12                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 078h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 078h]                              ; load address of return value's type
@@ -13786,7 +14083,7 @@ func$concat:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 078h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 078h]                              ; load address of return value's type
@@ -13806,7 +14103,7 @@ func$concat:
   mov rax, qword ptr [rsp + 098h]                                ; make a copy of length's type in case it changes before we use it
   ; Call __writeToAddress with 2 arguments
   mov qword ptr [rsi], rdi                                       ; __writeToAddress
-  ; Line 410: Integer cursor = resultPointer + 16 /* 0x10 */;
+  ; Line 431: Integer cursor = resultPointer + 16 /* 0x10 */;
   mov r15, qword ptr [rsp + 080h]                                ; make a copy of resultPointer's value in case it changes before we use it
   mov r10, qword ptr [rsp + 078h]                                ; make a copy of resultPointer's type in case it changes before we use it
   cmp r10, 000h                                                  ; compare type of copy of resultPointer to <sentinel>
@@ -13819,7 +14116,7 @@ func$concat:
     ; Call __print with 1 arguments
     mov rbx, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 078h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 078h]                              ; load address of return value's type
@@ -13835,7 +14132,7 @@ func$concat:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 078h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 078h]                              ; load address of return value's type
@@ -13852,10 +14149,10 @@ func$concat:
   mov r13, r15                                                   ; assign value of copy of resultPointer to value of + operator result
   add r13, 010h                                                  ; compute (copy of resultPointer) + (16 /* 0x10 */) (result in + operator result)
   mov qword ptr [rsp + 0a0h], r13                                ; value initialization of variable declaration for cursor variable (+ operator result)
-  mov qword ptr [rsp + 098h], 01dh                               ; type initialization of variable declaration for cursor variable (Integer'29)
-  ; Line 411: index = 0;
+  mov qword ptr [rsp + 098h], 01eh                               ; type initialization of variable declaration for cursor variable (Integer'30)
+  ; Line 432: index = 0;
   mov qword ptr [rsp + 090h], 000h                               ; store value
-  mov qword ptr [rsp + 088h], 01dh                               ; store type (Integer'29)
+  mov qword ptr [rsp + 088h], 01eh                               ; store type (Integer'30)
   func$concat$while$top$1:                                       ; top of while
     mov r12, qword ptr [rsp + 090h]                              ; make a copy of index's value in case it changes before we use it
     mov r14, qword ptr [rsp + 088h]                              ; make a copy of index's type in case it changes before we use it
@@ -13868,7 +14165,7 @@ func$concat:
       ; Call __print with 1 arguments
       mov rbx, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rbx                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rsi, qword ptr [rsp + 078h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 078h]                            ; load address of return value's type
@@ -13883,7 +14180,7 @@ func$concat:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rdi, qword ptr [rsp + 078h]                            ; load address of return value's value
       push rdi                                                   ; internal argument 6: pointer to return value slot's value
       lea rdi, qword ptr [rsp + 078h]                            ; load address of return value's type
@@ -13903,7 +14200,7 @@ func$concat:
     jne func$concat$while$body$1                                 ; while condition
     jmp func$concat$while$bottom$1                               ; break out of while
     func$concat$while$body$1:                                    ; start of while
-    ; Line 413: String segment = arguments[index];
+    ; Line 434: String segment = arguments[index];
     mov rsi, qword ptr [rsp + 090h]                              ; make a copy of index's value in case it changes before we use it
     mov rdi, qword ptr [rsp + 088h]                              ; make a copy of index's type in case it changes before we use it
     cmp rdi, 000h                                                ; compare type of copy of index to <sentinel>
@@ -13914,7 +14211,7 @@ func$concat:
       ; Call __print with 1 arguments
       mov rax, offset subscriptTypeCheckFailureMessage           ; reading subscriptTypeCheckFailureMessage for push
       push rax                                                   ; value of argument #1 (subscriptTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r12, qword ptr [rsp + 068h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 068h]                            ; load address of return value's type
@@ -13929,7 +14226,7 @@ func$concat:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r14, qword ptr [rsp + 068h]                            ; load address of return value's value
       push r14                                                   ; internal argument 6: pointer to return value slot's value
       lea r14, qword ptr [rsp + 068h]                            ; load address of return value's type
@@ -13954,7 +14251,7 @@ func$concat:
       ; Call __print with 1 arguments
       mov r15, offset boundsFailureMessage                       ; reading boundsFailureMessage for push
       push r15                                                   ; value of argument #1 (boundsFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r10, qword ptr [rsp + 068h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 068h]                            ; load address of return value's type
@@ -13969,7 +14266,7 @@ func$concat:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rbx, qword ptr [rsp + 068h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
       lea rbx, qword ptr [rsp + 068h]                            ; load address of return value's type
@@ -13990,7 +14287,7 @@ func$concat:
     mov rax, qword ptr [rdi + 008h]                              ; value of arguments[copy of index]
     mov r12, qword ptr [rdi]                                     ; type of arguments[copy of index]
     ; increment reference count for copy of arguments[copy of index] if necessary
-    cmp r12, 01eh                                                ; compare type of copy of arguments[copy of index] to String
+    cmp r12, 01fh                                                ; compare type of copy of arguments[copy of index] to String
     jne func$concat$while$AfterStringIncref$1                    ; if not a String, skip incref
       mov r14, qword ptr [rax]                                   ; dereference string to get to reference count
       cmp r14, 0                                                 ; compare string reference count to 0
@@ -14007,7 +14304,7 @@ func$concat:
       ; Call __print with 1 arguments
       mov r13, offset assignmentTypeCheckFailureMessage          ; reading assignmentTypeCheckFailureMessage for push
       push r13                                                   ; value of argument #1 (assignmentTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r15, qword ptr [rsp + 068h]                            ; load address of return value's value
       push r15                                                   ; internal argument 6: pointer to return value slot's value
       lea r15, qword ptr [rsp + 068h]                            ; load address of return value's type
@@ -14023,7 +14320,7 @@ func$concat:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r10, qword ptr [rsp + 068h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 068h]                            ; load address of return value's type
@@ -14040,7 +14337,7 @@ func$concat:
     mov qword ptr [rsp + 068h], rax                              ; value initialization of variable declaration for segment variable (copy of arguments[copy of index])
     mov qword ptr [rsp + 060h], r12                              ; type initialization of variable declaration for segment variable
     ; increment reference count for segment variable if necessary
-    cmp qword ptr [rsp + 060h], 01eh                             ; compare type of segment variable to String
+    cmp qword ptr [rsp + 060h], 01fh                             ; compare type of segment variable to String
     jne func$concat$while$AfterStringIncref$2                    ; if not a String, skip incref
       mov rbx, qword ptr [rsp + 068h]                            ; get segment variable into register to dereference it
       mov rsi, qword ptr [rbx]                                   ; dereference string to get to reference count
@@ -14052,12 +14349,12 @@ func$concat:
         inc qword ptr [rbx]                                      ; increment reference count of segment variable
       mov qword ptr [rsp + 068h], rbx                            ; restoring slots to previous scope state
     func$concat$while$AfterStringIncref$2:                       ; after String incref
-    ; Line 414: Integer segmentLength = _stringByteLength(segment);
+    ; Line 435: Integer segmentLength = _stringByteLength(segment);
     mov rdi, qword ptr [rsp + 068h]                              ; make a copy of segment's value in case it changes before we use it
     mov qword ptr [rsp + 058h], rax                              ; move copy of arguments[copy of index]'s value out of rax
     mov rax, qword ptr [rsp + 060h]                              ; make a copy of segment's type in case it changes before we use it
     ; increment reference count for copy of segment if necessary
-    cmp rax, 01eh                                                ; compare type of copy of segment to String
+    cmp rax, 01fh                                                ; compare type of copy of segment to String
     jne func$concat$while$AfterStringIncref$3                    ; if not a String, skip incref
       mov qword ptr [rsp + 050h], 000h                           ; move segmentLength variable's value into a mutable location
       mov qword ptr [rsp + 048h], 000h                           ; move segmentLength variable's type into a mutable location
@@ -14094,7 +14391,7 @@ func$concat:
       ; Call __print with 1 arguments
       mov rbx, offset assignmentTypeCheckFailureMessage          ; reading assignmentTypeCheckFailureMessage for push
       push rbx                                                   ; value of argument #1 (assignmentTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rsi, qword ptr [rsp + 038h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 038h]                            ; load address of return value's type
@@ -14109,7 +14406,7 @@ func$concat:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       mov qword ptr [rsp + 030h], rdi                            ; move copy of segment's value out of rdi
       lea rdi, qword ptr [rsp + 038h]                            ; load address of return value's value
       push rdi                                                   ; internal argument 6: pointer to return value slot's value
@@ -14128,7 +14425,7 @@ func$concat:
     mov qword ptr [rsp + 050h], r11                              ; value initialization of variable declaration for segmentLength variable (_stringByteLength return value)
     mov r11, qword ptr [rsp + 038h]                              ; indirect through r11 because operand pair (stack operand #12, stack operand #14) is not allowed with mov
     mov qword ptr [rsp + 048h], r11                              ; type initialization of variable declaration for segmentLength variable
-    ; Line 415: if (segmentLength > 0) { ...
+    ; Line 436: if (segmentLength > 0) { ...
     mov rax, qword ptr [rsp + 050h]                              ; make a copy of segmentLength's value in case it changes before we use it
     mov qword ptr [rsp + 040h], r12                              ; move copy of arguments[copy of index]'s type out of r12
     mov r12, qword ptr [rsp + 048h]                              ; make a copy of segmentLength's type in case it changes before we use it
@@ -14140,7 +14437,7 @@ func$concat:
       ; Call __print with 1 arguments
       mov r14, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r14                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r13, qword ptr [rsp + 048h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 040h]                            ; load address of return value's type
@@ -14156,7 +14453,7 @@ func$concat:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r15, qword ptr [rsp + 048h]                            ; load address of return value's value
       push r15                                                   ; internal argument 6: pointer to return value slot's value
       lea r15, qword ptr [rsp + 040h]                            ; load address of return value's type
@@ -14176,11 +14473,11 @@ func$concat:
     setg dil                                                     ; store result in > operator result
     cmp rdi, 000h                                                ; compare > operator result to false
     je func$concat$while$if$continuation                         ; segmentLength > 0
-      ; Line 416: Integer segmentPointer = segment __as__ Integer;
+      ; Line 437: Integer segmentPointer = segment __as__ Integer;
       mov rax, qword ptr [rsp + 068h]                            ; make a copy of segment's value in case it changes before we use it
       mov r12, qword ptr [rsp + 060h]                            ; make a copy of segment's type in case it changes before we use it
       ; increment reference count for copy of segment if necessary
-      cmp r12, 01eh                                              ; compare type of copy of segment to String
+      cmp r12, 01fh                                              ; compare type of copy of segment to String
       jne func$concat$while$while$if$6$AfterStringIncref         ; if not a String, skip incref
         mov qword ptr [rsp + 028h], 000h                         ; move segmentPointer variable's value into a mutable location
         mov qword ptr [rsp + 020h], 000h                         ; move segmentPointer variable's type into a mutable location
@@ -14193,8 +14490,8 @@ func$concat:
       func$concat$while$while$if$6$AfterStringIncref:            ; after String incref
       mov r13, rax                                               ; force cast of copy of segment to Integer
       mov qword ptr [rsp + 028h], r13                            ; value initialization of variable declaration for segmentPointer variable (force cast of copy of segment to Integer)
-      mov qword ptr [rsp + 020h], 01dh                           ; type initialization of variable declaration for segmentPointer variable (Integer'29)
-      ; Line 417: _moveBytes(segmentPointer + 16 /* 0x10 */, cursor, segmentLength...
+      mov qword ptr [rsp + 020h], 01eh                           ; type initialization of variable declaration for segmentPointer variable (Integer'30)
+      ; Line 438: _moveBytes(segmentPointer + 16 /* 0x10 */, cursor, segmentLength...
       mov rsi, qword ptr [rsp + 028h]                            ; make a copy of segmentPointer's value in case it changes before we use it
       mov rdi, qword ptr [rsp + 020h]                            ; make a copy of segmentPointer's type in case it changes before we use it
       cmp rdi, 000h                                              ; compare type of copy of segmentPointer to <sentinel>
@@ -14206,7 +14503,7 @@ func$concat:
         mov qword ptr [rsp + 028h], rax                          ; move copy of segment's value out of rax
         mov rax, offset operandTypeCheckFailureMessage           ; reading operandTypeCheckFailureMessage for push
         push rax                                                 ; value of argument #1 (operandTypeCheckFailureMessage)
-        push 01eh                                                ; type of argument #1 (String'30)
+        push 01fh                                                ; type of argument #1 (String'31)
         mov qword ptr [rsp + 028h], r12                          ; move copy of segment's type out of r12
         lea r12, qword ptr [rsp + 030h]                          ; load address of return value's value
         push r12                                                 ; internal argument 6: pointer to return value slot's value
@@ -14222,7 +14519,7 @@ func$concat:
         ;  - exit(1)
         ; Call exit with 1 arguments
         push 001h                                                ; value of argument #1 (1 (integer))
-        push 01dh                                                ; type of argument #1 (Integer'29)
+        push 01eh                                                ; type of argument #1 (Integer'30)
         lea r14, qword ptr [rsp + 030h]                          ; load address of return value's value
         push r14                                                 ; internal argument 6: pointer to return value slot's value
         lea r14, qword ptr [rsp + 028h]                          ; load address of return value's type
@@ -14251,7 +14548,7 @@ func$concat:
       push rsi                                                   ; value of argument #2 (copy of cursor)
       push rdi                                                   ; type of argument #2
       push rbx                                                   ; value of argument #1 (+ operator result)
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r10, qword ptr [rsp + 048h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 048h]                            ; load address of return value's type
@@ -14263,7 +14560,7 @@ func$concat:
       mov rcx, 003h                                              ; internal argument 1: number of actual arguments
       call func$_moveBytes                                       ; jump to subroutine
       add rsp, 060h                                              ; release shadow space and arguments (result in stack pointer)
-      ; Line 418: cursor += segmentLength;
+      ; Line 439: cursor += segmentLength;
       mov rbx, qword ptr [rsp + 0a0h]                            ; make a copy of cursor's value in case it changes before we use it
       mov rsi, qword ptr [rsp + 098h]                            ; make a copy of cursor's type in case it changes before we use it
       mov rdi, qword ptr [rsp + 050h]                            ; make a copy of segmentLength's value in case it changes before we use it
@@ -14276,7 +14573,7 @@ func$concat:
         ; Call __print with 1 arguments
         mov r12, offset operandTypeCheckFailureMessage           ; reading operandTypeCheckFailureMessage for push
         push r12                                                 ; value of argument #1 (operandTypeCheckFailureMessage)
-        push 01eh                                                ; type of argument #1 (String'30)
+        push 01fh                                                ; type of argument #1 (String'31)
         lea r14, qword ptr [rsp + 028h]                          ; load address of return value's value
         push r14                                                 ; internal argument 6: pointer to return value slot's value
         lea r14, qword ptr [rsp + 028h]                          ; load address of return value's type
@@ -14292,7 +14589,7 @@ func$concat:
         ;  - exit(1)
         ; Call exit with 1 arguments
         push 001h                                                ; value of argument #1 (1 (integer))
-        push 01dh                                                ; type of argument #1 (Integer'29)
+        push 01eh                                                ; type of argument #1 (Integer'30)
         lea r13, qword ptr [rsp + 028h]                          ; load address of return value's value
         push r13                                                 ; internal argument 6: pointer to return value slot's value
         lea r13, qword ptr [rsp + 028h]                          ; load address of return value's type
@@ -14314,7 +14611,7 @@ func$concat:
         ; Call __print with 1 arguments
         mov r15, offset operandTypeCheckFailureMessage           ; reading operandTypeCheckFailureMessage for push
         push r15                                                 ; value of argument #1 (operandTypeCheckFailureMessage)
-        push 01eh                                                ; type of argument #1 (String'30)
+        push 01fh                                                ; type of argument #1 (String'31)
         lea r10, qword ptr [rsp + 028h]                          ; load address of return value's value
         push r10                                                 ; internal argument 6: pointer to return value slot's value
         lea r10, qword ptr [rsp + 028h]                          ; load address of return value's type
@@ -14330,7 +14627,7 @@ func$concat:
         ;  - exit(1)
         ; Call exit with 1 arguments
         push 001h                                                ; value of argument #1 (1 (integer))
-        push 01dh                                                ; type of argument #1 (Integer'29)
+        push 01eh                                                ; type of argument #1 (Integer'30)
         mov qword ptr [rsp + 020h], rbx                          ; move copy of cursor's value out of rbx
         lea rbx, qword ptr [rsp + 028h]                          ; load address of return value's value
         push rbx                                                 ; internal argument 6: pointer to return value slot's value
@@ -14350,15 +14647,15 @@ func$concat:
       mov rsi, rbx                                               ; assign value of copy of cursor to value of += operator result
       add rsi, rdi                                               ; += operator
       mov qword ptr [rsp + 0a0h], rsi                            ; store value
-      mov qword ptr [rsp + 098h], 01dh                           ; store type (Integer'29)
-      ; Decrement reference count for copy of segment (static type: String'30) via decrefMaybeString
+      mov qword ptr [rsp + 098h], 01eh                           ; store type (Integer'30)
+      ; Decrement reference count for copy of segment (static type: String'31) via decrefMaybeString
       sub rsp, 20h                                               ; allocate shadow space for decref function
       mov rdx, qword ptr [rsp + 040h]                            ; arg #2: copy of segment's type
       mov rcx, qword ptr [rsp + 048h]                            ; arg #1: copy of segment's value
       call decrefMaybeString                                     ; call decref
       add rsp, 20h                                               ; free shadow space for decref
     func$concat$while$if$continuation:                           ; end of if
-    ; Line 420: index += 1;
+    ; Line 441: index += 1;
     mov r14, qword ptr [rsp + 090h]                              ; make a copy of index's value in case it changes before we use it
     mov r13, qword ptr [rsp + 088h]                              ; make a copy of index's type in case it changes before we use it
     cmp r13, 000h                                                ; compare type of copy of index to <sentinel>
@@ -14369,7 +14666,7 @@ func$concat:
       ; Call __print with 1 arguments
       mov r15, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r15                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r10, qword ptr [rsp + 060h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 060h]                            ; load address of return value's type
@@ -14384,7 +14681,7 @@ func$concat:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rbx, qword ptr [rsp + 060h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
       lea rbx, qword ptr [rsp + 060h]                            ; load address of return value's type
@@ -14400,20 +14697,20 @@ func$concat:
     mov r12, r14                                                 ; assign value of copy of index to value of += operator result
     add r12, 001h                                                ; += operator
     mov qword ptr [rsp + 090h], r12                              ; store value
-    mov qword ptr [rsp + 088h], 01dh                             ; store type (Integer'29)
-    ; Decrement reference count for copy of segment (static type: String'30) via decrefMaybeString
+    mov qword ptr [rsp + 088h], 01eh                             ; store type (Integer'30)
+    ; Decrement reference count for copy of segment (static type: String'31) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 050h]                              ; arg #2: copy of segment's type
     mov rcx, qword ptr [rsp + 058h]                              ; arg #1: copy of segment's value
     call decrefMaybeString                                       ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
-    ; Decrement reference count for segment variable (static type: String'30) via decrefMaybeString
+    ; Decrement reference count for segment variable (static type: String'31) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 080h]                              ; arg #2: segment variable's type
     mov rcx, qword ptr [rsp + 088h]                              ; arg #1: segment variable's value
     call decrefMaybeString                                       ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
-    ; Decrement reference count for copy of arguments[copy of index] (static type: String'30) via decrefMaybeString
+    ; Decrement reference count for copy of arguments[copy of index] (static type: String'31) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 060h]                              ; arg #2: copy of arguments[copy of index]'s type
     mov rcx, qword ptr [rsp + 078h]                              ; arg #1: copy of arguments[copy of index]'s value
@@ -14421,14 +14718,14 @@ func$concat:
     add rsp, 20h                                                 ; free shadow space for decref
     jmp func$concat$while$top$1                                  ; return to top of while
   func$concat$while$bottom$1:                                    ; bottom of while
-  ; Line 422: return resultPointer __as__ String;
+  ; Line 443: return resultPointer __as__ String;
   mov r10, qword ptr [rsp + 080h]                                ; make a copy of resultPointer's value in case it changes before we use it
   mov rbx, qword ptr [rsp + 078h]                                ; make a copy of resultPointer's type in case it changes before we use it
   mov rsi, r10                                                   ; force cast of copy of resultPointer to String
   mov r14, qword ptr [rbp + 030h]                                ; get pointer to return value of concat into register to dereference it
   mov qword ptr [r14], rsi                                       ; concat return value
   mov r13, qword ptr [rbp + 028h]                                ; get pointer to return value type of concat into register to dereference it
-  mov qword ptr [r13], 01eh                                      ; type of concat return value (String'30)
+  mov qword ptr [r13], 01fh                                      ; type of concat return value (String'31)
   ; increment reference count for force cast of copy of resultPointer to String if necessary
     mov r15, qword ptr [rsi]                                     ; dereference string to get to reference count
     cmp r15, 0                                                   ; compare string reference count to 0
@@ -14473,7 +14770,7 @@ func$digitToStr:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -14488,7 +14785,7 @@ func$digitToStr:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -14516,7 +14813,7 @@ func$digitToStr:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -14531,7 +14828,7 @@ func$digitToStr:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -14544,221 +14841,221 @@ func$digitToStr:
     call func$exit                                               ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
   func$digitToStr$digit$TypeMatch:                               ; after block
-  ; Line 426: if (digit == 0) { ...
+  ; Line 447: if (digit == 0) { ...
   xor r10, r10                                                   ; zero value result of == (testing digit and 0) to put the boolean in
   cmp qword ptr [rbp + 040h], 000h                               ; values equal?
   sete r10b                                                      ; put result in value result of == (testing digit and 0)
-  mov rbx, 01ch                                                  ; value result of == (testing digit and 0) is a Boolean'28
+  mov rbx, 01dh                                                  ; value result of == (testing digit and 0) is a Boolean'29
   xor rsi, rsi                                                   ; zero type result of == (testing digit and 0) to put the boolean in
-  cmp qword ptr [rbp + 038h], 01dh                               ; types equal?
+  cmp qword ptr [rbp + 038h], 01eh                               ; types equal?
   sete sil                                                       ; put result in type result of == (testing digit and 0)
-  mov rax, 01ch                                                  ; type result of == (testing digit and 0) is a Boolean'28
+  mov rax, 01dh                                                  ; type result of == (testing digit and 0) is a Boolean'29
   mov rdi, r10                                                   ; assign value of value result of == (testing digit and 0) to value of == operator result
   and rdi, rsi                                                   ; && type temp and value temp
   cmp rdi, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation                             ; digit == 0
-    ; Line 427: return '0';
+    ; Line 448: return '0';
     mov r15, offset string$16                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r10, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [r10], r15                                     ; digitToStr return value
     mov rbx, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
-    mov qword ptr [rbx], 01eh                                    ; type of digitToStr return value (String'30)
+    mov qword ptr [rbx], 01fh                                    ; type of digitToStr return value (String'31)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation:                               ; end of if
-  ; Line 429: if (digit == 1) { ...
+  ; Line 450: if (digit == 1) { ...
   xor rsi, rsi                                                   ; zero value result of == (testing digit and 1) to put the boolean in
   cmp qword ptr [rbp + 040h], 001h                               ; values equal?
   sete sil                                                       ; put result in value result of == (testing digit and 1)
-  mov rax, 01ch                                                  ; value result of == (testing digit and 1) is a Boolean'28
+  mov rax, 01dh                                                  ; value result of == (testing digit and 1) is a Boolean'29
   xor rdi, rdi                                                   ; zero type result of == (testing digit and 1) to put the boolean in
-  cmp qword ptr [rbp + 038h], 01dh                               ; types equal?
+  cmp qword ptr [rbp + 038h], 01eh                               ; types equal?
   sete dil                                                       ; put result in type result of == (testing digit and 1)
-  mov r12, 01ch                                                  ; type result of == (testing digit and 1) is a Boolean'28
+  mov r12, 01dh                                                  ; type result of == (testing digit and 1) is a Boolean'29
   mov r13, rsi                                                   ; assign value of value result of == (testing digit and 1) to value of == operator result
   and r13, rdi                                                   ; && type temp and value temp
   cmp r13, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$1                           ; digit == 1
-    ; Line 430: return '1';
+    ; Line 451: return '1';
     mov r10, offset string$17                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov rbx, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [rbx], r10                                     ; digitToStr return value
     mov rsi, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
-    mov qword ptr [rsi], 01eh                                    ; type of digitToStr return value (String'30)
+    mov qword ptr [rsi], 01fh                                    ; type of digitToStr return value (String'31)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$1:                             ; end of if
-  ; Line 432: if (digit == 2) { ...
+  ; Line 453: if (digit == 2) { ...
   xor rax, rax                                                   ; zero value result of == (testing digit and 2) to put the boolean in
   cmp qword ptr [rbp + 040h], 002h                               ; values equal?
   sete al                                                        ; put result in value result of == (testing digit and 2)
-  mov rdi, 01ch                                                  ; value result of == (testing digit and 2) is a Boolean'28
+  mov rdi, 01dh                                                  ; value result of == (testing digit and 2) is a Boolean'29
   xor r12, r12                                                   ; zero type result of == (testing digit and 2) to put the boolean in
-  cmp qword ptr [rbp + 038h], 01dh                               ; types equal?
+  cmp qword ptr [rbp + 038h], 01eh                               ; types equal?
   sete r12b                                                      ; put result in type result of == (testing digit and 2)
-  mov r13, 01ch                                                  ; type result of == (testing digit and 2) is a Boolean'28
+  mov r13, 01dh                                                  ; type result of == (testing digit and 2) is a Boolean'29
   mov r14, rax                                                   ; assign value of value result of == (testing digit and 2) to value of == operator result
   and r14, r12                                                   ; && type temp and value temp
   cmp r14, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$2                           ; digit == 2
-    ; Line 433: return '2';
+    ; Line 454: return '2';
     mov rbx, offset string$18                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov rsi, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [rsi], rbx                                     ; digitToStr return value
     mov rax, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
-    mov qword ptr [rax], 01eh                                    ; type of digitToStr return value (String'30)
+    mov qword ptr [rax], 01fh                                    ; type of digitToStr return value (String'31)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$2:                             ; end of if
-  ; Line 435: if (digit == 3) { ...
+  ; Line 456: if (digit == 3) { ...
   xor rdi, rdi                                                   ; zero value result of == (testing digit and 3) to put the boolean in
   cmp qword ptr [rbp + 040h], 003h                               ; values equal?
   sete dil                                                       ; put result in value result of == (testing digit and 3)
-  mov r12, 01ch                                                  ; value result of == (testing digit and 3) is a Boolean'28
+  mov r12, 01dh                                                  ; value result of == (testing digit and 3) is a Boolean'29
   xor r13, r13                                                   ; zero type result of == (testing digit and 3) to put the boolean in
-  cmp qword ptr [rbp + 038h], 01dh                               ; types equal?
+  cmp qword ptr [rbp + 038h], 01eh                               ; types equal?
   sete r13b                                                      ; put result in type result of == (testing digit and 3)
-  mov r14, 01ch                                                  ; type result of == (testing digit and 3) is a Boolean'28
+  mov r14, 01dh                                                  ; type result of == (testing digit and 3) is a Boolean'29
   mov r15, rdi                                                   ; assign value of value result of == (testing digit and 3) to value of == operator result
   and r15, r13                                                   ; && type temp and value temp
   cmp r15, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$3                           ; digit == 3
-    ; Line 436: return '3';
+    ; Line 457: return '3';
     mov rsi, offset string$19                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov rax, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [rax], rsi                                     ; digitToStr return value
     mov rdi, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
-    mov qword ptr [rdi], 01eh                                    ; type of digitToStr return value (String'30)
+    mov qword ptr [rdi], 01fh                                    ; type of digitToStr return value (String'31)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$3:                             ; end of if
-  ; Line 438: if (digit == 4) { ...
+  ; Line 459: if (digit == 4) { ...
   xor r12, r12                                                   ; zero value result of == (testing digit and 4) to put the boolean in
   cmp qword ptr [rbp + 040h], 004h                               ; values equal?
   sete r12b                                                      ; put result in value result of == (testing digit and 4)
-  mov r13, 01ch                                                  ; value result of == (testing digit and 4) is a Boolean'28
+  mov r13, 01dh                                                  ; value result of == (testing digit and 4) is a Boolean'29
   xor r14, r14                                                   ; zero type result of == (testing digit and 4) to put the boolean in
-  cmp qword ptr [rbp + 038h], 01dh                               ; types equal?
+  cmp qword ptr [rbp + 038h], 01eh                               ; types equal?
   sete r14b                                                      ; put result in type result of == (testing digit and 4)
-  mov r15, 01ch                                                  ; type result of == (testing digit and 4) is a Boolean'28
+  mov r15, 01dh                                                  ; type result of == (testing digit and 4) is a Boolean'29
   mov r10, r12                                                   ; assign value of value result of == (testing digit and 4) to value of == operator result
   and r10, r14                                                   ; && type temp and value temp
   cmp r10, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$4                           ; digit == 4
-    ; Line 439: return '4';
+    ; Line 460: return '4';
     mov rax, offset string$20                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov rdi, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [rdi], rax                                     ; digitToStr return value
     mov r12, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
-    mov qword ptr [r12], 01eh                                    ; type of digitToStr return value (String'30)
+    mov qword ptr [r12], 01fh                                    ; type of digitToStr return value (String'31)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$4:                             ; end of if
-  ; Line 441: if (digit == 5) { ...
+  ; Line 462: if (digit == 5) { ...
   xor r13, r13                                                   ; zero value result of == (testing digit and 5) to put the boolean in
   cmp qword ptr [rbp + 040h], 005h                               ; values equal?
   sete r13b                                                      ; put result in value result of == (testing digit and 5)
-  mov r14, 01ch                                                  ; value result of == (testing digit and 5) is a Boolean'28
+  mov r14, 01dh                                                  ; value result of == (testing digit and 5) is a Boolean'29
   xor r15, r15                                                   ; zero type result of == (testing digit and 5) to put the boolean in
-  cmp qword ptr [rbp + 038h], 01dh                               ; types equal?
+  cmp qword ptr [rbp + 038h], 01eh                               ; types equal?
   sete r15b                                                      ; put result in type result of == (testing digit and 5)
-  mov r10, 01ch                                                  ; type result of == (testing digit and 5) is a Boolean'28
+  mov r10, 01dh                                                  ; type result of == (testing digit and 5) is a Boolean'29
   mov rbx, r13                                                   ; assign value of value result of == (testing digit and 5) to value of == operator result
   and rbx, r15                                                   ; && type temp and value temp
   cmp rbx, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$5                           ; digit == 5
-    ; Line 442: return '5';
+    ; Line 463: return '5';
     mov rdi, offset string$21                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r12, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [r12], rdi                                     ; digitToStr return value
     mov r13, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
-    mov qword ptr [r13], 01eh                                    ; type of digitToStr return value (String'30)
+    mov qword ptr [r13], 01fh                                    ; type of digitToStr return value (String'31)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$5:                             ; end of if
-  ; Line 444: if (digit == 6) { ...
+  ; Line 465: if (digit == 6) { ...
   xor r14, r14                                                   ; zero value result of == (testing digit and 6) to put the boolean in
   cmp qword ptr [rbp + 040h], 006h                               ; values equal?
   sete r14b                                                      ; put result in value result of == (testing digit and 6)
-  mov r15, 01ch                                                  ; value result of == (testing digit and 6) is a Boolean'28
+  mov r15, 01dh                                                  ; value result of == (testing digit and 6) is a Boolean'29
   xor r10, r10                                                   ; zero type result of == (testing digit and 6) to put the boolean in
-  cmp qword ptr [rbp + 038h], 01dh                               ; types equal?
+  cmp qword ptr [rbp + 038h], 01eh                               ; types equal?
   sete r10b                                                      ; put result in type result of == (testing digit and 6)
-  mov rbx, 01ch                                                  ; type result of == (testing digit and 6) is a Boolean'28
+  mov rbx, 01dh                                                  ; type result of == (testing digit and 6) is a Boolean'29
   mov rsi, r14                                                   ; assign value of value result of == (testing digit and 6) to value of == operator result
   and rsi, r10                                                   ; && type temp and value temp
   cmp rsi, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$6                           ; digit == 6
-    ; Line 445: return '6';
+    ; Line 466: return '6';
     mov r12, offset string$22                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r13, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [r13], r12                                     ; digitToStr return value
     mov r14, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
-    mov qword ptr [r14], 01eh                                    ; type of digitToStr return value (String'30)
+    mov qword ptr [r14], 01fh                                    ; type of digitToStr return value (String'31)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$6:                             ; end of if
-  ; Line 447: if (digit == 7) { ...
+  ; Line 468: if (digit == 7) { ...
   xor r15, r15                                                   ; zero value result of == (testing digit and 7) to put the boolean in
   cmp qword ptr [rbp + 040h], 007h                               ; values equal?
   sete r15b                                                      ; put result in value result of == (testing digit and 7)
-  mov r10, 01ch                                                  ; value result of == (testing digit and 7) is a Boolean'28
+  mov r10, 01dh                                                  ; value result of == (testing digit and 7) is a Boolean'29
   xor rbx, rbx                                                   ; zero type result of == (testing digit and 7) to put the boolean in
-  cmp qword ptr [rbp + 038h], 01dh                               ; types equal?
+  cmp qword ptr [rbp + 038h], 01eh                               ; types equal?
   sete bl                                                        ; put result in type result of == (testing digit and 7)
-  mov rsi, 01ch                                                  ; type result of == (testing digit and 7) is a Boolean'28
+  mov rsi, 01dh                                                  ; type result of == (testing digit and 7) is a Boolean'29
   mov rax, r15                                                   ; assign value of value result of == (testing digit and 7) to value of == operator result
   and rax, rbx                                                   ; && type temp and value temp
   cmp rax, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$7                           ; digit == 7
-    ; Line 448: return '7';
+    ; Line 469: return '7';
     mov r13, offset string$23                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r14, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [r14], r13                                     ; digitToStr return value
     mov r15, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
-    mov qword ptr [r15], 01eh                                    ; type of digitToStr return value (String'30)
+    mov qword ptr [r15], 01fh                                    ; type of digitToStr return value (String'31)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$7:                             ; end of if
-  ; Line 450: if (digit == 8) { ...
+  ; Line 471: if (digit == 8) { ...
   xor r10, r10                                                   ; zero value result of == (testing digit and 8) to put the boolean in
   cmp qword ptr [rbp + 040h], 008h                               ; values equal?
   sete r10b                                                      ; put result in value result of == (testing digit and 8)
-  mov rbx, 01ch                                                  ; value result of == (testing digit and 8) is a Boolean'28
+  mov rbx, 01dh                                                  ; value result of == (testing digit and 8) is a Boolean'29
   xor rsi, rsi                                                   ; zero type result of == (testing digit and 8) to put the boolean in
-  cmp qword ptr [rbp + 038h], 01dh                               ; types equal?
+  cmp qword ptr [rbp + 038h], 01eh                               ; types equal?
   sete sil                                                       ; put result in type result of == (testing digit and 8)
-  mov rax, 01ch                                                  ; type result of == (testing digit and 8) is a Boolean'28
+  mov rax, 01dh                                                  ; type result of == (testing digit and 8) is a Boolean'29
   mov rdi, r10                                                   ; assign value of value result of == (testing digit and 8) to value of == operator result
   and rdi, rsi                                                   ; && type temp and value temp
   cmp rdi, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$8                           ; digit == 8
-    ; Line 451: return '8';
+    ; Line 472: return '8';
     mov r14, offset string$24                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r15, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [r15], r14                                     ; digitToStr return value
     mov r10, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
-    mov qword ptr [r10], 01eh                                    ; type of digitToStr return value (String'30)
+    mov qword ptr [r10], 01fh                                    ; type of digitToStr return value (String'31)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$8:                             ; end of if
-  ; Line 453: if (digit == 9) { ...
+  ; Line 474: if (digit == 9) { ...
   xor rbx, rbx                                                   ; zero value result of == (testing digit and 9) to put the boolean in
   cmp qword ptr [rbp + 040h], 009h                               ; values equal?
   sete bl                                                        ; put result in value result of == (testing digit and 9)
-  mov rsi, 01ch                                                  ; value result of == (testing digit and 9) is a Boolean'28
+  mov rsi, 01dh                                                  ; value result of == (testing digit and 9) is a Boolean'29
   xor rax, rax                                                   ; zero type result of == (testing digit and 9) to put the boolean in
-  cmp qword ptr [rbp + 038h], 01dh                               ; types equal?
+  cmp qword ptr [rbp + 038h], 01eh                               ; types equal?
   sete al                                                        ; put result in type result of == (testing digit and 9)
-  mov rdi, 01ch                                                  ; type result of == (testing digit and 9) is a Boolean'28
+  mov rdi, 01dh                                                  ; type result of == (testing digit and 9) is a Boolean'29
   mov r12, rbx                                                   ; assign value of value result of == (testing digit and 9) to value of == operator result
   and r12, rax                                                   ; && type temp and value temp
   cmp r12, 000h                                                  ; compare == operator result to false
   je func$digitToStr$if$continuation$9                           ; digit == 9
-    ; Line 454: return '9';
+    ; Line 475: return '9';
     mov r15, offset string$25                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r10, qword ptr [rbp + 030h]                              ; get pointer to return value of digitToStr into register to dereference it
     mov qword ptr [r10], r15                                     ; digitToStr return value
     mov rbx, qword ptr [rbp + 028h]                              ; get pointer to return value type of digitToStr into register to dereference it
-    mov qword ptr [rbx], 01eh                                    ; type of digitToStr return value (String'30)
+    mov qword ptr [rbx], 01fh                                    ; type of digitToStr return value (String'31)
     jmp func$digitToStr$epilog                                   ; return
   func$digitToStr$if$continuation$9:                             ; end of if
-  ; Line 456: __print('Invalid digit passed to digitToStr (digit as exit code)...
+  ; Line 477: __print('Invalid digit passed to digitToStr (digit as exit code)...
   ; Call __print with 1 arguments
   mov r12, offset string$26                                      ; reading string for push
   push r12                                                       ; value of argument #1 (string)
-  push 01eh                                                      ; type of argument #1 (String'30)
+  push 01fh                                                      ; type of argument #1 (String'31)
   lea r13, qword ptr [rsp + 018h]                                ; load address of return value's value
   push r13                                                       ; internal argument 6: pointer to return value slot's value
   lea r13, qword ptr [rsp + 018h]                                ; load address of return value's type
@@ -14770,7 +15067,7 @@ func$digitToStr:
   mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
   call func$__print                                              ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 457: exit(digit);
+  ; Line 478: exit(digit);
   ; Call exit with 1 arguments
   push qword ptr [rbp + 040h]                                    ; value of argument #1 (digit)
   push qword ptr [rbp + 038h]                                    ; type of argument #1
@@ -14786,7 +15083,7 @@ func$digitToStr:
   call func$exit                                                 ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
   ; Implicit return from digitToStr
-  mov rsi, 01bh                                                  ; store null's type in testByte value slot
+  mov rsi, 01ch                                                  ; store null's type in testByte value slot
   mov rax, rsi                                                   ; move testByte to testByte
   mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
   mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
@@ -14800,7 +15097,7 @@ func$digitToStr:
     ; Call __print with 1 arguments
     mov r13, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -14815,7 +15112,7 @@ func$digitToStr:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -14831,7 +15128,7 @@ func$digitToStr:
   mov r10, qword ptr [rbp + 030h]                                ; get pointer to return value of digitToStr into register to dereference it
   mov qword ptr [r10], 000h                                      ; digitToStr return value
   mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of digitToStr into register to dereference it
-  mov qword ptr [rbx], 01bh                                      ; type of digitToStr return value (Null'27)
+  mov qword ptr [rbx], 01ch                                      ; type of digitToStr return value (Null'28)
   func$digitToStr$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
@@ -14869,7 +15166,7 @@ func$intToStr:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 060h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -14884,7 +15181,7 @@ func$intToStr:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 060h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -14912,7 +15209,7 @@ func$intToStr:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -14927,7 +15224,7 @@ func$intToStr:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -14940,28 +15237,28 @@ func$intToStr:
     call func$exit                                               ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
   func$intToStr$value$TypeMatch:                                 ; after block
-  ; Line 461: if (value == 0) { ...
+  ; Line 482: if (value == 0) { ...
   xor r10, r10                                                   ; zero value result of == (testing value and 0) to put the boolean in
   cmp qword ptr [rbp + 040h], 000h                               ; values equal?
   sete r10b                                                      ; put result in value result of == (testing value and 0)
-  mov rbx, 01ch                                                  ; value result of == (testing value and 0) is a Boolean'28
+  mov rbx, 01dh                                                  ; value result of == (testing value and 0) is a Boolean'29
   xor rsi, rsi                                                   ; zero type result of == (testing value and 0) to put the boolean in
-  cmp qword ptr [rbp + 038h], 01dh                               ; types equal?
+  cmp qword ptr [rbp + 038h], 01eh                               ; types equal?
   sete sil                                                       ; put result in type result of == (testing value and 0)
-  mov rax, 01ch                                                  ; type result of == (testing value and 0) is a Boolean'28
+  mov rax, 01dh                                                  ; type result of == (testing value and 0) is a Boolean'29
   mov rdi, r10                                                   ; assign value of value result of == (testing value and 0) to value of == operator result
   and rdi, rsi                                                   ; && type temp and value temp
   cmp rdi, 000h                                                  ; compare == operator result to false
   je func$intToStr$if$continuation                               ; value == 0
-    ; Line 462: return '0';
+    ; Line 483: return '0';
     mov r15, offset string$16                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r10, qword ptr [rbp + 030h]                              ; get pointer to return value of intToStr into register to dereference it
     mov qword ptr [r10], r15                                     ; intToStr return value
     mov rbx, qword ptr [rbp + 028h]                              ; get pointer to return value type of intToStr into register to dereference it
-    mov qword ptr [rbx], 01eh                                    ; type of intToStr return value (String'30)
+    mov qword ptr [rbx], 01fh                                    ; type of intToStr return value (String'31)
     jmp func$intToStr$epilog                                     ; return
   func$intToStr$if$continuation:                                 ; end of if
-  ; Line 464: if (value < 0) { ...
+  ; Line 485: if (value < 0) { ...
   cmp qword ptr [rbp + 038h], 000h                               ; compare type of value to <sentinel>
   jne func$intToStr$value$TypeMatch$1                            ; skip next block if value is not sentinel
     ; Error handling block for value
@@ -14970,7 +15267,7 @@ func$intToStr:
     ; Call __print with 1 arguments
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 060h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -14985,7 +15282,7 @@ func$intToStr:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 060h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -15003,7 +15300,7 @@ func$intToStr:
   setl r15b                                                      ; store result in < operator result
   cmp r15, 000h                                                  ; compare < operator result to false
   je func$intToStr$if$continuation$1                             ; value < 0
-    ; Line 465: return concat('-', intToStr(-value));
+    ; Line 486: return concat('-', intToStr(-value));
     cmp qword ptr [rbp + 038h], 000h                             ; compare type of value to <sentinel>
     jne func$intToStr$inttostr$if$1$value$TypeMatch              ; skip next block if value is not sentinel
       ; Error handling block for value
@@ -15012,7 +15309,7 @@ func$intToStr:
       ; Call __print with 1 arguments
       mov r10, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r10                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rbx, qword ptr [rsp + 060h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
       lea rbx, qword ptr [rsp + 060h]                            ; load address of return value's type
@@ -15027,7 +15324,7 @@ func$intToStr:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rsi, qword ptr [rsp + 060h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 060h]                            ; load address of return value's type
@@ -15044,7 +15341,7 @@ func$intToStr:
     neg rax                                                      ; - unary operator
     ; Call intToStr with 1 arguments
     push rax                                                     ; value of argument #1 (- unary operator result)
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r14, qword ptr [rsp + 060h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -15061,7 +15358,7 @@ func$intToStr:
     push qword ptr [rsp + 050h]                                  ; type of argument #2
     mov rsi, offset string$27                                    ; reading string for push
     push rsi                                                     ; value of argument #1 (string)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 060h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 060h]                              ; load address of return value's type
@@ -15081,7 +15378,7 @@ func$intToStr:
       ; Call __print with 1 arguments
       mov rdi, offset returnValueTypeCheckFailureMessage         ; reading returnValueTypeCheckFailureMessage for push
       push rdi                                                   ; value of argument #1 (returnValueTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r12, qword ptr [rsp + 040h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 040h]                            ; load address of return value's type
@@ -15096,7 +15393,7 @@ func$intToStr:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r13, qword ptr [rsp + 040h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 040h]                            ; load address of return value's type
@@ -15116,7 +15413,7 @@ func$intToStr:
     mov rbx, qword ptr [rbp + 028h]                              ; get pointer to return value type of intToStr into register to dereference it
     mov qword ptr [rbx], r10                                     ; type of intToStr return value
     ; increment reference count for concat return value if necessary
-    cmp r10, 01eh                                                ; compare type of concat return value to String
+    cmp r10, 01fh                                                ; compare type of concat return value to String
     jne func$intToStr$inttostr$if$1$AfterStringIncref            ; if not a String, skip incref
       mov rsi, qword ptr [r14]                                   ; dereference string to get to reference count
       cmp rsi, 0                                                 ; compare string reference count to 0
@@ -15125,14 +15422,14 @@ func$intToStr:
       func$intToStr$inttostr$if$1$StringIncref:                  ; real String
         inc qword ptr [r14]                                      ; increment reference count of concat return value
     func$intToStr$inttostr$if$1$AfterStringIncref:               ; after String incref
-    ; Decrement reference count for concat return value (static type: String'30) via decrefMaybeString
+    ; Decrement reference count for concat return value (static type: String'31) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, r10                                                 ; arg #2: concat return value's type
     mov rcx, r14                                                 ; arg #1: concat return value's value
     mov qword ptr [rsp + 060h], r10                              ; move concat return value's type out of r10
     call decrefMaybeString                                       ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
-    ; Decrement reference count for intToStr return value (static type: String'30) via decrefMaybeString
+    ; Decrement reference count for intToStr return value (static type: String'31) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 068h]                              ; arg #2: intToStr return value's type
     mov rcx, qword ptr [rsp + 070h]                              ; arg #1: intToStr return value's value
@@ -15140,12 +15437,12 @@ func$intToStr:
     add rsp, 20h                                                 ; free shadow space for decref
     jmp func$intToStr$epilog                                     ; return
   func$intToStr$if$continuation$1:                               ; end of if
-  ; Line 467: String buffer = '';
+  ; Line 488: String buffer = '';
   mov r11, offset string$28                                      ; indirect through r11 because operand pair (stack operand #1, offset string$28) is not allowed with mov
   mov qword ptr [rsp + 050h], r11                                ; value initialization of variable declaration for buffer variable (string)
-  mov qword ptr [rsp + 048h], 01eh                               ; type initialization of variable declaration for buffer variable (String'30)
+  mov qword ptr [rsp + 048h], 01fh                               ; type initialization of variable declaration for buffer variable (String'31)
   ; increment reference count for buffer variable if necessary
-  cmp qword ptr [rsp + 048h], 01eh                               ; compare type of buffer variable to String
+  cmp qword ptr [rsp + 048h], 01fh                               ; compare type of buffer variable to String
   jne func$intToStr$AfterStringIncref                            ; if not a String, skip incref
     mov r13, qword ptr [rsp + 050h]                              ; get buffer variable into register to dereference it
     mov r14, qword ptr [r13]                                     ; dereference string to get to reference count
@@ -15157,7 +15454,7 @@ func$intToStr:
       inc qword ptr [r13]                                        ; increment reference count of buffer variable
     mov qword ptr [rsp + 050h], r13                              ; restoring slots to previous scope state
   func$intToStr$AfterStringIncref:                               ; after String incref
-  ; Line 468: Integer newValue = value;
+  ; Line 489: Integer newValue = value;
   cmp qword ptr [rbp + 038h], 000h                               ; compare type of value to <sentinel>
   jne func$intToStr$value$TypeMatch$2                            ; skip next block if value is not sentinel
     mov qword ptr [rsp + 040h], 000h                             ; move newValue variable's value into a mutable location
@@ -15168,7 +15465,7 @@ func$intToStr:
     ; Call __print with 1 arguments
     mov r15, offset assignmentTypeCheckFailureMessage            ; reading assignmentTypeCheckFailureMessage for push
     push r15                                                     ; value of argument #1 (assignmentTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r10, qword ptr [rsp + 040h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -15183,7 +15480,7 @@ func$intToStr:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 040h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 040h]                              ; load address of return value's type
@@ -15211,7 +15508,7 @@ func$intToStr:
       ; Call __print with 1 arguments
       mov rdi, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rdi                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r12, qword ptr [rsp + 040h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 040h]                            ; load address of return value's type
@@ -15227,7 +15524,7 @@ func$intToStr:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r13, qword ptr [rsp + 040h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 040h]                            ; load address of return value's type
@@ -15248,7 +15545,7 @@ func$intToStr:
     jne func$intToStr$while$body                                 ; while condition
     jmp func$intToStr$while$bottom                               ; break out of while
     func$intToStr$while$body:                                    ; start of while
-    ; Line 470: Integer digit = newValue % 10 /* 0xa */;
+    ; Line 491: Integer digit = newValue % 10 /* 0xa */;
     mov rsi, qword ptr [rsp + 040h]                              ; make a copy of newValue's value in case it changes before we use it
     mov rax, qword ptr [rsp + 038h]                              ; make a copy of newValue's type in case it changes before we use it
     cmp rax, 000h                                                ; compare type of copy of newValue to <sentinel>
@@ -15261,7 +15558,7 @@ func$intToStr:
       ; Call __print with 1 arguments
       mov rdi, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rdi                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r12, qword ptr [rsp + 030h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 030h]                            ; load address of return value's type
@@ -15277,7 +15574,7 @@ func$intToStr:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r13, qword ptr [rsp + 030h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 030h]                            ; load address of return value's type
@@ -15292,13 +15589,13 @@ func$intToStr:
       mov rax, qword ptr [rsp + 010h]                            ; restoring slots to previous scope state
     func$intToStr$while$newvalue$TypeMatch$1:                    ; after block
     mov qword ptr [rsp + 020h], rax                              ; move copy of newValue's type out of rax
-    mov rax, rsi                                                 ; put lhs of rdx division (<DynamicSlot:Integer'29 ("copy of newValue")>) in rax
+    mov rax, rsi                                                 ; put lhs of rdx division (<DynamicSlot:Integer'30 ("copy of newValue")>) in rax
     cqo                                                          ; zero-extend dividend (rax into rdx:rax)
-    mov rbx, 00ah                                                ; read visible operand of div (<ImmediateIntegerSlot:Integer'29 ("10 /* 0xa */")>) 
+    mov rbx, 00ah                                                ; read visible operand of div (<ImmediateIntegerSlot:Integer'30 ("10 /* 0xa */")>) 
     idiv rbx                                                     ; compute (copy of newValue) % (10 /* 0xa */) (result, % operator result, ends up in rdx)
     mov qword ptr [rsp + 030h], rdx                              ; value initialization of variable declaration for digit variable (% operator result)
-    mov qword ptr [rsp + 028h], 01dh                             ; type initialization of variable declaration for digit variable (Integer'29)
-    ; Line 471: newValue = newValue / 10 /* 0xa */;
+    mov qword ptr [rsp + 028h], 01eh                             ; type initialization of variable declaration for digit variable (Integer'30)
+    ; Line 492: newValue = newValue / 10 /* 0xa */;
     mov r13, qword ptr [rsp + 040h]                              ; make a copy of newValue's value in case it changes before we use it
     mov r14, qword ptr [rsp + 038h]                              ; make a copy of newValue's type in case it changes before we use it
     cmp r14, 000h                                                ; compare type of copy of newValue to <sentinel>
@@ -15309,7 +15606,7 @@ func$intToStr:
       ; Call __print with 1 arguments
       mov r15, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r15                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r10, qword ptr [rsp + 030h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 030h]                            ; load address of return value's type
@@ -15324,7 +15621,7 @@ func$intToStr:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rax, qword ptr [rsp + 030h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 030h]                            ; load address of return value's type
@@ -15342,8 +15639,8 @@ func$intToStr:
     mov r12, 00ah                                                ; read operand of div (10 /* 0xa */) 
     idiv r12                                                     ; compute (copy of newValue) / (10 /* 0xa */) (result, / operator result, is in rax)
     mov qword ptr [rsp + 040h], rax                              ; store value
-    mov qword ptr [rsp + 038h], 01dh                             ; store type (Integer'29)
-    ; Line 472: buffer = concat(digitToStr(digit), buffer);
+    mov qword ptr [rsp + 038h], 01eh                             ; store type (Integer'30)
+    ; Line 493: buffer = concat(digitToStr(digit), buffer);
     mov r10, qword ptr [rsp + 030h]                              ; make a copy of digit's value in case it changes before we use it
     mov rbx, qword ptr [rsp + 028h]                              ; make a copy of digit's type in case it changes before we use it
     ; Call digitToStr with 1 arguments
@@ -15363,7 +15660,7 @@ func$intToStr:
     mov r13, qword ptr [rsp + 050h]                              ; make a copy of buffer's value in case it changes before we use it
     mov r14, qword ptr [rsp + 048h]                              ; make a copy of buffer's type in case it changes before we use it
     ; increment reference count for copy of buffer if necessary
-    cmp r14, 01eh                                                ; compare type of copy of buffer to String
+    cmp r14, 01fh                                                ; compare type of copy of buffer to String
     jne func$intToStr$while$AfterStringIncref                    ; if not a String, skip incref
       mov r15, qword ptr [r13]                                   ; dereference string to get to reference count
       cmp r15, 0                                                 ; compare string reference count to 0
@@ -15396,7 +15693,7 @@ func$intToStr:
       ; Call __print with 1 arguments
       mov rax, offset assignmentTypeCheckFailureMessage          ; reading assignmentTypeCheckFailureMessage for push
       push rax                                                   ; value of argument #1 (assignmentTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r12, qword ptr [rsp + 020h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 020h]                            ; load address of return value's type
@@ -15411,7 +15708,7 @@ func$intToStr:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       mov qword ptr [rsp + 018h], r13                            ; move copy of buffer's value out of r13
       lea r13, qword ptr [rsp + 020h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
@@ -15426,7 +15723,7 @@ func$intToStr:
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
       mov r13, qword ptr [rsp + 008h]                            ; restoring slots to previous scope state
     func$intToStr$while$concatReturnValue$TypeMatch:             ; after block
-    ; Decrement reference count for buffer variable (static type: String'30) via decrefMaybeString
+    ; Decrement reference count for buffer variable (static type: String'31) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 068h]                              ; arg #2: buffer variable's type
     mov rcx, qword ptr [rsp + 070h]                              ; arg #1: buffer variable's value
@@ -15437,7 +15734,7 @@ func$intToStr:
     mov r11, qword ptr [rsp + 018h]                              ; indirect through r11 because operand pair (stack operand #2, stack operand #8) is not allowed with mov
     mov qword ptr [rsp + 048h], r11                              ; store type
     ; increment reference count for buffer variable if necessary
-    cmp qword ptr [rsp + 048h], 01eh                             ; compare type of buffer variable to String
+    cmp qword ptr [rsp + 048h], 01fh                             ; compare type of buffer variable to String
     jne func$intToStr$while$AfterStringIncref$1                  ; if not a String, skip incref
       mov qword ptr [rsp + 010h], r14                            ; move copy of buffer's type out of r14
       mov r14, qword ptr [rsp + 050h]                            ; get buffer variable into register to dereference it
@@ -15452,19 +15749,19 @@ func$intToStr:
       mov qword ptr [rsp + 050h], r14                            ; restoring slots to previous scope state
       mov r14, qword ptr [rsp + 010h]                            ; restoring slots to previous scope state
     func$intToStr$while$AfterStringIncref$1:                     ; after String incref
-    ; Decrement reference count for digitToStr return value (static type: String'30) via decrefMaybeString
+    ; Decrement reference count for digitToStr return value (static type: String'31) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 048h]                              ; arg #2: digitToStr return value's type
     mov rcx, qword ptr [rsp + 050h]                              ; arg #1: digitToStr return value's value
     call decrefMaybeString                                       ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
-    ; Decrement reference count for concat return value (static type: String'30) via decrefMaybeString
+    ; Decrement reference count for concat return value (static type: String'31) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 038h]                              ; arg #2: concat return value's type
     mov rcx, qword ptr [rsp + 040h]                              ; arg #1: concat return value's value
     call decrefMaybeString                                       ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
-    ; Decrement reference count for copy of buffer (static type: String'30) via decrefMaybeString
+    ; Decrement reference count for copy of buffer (static type: String'31) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, r14                                                 ; arg #2: copy of buffer's type
     mov rcx, r13                                                 ; arg #1: copy of buffer's value
@@ -15472,11 +15769,11 @@ func$intToStr:
     add rsp, 20h                                                 ; free shadow space for decref
     jmp func$intToStr$while$top                                  ; return to top of while
   func$intToStr$while$bottom:                                    ; bottom of while
-  ; Line 474: return buffer;
+  ; Line 495: return buffer;
   mov r10, qword ptr [rsp + 050h]                                ; make a copy of buffer's value in case it changes before we use it
   mov rbx, qword ptr [rsp + 048h]                                ; make a copy of buffer's type in case it changes before we use it
   ; increment reference count for copy of buffer if necessary
-  cmp rbx, 01eh                                                  ; compare type of copy of buffer to String
+  cmp rbx, 01fh                                                  ; compare type of copy of buffer to String
   jne func$intToStr$AfterStringIncref$1                          ; if not a String, skip incref
     mov rsi, qword ptr [r10]                                     ; dereference string to get to reference count
     cmp rsi, 0                                                   ; compare string reference count to 0
@@ -15493,7 +15790,7 @@ func$intToStr:
     ; Call __print with 1 arguments
     mov rdi, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 050h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 050h]                              ; load address of return value's type
@@ -15509,7 +15806,7 @@ func$intToStr:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r12, qword ptr [rsp + 050h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 050h]                              ; load address of return value's type
@@ -15528,7 +15825,7 @@ func$intToStr:
   mov r14, qword ptr [rbp + 028h]                                ; get pointer to return value type of intToStr into register to dereference it
   mov qword ptr [r14], rbx                                       ; type of intToStr return value
   ; increment reference count for copy of buffer if necessary
-  cmp rbx, 01eh                                                  ; compare type of copy of buffer to String
+  cmp rbx, 01fh                                                  ; compare type of copy of buffer to String
   jne func$intToStr$AfterStringIncref$2                          ; if not a String, skip incref
     mov r15, qword ptr [r10]                                     ; dereference string to get to reference count
     cmp r15, 0                                                   ; compare string reference count to 0
@@ -15537,14 +15834,14 @@ func$intToStr:
     func$intToStr$StringIncref$2:                                ; real String
       inc qword ptr [r10]                                        ; increment reference count of copy of buffer
   func$intToStr$AfterStringIncref$2:                             ; after String incref
-  ; Decrement reference count for buffer variable (static type: String'30) via decrefMaybeString
+  ; Decrement reference count for buffer variable (static type: String'31) via decrefMaybeString
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, qword ptr [rsp + 068h]                                ; arg #2: buffer variable's type
   mov rcx, qword ptr [rsp + 070h]                                ; arg #1: buffer variable's value
   mov qword ptr [rsp + 060h], r10                                ; move copy of buffer's value out of r10
   call decrefMaybeString                                         ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for copy of buffer (static type: String'30) via decrefMaybeString
+  ; Decrement reference count for copy of buffer (static type: String'31) via decrefMaybeString
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, rbx                                                   ; arg #2: copy of buffer's type
   mov rcx, qword ptr [rsp + 060h]                                ; arg #1: copy of buffer's value
@@ -15587,7 +15884,7 @@ func$_joinOffset:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -15602,7 +15899,7 @@ func$_joinOffset:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -15630,7 +15927,7 @@ func$_joinOffset:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -15645,7 +15942,7 @@ func$_joinOffset:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -15673,7 +15970,7 @@ func$_joinOffset:
     ; Call __print with 1 arguments
     mov rdi, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -15688,7 +15985,7 @@ func$_joinOffset:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -15716,7 +16013,7 @@ func$_joinOffset:
     ; Call __print with 1 arguments
     mov rbx, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rbx                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -15731,7 +16028,7 @@ func$_joinOffset:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -15744,7 +16041,7 @@ func$_joinOffset:
     call func$exit                                               ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
   func$_joinOffset$offset$TypeMatch:                             ; after block
-  ; Line 478: if (len(items) - offset == 1) { ...
+  ; Line 499: if (len(items) - offset == 1) { ...
   ; Call len with 1 arguments
   push qword ptr [rbp + 040h]                                    ; value of argument #1 (items)
   push qword ptr [rbp + 038h]                                    ; type of argument #1
@@ -15767,7 +16064,7 @@ func$_joinOffset:
     ; Call __print with 1 arguments
     mov r15, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r15                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r10, qword ptr [rsp + 038h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -15782,7 +16079,7 @@ func$_joinOffset:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -15803,7 +16100,7 @@ func$_joinOffset:
     ; Call __print with 1 arguments
     mov rsi, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rdi, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -15818,7 +16115,7 @@ func$_joinOffset:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r12, qword ptr [rsp + 038h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -15836,17 +16133,17 @@ func$_joinOffset:
   xor r14, r14                                                   ; zero value result of == (testing - operator result and 1) to put the boolean in
   cmp r13, 001h                                                  ; values equal?
   sete r14b                                                      ; put result in value result of == (testing - operator result and 1)
-  mov rax, 01ch                                                  ; value result of == (testing - operator result and 1) is a Boolean'28
+  mov rax, 01dh                                                  ; value result of == (testing - operator result and 1) is a Boolean'29
   xor r15, r15                                                   ; zero type result of == (testing - operator result and 1) to put the boolean in
-  mov r10, 01dh                                                  ; reading type of - operator result for comparison with type of 1
-  cmp r10, 01dh                                                  ; types equal?
+  mov r10, 01eh                                                  ; reading type of - operator result for comparison with type of 1
+  cmp r10, 01eh                                                  ; types equal?
   sete r15b                                                      ; put result in type result of == (testing - operator result and 1)
-  mov rbx, 01ch                                                  ; type result of == (testing - operator result and 1) is a Boolean'28
+  mov rbx, 01dh                                                  ; type result of == (testing - operator result and 1) is a Boolean'29
   mov rsi, r14                                                   ; assign value of value result of == (testing - operator result and 1) to value of == operator result
   and rsi, r15                                                   ; && type temp and value temp
   cmp rsi, 000h                                                  ; compare == operator result to false
   je func$_joinOffset$if$continuation                            ; len(items) - offset == 1
-    ; Line 479: return items[offset];
+    ; Line 500: return items[offset];
     cmp qword ptr [rbp + 038h], 000h                             ; compare type of items to <sentinel>
     jne func$_joinOffset$Joinoffset$if$items$TypeMatch           ; skip next block if items is not sentinel
       ; Error handling block for items
@@ -15855,7 +16152,7 @@ func$_joinOffset:
       ; Call __print with 1 arguments
       mov rdi, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rdi                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r12, qword ptr [rsp + 048h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 048h]                            ; load address of return value's type
@@ -15870,7 +16167,7 @@ func$_joinOffset:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r13, qword ptr [rsp + 048h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 048h]                            ; load address of return value's type
@@ -15891,7 +16188,7 @@ func$_joinOffset:
       ; Call __print with 1 arguments
       mov r14, offset subscriptTypeCheckFailureMessage           ; reading subscriptTypeCheckFailureMessage for push
       push r14                                                   ; value of argument #1 (subscriptTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rax, qword ptr [rsp + 048h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 048h]                            ; load address of return value's type
@@ -15906,7 +16203,7 @@ func$_joinOffset:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r15, qword ptr [rsp + 048h]                            ; load address of return value's value
       push r15                                                   ; internal argument 6: pointer to return value slot's value
       lea r15, qword ptr [rsp + 048h]                            ; load address of return value's type
@@ -15934,7 +16231,7 @@ func$_joinOffset:
       ; Call __print with 1 arguments
       mov r12, offset boundsFailureMessage                       ; reading boundsFailureMessage for push
       push r12                                                   ; value of argument #1 (boundsFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r13, qword ptr [rsp + 048h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 048h]                            ; load address of return value's type
@@ -15949,7 +16246,7 @@ func$_joinOffset:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r14, qword ptr [rsp + 048h]                            ; load address of return value's value
       push r14                                                   ; internal argument 6: pointer to return value slot's value
       lea r14, qword ptr [rsp + 048h]                            ; load address of return value's type
@@ -15969,7 +16266,7 @@ func$_joinOffset:
     mov r10, qword ptr [r15 + 008h]                              ; value of items[offset]
     mov rbx, qword ptr [r15]                                     ; type of items[offset]
     ; increment reference count for copy of items[offset] if necessary
-    cmp rbx, 01eh                                                ; compare type of copy of items[offset] to String
+    cmp rbx, 01fh                                                ; compare type of copy of items[offset] to String
     jne func$_joinOffset$Joinoffset$if$AfterStringIncref         ; if not a String, skip incref
       mov rsi, qword ptr [r10]                                   ; dereference string to get to reference count
       cmp rsi, 0                                                 ; compare string reference count to 0
@@ -15986,7 +16283,7 @@ func$_joinOffset:
       ; Call __print with 1 arguments
       mov rdi, offset returnValueTypeCheckFailureMessage         ; reading returnValueTypeCheckFailureMessage for push
       push rdi                                                   ; value of argument #1 (returnValueTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r12, qword ptr [rsp + 048h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 048h]                            ; load address of return value's type
@@ -16002,7 +16299,7 @@ func$_joinOffset:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r13, qword ptr [rsp + 048h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 048h]                            ; load address of return value's type
@@ -16021,7 +16318,7 @@ func$_joinOffset:
     mov rax, qword ptr [rbp + 028h]                              ; get pointer to return value type of _joinOffset into register to dereference it
     mov qword ptr [rax], rbx                                     ; type of _joinOffset return value
     ; increment reference count for copy of items[offset] if necessary
-    cmp rbx, 01eh                                                ; compare type of copy of items[offset] to String
+    cmp rbx, 01fh                                                ; compare type of copy of items[offset] to String
     jne func$_joinOffset$Joinoffset$if$AfterStringIncref$1       ; if not a String, skip incref
       mov r15, qword ptr [r10]                                   ; dereference string to get to reference count
       cmp r15, 0                                                 ; compare string reference count to 0
@@ -16030,7 +16327,7 @@ func$_joinOffset:
       func$_joinOffset$Joinoffset$if$StringIncref$1:             ; real String
         inc qword ptr [r10]                                      ; increment reference count of copy of items[offset]
     func$_joinOffset$Joinoffset$if$AfterStringIncref$1:          ; after String incref
-    ; Decrement reference count for copy of items[offset] (static type: String'30) via decrefMaybeString
+    ; Decrement reference count for copy of items[offset] (static type: String'31) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, rbx                                                 ; arg #2: copy of items[offset]'s type
     mov rcx, r10                                                 ; arg #1: copy of items[offset]'s value
@@ -16039,7 +16336,7 @@ func$_joinOffset:
     add rsp, 20h                                                 ; free shadow space for decref
     jmp func$_joinOffset$epilog                                  ; return
   func$_joinOffset$if$continuation:                              ; end of if
-  ; Line 481: return concat(items[offset], joiner, _joinOffset(items, joiner, ...
+  ; Line 502: return concat(items[offset], joiner, _joinOffset(items, joiner, ...
   cmp qword ptr [rbp + 038h], 000h                               ; compare type of items to <sentinel>
   jne func$_joinOffset$items$TypeMatch$1                         ; skip next block if items is not sentinel
     ; Error handling block for items
@@ -16048,7 +16345,7 @@ func$_joinOffset:
     ; Call __print with 1 arguments
     mov r10, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rbx, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -16063,7 +16360,7 @@ func$_joinOffset:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rsi, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -16084,7 +16381,7 @@ func$_joinOffset:
     ; Call __print with 1 arguments
     mov rdi, offset subscriptTypeCheckFailureMessage             ; reading subscriptTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (subscriptTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -16099,7 +16396,7 @@ func$_joinOffset:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 048h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -16127,7 +16424,7 @@ func$_joinOffset:
     ; Call __print with 1 arguments
     mov rbx, offset boundsFailureMessage                         ; reading boundsFailureMessage for push
     push rbx                                                     ; value of argument #1 (boundsFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -16143,7 +16440,7 @@ func$_joinOffset:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rdi, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -16164,7 +16461,7 @@ func$_joinOffset:
   mov r14, qword ptr [r13 + 008h]                                ; value of items[offset]
   mov rax, qword ptr [r13]                                       ; type of items[offset]
   ; increment reference count for copy of items[offset] if necessary
-  cmp rax, 01eh                                                  ; compare type of copy of items[offset] to String
+  cmp rax, 01fh                                                  ; compare type of copy of items[offset] to String
   jne func$_joinOffset$AfterStringIncref                         ; if not a String, skip incref
     mov r15, qword ptr [r14]                                     ; dereference string to get to reference count
     cmp r15, 0                                                   ; compare string reference count to 0
@@ -16181,7 +16478,7 @@ func$_joinOffset:
     ; Call __print with 1 arguments
     mov r10, offset operandTypeCheckFailureMessage               ; reading operandTypeCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (operandTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rbx, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -16197,7 +16494,7 @@ func$_joinOffset:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rsi, qword ptr [rsp + 048h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 048h]                              ; load address of return value's type
@@ -16216,7 +16513,7 @@ func$_joinOffset:
   add r14, 001h                                                  ; compute (offset) + (1) (result in + operator result)
   ; Call _joinOffset with 3 arguments
   push r14                                                       ; value of argument #3 (+ operator result)
-  push 01dh                                                      ; type of argument #3 (Integer'29)
+  push 01eh                                                      ; type of argument #3 (Integer'30)
   push qword ptr [rbp + 050h]                                    ; value of argument #2 (joiner)
   push qword ptr [rbp + 048h]                                    ; type of argument #2
   push qword ptr [rbp + 040h]                                    ; value of argument #1 (items)
@@ -16259,7 +16556,7 @@ func$_joinOffset:
     ; Call __print with 1 arguments
     mov r14, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
     push r14                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -16274,7 +16571,7 @@ func$_joinOffset:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -16294,7 +16591,7 @@ func$_joinOffset:
   mov rdi, qword ptr [rbp + 028h]                                ; get pointer to return value type of _joinOffset into register to dereference it
   mov qword ptr [rdi], rsi                                       ; type of _joinOffset return value
   ; increment reference count for concat return value if necessary
-  cmp rsi, 01eh                                                  ; compare type of concat return value to String
+  cmp rsi, 01fh                                                  ; compare type of concat return value to String
   jne func$_joinOffset$AfterStringIncref$1                       ; if not a String, skip incref
     mov r12, qword ptr [r10]                                     ; dereference string to get to reference count
     cmp r12, 0                                                   ; compare string reference count to 0
@@ -16303,23 +16600,23 @@ func$_joinOffset:
     func$_joinOffset$StringIncref$1:                             ; real String
       inc qword ptr [r10]                                        ; increment reference count of concat return value
   func$_joinOffset$AfterStringIncref$1:                          ; after String incref
-  ; Decrement reference count for _joinOffset return value (static type: String'30) via decrefMaybeString
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 048h]                                ; arg #2: _joinOffset return value's type
-  mov rcx, qword ptr [rsp + 050h]                                ; arg #1: _joinOffset return value's value
-  mov qword ptr [rsp + 038h], r10                                ; move concat return value's value out of r10
-  call decrefMaybeString                                         ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for concat return value (static type: String'30) via decrefMaybeString
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, rsi                                                   ; arg #2: concat return value's type
-  mov rcx, qword ptr [rsp + 038h]                                ; arg #1: concat return value's value
-  call decrefMaybeString                                         ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for copy of items[offset] (static type: String'30) via decrefMaybeString
+  ; Decrement reference count for copy of items[offset] (static type: String'31) via decrefMaybeString
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, qword ptr [rsp + 040h]                                ; arg #2: copy of items[offset]'s type
   mov rcx, qword ptr [rsp + 058h]                                ; arg #1: copy of items[offset]'s value
+  mov qword ptr [rsp + 038h], r10                                ; move concat return value's value out of r10
+  call decrefMaybeString                                         ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for _joinOffset return value (static type: String'31) via decrefMaybeString
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, qword ptr [rsp + 048h]                                ; arg #2: _joinOffset return value's type
+  mov rcx, qword ptr [rsp + 050h]                                ; arg #1: _joinOffset return value's value
+  call decrefMaybeString                                         ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for concat return value (static type: String'31) via decrefMaybeString
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, rsi                                                   ; arg #2: concat return value's type
+  mov rcx, qword ptr [rsp + 038h]                                ; arg #1: concat return value's value
   call decrefMaybeString                                         ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
   func$_joinOffset$epilog: 
@@ -16359,7 +16656,7 @@ func$join:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 028h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -16374,7 +16671,7 @@ func$join:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 028h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -16402,7 +16699,7 @@ func$join:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -16417,7 +16714,7 @@ func$join:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -16445,7 +16742,7 @@ func$join:
     ; Call __print with 1 arguments
     mov rdi, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push rdi                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -16460,7 +16757,7 @@ func$join:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r13, qword ptr [rsp + 028h]                              ; load address of return value's value
     push r13                                                     ; internal argument 6: pointer to return value slot's value
     lea r13, qword ptr [rsp + 028h]                              ; load address of return value's type
@@ -16473,7 +16770,7 @@ func$join:
     call func$exit                                               ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
   func$join$joiner$TypeMatch:                                    ; after block
-  ; Line 485: if (len(items) == 0) { ...
+  ; Line 506: if (len(items) == 0) { ...
   ; Call len with 1 arguments
   push qword ptr [rbp + 040h]                                    ; value of argument #1 (items)
   push qword ptr [rbp + 038h]                                    ; type of argument #1
@@ -16491,27 +16788,27 @@ func$join:
   xor rbx, rbx                                                   ; zero value result of == (testing len return value and 0) to put the boolean in
   cmp qword ptr [rsp + 018h], 000h                               ; values equal?
   sete bl                                                        ; put result in value result of == (testing len return value and 0)
-  mov rsi, 01ch                                                  ; value result of == (testing len return value and 0) is a Boolean'28
+  mov rsi, 01dh                                                  ; value result of == (testing len return value and 0) is a Boolean'29
   xor rdi, rdi                                                   ; zero type result of == (testing len return value and 0) to put the boolean in
-  cmp qword ptr [rsp + 010h], 01dh                               ; types equal?
+  cmp qword ptr [rsp + 010h], 01eh                               ; types equal?
   sete dil                                                       ; put result in type result of == (testing len return value and 0)
-  mov r12, 01ch                                                  ; type result of == (testing len return value and 0) is a Boolean'28
+  mov r12, 01dh                                                  ; type result of == (testing len return value and 0) is a Boolean'29
   mov r13, rbx                                                   ; assign value of value result of == (testing len return value and 0) to value of == operator result
   and r13, rdi                                                   ; && type temp and value temp
   cmp r13, 000h                                                  ; compare == operator result to false
   je func$join$if$continuation                                   ; len(items) == 0
-    ; Line 486: return '';
+    ; Line 507: return '';
     mov rax, offset string$28                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov rbx, qword ptr [rbp + 030h]                              ; get pointer to return value of join into register to dereference it
     mov qword ptr [rbx], rax                                     ; join return value
     mov rsi, qword ptr [rbp + 028h]                              ; get pointer to return value type of join into register to dereference it
-    mov qword ptr [rsi], 01eh                                    ; type of join return value (String'30)
+    mov qword ptr [rsi], 01fh                                    ; type of join return value (String'31)
     jmp func$join$epilog                                         ; return
   func$join$if$continuation:                                     ; end of if
-  ; Line 489: return _joinOffset(items, joiner, 0);
+  ; Line 510: return _joinOffset(items, joiner, 0);
   ; Call _joinOffset with 3 arguments
   push 000h                                                      ; value of argument #3 (0)
-  push 01dh                                                      ; type of argument #3 (Integer'29)
+  push 01eh                                                      ; type of argument #3 (Integer'30)
   push qword ptr [rbp + 050h]                                    ; value of argument #2 (joiner)
   push qword ptr [rbp + 048h]                                    ; type of argument #2
   push qword ptr [rbp + 040h]                                    ; value of argument #1 (items)
@@ -16535,7 +16832,7 @@ func$join:
     ; Call __print with 1 arguments
     mov r15, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
     push r15                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r10, qword ptr [rsp + 018h]                              ; load address of return value's value
     push r10                                                     ; internal argument 6: pointer to return value slot's value
     lea r10, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -16550,7 +16847,7 @@ func$join:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 018h]                              ; load address of return value's type
@@ -16570,7 +16867,7 @@ func$join:
   mov r12, qword ptr [rbp + 028h]                                ; get pointer to return value type of join into register to dereference it
   mov qword ptr [r12], rdi                                       ; type of join return value
   ; increment reference count for _joinOffset return value if necessary
-  cmp rdi, 01eh                                                  ; compare type of _joinOffset return value to String
+  cmp rdi, 01fh                                                  ; compare type of _joinOffset return value to String
   jne func$join$AfterStringIncref                                ; if not a String, skip incref
     mov r13, qword ptr [rbx]                                     ; dereference string to get to reference count
     cmp r13, 0                                                   ; compare string reference count to 0
@@ -16579,7 +16876,7 @@ func$join:
     func$join$StringIncref:                                      ; real String
       inc qword ptr [rbx]                                        ; increment reference count of _joinOffset return value
   func$join$AfterStringIncref:                                   ; after String incref
-  ; Decrement reference count for _joinOffset return value (static type: String'30) via decrefMaybeString
+  ; Decrement reference count for _joinOffset return value (static type: String'31) via decrefMaybeString
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, rdi                                                   ; arg #2: _joinOffset return value's type
   mov rcx, rbx                                                   ; arg #1: _joinOffset return value's value
@@ -16622,7 +16919,7 @@ func$_stringify:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 0a8h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 0a8h]                              ; load address of return value's type
@@ -16637,7 +16934,7 @@ func$_stringify:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 0a8h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 0a8h]                              ; load address of return value's type
@@ -16665,7 +16962,7 @@ func$_stringify:
     ; Call __print with 1 arguments
     mov r13, offset parameterTypeCheckFailureMessage             ; reading parameterTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (parameterTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 0a8h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 0a8h]                              ; load address of return value's type
@@ -16680,7 +16977,7 @@ func$_stringify:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 0a8h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 0a8h]                              ; load address of return value's type
@@ -16693,7 +16990,7 @@ func$_stringify:
     call func$exit                                               ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
   func$_stringify$arg$TypeMatch:                                 ; after block
-  ; Line 493: if (arg is String) { ...
+  ; Line 514: if (arg is String) { ...
   mov r10, qword ptr [rbp + 038h]                                ; store arg's type in testByte value slot
   mov rax, r10                                                   ; move testByte to testByte
   mov rbx, 002h                                                  ; read operand of mul (type table width in bytes) 
@@ -16705,7 +17002,7 @@ func$_stringify:
   setc dil                                                       ; store result in is expression result
   cmp rdi, 000h                                                  ; compare is expression result to false
   je func$_stringify$if$continuation                             ; arg is String
-    ; Line 494: return arg;
+    ; Line 515: return arg;
     mov r12, qword ptr [rbp + 038h]                              ; store arg's type in testByte value slot
     mov rax, r12                                                 ; move testByte to testByte
     mov r13, 002h                                                ; read operand of mul (type table width in bytes) 
@@ -16720,7 +17017,7 @@ func$_stringify:
       ; Call __print with 1 arguments
       mov r15, offset returnValueTypeCheckFailureMessage         ; reading returnValueTypeCheckFailureMessage for push
       push r15                                                   ; value of argument #1 (returnValueTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r9, qword ptr [rsp + 0a8h]                             ; load address of return value's value
       push r9                                                    ; internal argument 6: pointer to return value slot's value
       lea r9, qword ptr [rsp + 0a8h]                             ; load address of return value's type
@@ -16735,7 +17032,7 @@ func$_stringify:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r10, qword ptr [rsp + 0a8h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 0a8h]                            ; load address of return value's type
@@ -16766,7 +17063,7 @@ func$_stringify:
       mov r15, qword ptr [rbp + 040h]                            ; read slot into register for dereferencing
       inc qword ptr [r15]                                        ; increment reference count of arg
     func$_stringify$Stringify$if$AfterGCIncref:                  ; after GarbageCollectable incref
-    cmp qword ptr [rbp + 038h], 01eh                             ; compare type of arg to String
+    cmp qword ptr [rbp + 038h], 01fh                             ; compare type of arg to String
     jne func$_stringify$Stringify$if$AfterStringIncref           ; if not a String, skip incref
       mov r10, qword ptr [rbp + 040h]                            ; get arg into register to dereference it
       mov r9, qword ptr [r10]                                    ; dereference string to get to reference count
@@ -16779,7 +17076,7 @@ func$_stringify:
     func$_stringify$Stringify$if$AfterStringIncref:              ; after String incref
     jmp func$_stringify$epilog                                   ; return
   func$_stringify$if$continuation:                               ; end of if
-  ; Line 496: if (arg is Boolean) { ...
+  ; Line 517: if (arg is Boolean) { ...
   mov rdx, qword ptr [rbp + 038h]                                ; store arg's type in testByte value slot
   mov qword ptr [rsp + 098h], rdx                                ; move testByte's value out of rdx
   mov rax, qword ptr [rsp + 098h]                                ; move testByte to testByte
@@ -16792,26 +17089,26 @@ func$_stringify:
   setc sil                                                       ; store result in is expression result
   cmp rsi, 000h                                                  ; compare is expression result to false
   je func$_stringify$if$continuation$1                           ; arg is Boolean
-    ; Line 497: if (arg) { ...
+    ; Line 518: if (arg) { ...
     cmp qword ptr [rbp + 040h], 000h                             ; compare arg to false
     je func$_stringify$Stringify$if$1$if$continuation            ; arg
-      ; Line 498: return 'true';
+      ; Line 519: return 'true';
       mov r14, offset string$29                                  ; read second operand of mov (string) for MoveToDerefInstruction
       mov r15, qword ptr [rbp + 030h]                            ; get pointer to return value of _stringify into register to dereference it
       mov qword ptr [r15], r14                                   ; _stringify return value
       mov r10, qword ptr [rbp + 028h]                            ; get pointer to return value type of _stringify into register to dereference it
-      mov qword ptr [r10], 01eh                                  ; type of _stringify return value (String'30)
+      mov qword ptr [r10], 01fh                                  ; type of _stringify return value (String'31)
       jmp func$_stringify$epilog                                 ; return
     func$_stringify$Stringify$if$1$if$continuation:              ; end of if
-    ; Line 500: return 'false';
+    ; Line 521: return 'false';
     mov rdi, offset string$30                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r12, qword ptr [rbp + 030h]                              ; get pointer to return value of _stringify into register to dereference it
     mov qword ptr [r12], rdi                                     ; _stringify return value
     mov r13, qword ptr [rbp + 028h]                              ; get pointer to return value type of _stringify into register to dereference it
-    mov qword ptr [r13], 01eh                                    ; type of _stringify return value (String'30)
+    mov qword ptr [r13], 01fh                                    ; type of _stringify return value (String'31)
     jmp func$_stringify$epilog                                   ; return
   func$_stringify$if$continuation$1:                             ; end of if
-  ; Line 502: if (arg is Null) { ...
+  ; Line 523: if (arg is Null) { ...
   mov r14, qword ptr [rbp + 038h]                                ; store arg's type in testByte value slot
   mov rax, r14                                                   ; move testByte to testByte
   mov r15, 002h                                                  ; read operand of mul (type table width in bytes) 
@@ -16823,15 +17120,15 @@ func$_stringify:
   setc bl                                                        ; store result in is expression result
   cmp rbx, 000h                                                  ; compare is expression result to false
   je func$_stringify$if$continuation$2                           ; arg is Null
-    ; Line 503: return 'null';
+    ; Line 524: return 'null';
     mov r12, offset string$31                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r13, qword ptr [rbp + 030h]                              ; get pointer to return value of _stringify into register to dereference it
     mov qword ptr [r13], r12                                     ; _stringify return value
     mov r14, qword ptr [rbp + 028h]                              ; get pointer to return value type of _stringify into register to dereference it
-    mov qword ptr [r14], 01eh                                    ; type of _stringify return value (String'30)
+    mov qword ptr [r14], 01fh                                    ; type of _stringify return value (String'31)
     jmp func$_stringify$epilog                                   ; return
   func$_stringify$if$continuation$2:                             ; end of if
-  ; Line 505: if (arg is Integer) { ...
+  ; Line 526: if (arg is Integer) { ...
   mov rax, qword ptr [rbp + 038h]                                ; store arg's type in testByte value slot
   mov r15, 002h                                                  ; read operand of mul (type table width in bytes) 
   mul r15                                                        ; adjust to the relative start of that type's entry in the type table
@@ -16842,7 +17139,7 @@ func$_stringify:
   setc bl                                                        ; store result in is expression result
   cmp rbx, 000h                                                  ; compare is expression result to false
   je func$_stringify$if$continuation$3                           ; arg is Integer
-    ; Line 506: return intToStr(arg as Integer);
+    ; Line 527: return intToStr(arg as Integer);
     mov rsi, qword ptr [rbp + 038h]                              ; store arg's type in testByte value slot
     mov rax, rsi                                                 ; move testByte to testByte
     mov rdi, 002h                                                ; read operand of mul (type table width in bytes) 
@@ -16857,7 +17154,7 @@ func$_stringify:
       ; Call __print with 1 arguments
       mov r8, offset asOperatorFailureMessage                    ; reading asOperatorFailureMessage for push
       push r8                                                    ; value of argument #1 (asOperatorFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rdx, qword ptr [rsp + 0a8h]                            ; load address of return value's value
       push rdx                                                   ; internal argument 6: pointer to return value slot's value
       lea rdx, qword ptr [rsp + 0a8h]                            ; load address of return value's type
@@ -16872,7 +17169,7 @@ func$_stringify:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r12, qword ptr [rsp + 0a8h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 0a8h]                            ; load address of return value's type
@@ -16909,7 +17206,7 @@ func$_stringify:
       ; Call __print with 1 arguments
       mov rax, offset returnValueTypeCheckFailureMessage         ; reading returnValueTypeCheckFailureMessage for push
       push rax                                                   ; value of argument #1 (returnValueTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rdi, qword ptr [rsp + 098h]                            ; load address of return value's value
       push rdi                                                   ; internal argument 6: pointer to return value slot's value
       lea rdi, qword ptr [rsp + 098h]                            ; load address of return value's type
@@ -16924,7 +17221,7 @@ func$_stringify:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r12, qword ptr [rsp + 098h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 098h]                            ; load address of return value's type
@@ -16944,7 +17241,7 @@ func$_stringify:
     mov r10, qword ptr [rbp + 028h]                              ; get pointer to return value type of _stringify into register to dereference it
     mov qword ptr [r10], r15                                     ; type of _stringify return value
     ; increment reference count for intToStr return value if necessary
-    cmp r15, 01eh                                                ; compare type of intToStr return value to String
+    cmp r15, 01fh                                                ; compare type of intToStr return value to String
     jne func$_stringify$Stringify$if$3$AfterStringIncref         ; if not a String, skip incref
       mov rbx, qword ptr [r13]                                   ; dereference string to get to reference count
       cmp rbx, 0                                                 ; compare string reference count to 0
@@ -16953,7 +17250,7 @@ func$_stringify:
       func$_stringify$Stringify$if$3$StringIncref:               ; real String
         inc qword ptr [r13]                                      ; increment reference count of intToStr return value
     func$_stringify$Stringify$if$3$AfterStringIncref:            ; after String incref
-    ; Decrement reference count for intToStr return value (static type: String'30) via decrefMaybeString
+    ; Decrement reference count for intToStr return value (static type: String'31) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, r15                                                 ; arg #2: intToStr return value's type
     mov rcx, r13                                                 ; arg #1: intToStr return value's value
@@ -16961,7 +17258,7 @@ func$_stringify:
     add rsp, 20h                                                 ; free shadow space for decref
     jmp func$_stringify$epilog                                   ; return
   func$_stringify$if$continuation$3:                             ; end of if
-  ; Line 508: if (arg is AnythingFunction) { ...
+  ; Line 529: if (arg is AnythingFunction) { ...
   mov rsi, qword ptr [rbp + 038h]                                ; store arg's type in testByte value slot
   mov rax, rsi                                                   ; move testByte to testByte
   mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
@@ -16974,11 +17271,11 @@ func$_stringify:
   setc r9b                                                       ; store result in is expression result
   cmp r9, 000h                                                   ; compare is expression result to false
   je func$_stringify$if$continuation$4                           ; arg is AnythingFunction
-    ; Line 509: Integer func = arg __as__ Integer;
+    ; Line 530: Integer func = arg __as__ Integer;
     mov r8, qword ptr [rbp + 040h]                               ; force cast of arg to Integer
     mov qword ptr [rsp + 098h], r8                               ; value initialization of variable declaration for func variable (force cast of arg to Integer)
-    mov qword ptr [rsp + 090h], 01dh                             ; type initialization of variable declaration for func variable (Integer'29)
-    ; Line 510: Integer annotation = __readFromAddress(func - 8);
+    mov qword ptr [rsp + 090h], 01eh                             ; type initialization of variable declaration for func variable (Integer'30)
+    ; Line 531: Integer annotation = __readFromAddress(func - 8);
     mov r14, qword ptr [rsp + 098h]                              ; make a copy of func's value in case it changes before we use it
     mov r15, qword ptr [rsp + 090h]                              ; make a copy of func's type in case it changes before we use it
     cmp r15, 000h                                                ; compare type of copy of func to <sentinel>
@@ -16991,7 +17288,7 @@ func$_stringify:
       ; Call __print with 1 arguments
       mov r10, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r10                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rbx, qword ptr [rsp + 098h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
       lea rbx, qword ptr [rsp + 098h]                            ; load address of return value's type
@@ -17006,7 +17303,7 @@ func$_stringify:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rsi, qword ptr [rsp + 098h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 098h]                            ; load address of return value's type
@@ -17024,20 +17321,20 @@ func$_stringify:
     ; Call __readFromAddress with 1 arguments
     mov rbx, qword ptr [r13]                                     ; dereference first argument of __readFromAddress
     mov qword ptr [rsp + 098h], rbx                              ; value initialization of variable declaration for annotation variable (dereferenced - operator result)
-    mov qword ptr [rsp + 090h], 01dh                             ; type initialization of variable declaration for annotation variable (Integer'29)
-    ; Line 511: return concat('<function (', annotation __as__ String, ')>');
+    mov qword ptr [rsp + 090h], 01eh                             ; type initialization of variable declaration for annotation variable (Integer'30)
+    ; Line 532: return concat('<function (', annotation __as__ String, ')>');
     mov r12, qword ptr [rsp + 098h]                              ; make a copy of annotation's value in case it changes before we use it
     mov r13, qword ptr [rsp + 090h]                              ; make a copy of annotation's type in case it changes before we use it
     mov r14, r12                                                 ; force cast of copy of annotation to String
     ; Call concat with 3 arguments
     mov rsi, offset string$33                                    ; reading string for push
     push rsi                                                     ; value of argument #3 (string)
-    push 01eh                                                    ; type of argument #3 (String'30)
+    push 01fh                                                    ; type of argument #3 (String'31)
     push r14                                                     ; value of argument #2 (force cast of copy of annotation to String)
-    push 01eh                                                    ; type of argument #2 (String'30)
+    push 01fh                                                    ; type of argument #2 (String'31)
     mov rax, offset string$32                                    ; reading string for push
     push rax                                                     ; value of argument #1 (string)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rdi, qword ptr [rsp + 0c8h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
     lea rdi, qword ptr [rsp + 0c8h]                              ; load address of return value's type
@@ -17057,7 +17354,7 @@ func$_stringify:
       ; Call __print with 1 arguments
       mov r12, offset returnValueTypeCheckFailureMessage         ; reading returnValueTypeCheckFailureMessage for push
       push r12                                                   ; value of argument #1 (returnValueTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r13, qword ptr [rsp + 098h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 098h]                            ; load address of return value's type
@@ -17072,7 +17369,7 @@ func$_stringify:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r14, qword ptr [rsp + 098h]                            ; load address of return value's value
       push r14                                                   ; internal argument 6: pointer to return value slot's value
       lea r14, qword ptr [rsp + 098h]                            ; load address of return value's type
@@ -17092,7 +17389,7 @@ func$_stringify:
     mov rsi, qword ptr [rbp + 028h]                              ; get pointer to return value type of _stringify into register to dereference it
     mov qword ptr [rsi], rbx                                     ; type of _stringify return value
     ; increment reference count for concat return value if necessary
-    cmp rbx, 01eh                                                ; compare type of concat return value to String
+    cmp rbx, 01fh                                                ; compare type of concat return value to String
     jne func$_stringify$Stringify$if$4$AfterStringIncref         ; if not a String, skip incref
       mov rax, qword ptr [r15]                                   ; dereference string to get to reference count
       cmp rax, 0                                                 ; compare string reference count to 0
@@ -17101,7 +17398,7 @@ func$_stringify:
       func$_stringify$Stringify$if$4$StringIncref:               ; real String
         inc qword ptr [r15]                                      ; increment reference count of concat return value
     func$_stringify$Stringify$if$4$AfterStringIncref:            ; after String incref
-    ; Decrement reference count for concat return value (static type: String'30) via decrefMaybeString
+    ; Decrement reference count for concat return value (static type: String'31) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, rbx                                                 ; arg #2: concat return value's type
     mov rcx, r15                                                 ; arg #1: concat return value's value
@@ -17109,7 +17406,7 @@ func$_stringify:
     add rsp, 20h                                                 ; free shadow space for decref
     jmp func$_stringify$epilog                                   ; return
   func$_stringify$if$continuation$4:                             ; end of if
-  ; Line 513: if (arg is StringList) { ...
+  ; Line 534: if (arg is StringList) { ...
   mov rdi, qword ptr [rbp + 038h]                                ; store arg's type in testByte value slot
   mov rax, rdi                                                   ; move testByte to testByte
   mov r12, 002h                                                  ; read operand of mul (type table width in bytes) 
@@ -17121,7 +17418,7 @@ func$_stringify:
   setc r14b                                                      ; store result in is expression result
   cmp r14, 000h                                                  ; compare is expression result to false
   je func$_stringify$if$continuation$5                           ; arg is StringList
-    ; Line 514: return concat('[', join(arg as StringList, ', '), ']');
+    ; Line 535: return concat('[', join(arg as StringList, ', '), ']');
     mov r9, qword ptr [rbp + 038h]                               ; store arg's type in testByte value slot
     mov rax, r9                                                  ; move testByte to testByte
     mov r8, 002h                                                 ; read operand of mul (type table width in bytes) 
@@ -17136,7 +17433,7 @@ func$_stringify:
       ; Call __print with 1 arguments
       mov rcx, offset asOperatorFailureMessage                   ; reading asOperatorFailureMessage for push
       push rcx                                                   ; value of argument #1 (asOperatorFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r15, qword ptr [rsp + 0a8h]                            ; load address of return value's value
       push r15                                                   ; internal argument 6: pointer to return value slot's value
       lea r15, qword ptr [rsp + 0a8h]                            ; load address of return value's type
@@ -17151,7 +17448,7 @@ func$_stringify:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r10, qword ptr [rsp + 0a8h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 0a8h]                            ; load address of return value's type
@@ -17169,7 +17466,7 @@ func$_stringify:
     ; Call join with 2 arguments
     mov r14, offset string$35                                    ; reading string for push
     push r14                                                     ; value of argument #2 (string)
-    push 01eh                                                    ; type of argument #2 (String'30)
+    push 01fh                                                    ; type of argument #2 (String'31)
     push rbx                                                     ; value of argument #1 (cast of arg to StringList)
     push rsi                                                     ; type of argument #1
     lea rax, qword ptr [rsp + 0b8h]                              ; load address of return value's value
@@ -17186,12 +17483,12 @@ func$_stringify:
     ; Call concat with 3 arguments
     mov rsi, offset string$36                                    ; reading string for push
     push rsi                                                     ; value of argument #3 (string)
-    push 01eh                                                    ; type of argument #3 (String'30)
+    push 01fh                                                    ; type of argument #3 (String'31)
     push qword ptr [rsp + 0a8h]                                  ; value of argument #2 (join return value)
     push qword ptr [rsp + 0a8h]                                  ; type of argument #2
     mov rdi, offset string$34                                    ; reading string for push
     push rdi                                                     ; value of argument #1 (string)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r12, qword ptr [rsp + 0b8h]                              ; load address of return value's value
     push r12                                                     ; internal argument 6: pointer to return value slot's value
     lea r12, qword ptr [rsp + 0b8h]                              ; load address of return value's type
@@ -17211,7 +17508,7 @@ func$_stringify:
       ; Call __print with 1 arguments
       mov r13, offset returnValueTypeCheckFailureMessage         ; reading returnValueTypeCheckFailureMessage for push
       push r13                                                   ; value of argument #1 (returnValueTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r14, qword ptr [rsp + 088h]                            ; load address of return value's value
       push r14                                                   ; internal argument 6: pointer to return value slot's value
       lea r14, qword ptr [rsp + 088h]                            ; load address of return value's type
@@ -17226,7 +17523,7 @@ func$_stringify:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rax, qword ptr [rsp + 088h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 088h]                            ; load address of return value's type
@@ -17246,7 +17543,7 @@ func$_stringify:
     mov rsi, qword ptr [rbp + 028h]                              ; get pointer to return value type of _stringify into register to dereference it
     mov qword ptr [rsi], rbx                                     ; type of _stringify return value
     ; increment reference count for concat return value if necessary
-    cmp rbx, 01eh                                                ; compare type of concat return value to String
+    cmp rbx, 01fh                                                ; compare type of concat return value to String
     jne func$_stringify$Stringify$if$5$AfterStringIncref         ; if not a String, skip incref
       mov rdi, qword ptr [r15]                                   ; dereference string to get to reference count
       cmp rdi, 0                                                 ; compare string reference count to 0
@@ -17255,21 +17552,21 @@ func$_stringify:
       func$_stringify$Stringify$if$5$StringIncref:               ; real String
         inc qword ptr [r15]                                      ; increment reference count of concat return value
     func$_stringify$Stringify$if$5$AfterStringIncref:            ; after String incref
-    ; Decrement reference count for concat return value (static type: String'30) via decrefMaybeString
-    sub rsp, 20h                                                 ; allocate shadow space for decref function
-    mov rdx, rbx                                                 ; arg #2: concat return value's type
-    mov rcx, r15                                                 ; arg #1: concat return value's value
-    call decrefMaybeString                                       ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
-    ; Decrement reference count for join return value (static type: String'30) via decrefMaybeString
+    ; Decrement reference count for join return value (static type: String'31) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 0b0h]                              ; arg #2: join return value's type
     mov rcx, qword ptr [rsp + 0b8h]                              ; arg #1: join return value's value
     call decrefMaybeString                                       ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
+    ; Decrement reference count for concat return value (static type: String'31) via decrefMaybeString
+    sub rsp, 20h                                                 ; allocate shadow space for decref function
+    mov rdx, rbx                                                 ; arg #2: concat return value's type
+    mov rcx, r15                                                 ; arg #1: concat return value's value
+    call decrefMaybeString                                       ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
     jmp func$_stringify$epilog                                   ; return
   func$_stringify$if$continuation$5:                             ; end of if
-  ; Line 516: if (arg is WhateverList) { ...
+  ; Line 537: if (arg is WhateverList) { ...
   mov r12, qword ptr [rbp + 038h]                                ; store arg's type in testByte value slot
   mov rax, r12                                                   ; move testByte to testByte
   mov r13, 002h                                                  ; read operand of mul (type table width in bytes) 
@@ -17282,12 +17579,12 @@ func$_stringify:
   setc r9b                                                       ; store result in is expression result
   cmp r9, 000h                                                   ; compare is expression result to false
   je func$_stringify$if$continuation$6                           ; arg is WhateverList
-    ; Line 517: StringList new = []:String;
+    ; Line 538: StringList new = []:String;
     ; Call _listConstructor with 2 arguments
     push 001h                                                    ; value of argument #2 (1 (integer))
-    push 01dh                                                    ; type of argument #2 (Integer'29)
-    push 020h                                                    ; value of argument #1 (code of StringList)
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #2 (Integer'30)
+    push 021h                                                    ; value of argument #1 (code of StringList)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r8, qword ptr [rsp + 0b8h]                               ; load address of return value's value
     push r8                                                      ; internal argument 6: pointer to return value slot's value
     lea r8, qword ptr [rsp + 0b8h]                               ; load address of return value's type
@@ -17311,7 +17608,7 @@ func$_stringify:
       ; Call __print with 1 arguments
       mov rbx, offset assignmentTypeCheckFailureMessage          ; reading assignmentTypeCheckFailureMessage for push
       push rbx                                                   ; value of argument #1 (assignmentTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rsi, qword ptr [rsp + 088h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 088h]                            ; load address of return value's type
@@ -17327,7 +17624,7 @@ func$_stringify:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rdi, qword ptr [rsp + 088h]                            ; load address of return value's value
       push rdi                                                   ; internal argument 6: pointer to return value slot's value
       lea rdi, qword ptr [rsp + 088h]                            ; load address of return value's type
@@ -17357,7 +17654,7 @@ func$_stringify:
       inc qword ptr [r15]                                        ; increment reference count of new variable
       mov qword ptr [rsp + 088h], r15                            ; restoring slots to previous scope state
     func$_stringify$Stringify$if$6$AfterGCIncref:                ; after GarbageCollectable incref
-    ; Line 518: WhateverList old = arg as WhateverList;
+    ; Line 539: WhateverList old = arg as WhateverList;
     mov r10, qword ptr [rbp + 038h]                              ; store arg's type in testByte value slot
     mov rax, r10                                                 ; move testByte to testByte
     mov rbx, 002h                                                ; read operand of mul (type table width in bytes) 
@@ -17375,7 +17672,7 @@ func$_stringify:
       ; Call __print with 1 arguments
       mov rdi, offset asOperatorFailureMessage                   ; reading asOperatorFailureMessage for push
       push rdi                                                   ; value of argument #1 (asOperatorFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r9, qword ptr [rsp + 078h]                             ; load address of return value's value
       push r9                                                    ; internal argument 6: pointer to return value slot's value
       lea r9, qword ptr [rsp + 078h]                             ; load address of return value's type
@@ -17390,7 +17687,7 @@ func$_stringify:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r12, qword ptr [rsp + 078h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 078h]                            ; load address of return value's type
@@ -17413,7 +17710,7 @@ func$_stringify:
       ; Call __print with 1 arguments
       mov r15, offset assignmentTypeCheckFailureMessage          ; reading assignmentTypeCheckFailureMessage for push
       push r15                                                   ; value of argument #1 (assignmentTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r10, qword ptr [rsp + 078h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 078h]                            ; load address of return value's type
@@ -17428,7 +17725,7 @@ func$_stringify:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rax, qword ptr [rsp + 078h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 078h]                            ; load address of return value's type
@@ -17457,9 +17754,9 @@ func$_stringify:
       inc qword ptr [r12]                                        ; increment reference count of old variable
       mov qword ptr [rsp + 078h], r12                            ; restoring slots to previous scope state
     func$_stringify$Stringify$if$6$AfterGCIncref$1:              ; after GarbageCollectable incref
-    ; Line 519: Integer i = 0;
+    ; Line 540: Integer i = 0;
     mov qword ptr [rsp + 068h], 000h                             ; value initialization of variable declaration for i variable (0)
-    mov qword ptr [rsp + 060h], 01dh                             ; type initialization of variable declaration for i variable (Integer'29)
+    mov qword ptr [rsp + 060h], 01eh                             ; type initialization of variable declaration for i variable (Integer'30)
     func$_stringify$Stringify$if$6$while$top:                    ; top of while
       mov r10, qword ptr [rsp + 068h]                            ; make a copy of i's value in case it changes before we use it
       mov rbx, qword ptr [rsp + 060h]                            ; make a copy of i's type in case it changes before we use it
@@ -17505,7 +17802,7 @@ func$_stringify:
         mov qword ptr [rsp + 030h], rsi                          ; move copy of old's type out of rsi
         mov rsi, offset operandTypeCheckFailureMessage           ; reading operandTypeCheckFailureMessage for push
         push rsi                                                 ; value of argument #1 (operandTypeCheckFailureMessage)
-        push 01eh                                                ; type of argument #1 (String'30)
+        push 01fh                                                ; type of argument #1 (String'31)
         lea rdi, qword ptr [rsp + 038h]                          ; load address of return value's value
         push rdi                                                 ; internal argument 6: pointer to return value slot's value
         lea rdi, qword ptr [rsp + 038h]                          ; load address of return value's type
@@ -17520,7 +17817,7 @@ func$_stringify:
         ;  - exit(1)
         ; Call exit with 1 arguments
         push 001h                                                ; value of argument #1 (1 (integer))
-        push 01dh                                                ; type of argument #1 (Integer'29)
+        push 01eh                                                ; type of argument #1 (Integer'30)
         lea rax, qword ptr [rsp + 038h]                          ; load address of return value's value
         push rax                                                 ; internal argument 6: pointer to return value slot's value
         lea rax, qword ptr [rsp + 038h]                          ; load address of return value's type
@@ -17542,7 +17839,7 @@ func$_stringify:
         ; Call __print with 1 arguments
         mov r12, offset operandTypeCheckFailureMessage           ; reading operandTypeCheckFailureMessage for push
         push r12                                                 ; value of argument #1 (operandTypeCheckFailureMessage)
-        push 01eh                                                ; type of argument #1 (String'30)
+        push 01fh                                                ; type of argument #1 (String'31)
         lea r13, qword ptr [rsp + 040h]                          ; load address of return value's value
         push r13                                                 ; internal argument 6: pointer to return value slot's value
         lea r13, qword ptr [rsp + 040h]                          ; load address of return value's type
@@ -17557,7 +17854,7 @@ func$_stringify:
         ;  - exit(1)
         ; Call exit with 1 arguments
         push 001h                                                ; value of argument #1 (1 (integer))
-        push 01dh                                                ; type of argument #1 (Integer'29)
+        push 01eh                                                ; type of argument #1 (Integer'30)
         lea r14, qword ptr [rsp + 040h]                          ; load address of return value's value
         push r14                                                 ; internal argument 6: pointer to return value slot's value
         lea r14, qword ptr [rsp + 040h]                          ; load address of return value's type
@@ -17570,13 +17867,13 @@ func$_stringify:
         call func$exit                                           ; jump to subroutine
         add rsp, 040h                                            ; release shadow space and arguments (result in stack pointer)
       func$_stringify$Stringify$if$6$while$lenOld$TypeMatch:     ; after block
-      mov r15, qword ptr [rsp + 050h]                            ; reading second value to compare (<DynamicSlot:Integer'29 ("len return value")>)
+      mov r15, qword ptr [rsp + 050h]                            ; reading second value to compare (<DynamicSlot:Integer'30 ("len return value")>)
       xor r10, r10                                               ; clear < operator result
       cmp qword ptr [rsp + 038h], r15                            ; compare copy of i with len return value
       setl r10b                                                  ; store result in < operator result
       cmp r10, 000h                                              ; compare < operator result to false
       jne func$_stringify$Stringify$if$6$while$body              ; while condition
-      ; Decrement reference count for copy of old (static type: WhateverList'39) via decrefMaybeGC
+      ; Decrement reference count for copy of old (static type: WhateverList'40) via decrefMaybeGC
       sub rsp, 20h                                               ; allocate shadow space for decref function
       mov rdx, rsi                                               ; arg #2: copy of old's type
       mov rcx, qword ptr [rsp + 078h]                            ; arg #1: copy of old's value
@@ -17584,7 +17881,7 @@ func$_stringify:
       add rsp, 20h                                               ; free shadow space for decref
       jmp func$_stringify$Stringify$if$6$while$bottom            ; break out of while
       func$_stringify$Stringify$if$6$while$body:                 ; start of while
-      ; Line 522: append(new, _stringify(old[i]));
+      ; Line 543: append(new, _stringify(old[i]));
       mov rbx, qword ptr [rsp + 088h]                            ; make a copy of new's value in case it changes before we use it
       mov qword ptr [rsp + 050h], rsi                            ; move copy of old's type out of rsi
       mov rsi, qword ptr [rsp + 080h]                            ; make a copy of new's type in case it changes before we use it
@@ -17622,7 +17919,7 @@ func$_stringify:
         ; Call __print with 1 arguments
         mov r15, offset operandTypeCheckFailureMessage           ; reading operandTypeCheckFailureMessage for push
         push r15                                                 ; value of argument #1 (operandTypeCheckFailureMessage)
-        push 01eh                                                ; type of argument #1 (String'30)
+        push 01fh                                                ; type of argument #1 (String'31)
         lea r10, qword ptr [rsp + 058h]                          ; load address of return value's value
         push r10                                                 ; internal argument 6: pointer to return value slot's value
         lea r10, qword ptr [rsp + 058h]                          ; load address of return value's type
@@ -17638,7 +17935,7 @@ func$_stringify:
         ;  - exit(1)
         ; Call exit with 1 arguments
         push 001h                                                ; value of argument #1 (1 (integer))
-        push 01dh                                                ; type of argument #1 (Integer'29)
+        push 01eh                                                ; type of argument #1 (Integer'30)
         mov qword ptr [rsp + 050h], rbx                          ; move copy of new's value out of rbx
         lea rbx, qword ptr [rsp + 058h]                          ; load address of return value's value
         push rbx                                                 ; internal argument 6: pointer to return value slot's value
@@ -17665,7 +17962,7 @@ func$_stringify:
         ; Call __print with 1 arguments
         mov r12, offset subscriptTypeCheckFailureMessage         ; reading subscriptTypeCheckFailureMessage for push
         push r12                                                 ; value of argument #1 (subscriptTypeCheckFailureMessage)
-        push 01eh                                                ; type of argument #1 (String'30)
+        push 01fh                                                ; type of argument #1 (String'31)
         lea r13, qword ptr [rsp + 050h]                          ; load address of return value's value
         push r13                                                 ; internal argument 6: pointer to return value slot's value
         lea r13, qword ptr [rsp + 050h]                          ; load address of return value's type
@@ -17681,7 +17978,7 @@ func$_stringify:
         ;  - exit(1)
         ; Call exit with 1 arguments
         push 001h                                                ; value of argument #1 (1 (integer))
-        push 01dh                                                ; type of argument #1 (Integer'29)
+        push 01eh                                                ; type of argument #1 (Integer'30)
         mov qword ptr [rsp + 048h], r14                          ; move copy of old's value out of r14
         lea r14, qword ptr [rsp + 050h]                          ; load address of return value's value
         push r14                                                 ; internal argument 6: pointer to return value slot's value
@@ -17712,7 +18009,7 @@ func$_stringify:
         mov qword ptr [rsp + 040h], rbx                          ; move copy of new's value out of rbx
         mov rbx, offset boundsFailureMessage                     ; reading boundsFailureMessage for push
         push rbx                                                 ; value of argument #1 (boundsFailureMessage)
-        push 01eh                                                ; type of argument #1 (String'30)
+        push 01fh                                                ; type of argument #1 (String'31)
         mov qword ptr [rsp + 040h], rsi                          ; move copy of i's value out of rsi
         lea rsi, qword ptr [rsp + 048h]                          ; load address of return value's value
         push rsi                                                 ; internal argument 6: pointer to return value slot's value
@@ -17730,7 +18027,7 @@ func$_stringify:
         ;  - exit(1)
         ; Call exit with 1 arguments
         push 001h                                                ; value of argument #1 (1 (integer))
-        push 01dh                                                ; type of argument #1 (Integer'29)
+        push 01eh                                                ; type of argument #1 (Integer'30)
         mov qword ptr [rsp + 038h], rdi                          ; move copy of i's type out of rdi
         lea rdi, qword ptr [rsp + 048h]                          ; load address of return value's value
         push rdi                                                 ; internal argument 6: pointer to return value slot's value
@@ -17770,7 +18067,7 @@ func$_stringify:
       jnc func$_stringify$Stringify$if$6$while$AfterGCIncref$3   ; if not a GarbageCollectable, skip incref
         inc qword ptr [r14]                                      ; increment reference count of copy of copy of old[copy of i]
       func$_stringify$Stringify$if$6$while$AfterGCIncref$3:      ; after GarbageCollectable incref
-      cmp qword ptr [rsp + 038h], 01eh                           ; compare type of copy of copy of old[copy of i] to String
+      cmp qword ptr [rsp + 038h], 01fh                           ; compare type of copy of copy of old[copy of i] to String
       jne func$_stringify$Stringify$if$6$while$AfterStringIncref ; if not a String, skip incref
         mov rsi, qword ptr [r14]                                 ; dereference string to get to reference count
         cmp rsi, 0                                               ; compare string reference count to 0
@@ -17810,7 +18107,7 @@ func$_stringify:
       mov rcx, 002h                                              ; internal argument 1: number of actual arguments
       call func$append                                           ; jump to subroutine
       add rsp, 050h                                              ; release shadow space and arguments (result in stack pointer)
-      ; Line 523: i += 1;
+      ; Line 544: i += 1;
       mov rbx, qword ptr [rsp + 068h]                            ; make a copy of i's value in case it changes before we use it
       mov rsi, qword ptr [rsp + 060h]                            ; make a copy of i's type in case it changes before we use it
       cmp rsi, 000h                                              ; compare type of copy of i to <sentinel>
@@ -17821,7 +18118,7 @@ func$_stringify:
         ; Call __print with 1 arguments
         mov rdi, offset operandTypeCheckFailureMessage           ; reading operandTypeCheckFailureMessage for push
         push rdi                                                 ; value of argument #1 (operandTypeCheckFailureMessage)
-        push 01eh                                                ; type of argument #1 (String'30)
+        push 01fh                                                ; type of argument #1 (String'31)
         lea r12, qword ptr [rsp + 020h]                          ; load address of return value's value
         push r12                                                 ; internal argument 6: pointer to return value slot's value
         lea r12, qword ptr [rsp + 020h]                          ; load address of return value's type
@@ -17836,7 +18133,7 @@ func$_stringify:
         ;  - exit(1)
         ; Call exit with 1 arguments
         push 001h                                                ; value of argument #1 (1 (integer))
-        push 01dh                                                ; type of argument #1 (Integer'29)
+        push 01eh                                                ; type of argument #1 (Integer'30)
         lea r13, qword ptr [rsp + 020h]                          ; load address of return value's value
         push r13                                                 ; internal argument 6: pointer to return value slot's value
         lea r13, qword ptr [rsp + 020h]                          ; load address of return value's type
@@ -17852,24 +18149,12 @@ func$_stringify:
       mov r10, rbx                                               ; assign value of copy of i to value of += operator result
       add r10, 001h                                              ; += operator
       mov qword ptr [rsp + 068h], r10                            ; store value
-      mov qword ptr [rsp + 060h], 01dh                           ; store type (Integer'29)
-      ; Decrement reference count for copy of old (static type: WhateverList'39) via decrefMaybeGC
+      mov qword ptr [rsp + 060h], 01eh                           ; store type (Integer'30)
+      ; Decrement reference count for copy of new (static type: StringList'33) via decrefMaybeGC
       sub rsp, 20h                                               ; allocate shadow space for decref function
-      mov rdx, qword ptr [rsp + 070h]                            ; arg #2: copy of old's type
-      mov rcx, qword ptr [rsp + 078h]                            ; arg #1: copy of old's value
+      mov rdx, qword ptr [rsp + 068h]                            ; arg #2: copy of new's type
+      mov rcx, qword ptr [rsp + 050h]                            ; arg #1: copy of new's value
       call decrefMaybeGC                                         ; call decref
-      add rsp, 20h                                               ; free shadow space for decref
-      ; Decrement reference count for copy of old (static type: WhateverList'39) via decrefMaybeGC
-      sub rsp, 20h                                               ; allocate shadow space for decref function
-      mov rdx, qword ptr [rsp + 038h]                            ; arg #2: copy of old's type
-      mov rcx, qword ptr [rsp + 060h]                            ; arg #1: copy of old's value
-      call decrefMaybeGC                                         ; call decref
-      add rsp, 20h                                               ; free shadow space for decref
-      ; Decrement reference count for _stringify return value (static type: String'30) via decrefMaybeString
-      sub rsp, 20h                                               ; allocate shadow space for decref function
-      mov rdx, qword ptr [rsp + 040h]                            ; arg #2: _stringify return value's type
-      mov rcx, qword ptr [rsp + 048h]                            ; arg #1: _stringify return value's value
-      call decrefMaybeString                                     ; call decref
       add rsp, 20h                                               ; free shadow space for decref
       ; Decrement reference count for copy of copy of old[copy of i] (static type: Whatever) via decrefMaybeGCOrString
       sub rsp, 20h                                               ; allocate shadow space for decref function
@@ -17877,15 +18162,27 @@ func$_stringify:
       mov rcx, r14                                               ; arg #1: copy of copy of old[copy of i]'s value
       call decrefMaybeGCOrString                                 ; call decref
       add rsp, 20h                                               ; free shadow space for decref
-      ; Decrement reference count for copy of new (static type: StringList'32) via decrefMaybeGC
+      ; Decrement reference count for copy of old (static type: WhateverList'40) via decrefMaybeGC
       sub rsp, 20h                                               ; allocate shadow space for decref function
-      mov rdx, qword ptr [rsp + 068h]                            ; arg #2: copy of new's type
-      mov rcx, qword ptr [rsp + 050h]                            ; arg #1: copy of new's value
+      mov rdx, qword ptr [rsp + 038h]                            ; arg #2: copy of old's type
+      mov rcx, qword ptr [rsp + 060h]                            ; arg #1: copy of old's value
+      call decrefMaybeGC                                         ; call decref
+      add rsp, 20h                                               ; free shadow space for decref
+      ; Decrement reference count for _stringify return value (static type: String'31) via decrefMaybeString
+      sub rsp, 20h                                               ; allocate shadow space for decref function
+      mov rdx, qword ptr [rsp + 040h]                            ; arg #2: _stringify return value's type
+      mov rcx, qword ptr [rsp + 048h]                            ; arg #1: _stringify return value's value
+      call decrefMaybeString                                     ; call decref
+      add rsp, 20h                                               ; free shadow space for decref
+      ; Decrement reference count for copy of old (static type: WhateverList'40) via decrefMaybeGC
+      sub rsp, 20h                                               ; allocate shadow space for decref function
+      mov rdx, qword ptr [rsp + 070h]                            ; arg #2: copy of old's type
+      mov rcx, qword ptr [rsp + 078h]                            ; arg #1: copy of old's value
       call decrefMaybeGC                                         ; call decref
       add rsp, 20h                                               ; free shadow space for decref
       jmp func$_stringify$Stringify$if$6$while$top               ; return to top of while
     func$_stringify$Stringify$if$6$while$bottom:                 ; bottom of while
-    ; Line 525: return concat('[', join(new, ', '), ']');
+    ; Line 546: return concat('[', join(new, ', '), ']');
     mov r12, qword ptr [rsp + 088h]                              ; make a copy of new's value in case it changes before we use it
     mov r13, qword ptr [rsp + 080h]                              ; make a copy of new's type in case it changes before we use it
     ; increment reference count for copy of new if necessary
@@ -17904,7 +18201,7 @@ func$_stringify:
     mov qword ptr [rsp + 068h], r12                              ; move copy of new's value out of r12
     mov r12, offset string$35                                    ; reading string for push
     push r12                                                     ; value of argument #2 (string)
-    push 01eh                                                    ; type of argument #2 (String'30)
+    push 01fh                                                    ; type of argument #2 (String'31)
     push qword ptr [rsp + 078h]                                  ; value of argument #1 (copy of new)
     push r13                                                     ; type of argument #1
     mov qword ptr [rsp + 078h], r13                              ; move copy of new's type out of r13
@@ -17922,12 +18219,12 @@ func$_stringify:
     ; Call concat with 3 arguments
     mov r10, offset string$36                                    ; reading string for push
     push r10                                                     ; value of argument #3 (string)
-    push 01eh                                                    ; type of argument #3 (String'30)
+    push 01fh                                                    ; type of argument #3 (String'31)
     push qword ptr [rsp + 070h]                                  ; value of argument #2 (join return value)
     push qword ptr [rsp + 068h]                                  ; type of argument #2
     mov rbx, offset string$34                                    ; reading string for push
     push rbx                                                     ; value of argument #1 (string)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rsi, qword ptr [rsp + 078h]                              ; load address of return value's value
     push rsi                                                     ; internal argument 6: pointer to return value slot's value
     lea rsi, qword ptr [rsp + 078h]                              ; load address of return value's type
@@ -17947,7 +18244,7 @@ func$_stringify:
       ; Call __print with 1 arguments
       mov rdi, offset returnValueTypeCheckFailureMessage         ; reading returnValueTypeCheckFailureMessage for push
       push rdi                                                   ; value of argument #1 (returnValueTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r12, qword ptr [rsp + 048h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 048h]                            ; load address of return value's type
@@ -17962,7 +18259,7 @@ func$_stringify:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r13, qword ptr [rsp + 048h]                            ; load address of return value's value
       push r13                                                   ; internal argument 6: pointer to return value slot's value
       lea r13, qword ptr [rsp + 048h]                            ; load address of return value's type
@@ -17982,7 +18279,7 @@ func$_stringify:
     mov r10, qword ptr [rbp + 028h]                              ; get pointer to return value type of _stringify into register to dereference it
     mov qword ptr [r10], r15                                     ; type of _stringify return value
     ; increment reference count for concat return value if necessary
-    cmp r15, 01eh                                                ; compare type of concat return value to String
+    cmp r15, 01fh                                                ; compare type of concat return value to String
     jne func$_stringify$Stringify$if$6$AfterStringIncref         ; if not a String, skip incref
       mov rbx, qword ptr [r14]                                   ; dereference string to get to reference count
       cmp rbx, 0                                                 ; compare string reference count to 0
@@ -17991,45 +18288,45 @@ func$_stringify:
       func$_stringify$Stringify$if$6$StringIncref:               ; real String
         inc qword ptr [r14]                                      ; increment reference count of concat return value
     func$_stringify$Stringify$if$6$AfterStringIncref:            ; after String incref
-    ; Decrement reference count for old variable (static type: WhateverList'39) via decrefMaybeGC
-    sub rsp, 20h                                                 ; allocate shadow space for decref function
-    mov rdx, qword ptr [rsp + 090h]                              ; arg #2: old variable's type
-    mov rcx, qword ptr [rsp + 098h]                              ; arg #1: old variable's value
-    call decrefMaybeGC                                           ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
-    ; Decrement reference count for join return value (static type: String'30) via decrefMaybeString
-    sub rsp, 20h                                                 ; allocate shadow space for decref function
-    mov rdx, qword ptr [rsp + 070h]                              ; arg #2: join return value's type
-    mov rcx, qword ptr [rsp + 080h]                              ; arg #1: join return value's value
-    call decrefMaybeString                                       ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
-    ; Decrement reference count for _listConstructor return value (static type: WhateverList'39) via decrefMaybeGC
-    sub rsp, 20h                                                 ; allocate shadow space for decref function
-    mov rdx, qword ptr [rsp + 0b0h]                              ; arg #2: _listConstructor return value's type
-    mov rcx, qword ptr [rsp + 0b8h]                              ; arg #1: _listConstructor return value's value
-    call decrefMaybeGC                                           ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
-    ; Decrement reference count for new variable (static type: StringList'32) via decrefMaybeGC
-    sub rsp, 20h                                                 ; allocate shadow space for decref function
-    mov rdx, qword ptr [rsp + 0a0h]                              ; arg #2: new variable's type
-    mov rcx, qword ptr [rsp + 0a8h]                              ; arg #1: new variable's value
-    call decrefMaybeGC                                           ; call decref
-    add rsp, 20h                                                 ; free shadow space for decref
-    ; Decrement reference count for copy of new (static type: StringList'32) via decrefMaybeGC
+    ; Decrement reference count for copy of new (static type: StringList'33) via decrefMaybeGC
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 078h]                              ; arg #2: copy of new's type
     mov rcx, qword ptr [rsp + 088h]                              ; arg #1: copy of new's value
     call decrefMaybeGC                                           ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
-    ; Decrement reference count for concat return value (static type: String'30) via decrefMaybeString
+    ; Decrement reference count for join return value (static type: String'31) via decrefMaybeString
+    sub rsp, 20h                                                 ; allocate shadow space for decref function
+    mov rdx, qword ptr [rsp + 070h]                              ; arg #2: join return value's type
+    mov rcx, qword ptr [rsp + 080h]                              ; arg #1: join return value's value
+    call decrefMaybeString                                       ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    ; Decrement reference count for old variable (static type: WhateverList'40) via decrefMaybeGC
+    sub rsp, 20h                                                 ; allocate shadow space for decref function
+    mov rdx, qword ptr [rsp + 090h]                              ; arg #2: old variable's type
+    mov rcx, qword ptr [rsp + 098h]                              ; arg #1: old variable's value
+    call decrefMaybeGC                                           ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    ; Decrement reference count for _listConstructor return value (static type: WhateverList'40) via decrefMaybeGC
+    sub rsp, 20h                                                 ; allocate shadow space for decref function
+    mov rdx, qword ptr [rsp + 0b0h]                              ; arg #2: _listConstructor return value's type
+    mov rcx, qword ptr [rsp + 0b8h]                              ; arg #1: _listConstructor return value's value
+    call decrefMaybeGC                                           ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
+    ; Decrement reference count for concat return value (static type: String'31) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, r15                                                 ; arg #2: concat return value's type
     mov rcx, r14                                                 ; arg #1: concat return value's value
     call decrefMaybeString                                       ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
+    ; Decrement reference count for new variable (static type: StringList'33) via decrefMaybeGC
+    sub rsp, 20h                                                 ; allocate shadow space for decref function
+    mov rdx, qword ptr [rsp + 0a0h]                              ; arg #2: new variable's type
+    mov rcx, qword ptr [rsp + 0a8h]                              ; arg #1: new variable's value
+    call decrefMaybeGC                                           ; call decref
+    add rsp, 20h                                                 ; free shadow space for decref
     jmp func$_stringify$epilog                                   ; return
   func$_stringify$if$continuation$6:                             ; end of if
-  ; Line 527: if (arg is __ListData) { ...
+  ; Line 548: if (arg is __ListData) { ...
   mov rsi, qword ptr [rbp + 038h]                                ; store arg's type in testByte value slot
   mov rax, rsi                                                   ; move testByte to testByte
   mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
@@ -18041,19 +18338,19 @@ func$_stringify:
   setc r13b                                                      ; store result in is expression result
   cmp r13, 000h                                                  ; compare is expression result to false
   je func$_stringify$if$continuation$7                           ; arg is __ListData
-    ; Line 528: return '<__ListData>';
+    ; Line 549: return '<__ListData>';
     mov r15, offset string$37                                    ; read second operand of mov (string) for MoveToDerefInstruction
     mov r10, qword ptr [rbp + 030h]                              ; get pointer to return value of _stringify into register to dereference it
     mov qword ptr [r10], r15                                     ; _stringify return value
     mov rbx, qword ptr [rbp + 028h]                              ; get pointer to return value type of _stringify into register to dereference it
-    mov qword ptr [rbx], 01eh                                    ; type of _stringify return value (String'30)
+    mov qword ptr [rbx], 01fh                                    ; type of _stringify return value (String'31)
     jmp func$_stringify$epilog                                   ; return
   func$_stringify$if$continuation$7:                             ; end of if
-  ; Line 530: __print('value cannot be stringified\n');
+  ; Line 551: __print('value cannot be stringified\n');
   ; Call __print with 1 arguments
   mov r12, offset string$38                                      ; reading string for push
   push r12                                                       ; value of argument #1 (string)
-  push 01eh                                                      ; type of argument #1 (String'30)
+  push 01fh                                                      ; type of argument #1 (String'31)
   lea r13, qword ptr [rsp + 0a8h]                                ; load address of return value's value
   push r13                                                       ; internal argument 6: pointer to return value slot's value
   lea r13, qword ptr [rsp + 0a8h]                                ; load address of return value's type
@@ -18065,10 +18362,10 @@ func$_stringify:
   mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
   call func$__print                                              ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
-  ; Line 531: exit(1);
+  ; Line 552: exit(1);
   ; Call exit with 1 arguments
   push 001h                                                      ; value of argument #1 (1)
-  push 01dh                                                      ; type of argument #1 (Integer'29)
+  push 01eh                                                      ; type of argument #1 (Integer'30)
   lea rbx, qword ptr [rsp + 0a8h]                                ; load address of return value's value
   push rbx                                                       ; internal argument 6: pointer to return value slot's value
   lea rbx, qword ptr [rsp + 0a8h]                                ; load address of return value's type
@@ -18081,7 +18378,7 @@ func$_stringify:
   call func$exit                                                 ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
   ; Implicit return from _stringify
-  mov rsi, 01bh                                                  ; store null's type in testByte value slot
+  mov rsi, 01ch                                                  ; store null's type in testByte value slot
   mov rax, rsi                                                   ; move testByte to testByte
   mov rdi, 002h                                                  ; read operand of mul (type table width in bytes) 
   mul rdi                                                        ; adjust to the relative start of that type's entry in the type table
@@ -18095,7 +18392,7 @@ func$_stringify:
     ; Call __print with 1 arguments
     mov r13, offset returnValueTypeCheckFailureMessage           ; reading returnValueTypeCheckFailureMessage for push
     push r13                                                     ; value of argument #1 (returnValueTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r14, qword ptr [rsp + 0a8h]                              ; load address of return value's value
     push r14                                                     ; internal argument 6: pointer to return value slot's value
     lea r14, qword ptr [rsp + 0a8h]                              ; load address of return value's type
@@ -18110,7 +18407,7 @@ func$_stringify:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea r15, qword ptr [rsp + 0a8h]                              ; load address of return value's value
     push r15                                                     ; internal argument 6: pointer to return value slot's value
     lea r15, qword ptr [rsp + 0a8h]                              ; load address of return value's type
@@ -18126,7 +18423,7 @@ func$_stringify:
   mov r10, qword ptr [rbp + 030h]                                ; get pointer to return value of _stringify into register to dereference it
   mov qword ptr [r10], 000h                                      ; _stringify return value
   mov rbx, qword ptr [rbp + 028h]                                ; get pointer to return value type of _stringify into register to dereference it
-  mov qword ptr [rbx], 01bh                                      ; type of _stringify return value (Null'27)
+  mov qword ptr [rbx], 01ch                                      ; type of _stringify return value (Null'28)
   func$_stringify$epilog: 
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
@@ -18181,7 +18478,7 @@ func$_println:
       ; Call __print with 1 arguments
       mov r14, offset parameterTypeCheckFailureMessage           ; reading parameterTypeCheckFailureMessage for push
       push r14                                                   ; value of argument #1 (parameterTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r15, qword ptr [rsp + 050h]                            ; load address of return value's value
       push r15                                                   ; internal argument 6: pointer to return value slot's value
       lea r15, qword ptr [rsp + 050h]                            ; load address of return value's type
@@ -18198,7 +18495,7 @@ func$_println:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r10, qword ptr [rsp + 050h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 050h]                            ; load address of return value's type
@@ -18218,12 +18515,12 @@ func$_println:
     jmp func$_println$varargTypeChecks$Loop                      ; return to top of loop
     func$_println$varargTypeChecks$TypesAllMatch:                ; after loop
     mov rax, qword ptr [rsp + 048h]                              ; restoring slots to previous scope state
-  ; Line 548: Boolean first = true;
+  ; Line 569: Boolean first = true;
   mov qword ptr [rsp + 050h], 001h                               ; value initialization of variable declaration for first variable (true)
-  mov qword ptr [rsp + 048h], 01ch                               ; type initialization of variable declaration for first variable (Boolean'28)
-  ; Line 549: Integer index = 0;
+  mov qword ptr [rsp + 048h], 01dh                               ; type initialization of variable declaration for first variable (Boolean'29)
+  ; Line 570: Integer index = 0;
   mov qword ptr [rsp + 040h], 000h                               ; value initialization of variable declaration for index variable (0)
-  mov qword ptr [rsp + 038h], 01dh                               ; type initialization of variable declaration for index variable (Integer'29)
+  mov qword ptr [rsp + 038h], 01eh                               ; type initialization of variable declaration for index variable (Integer'30)
   func$_println$while$top:                                       ; top of while
     mov r14, qword ptr [rsp + 040h]                              ; make a copy of index's value in case it changes before we use it
     mov r15, qword ptr [rsp + 038h]                              ; make a copy of index's type in case it changes before we use it
@@ -18236,7 +18533,7 @@ func$_println:
       ; Call __print with 1 arguments
       mov rdi, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push rdi                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rax, qword ptr [rsp + 040h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 040h]                            ; load address of return value's type
@@ -18252,7 +18549,7 @@ func$_println:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r12, qword ptr [rsp + 040h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 040h]                            ; load address of return value's type
@@ -18273,26 +18570,26 @@ func$_println:
     jne func$_println$while$body                                 ; while condition
     jmp func$_println$while$bottom                               ; break out of while
     func$_println$while$body:                                    ; start of while
-    ; Line 551: if (first == false) { ...
+    ; Line 572: if (first == false) { ...
     mov rbx, qword ptr [rsp + 050h]                              ; make a copy of first's value in case it changes before we use it
     mov rsi, qword ptr [rsp + 048h]                              ; make a copy of first's type in case it changes before we use it
     xor rdi, rdi                                                 ; zero value result of == (testing copy of first and false) to put the boolean in
     cmp rbx, 000h                                                ; values equal?
     sete dil                                                     ; put result in value result of == (testing copy of first and false)
-    mov rax, 01ch                                                ; value result of == (testing copy of first and false) is a Boolean'28
+    mov rax, 01dh                                                ; value result of == (testing copy of first and false) is a Boolean'29
     xor r12, r12                                                 ; zero type result of == (testing copy of first and false) to put the boolean in
-    cmp rsi, 01ch                                                ; types equal?
+    cmp rsi, 01dh                                                ; types equal?
     sete r12b                                                    ; put result in type result of == (testing copy of first and false)
-    mov r13, 01ch                                                ; type result of == (testing copy of first and false) is a Boolean'28
+    mov r13, 01dh                                                ; type result of == (testing copy of first and false) is a Boolean'29
     mov r14, rdi                                                 ; assign value of value result of == (testing copy of first and false) to value of == operator result
     and r14, r12                                                 ; && type temp and value temp
     cmp r14, 000h                                                ; compare == operator result to false
     je func$_println$while$if$continuation                       ; first == false
-      ; Line 552: __print(' ');
+      ; Line 573: __print(' ');
       ; Call __print with 1 arguments
       mov rbx, offset string$39                                  ; reading string for push
       push rbx                                                   ; value of argument #1 (string)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rsi, qword ptr [rsp + 040h]                            ; load address of return value's value
       push rsi                                                   ; internal argument 6: pointer to return value slot's value
       lea rsi, qword ptr [rsp + 040h]                            ; load address of return value's type
@@ -18307,7 +18604,7 @@ func$_println:
       add rsp, 040h                                              ; release shadow space and arguments (result in stack pointer)
       mov rcx, qword ptr [rsp + 020h]                            ; restoring slots to previous scope state
     func$_println$while$if$continuation:                         ; end of if
-    ; Line 554: __print(_stringify(parts[index]));
+    ; Line 575: __print(_stringify(parts[index]));
     mov r13, qword ptr [rsp + 040h]                              ; make a copy of index's value in case it changes before we use it
     mov r14, qword ptr [rsp + 038h]                              ; make a copy of index's type in case it changes before we use it
     cmp r14, 000h                                                ; compare type of copy of index to <sentinel>
@@ -18318,7 +18615,7 @@ func$_println:
       ; Call __print with 1 arguments
       mov r15, offset subscriptTypeCheckFailureMessage           ; reading subscriptTypeCheckFailureMessage for push
       push r15                                                   ; value of argument #1 (subscriptTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r10, qword ptr [rsp + 040h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 040h]                            ; load address of return value's type
@@ -18334,7 +18631,7 @@ func$_println:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rbx, qword ptr [rsp + 040h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
       lea rbx, qword ptr [rsp + 040h]                            ; load address of return value's type
@@ -18360,7 +18657,7 @@ func$_println:
       ; Call __print with 1 arguments
       mov rdi, offset boundsFailureMessage                       ; reading boundsFailureMessage for push
       push rdi                                                   ; value of argument #1 (boundsFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea rax, qword ptr [rsp + 040h]                            ; load address of return value's value
       push rax                                                   ; internal argument 6: pointer to return value slot's value
       lea rax, qword ptr [rsp + 040h]                            ; load address of return value's type
@@ -18376,7 +18673,7 @@ func$_println:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea r12, qword ptr [rsp + 040h]                            ; load address of return value's value
       push r12                                                   ; internal argument 6: pointer to return value slot's value
       lea r12, qword ptr [rsp + 040h]                            ; load address of return value's type
@@ -18409,7 +18706,7 @@ func$_println:
     jnc func$_println$while$AfterGCIncref                        ; if not a GarbageCollectable, skip incref
       inc qword ptr [r15]                                        ; increment reference count of copy of parts[copy of index]
     func$_println$while$AfterGCIncref:                           ; after GarbageCollectable incref
-    cmp r10, 01eh                                                ; compare type of copy of parts[copy of index] to String
+    cmp r10, 01fh                                                ; compare type of copy of parts[copy of index] to String
     jne func$_println$while$AfterStringIncref                    ; if not a String, skip incref
       mov r12, qword ptr [r15]                                   ; dereference string to get to reference count
       cmp r12, 0                                                 ; compare string reference count to 0
@@ -18448,10 +18745,10 @@ func$_println:
     mov rcx, 001h                                                ; internal argument 1: number of actual arguments
     call func$__print                                            ; jump to subroutine
     add rsp, 040h                                                ; release shadow space and arguments (result in stack pointer)
-    ; Line 555: first = false;
+    ; Line 576: first = false;
     mov qword ptr [rsp + 050h], 000h                             ; store value
-    mov qword ptr [rsp + 048h], 01ch                             ; store type (Boolean'28)
-    ; Line 556: index += 1;
+    mov qword ptr [rsp + 048h], 01dh                             ; store type (Boolean'29)
+    ; Line 577: index += 1;
     mov r13, qword ptr [rsp + 040h]                              ; make a copy of index's value in case it changes before we use it
     mov r14, qword ptr [rsp + 038h]                              ; make a copy of index's type in case it changes before we use it
     cmp r14, 000h                                                ; compare type of copy of index to <sentinel>
@@ -18463,7 +18760,7 @@ func$_println:
       mov qword ptr [rsp + 010h], r15                            ; move copy of parts[copy of index]'s value out of r15
       mov r15, offset operandTypeCheckFailureMessage             ; reading operandTypeCheckFailureMessage for push
       push r15                                                   ; value of argument #1 (operandTypeCheckFailureMessage)
-      push 01eh                                                  ; type of argument #1 (String'30)
+      push 01fh                                                  ; type of argument #1 (String'31)
       lea r10, qword ptr [rsp + 018h]                            ; load address of return value's value
       push r10                                                   ; internal argument 6: pointer to return value slot's value
       lea r10, qword ptr [rsp + 018h]                            ; load address of return value's type
@@ -18478,7 +18775,7 @@ func$_println:
       ;  - exit(1)
       ; Call exit with 1 arguments
       push 001h                                                  ; value of argument #1 (1 (integer))
-      push 01dh                                                  ; type of argument #1 (Integer'29)
+      push 01eh                                                  ; type of argument #1 (Integer'30)
       lea rbx, qword ptr [rsp + 018h]                            ; load address of return value's value
       push rbx                                                   ; internal argument 6: pointer to return value slot's value
       lea rbx, qword ptr [rsp + 018h]                            ; load address of return value's type
@@ -18495,14 +18792,14 @@ func$_println:
     mov r12, r13                                                 ; assign value of copy of index to value of += operator result
     add r12, 001h                                                ; += operator
     mov qword ptr [rsp + 040h], r12                              ; store value
-    mov qword ptr [rsp + 038h], 01dh                             ; store type (Integer'29)
-    ; Decrement reference count for copy of parts[copy of index] (static type: Anything'34) via decrefMaybeGCOrString
+    mov qword ptr [rsp + 038h], 01eh                             ; store type (Integer'30)
+    ; Decrement reference count for copy of parts[copy of index] (static type: Anything'35) via decrefMaybeGCOrString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 038h]                              ; arg #2: copy of parts[copy of index]'s type
     mov rcx, r15                                                 ; arg #1: copy of parts[copy of index]'s value
     call decrefMaybeGCOrString                                   ; call decref
     add rsp, 20h                                                 ; free shadow space for decref
-    ; Decrement reference count for _stringify return value (static type: String'30) via decrefMaybeString
+    ; Decrement reference count for _stringify return value (static type: String'31) via decrefMaybeString
     sub rsp, 20h                                                 ; allocate shadow space for decref function
     mov rdx, qword ptr [rsp + 048h]                              ; arg #2: _stringify return value's type
     mov rcx, qword ptr [rsp + 050h]                              ; arg #1: _stringify return value's value
@@ -18511,11 +18808,11 @@ func$_println:
     mov rcx, qword ptr [rsp + 020h]                              ; restoring slots to previous scope state
     jmp func$_println$while$top                                  ; return to top of while
   func$_println$while$bottom:                                    ; bottom of while
-  ; Line 558: __print('\n');
+  ; Line 579: __print('\n');
   ; Call __print with 1 arguments
   mov rsi, offset string$40                                      ; reading string for push
   push rsi                                                       ; value of argument #1 (string)
-  push 01eh                                                      ; type of argument #1 (String'30)
+  push 01fh                                                      ; type of argument #1 (String'31)
   lea rdi, qword ptr [rsp + 060h]                                ; load address of return value's value
   push rdi                                                       ; internal argument 6: pointer to return value slot's value
   lea rdi, qword ptr [rsp + 060h]                                ; load address of return value's type
@@ -18531,7 +18828,7 @@ func$_println:
   mov r15, qword ptr [rbp + 030h]                                ; get pointer to return value of _println into register to dereference it
   mov qword ptr [r15], 000h                                      ; _println return value
   mov r10, qword ptr [rbp + 028h]                                ; get pointer to return value type of _println into register to dereference it
-  mov qword ptr [r10], 01bh                                      ; type of _println return value (Null'27)
+  mov qword ptr [r10], 01ch                                      ; type of _println return value (Null'28)
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value
   ; Epilog
   add rsp, 060h                                                  ; free space for stack
@@ -18568,7 +18865,7 @@ func$test:
     ; Call __print with 1 arguments
     mov r10, offset parameterCountCheckFailureMessage            ; reading parameterCountCheckFailureMessage for push
     push r10                                                     ; value of argument #1 (parameterCountCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea rax, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rax                                                     ; internal argument 6: pointer to return value slot's value
     lea rax, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -18583,7 +18880,7 @@ func$test:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     lea rbx, qword ptr [rsp + 038h]                              ; load address of return value's value
     push rbx                                                     ; internal argument 6: pointer to return value slot's value
     lea rbx, qword ptr [rsp + 038h]                              ; load address of return value's type
@@ -18613,7 +18910,7 @@ func$test:
   func$test$AfterGCIncref:                                       ; after GarbageCollectable incref
   ; Call append with 2 arguments
   push 001h                                                      ; value of argument #2 (1)
-  push 01dh                                                      ; type of argument #2 (Integer'29)
+  push 01eh                                                      ; type of argument #2 (Integer'30)
   push rsi                                                       ; value of argument #1 (copy of x)
   push rdi                                                       ; type of argument #1
   mov qword ptr [rsp + 040h], rsi                                ; move copy of x's value out of rsi
@@ -18657,7 +18954,7 @@ func$test:
     ; Call __print with 1 arguments
     mov rsi, offset subroutineCallTypeCheckFailureMessage        ; reading subroutineCallTypeCheckFailureMessage for push
     push rsi                                                     ; value of argument #1 (subroutineCallTypeCheckFailureMessage)
-    push 01eh                                                    ; type of argument #1 (String'30)
+    push 01fh                                                    ; type of argument #1 (String'31)
     lea r9, qword ptr [rsp + 020h]                               ; load address of return value's value
     push r9                                                      ; internal argument 6: pointer to return value slot's value
     lea r9, qword ptr [rsp + 020h]                               ; load address of return value's type
@@ -18672,7 +18969,7 @@ func$test:
     ;  - exit(1)
     ; Call exit with 1 arguments
     push 001h                                                    ; value of argument #1 (1 (integer))
-    push 01dh                                                    ; type of argument #1 (Integer'29)
+    push 01eh                                                    ; type of argument #1 (Integer'30)
     mov qword ptr [rsp + 018h], rdi                              ; move copy of println's value out of rdi
     lea rdi, qword ptr [rsp + 020h]                              ; load address of return value's value
     push rdi                                                     ; internal argument 6: pointer to return value slot's value
@@ -18700,23 +18997,23 @@ func$test:
   mov r8, 000h                                                   ; internal argument 3: "this" pointer type
   mov rdx, 000h                                                  ; internal argument 2: closure pointer
   mov rcx, 001h                                                  ; internal argument 1: number of actual arguments
-  call rdi                                                       ; jump to subroutine
+  call qword ptr [rdi + 038h]                                    ; jump to subroutine
   add rsp, 040h                                                  ; release shadow space and arguments (result in stack pointer)
   ; Implicit return from test
   mov r15, qword ptr [rbp + 030h]                                ; get pointer to return value of test into register to dereference it
   mov qword ptr [r15], 000h                                      ; test return value
   mov r10, qword ptr [rbp + 028h]                                ; get pointer to return value type of test into register to dereference it
-  mov qword ptr [r10], 01bh                                      ; type of test return value (Null'27)
-  ; Decrement reference count for copy of x (static type: IntegerList'33) via decrefMaybeGC
-  sub rsp, 20h                                                   ; allocate shadow space for decref function
-  mov rdx, qword ptr [rsp + 048h]                                ; arg #2: copy of x's type
-  mov rcx, qword ptr [rsp + 040h]                                ; arg #1: copy of x's value
-  call decrefMaybeGC                                             ; call decref
-  add rsp, 20h                                                   ; free shadow space for decref
-  ; Decrement reference count for copy of x (static type: IntegerList'33) via decrefMaybeGC
+  mov qword ptr [r10], 01ch                                      ; type of test return value (Null'28)
+  ; Decrement reference count for copy of x (static type: IntegerList'34) via decrefMaybeGC
   sub rsp, 20h                                                   ; allocate shadow space for decref function
   mov rdx, r13                                                   ; arg #2: copy of x's type
   mov rcx, qword ptr [rsp + 038h]                                ; arg #1: copy of x's value
+  call decrefMaybeGC                                             ; call decref
+  add rsp, 20h                                                   ; free shadow space for decref
+  ; Decrement reference count for copy of x (static type: IntegerList'34) via decrefMaybeGC
+  sub rsp, 20h                                                   ; allocate shadow space for decref function
+  mov rdx, qword ptr [rsp + 048h]                                ; arg #2: copy of x's type
+  mov rcx, qword ptr [rsp + 040h]                                ; arg #1: copy of x's value
   call decrefMaybeGC                                             ; call decref
   add rsp, 20h                                                   ; free shadow space for decref
   mov rax, qword ptr [rbp + 030h]                                ; report address of return value

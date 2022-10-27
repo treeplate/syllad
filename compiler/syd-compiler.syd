@@ -100,10 +100,12 @@ fwdclassprop RegisterSlot CompiledStackFrameScope.stackPointer;
 
 // CompiledSubroutine
 fwdclassprop String CompiledSubroutine.label;
+fwdclassprop String CompiledSubroutine.functionPointerLabel;
 fwdclassprop String CompiledSubroutine.epilogLabel;
 fwdclassprop AbstractSubroutineTypeWithSpecificParameters CompiledSubroutine.type;
 fwdclassprop SlotNullableFunction CompiledSubroutine.inline;
 fwdclassprop DynamicSlot CompiledSubroutine.parameterCount;
+fwdclassprop NullFunction CompiledSubroutine.adoptSlot;
 
 // CompiledLibrary
 fwdclassprop CompilationEnvironment CompiledLibrary.compilationEnvironment;
@@ -117,6 +119,7 @@ fwdclassprop StringType CompiledIntrinsicsLibrary.coreStringType;
 fwdclassprop NullType CompiledIntrinsicsLibrary.coreNullType;
 fwdclassprop WhateverType CompiledIntrinsicsLibrary.coreWhateverType;
 fwdclassprop SystemType CompiledIntrinsicsLibrary.coreSystemType;
+fwdclassprop SubroutineCodeAddressType CompiledIntrinsicsLibrary.coreSubroutineCodeAddressType;
 fwdclassprop GarbageCollectableType CompiledIntrinsicsLibrary.coreGarbageCollectableType;
 fwdclassprop AnythingType CompiledIntrinsicsLibrary.coreAnythingType;
 fwdclassprop NullFunction CompiledIntrinsicsLibrary.generateScopes;
@@ -664,11 +667,12 @@ class SubroutineSlot extends CompileTimeLabelSlot {
   CompiledSubroutine subroutine;
 
   String labelValue() {
-    return subroutine.label;
+    return subroutine.functionPointerLabel;
   }
 
+  // Pointer to a function pointer block.
   Operand value(SlotContext scope) {
-    return CodeAddressOperand(labelValue());
+    return DataAddressOperand(labelValue());
   }
 
   Null constructor(CompiledSubroutine subroutineArg) {
@@ -850,6 +854,7 @@ class CompiledScope extends SlotContext {
     SubroutineSlot slot = SubroutineSlot(subroutine);
     identifiers.set(subroutine.name, slot);
     environment().addSubroutine(subroutine);
+    subroutine.adoptSlot(slot);
     return slot;
   }
 
@@ -981,22 +986,38 @@ class CompiledScope extends SlotContext {
   }
   
   // Caller should emit static and dynamic type checks on target.
-  Slot emitSubroutineCall(Slot target, SlotList arguments) {
+  Slot emitSubroutineCall(Slot target, SlotList arguments, SourceLocationListNullable sourceLocations) {
     assert(target.staticType.isSubtypeOf(environment().subroutineType), 'cannot call a non-function');
     emitInstruction(CommentInstruction(concat('Call ', target.debugName, ' with ', len(arguments), ' arguments')));
-    // xxxx statically check arguments are the right type if the types are known
+    CompilationEnvironment env = environment();
+    if (sourceLocations != null && target.staticType is AbstractSubroutineTypeWithSpecificParameters) {
+      TypeList argumentTypes = []:Type;
+      for (argument in arguments) {
+        append(argumentTypes, argument.staticType);
+      }
+      (target.staticType as AbstractSubroutineTypeWithSpecificParameters).verifyArguments(argumentTypes, sourceLocations!);
+    }
+    Slot codeAddress;
+    Boolean usingLabel;
     if (target is SubroutineSlot) {
+      // As an optimization, if we know the target precisely, we can pull out its slot and
+      // jump directly to it instead of dereferencing through the function pointer block.
       SlotNullable result = (target as SubroutineSlot).subroutine.inline(this, arguments);
       if (result != null) {
         return result;
       }
+      codeAddress = CodeLabelSlot(env.intrinsicsLibrary.coreSubroutineCodeAddressType, (target as SubroutineSlot).subroutine.label, concat('code address of ', target.debugName));
+      env.intrinsicsLibrary.coreSubroutineCodeAddressType.markConstructed();
+      usingLabel = true;
+    } else {
+      codeAddress = target;
+      usingLabel = false;
     }
-    Slot thisPointer = environment().intrinsicsLibrary.coreSentinel; // placeholder code
-    Slot closurePointer = environment().intrinsicsLibrary.coreSentinel; // placeholder code
-    Type returnType = environment().intrinsicsLibrary.coreAnythingType;
+    Slot thisPointer = env.intrinsicsLibrary.coreSentinel; // placeholder code
+    Slot closurePointer = env.intrinsicsLibrary.coreSentinel; // placeholder code
+    Type returnType = env.intrinsicsLibrary.coreAnythingType;
     if (target.staticType is AbstractSubroutineType) {
-      AbstractSubroutineType subroutineType = target.staticType as AbstractSubroutineType;
-      returnType = subroutineType.returnType;
+      returnType = (target.staticType as AbstractSubroutineType).returnType;
     }
     // If the type of the return value is one that can be reference counted, the callee will
     // increment the reference count before returning, and we must match that with a corresponding
@@ -1011,10 +1032,10 @@ class CompiledScope extends SlotContext {
     Integer argumentIndex = len(arguments) - 1;
     while (argumentIndex >= 0) {
       emitInstruction(PushInstruction(arguments[argumentIndex], concat('value of argument #', argumentIndex + 1, ' (', arguments[argumentIndex].debugName, ')')));
-      emitInstruction(PushTypeInstruction(arguments[argumentIndex], environment(), concat('type of argument #', argumentIndex + 1)));
+      emitInstruction(PushTypeInstruction(arguments[argumentIndex], env, concat('type of argument #', argumentIndex + 1)));
       argumentIndex -= 1;
     }
-    DynamicSlot temporarySlot = registerDynamicValue(environment().intrinsicsLibrary.coreIntegerType, rcNever, 'temporary slot');
+    DynamicSlot temporarySlot = registerDynamicValue(env.intrinsicsLibrary.coreIntegerType, rcNever, 'temporary slot');
     emitInstruction(MoveToSpecificOperandInstruction(memory, returnValue, false, 'allocate space for return value\'s value'));
     emitInstruction(PinSlotValueInstruction(returnValue));
     emitInstruction(LeaInstruction(temporarySlot, returnValue, 0, false, 'load address of return value\'s value'));
@@ -1024,7 +1045,7 @@ class CompiledScope extends SlotContext {
     emitInstruction(LeaTypeInstruction(temporarySlot, returnValue, false, 'load address of return value\'s type'));
     emitInstruction(PushInstruction(temporarySlot, 'internal argument 5: pointer to return value slot\'s type')); // (also does some RecordPushes)
     // TODO: "sub rsp, 8h; align to 16 byte boundary" XXX need to also implement this on callee side
-    emitInstruction(SubInstruction(stackFrame().stackPointer, environment().integer(0x20), stackFrame().stackPointer, 'allocate shadow space'));
+    emitInstruction(SubInstruction(stackFrame().stackPointer, env.integer(0x20), stackFrame().stackPointer, 'allocate shadow space'));
     emitInstruction(RecordPushesInstruction(4)); // ("fake" pushes from changing the stack pointer)
     emitInstruction(MoveToSpecificOperandInstruction(r9.bit, thisPointer, true, 'internal argument 4: "this" pointer'));
     //emitInstruction(PinSlotValueInstruction(thisPointer)); // TODO uncomment once we implement "this"
@@ -1032,14 +1053,18 @@ class CompiledScope extends SlotContext {
     //emitInstruction(PinSlotTypeInstruction(thisPointer)); // TODO uncomment once we implement "this"
     emitInstruction(MoveToSpecificOperandInstruction(rdx.bit, closurePointer, true, 'internal argument 2: closure pointer'));
     //emitInstruction(PinSlotValueInstruction(closurePointer)); // TODO uncomment once we implement closures
-    emitInstruction(MoveToSpecificOperandInstruction(rcx.bit, environment().integer(len(arguments)), true, 'internal argument 1: number of actual arguments'));
-    emitInstruction(CallInstruction(target, 'jump to subroutine'));
+    emitInstruction(MoveToSpecificOperandInstruction(rcx.bit, env.integer(len(arguments)), true, 'internal argument 1: number of actual arguments'));
+    if (usingLabel) {
+      emitInstruction(CallInstruction(codeAddress, 'jump to subroutine'));
+    } else {
+      emitInstruction(CallDerefInstruction(codeAddress, _subroutineCodePointer, 'jump to subroutine'));
+    }
     //emitInstruction(UnpinSlotValueInstruction(closurePointer)); // TODO uncomment once we implement closures
     //emitInstruction(UnpinSlotTypeInstruction(thisPointer)); // TODO uncomment once we implement "this"
     //emitInstruction(UnpinSlotValueInstruction(thisPointer)); // TODO uncomment once we implement "this"
     emitInstruction(UnpinSlotValueInstruction(returnValue));
     emitInstruction(UnpinSlotTypeInstruction(returnValue));
-    emitInstruction(AddInstruction(stackFrame().stackPointer, environment().integer(0x20 + 8 * 2 * len(arguments) + 16), stackFrame().stackPointer, 'release shadow space and arguments'));
+    emitInstruction(AddInstruction(stackFrame().stackPointer, env.integer(0x20 + 8 * 2 * len(arguments) + 16), stackFrame().stackPointer, 'release shadow space and arguments'));
     emitInstruction(RecordPopsInstruction(len(arguments) * 2 + 6)); // arguments, return value (and type), and shadow space
     return returnValue;
   }
@@ -1053,12 +1078,12 @@ class CompiledScope extends SlotContext {
     block.emitInstruction(CommentInstruction(concat(' - print(', errorMessage.debugName, ')')));
     block.references.add(printHandle);
     block.references.add(errorMessage);
-    block.emitSubroutineCall(printHandle, [ errorMessage ]);
+    block.emitSubroutineCall(printHandle, [ errorMessage ], null);
     Slot exitHandle = environment().intrinsicsLibrary.coreExit;
     Slot failureExitCode = environment().integer(0x01);
     block.emitInstruction(CommentInstruction(concat(' - exit(1)')));
     block.references.add(exitHandle);
-    block.emitSubroutineCall(exitHandle, [ failureExitCode ]);
+    block.emitSubroutineCall(exitHandle, [ failureExitCode ], null);
     return block;
   }
 
@@ -1346,6 +1371,42 @@ class CompiledSubroutine extends CompiledStackFrameScope {
   Null markUsed() {
     super.markUsed();
     type.markConstructed();
+  }
+
+  SubroutineSlot slot;
+  String functionPointerLabel;
+
+  Null adoptSlot(SubroutineSlot slotArg) {
+    slot = slotArg;
+    environment().intrinsicsLibrary.coreSubroutineCodeAddressType.markConstructed();
+  }
+
+  Null allocateSlots(Assembler assembler) {
+    super.allocateSlots(assembler);
+    functionPointerLabel = environment().generateLabel(concat(labelPrefix(), '$', 'functionPointer'));
+    assembler.addData(
+      functionPointerLabel,
+      [
+        'dq 1',
+        'dq 2',
+        'dq 0',
+        'dq -1',
+        concat('dq ', environment().intrinsicsLibrary.coreNullType.code),
+        'dq 0',
+        concat('dq ', environment().intrinsicsLibrary.coreSubroutineCodeAddressType.code),
+        concat('dq ', label),
+      ]:String,
+      [
+        'reference count',
+        'number of fields in function pointer block',
+        'scratch space for garbage collector',
+        'block list entry pointer (invalid for function pointers as they are not in the block list)',
+        'type of receiver (Null)',
+        'pointer to receiver (null)',
+        'type of code pointer (Integer)',
+        'code pointer',
+      ]:StringNullable,
+    );
   }
 
   String labelPrefix() {
@@ -1979,7 +2040,7 @@ class DecrefCompiledInternalProcedure extends CompiledInternalProcedure {
       Slot pointer = registerDynamicValue(environment().intrinsicsLibrary.coreIntegerType, rcNever, concat(value.debugName, ' cast to integer'));
       emitInstruction(MoveInstruction(pointer, value, 'copy value of value to pointer'));  
       emitInstruction(SetTypeInstruction(pointer, environment().intrinsicsLibrary.coreIntegerType));  
-      emitSubroutineCall(lookupIntrinsic(environment().freeIntrinsicName), [pointer]);
+      emitSubroutineCall(lookupIntrinsic(environment().freeIntrinsicName), [pointer], null);
     }
     emitInstruction(LabelInstruction(decrefEndLabel, 'end of function'));
     super.prepareInstructions();
@@ -2012,6 +2073,7 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
   RootClassType coreClassType;
   ClosureType coreClosureType;
   SystemType coreSystemType;
+  SubroutineCodeAddressType coreSubroutineCodeAddressType;
   SentinelType coreSentinelType;
 
   ImmediateSlot coreSentinel;
@@ -2078,6 +2140,7 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
     coreClosureType = ClosureType(environment);
     coreSystemType = SystemType(environment);
     coreSentinelType = SentinelType(environment);
+    coreSubroutineCodeAddressType = SubroutineCodeAddressType(environment);
     // built-in types
     coreAnythingType = AnythingType(environment);
     declareType(coreAnythingType);

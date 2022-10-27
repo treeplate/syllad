@@ -332,6 +332,7 @@ class AbstractSubroutineType extends Type {
     return (other is AbstractSubroutineType && returnType.isSubtypeOf((other as AbstractSubroutineType).returnType))
         || other is AnythingType
         || other is WhateverType
+        || other is GarbageCollectableType
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
@@ -365,6 +366,10 @@ class AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineTyp
     abstract();
   }
 
+  Null verifyArguments(TypeList argumentTypes, SourceLocationList sourceLocations) {
+    abstract();
+  }
+
   Null constructor(TypeRegistry typeRegistryArg, Type returnTypeArg) {
     super.constructor(typeRegistryArg, returnTypeArg);
     append(typeRegistryArg.typesOfSubroutinesWithSpecificParameters, this);
@@ -380,6 +385,16 @@ class SubroutineTypeWithVarArgs extends AbstractSubroutineTypeWithSpecificParame
 
   Boolean equals(Type returnTypeArg, TypeList parameterTypesArg, Boolean isVarArgsArg) {
     return isVarArgsArg && returnTypeArg == returnType && len(parameterTypesArg) == 1 && parameterTypesArg[0] == parameterType;
+  }
+
+  Null verifyArguments(TypeList argumentTypes, SourceLocationList sourceLocations) {
+    Integer index = 0;
+    for (type in argumentTypes) {
+      if (!type.isSubtypeOf(parameterType)) {
+        throw(concat('Argument ', index + 1, ' has a static type of ', type.name, ' but expected ', parameterType.name, ' at ', sourceLocations[index]));
+      }
+      index += 1;
+    }
   }
 
   Null constructor(TypeRegistry typeRegistryArg, Type returnTypeArg, Type parameterTypeArg) {
@@ -410,6 +425,16 @@ class SubroutineTypeWithSpecificParameters extends AbstractSubroutineTypeWithSpe
       index += 1;
     }
     return true;
+  }
+
+  Null verifyArguments(TypeList argumentTypes, SourceLocationList sourceLocations) {
+    Integer index = 0;
+    for (type in argumentTypes) {
+      if (!type.isSubtypeOf(parameterTypes[index])) {
+        throw(concat('Argument ', index + 1, ' has a static type of ', type.name, ' but expected ', parameterTypes[index].name, ' at ', sourceLocations[index]));
+      }
+      index += 1;
+    }
   }
 
   Null constructor(TypeRegistry typeRegistryArg, Type returnTypeArg, TypeList parameterTypesArg) {
@@ -643,6 +668,21 @@ class SystemType extends Type {
     super.constructor(typeRegistryArg, '<system>');
   }
 }
+
+class SubroutineCodeAddressType extends Type {
+  Boolean isSubtypeOf(Type other) {
+    return other is SubroutineCodeAddressType;
+  }
+
+  Boolean neverReferenceCounted() {
+    return true;
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg) {
+    super.constructor(typeRegistryArg, '<subroutine code address>');
+  }
+}
+
 
 class TypeRegistry extends Object {
   TypeList types = []:Type;

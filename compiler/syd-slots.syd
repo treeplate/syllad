@@ -253,3 +253,20 @@ class ImmediateDataLabelSlot extends CompileTimeLabelSlot {
     label = labelArg;
   }
 }
+
+class CodeLabelSlot extends CompileTimeLabelSlot {
+  String label;
+
+  String labelValue() {
+    return label;
+  }
+
+  Operand value(SlotContext scope) {
+    return CodeAddressOperand(labelValue());
+  }
+
+  Null constructor(Type typeArg, String labelArg, String debugNameArg) {
+    super.constructor(typeArg, debugNameArg);
+    label = labelArg;
+  }
+}

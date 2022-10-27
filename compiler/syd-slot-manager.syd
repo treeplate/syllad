@@ -30,7 +30,9 @@ Integer _gcBlockHeaderEntryPointer = 3 * 8;
 Integer _gcBlockData = 4 * 8;
 Integer _listBlockSize = _gcBlockData + 0 * 16 + 8;
 Integer _listBlockData = _gcBlockData + 1 * 16 + 8;
-
+Integer _subroutineReceiverType = _gcBlockData + 0 * 16;
+Integer _subroutineReceiverPointer = _gcBlockData + 0 * 16 + 8;
+Integer _subroutineCodePointer = _gcBlockData + 1 * 16 + 8;
 
 // Managed Operand
 // TODO: this really should be an AssignedOperand or something like that, it's slots that are managed not operands
