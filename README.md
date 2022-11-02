@@ -1,7 +1,6 @@
 
 # SYLLAD
 Whitespace is purely cosmetic, except for separating identifiers and/or integers.
-What happens when the program is preceded by = is implementation-dependent.
 ```
 <import>*
 <statement>*
