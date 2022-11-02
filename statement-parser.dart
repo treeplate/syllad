@@ -74,6 +74,12 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
   );
 
   List<Statement> block = parseBlock(tokens, newScope);
+  if (!(newScope.types['constructor']
+          ?.isSubtypeOf(GenericFunctionValueType(nullType, tokens.file)) ??
+      true)) {
+    throw FileInvalid(
+        'Bad constructor type: ${newScope.types['constructor']} ${formatCursorPositionFromTokens(tokens)}');
+  }
   if (!hasFwdDecl) {
     if (supertype != null) {
       for (MapEntry<String, ValueType> property in newScope.types.entries) {
@@ -101,6 +107,9 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
       }
     }
   scope.classes[name] = newScope;
+  if (hasFwdDecl) {
+    scope.directVars.remove(name); // will be re-added in line 107
+  }
   scope.newVar(
     name,
     type.recursiveLookup('constructor') is FunctionValueType?
@@ -133,7 +142,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         Expression expr = parseExpression(tokens, scope);
         if (!expr.type.isSubtypeOf(integerType)) {
           throw FileInvalid(
-            "attempted $ident1${subscripts.map((e) => '[$e]')}[$expr] but $expr was not an integer ${formatCursorPositionFromTokens(tokens)}",
+            "attempted $ident1${subscripts.map((e) => '[$e]').join('')}[$expr] but $expr was not an integer ${formatCursorPositionFromTokens(tokens)}",
           );
         }
         subscripts.add(expr);
@@ -422,7 +431,8 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           ),
           typeParams,
           tokens.file,
-        );
+        )
+        ..directVars.addAll([ident2, ...params.map((e) => e.name)]);
       List<Statement> body = parseBlock(tokens, tv);
       tokens.expectChar(TokenType.closeBrace);
       scope.newVar(
@@ -622,9 +632,17 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       ClassValueType x = ClassValueType(cln, spt, props, tokens.file);
       spt.subtypes.add(x);
       x.properties.types['this'] = x;
-      scope.types[cln] =
-          (constructorType ?? spt.properties.types['constructor']!)
-              .withReturnType(x, tokens.file);
+      scope.newVar(
+        cln,
+        (constructorType ??
+                spt.properties.types['constructor'] ??
+                FunctionValueType(nullType, [], tokens.file))
+            .withReturnType(x, tokens.file),
+        tokens.current.line,
+        tokens.current.col,
+        tokens.workspace,
+        tokens.file,
+      );
       tokens.moveNext();
       tokens.expectChar(TokenType.endOfStatement);
       scope.classes[cln] = x.properties;

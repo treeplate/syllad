@@ -225,7 +225,7 @@ class TypeValidator {
 
 void throwWithStack(Scope scope, List<String> stack, String value) {
   ValueWrapper thrower = scope.getVar(
-      'throw', -2, 0, 'in throwWithStack', 'while throwing $value');
+      'throw', -2, 0, 'in throwWithStack', 'while throwing $value', null);
   thrower._value([ValueWrapper(stringType, value, 'string to throw')], stack);
 }
 
@@ -303,8 +303,8 @@ class NamespaceScope implements Scope {
   ClassValueType? get declaringClass => deferTarget.declaringClass;
 
   @override
-  ValueWrapper getVar(
-      String name, int line, int column, String workspace, String file) {
+  ValueWrapper getVar(String name, int line, int column, String workspace,
+      String file, TypeValidator? validator) {
     ValueWrapper? val = internal_getVar(name);
     if (val == null) throw FileInvalid('TODO');
     return val;
@@ -666,12 +666,15 @@ class Scope {
     return null;
   }
 
-  ValueWrapper getVar(
-      String name, int line, int column, String workspace, String file) {
+  ValueWrapper getVar(String name, int line, int column, String workspace,
+      String file, TypeValidator? validator) {
     var val = internal_getVar(name);
     return val ??
-        (throw FileInvalid(
-            "$name nonexistent ${formatCursorPosition(line, column, workspace, file)}"));
+        (validator?.classes.containsKey(name) ?? false
+            ? (throw FileInvalid(
+                "class $name has not yet been defined ${formatCursorPosition(line, column, workspace, file)}"))
+            : (throw FileInvalid(
+                "$name nonexistent ${formatCursorPosition(line, column, workspace, file)}")));
   }
 
   void addParent(Scope scope) {

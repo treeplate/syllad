@@ -135,9 +135,10 @@ class FunctionStatement extends Statement {
         }
       } else {
         funscope.values[params.first.name] = ValueWrapper(
-            ListValueType(sharedSupertype, 'internal'),
-            List.unmodifiable(a),
-            'varargs');
+          ListValueType(sharedSupertype, 'internal'),
+          List.unmodifiable(a),
+          'varargs',
+        );
       }
       for (Statement statement in body) {
         StatementResult value = statement.run(funscope);
@@ -480,9 +481,9 @@ class ClassStatement extends Statement {
           [],
           scope
               .getVar('~$superclass~methods', line, col, 'interr',
-                  'TODO ($file) TODO')
+                  'TODO ($file) TODO', null)
               .valueC(scope, scope.stack, line, col, workspace, file)
-              .getVar('constructor', line, col, 'td', 'TODO TODO'),
+              .getVar('constructor', line, col, 'td', 'TODO TODO', null),
           line,
           col,
           workspace,
@@ -498,7 +499,7 @@ class ClassStatement extends Statement {
                 ValueType thisType) {
           if (superclass != null) {
             scope
-                    .getVar('~$superclass', line, col, workspace, 'TODO')
+                    .getVar('~$superclass', line, col, workspace, 'TODO', null)
                     .valueC(scope, scope.stack, line, col, workspace, file)(
                 <ValueWrapper>[],
                 stack + ['~$superclass'],
@@ -566,7 +567,7 @@ class ClassStatement extends Statement {
             thisScope.values['className'] =
                 ValueWrapper(stringType, name, 'className');
             scope
-                    .getVar('~$name', line, col, 'tdo', 'TODO')
+                    .getVar('~$name', line, col, 'tdo', 'TODO', null)
                     .valueC(scope, scope.stack, line, col, workspace, file)(
                 <ValueWrapper>[], stack + ['~$name'], thisScope, type);
             (thisScope

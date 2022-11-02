@@ -69,7 +69,7 @@ class GetExpr<T> extends Expression {
 
   @override
   eval(Scope scope) {
-    return scope.getVar(name, line, col, workspace, file);
+    return scope.getVar(name, line, col, workspace, file, typeValidator);
   }
 
   String toString() => name;
@@ -220,7 +220,7 @@ class MemberAccessExpression extends Expression {
     }
     Scope thisScope =
         thisScopeWrapper.valueC(scope, scope.stack, line, col, workspace, file);
-    return thisScope.getVar(b, line, col, workspace, file);
+    return thisScope.getVar(b, line, col, workspace, file, null);
   }
 
   String toString() => "$a.$b";
@@ -508,8 +508,8 @@ class SuperExpression extends Expression {
   @override
   ValueWrapper eval(Scope scope) {
     ClassValueType classType = scope.currentClass;
-    ValueWrapper thisScopeVW =
-        scope.getVar('this', line, col, 'interr', '<internal error: no this>');
+    ValueWrapper thisScopeVW = scope.getVar(
+        'this', line, col, 'interr', '<internal error: no this>', tv);
     Scope thisScope =
         thisScopeVW.valueC(scope, scope.stack, line, col, workspace, file);
     ClassValueType parent = classType;
@@ -518,10 +518,11 @@ class SuperExpression extends Expression {
       parent = parent.parent as ClassValueType;
       superMethods = scope
           .getVar('~${parent.name}~methods', line, col, 'interr',
-              '<internal error: no methods>')
+              '<internal error: no methods>', tv)
           .valueC(scope, scope.stack, line, col, workspace, file);
     } while (!superMethods.values.containsKey(member));
-    ValueWrapper x = superMethods.getVar(member, line, col, workspace, file);
+    ValueWrapper x =
+        superMethods.getVar(member, line, col, workspace, file, tv);
     return ValueWrapper(
         x.typeC(scope, scope.stack, line, col, workspace, file),
         (List<ValueWrapper> args2, List<String> stack2) => (x.valueC(
