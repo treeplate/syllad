@@ -1,0 +1,1 @@
+String input = readFile('day1.in');

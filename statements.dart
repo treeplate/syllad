@@ -44,9 +44,11 @@ class ImportStatement extends Statement {
 
   @override
   StatementResult run(Scope scope) {
-    List<String> newStack = scope.stack.toList();
-    newStack[newStack.length - 1] +=
-        " ${formatCursorPosition(line, col, workspace, currentFilename)}";
+    List<LazyString> newStack = scope.stack.toList();
+    if (newStack.last is NotLazyString) {
+      newStack[newStack.length - 1] = CursorPositionLazyString(
+          (newStack.last as NotLazyString).str, line, col, workspace, filename);
+    }
     scope.addParent((filesRan[filename] ??
         (filesRan[filename] =
             runProgram(file, filename, scope.intrinsics, newStack))));
@@ -100,7 +102,7 @@ class FunctionStatement extends Statement {
   StatementResult run(Scope scope) {
     scope.values[name] = ValueWrapper(
         FunctionValueType(returnType, params.map((e) => e.type), file),
-        (List<ValueWrapper> a, List<String> stack,
+        (List<ValueWrapper> a, List<LazyString> stack,
             [Scope? thisScope, ValueType? thisType]) {
       //print("$name called...");
       int i = 0;
@@ -114,15 +116,11 @@ class FunctionStatement extends Statement {
       } else {
         fromClass = '${scope.declaringClass!.name}.';
       }
-      Scope funscope = Scope(
+      Scope funscope = Scope(false,
           parent: thisScope ?? scope,
-          stack: stack + ["$fromClass$name"],
+          stack: stack + [NotLazyString("$fromClass$name")],
           declaringClass: scope.declaringClass,
-          debugName: "$fromClass$name");
-      if (thisScope != null) {
-        funscope.values['this'] =
-            ValueWrapper(thisType!, thisScope, 'this (funstatement)');
-      }
+          debugName: NotLazyString("$fromClass$name"));
       if (params is List) {
         for (ValueWrapper aSub in a) {
           if (!aSub
@@ -150,7 +148,7 @@ class FunctionStatement extends Statement {
                 .typeC(funscope, funscope.stack, line, col, workspace, file)
                 .isSubtypeOf(returnType)) return value;
             throw FileInvalid(
-                "You cannot return a ${value.value!.typeC(funscope, funscope.stack, line, col, workspace, file)} (${value.value!.valueC(funscope, funscope.stack, line, col, workspace, file)}) from $fromClass$name, which is supposed to return a $returnType!     ${formatCursorPosition(line, col, workspace, file)}\n${funscope.stack.reversed.join('\n')} ");
+                "You cannot return a ${value.value!.typeC(funscope, funscope.stack, line, col, workspace, file)} (${value.value!}) from $fromClass$name, which is supposed to return a $returnType!     ${formatCursorPosition(line, col, workspace, file)}\n${funscope.stack.reversed.join('\n')} ");
           case StatementResultType.breakWhile:
             throw FileInvalid("Break outside while");
           case StatementResultType.continueWhile:
@@ -188,10 +186,12 @@ class WhileStatement extends Statement {
   StatementResult run(Scope scope) {
     Scope whileScope = createParentScope
         ? Scope(
+            false,
             parent: scope,
             stack: scope.stack,
-            debugName:
-                'while loop ${formatCursorPosition(line, col, workspace, file)}')
+            debugName: CursorPositionLazyString(
+                'while loop', line, col, workspace, file),
+          )
         : scope;
     while (cond
         .eval(scope)
@@ -239,10 +239,16 @@ class IfStatement extends Statement {
         .eval(scope)
         .valueC(scope, scope.stack, line, col, workspace, file)) {
       Scope ifScope = Scope(
+        false,
         parent: scope,
         stack: scope.stack,
-        debugName:
-            'if statement - \'if\' segment scope ${formatCursorPosition(line, col, workspace, file)}',
+        debugName: CursorPositionLazyString(
+          'if statement - \'if\' segment scope',
+          line,
+          col,
+          workspace,
+          file,
+        ),
       );
       for (Statement statement in body) {
         StatementResult statementResult = statement.run(ifScope);
@@ -258,10 +264,16 @@ class IfStatement extends Statement {
       }
     } else if (elseBody != null) {
       Scope elseScope = Scope(
+        false,
         parent: scope,
         stack: scope.stack,
-        debugName:
-            'if statement - \'if\' segment scope ${formatCursorPosition(line, col, workspace, file)}',
+        debugName: CursorPositionLazyString(
+          'if statement - \'else\' segment scope',
+          line,
+          col,
+          workspace,
+          file,
+        ),
       );
       for (Statement statement in elseBody!) {
         StatementResult statementResult = statement.run(elseScope);
@@ -305,10 +317,17 @@ class ForStatement extends Statement {
     for (ValueWrapper identVal
         in listVal.valueC(scope, scope.stack, line, col, workspace, file)) {
       Scope whileScope = Scope(
-          parent: scope,
-          stack: scope.stack,
-          debugName:
-              'for statement scope ${formatCursorPosition(line, col, workspace, file)}');
+        false,
+        parent: scope,
+        stack: scope.stack,
+        debugName: CursorPositionLazyString(
+          'for statement scope',
+          line,
+          col,
+          workspace,
+          file,
+        ),
+      );
       whileScope.values[ident] = identVal;
       block:
       for (Statement statement in body) {
@@ -437,11 +456,13 @@ class ClassStatement extends Statement {
   @override
   StatementResult run(Scope scope) {
     Scope methods = Scope(
-        parent: scope,
-        stack: ['$name-methods'],
-        declaringClass: type,
-        debugName:
-            'class statement - methods scope ${formatCursorPosition(line, col, workspace, file)}');
+      false,
+      parent: scope,
+      stack: [NotLazyString('$name-methods')],
+      declaringClass: type,
+      debugName: CursorPositionLazyString(
+          'class statement - methods scope', line, col, workspace, file),
+    );
     for (Statement s in block) {
       if (s is FunctionStatement) {
         s.run(methods);
@@ -461,13 +482,30 @@ class ClassStatement extends Statement {
       file,
     );
     if (methods.internal_getVar('constructor') == null) {
+      if (superclass != null &&
+          scope.internal_getVar('~$superclass~methods') == null) {
+        throwWithStack(
+            scope,
+            [
+              CursorPositionLazyString('main', 1, 0, file, workspace),
+              CursorPositionLazyString(
+                'defining $name which extends $superclass',
+                line,
+                col,
+                file,
+                workspace,
+              ),
+              NotLazyString('inheriting constructor'),
+            ],
+            'have not defined superclass $superclass');
+      }
       if (superclass == null) {
         methods.setVar(
           'constructor',
           [],
           ValueWrapper(
               FunctionValueType(type, [], file),
-              (List<ValueWrapper> args, List<String> stack, Scope thisScope,
+              (List<ValueWrapper> args, List<LazyString> stack, Scope thisScope,
                   ValueType thisType) {},
               'default constructor'),
           line,
@@ -495,25 +533,27 @@ class ClassStatement extends Statement {
         '~$name',
         [],
         ValueWrapper(FunctionValueType(type, [], file),
-            (List<ValueWrapper> args, List<String> stack, Scope thisScope,
+            (List<ValueWrapper> args, List<LazyString> stack, Scope thisScope,
                 ValueType thisType) {
           if (superclass != null) {
             scope
                     .getVar('~$superclass', line, col, workspace, 'TODO', null)
                     .valueC(scope, scope.stack, line, col, workspace, file)(
                 <ValueWrapper>[],
-                stack + ['~$superclass'],
+                stack + [NotLazyString('~$superclass')],
                 thisScope,
                 thisType);
           }
           for (MapEntry<String, ValueWrapper?> x in methods.values.entries) {
             thisScope.values[x.key] = ValueWrapper(
                 x.value!.typeC(scope, scope.stack, line, col, workspace, file),
-                (List<ValueWrapper> args2, List<String> stack2) {
+                (List<ValueWrapper> args2, List<LazyString> stack2) {
               return (x.value!
                       .valueC(scope, scope.stack, line, col, workspace, file)
                   as Function)(args2, stack2, thisScope, thisType);
             }, 'method $name.${x.key}');
+            thisScope.values['this'] =
+                ValueWrapper(thisType, thisScope, '\'this\' property');
           }
           for (Statement s in block) {
             if (s is NewVarStatement) {
@@ -559,29 +599,35 @@ class ClassStatement extends Statement {
                           .typeC(scope, scope.stack, line, col, workspace, file)
                           .parameters,
               file),
-          (List<ValueWrapper> args, List<String> stack) {
+          (List<ValueWrapper> args, List<LazyString> stack) {
             Scope thisScope = Scope(
-                parent: scope,
-                stack: stack + ['$name-instance'],
-                debugName: 'instance of class');
+              true,
+              parent: scope,
+              stack: stack + [NotLazyString('$name-instance')],
+              debugName: NotLazyString('instance of class'),
+              typeIfClass: type,
+            );
             thisScope.values['className'] =
                 ValueWrapper(stringType, name, 'className');
             scope
                     .getVar('~$name', line, col, 'tdo', 'TODO', null)
                     .valueC(scope, scope.stack, line, col, workspace, file)(
-                <ValueWrapper>[], stack + ['~$name'], thisScope, type);
+                <ValueWrapper>[],
+                stack + [NotLazyString('~$name')],
+                thisScope,
+                type);
             (thisScope
                     .internal_getVar('constructor')
                     ?.valueC(scope, scope.stack, line, col, workspace, file) ??
                 (superclass == null
-                        ? (List<ValueWrapper> args, List<String> stack,
+                        ? (List<ValueWrapper> args, List<LazyString> stack,
                             Scope thisScope) {}
                         : scope
                             .internal_getVar('~$superclass~methods')!
                             .valueC(
                                 scope, scope.stack, line, col, workspace, file)
                             .getVar('constructor'))
-                    .value)(args, stack + ['$name.constructor']);
+                    .value)(args, stack + [NotLazyString('$name.constructor')]);
             return ValueWrapper(type, thisScope, 'instance of $name');
           },
           'constructor',

@@ -2,6 +2,15 @@ import 'lexer.dart';
 
 Map<String, TypeValidator> loadedGlobalScopes = {};
 
+class LazyInterpolator {
+  final Object a;
+  final Object b;
+
+  String toString() => '$a $b';
+
+  LazyInterpolator(this.a, this.b);
+}
+
 class TypeValidator {
   TypeValidator(this.parent);
   final TypeValidator? parent;
@@ -32,6 +41,8 @@ class TypeValidator {
         IterableValueType(integerType, 'intrinsics'),
         [stringType],
         'intrinsics'),
+    'split': FunctionValueType(ListValueType(stringType, 'intrinsics'),
+        [stringType, stringType], 'intrinsics'),
     'len': FunctionValueType(
         integerType,
         [
@@ -223,7 +234,7 @@ class TypeValidator {
   }
 }
 
-void throwWithStack(Scope scope, List<String> stack, String value) {
+void throwWithStack(Scope scope, List<LazyString> stack, String value) {
   ValueWrapper thrower = scope.getVar(
       'throw', -2, 0, 'in throwWithStack', 'while throwing $value', null);
   thrower._value([ValueWrapper(stringType, value, 'string to throw')], stack);
@@ -232,9 +243,9 @@ void throwWithStack(Scope scope, List<String> stack, String value) {
 class ValueWrapper {
   final ValueType? _type;
   final dynamic _value;
-  final String debugCreationDescription;
+  final Object debugCreationDescription;
   final bool canBeRead;
-  ValueType typeC(Scope? scope, List<String> stack, int line, int col,
+  ValueType typeC(Scope? scope, List<LazyString> stack, int line, int col,
       String workspace, String filename) {
     if (canBeRead) {
       return _type!;
@@ -243,7 +254,7 @@ class ValueWrapper {
     }
   }
 
-  dynamic valueC(Scope? scope, List<String> stack, int line, int col,
+  dynamic valueC(Scope? scope, List<LazyString> stack, int line, int col,
       String workspace, String filename) {
     if (canBeRead) {
       return _value;
@@ -264,14 +275,14 @@ class ValueWrapper {
       [this.canBeRead = true]);
 
   String toString() => toStringWithStack(
-      ['internal error: ValueWrapper.toString() called'],
+      [NotLazyString('internal error: ValueWrapper.toString() called')],
       -2,
       0,
       'interr',
       'interrr');
 
   String toStringWithStack(
-      List<String> s, int line, int col, String workspace, String file) {
+      List<LazyString> s, int line, int col, String workspace, String file) {
     return _value is Function
         ? "<function ($debugCreationDescription)>"
         : toStringWithStacker(this, s, line, col, workspace, file);
@@ -297,7 +308,8 @@ class NamespaceScope implements Scope {
   ClassValueType get currentClass => deferTarget.currentClass;
 
   @override
-  String get debugName => 'namespace $namespace of $deferTarget';
+  LazyString get debugName =>
+      NotLazyString('namespace $namespace of $deferTarget');
 
   @override
   ClassValueType? get declaringClass => deferTarget.declaringClass;
@@ -332,14 +344,22 @@ class NamespaceScope implements Scope {
 
   @override
   // TODO: implement stack
-  List<String> get stack => throw UnimplementedError();
+  List<LazyString> get stack => throw UnimplementedError();
 
   @override
-  String toStringWithStack(
-      List<String> stack2, int line, int col, String workspace, String file) {
+  String toStringWithStack(List<LazyString> stack2, int line, int col,
+      String workspace, String file) {
     // TODO: implement toStringWithStack
     throw UnimplementedError();
   }
+
+  @override
+  // TODO: implement isClass
+  bool get isClass => throw UnimplementedError();
+
+  @override
+  // TODO: implement typeIfClass
+  ClassValueType? get typeIfClass => throw UnimplementedError();
 }
 
 Map<String, int> fileTypes = {};
@@ -535,7 +555,7 @@ class IteratorValueType extends ValueType {
 class ListValueType extends IterableValueType {
   ListValueType.internal(this.genericParameter, String file)
       : super.internal(IterableValueType(genericParameter, file), file);
-  String get name => "${genericParameter}List";
+  late String name = "${genericParameter}List";
   factory ListValueType(ValueType genericParameter, String file) {
     return ValueType.types["${genericParameter}List"] as ListValueType? ??
         ListValueType.internal(genericParameter, file);
@@ -576,51 +596,72 @@ class StatementResult {
   StatementResult(this.type, [this.value]);
 }
 
-class StrWrapper {
-  String toString() => x;
-  final String x;
+class LazyString {}
 
-  StrWrapper(this.x);
+class NotLazyString extends LazyString {
+  final String str;
+
+  String toString() => str;
+
+  NotLazyString(this.str);
+}
+
+class CursorPositionLazyString extends LazyString {
+  final String str;
+  final int line;
+  final int col;
+  final String file;
+  final String workspace;
+
+  String toString() =>
+      '$str ${formatCursorPosition(line, col, workspace, file)}';
+
+  CursorPositionLazyString(
+      this.str, this.line, this.col, this.file, this.workspace);
 }
 
 class Scope {
-  Scope(
+  Scope(this.isClass,
       {this.intrinsics,
       Scope? parent,
       required this.stack,
       this.declaringClass,
-      required this.debugName})
+      required this.debugName,
+      this.typeIfClass})
       : parents = [if (parent != null) parent];
-  final String debugName;
+  final LazyString debugName;
   final List<Scope> parents;
-  final List<String> stack;
+  final List<LazyString> stack;
   final Scope? intrinsics;
 
   final ClassValueType? declaringClass;
+  final bool isClass;
+  final ClassValueType? typeIfClass;
 
   ClassValueType get currentClass {
     Scope node = this;
-    while (node.declaringClass == null) {
+    while (node.declaringClass == null && !node.isClass) {
       if (node.parents.isEmpty) {
-        throw FileInvalid("Internal error A");
+        throw FileInvalid("Called super expression outside class (in $this)");
       }
       node = node.parents.first;
     }
-    return node.declaringClass!;
+    return node.declaringClass ?? node.typeIfClass!;
   }
 
-  String toString() =>
-      toStringWithStack(['internal error'], -2, 0, 'interr', 'interr');
+  String toString() => toStringWithStack(
+      [NotLazyString('internal error')], -2, 0, 'interr', 'interr');
 
-  String toStringWithStack(
-      List<String> stack2, int line, int col, String workspace, String file) {
+  String toStringWithStack(List<LazyString> stack2, int line, int col,
+      String workspace, String file) {
     return values.containsKey('toString')
         ? values['toString']!
-            .valueC(this, stack2 + ["implicit toString"], line, col, workspace,
-                file)(<ValueWrapper>[], stack2 + ["implicit toString"])
+            .valueC(this, stack2 + [NotLazyString("implicit toString")], line,
+                col, workspace, file)
+            (<ValueWrapper>[], stack2 + [NotLazyString("implicit toString")])
             .value
-            .valueC(this, stack2 + ["implicit toString"], line, col, workspace,
-                file)
+            .valueC(this, stack2 + [NotLazyString("implicit toString")], line,
+                col, workspace, file)
         : "<${values['className']?.valueC(this, stack2, line, col, workspace, file) ?? '($debugName: stack: $stack)'}>";
   }
 
@@ -945,8 +986,8 @@ class InfiniteIterator<T> extends Iterator<T> {
   }
 }
 
-String toStringWithStacker(ValueWrapper x, List<String> s, int line, int col,
-    String workspace, String file) {
+String toStringWithStacker(ValueWrapper x, List<LazyString> s, int line,
+    int col, String workspace, String file) {
   if (x.typeC(null, s, line, col, workspace, file) is ClassValueType) {
     return x
         .valueC(null, s, line, col, workspace, file)

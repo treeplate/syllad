@@ -6,24 +6,26 @@ import 'package:characters/characters.dart';
 import 'lexer.dart';
 
 Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
-    [List<String>? stack, Scope? parent]) {
+    [List<LazyString>? stack, Scope? parent]) {
   if (intrinsics == null) {
     assert(parent == null);
     assert(stack == null);
-    intrinsics = Scope(debugName: 'intrinsics', stack: ['intrinsics'])
+    intrinsics = Scope(false,
+        debugName: NotLazyString('intrinsics'),
+        stack: [NotLazyString('intrinsics')])
       ..values.addAll({
         "true": true,
         "false": false,
         "null": null,
-        "print": (List<ValueWrapper> l, List<String> s) {
+        "print": (List<ValueWrapper> l, List<LazyString> s) {
           stdout.write(l.join(' '));
           return ValueWrapper(integerType, 0, 'print rtv');
         },
-        "stderr": (List<ValueWrapper> l, List<String> s) {
+        "stderr": (List<ValueWrapper> l, List<LazyString> s) {
           stderr.writeln(l.join(' '));
           return ValueWrapper(integerType, 0, 'stderr rtv');
         },
-        "concat": (List<ValueWrapper> l, List<String> s) {
+        "concat": (List<ValueWrapper> l, List<LazyString> s) {
           return ValueWrapper(
               stringType,
               l
@@ -31,7 +33,7 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
                   .join(''),
               'concat rtv');
         },
-        "addLists": (List<ValueWrapper> l, List<String> s) {
+        "addLists": (List<ValueWrapper> l, List<LazyString> s) {
           return ValueWrapper(
               ListValueType(sharedSupertype, 'intrinsics'),
               l
@@ -40,14 +42,23 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
                   .toList(),
               'addLists rtv');
         },
-        "parseInt": (List<ValueWrapper> l, List<String> s) {
+        "parseInt": (List<ValueWrapper> l, List<LazyString> s) {
           return ValueWrapper(
             integerType,
             int.parse(l.single.valueC(null, s, -2, 0, 'interr', 'interr')),
             'parseInt rtv',
           );
         },
-        "charsOf": (List<ValueWrapper> l, List<String> s) {
+        "split": (List<ValueWrapper> l, List<LazyString> s) {
+          return ValueWrapper(
+            ListValueType(stringType, 'intrinsics'),
+            l.first.valueC(null, s, -2, 0, 'interr', 'interr').split(
+                  l.last,
+                ),
+            'split rtv',
+          );
+        },
+        "charsOf": (List<ValueWrapper> l, List<LazyString> s) {
           return ValueWrapper(
             IterableValueType(stringType, 'intrinsics'),
             (l.single.valueC(null, s, -2, 0, 'interr', 'interr') as String)
@@ -56,7 +67,7 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
             'charsOf rtv',
           );
         },
-        "scalarValues": (List<ValueWrapper> l, List<String> s) {
+        "scalarValues": (List<ValueWrapper> l, List<LazyString> s) {
           return ValueWrapper(
             IterableValueType(integerType, 'intrinsics'),
             l.single
@@ -66,16 +77,16 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
             'scalarValues rtv',
           );
         },
-        "len": (List<ValueWrapper> l, List<String> s) {
+        "len": (List<ValueWrapper> l, List<LazyString> s) {
           return ValueWrapper(
               integerType,
               l.single.valueC(null, s, -2, 0, 'interr', 'interr').length,
               'len rtv');
         },
-        "input": (List<ValueWrapper> l, List<String> s) {
+        "input": (List<ValueWrapper> l, List<LazyString> s) {
           return ValueWrapper(stringType, stdin.readLineSync(), 'input rtv');
         },
-        "append": (List<ValueWrapper> l, List<String> s) {
+        "append": (List<ValueWrapper> l, List<LazyString> s) {
           if (!l.last.typeC(null, s, -2, 0, 'interr', 'interr').isSubtypeOf(
               (l.first.typeC(null, s, -2, 0, 'interr', 'interr')
                       as ListValueType)
@@ -86,7 +97,7 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
           l.first.valueC(null, s, -2, 0, 'interr', 'interr').add(l.last);
           return l.last;
         },
-        "pop": (List<ValueWrapper> l, List<String> s) {
+        "pop": (List<ValueWrapper> l, List<LazyString> s) {
           List<ValueWrapper> list =
               l.first.valueC(null, s, -2, 0, 'interr', 'interr');
           if (list.isEmpty) {
@@ -95,22 +106,22 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
           }
           list.removeLast();
         },
-        "iterator": (List<ValueWrapper> l, List<String> s) {
+        "iterator": (List<ValueWrapper> l, List<LazyString> s) {
           return ValueWrapper(
               IteratorValueType(sharedSupertype, 'intrinsics'),
               l.single.valueC(null, s, -2, 0, 'interr', 'interr').iterator,
               'iterator rtv');
         },
-        "next": (List<ValueWrapper> l, List<String> s) {
+        "next": (List<ValueWrapper> l, List<LazyString> s) {
           return ValueWrapper(
               booleanType,
               l.single.valueC(null, s, -2, 0, 'interr', 'interr').moveNext(),
               'next rtv');
         },
-        "current": (List<ValueWrapper> l, List<String> s) {
+        "current": (List<ValueWrapper> l, List<LazyString> s) {
           return l.single.valueC(null, s, -2, 0, 'interr', 'interr').current;
         },
-        "stringTimes": (List<ValueWrapper> l, List<String> s) {
+        "stringTimes": (List<ValueWrapper> l, List<LazyString> s) {
           return ValueWrapper(
             stringType,
             l.first.valueC(null, s, -2, 0, 'interr', 'interr') *
@@ -118,23 +129,23 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
             'stringTimes rtv',
           );
         },
-        "copy": (List<ValueWrapper> l, List<String> s) {
+        "copy": (List<ValueWrapper> l, List<LazyString> s) {
           return ValueWrapper(
             ListValueType(sharedSupertype, 'intrinsics'),
             l.single.valueC(null, s, -2, 0, 'interr', 'interr').toList(),
             'copy rtv',
           );
         },
-        "first": (List<ValueWrapper> l, List<String> s) {
+        "first": (List<ValueWrapper> l, List<LazyString> s) {
           return l.single.valueC(null, s, -2, 0, 'interr', 'interr').first;
         },
-        "last": (List<ValueWrapper> l, List<String> s) {
+        "last": (List<ValueWrapper> l, List<LazyString> s) {
           return l.single.valueC(null, s, -2, 0, 'interr', 'interr').last;
         },
-        "single": (List<ValueWrapper> l, List<String> s) {
+        "single": (List<ValueWrapper> l, List<LazyString> s) {
           return l.single.valueC(null, s, -2, 0, 'interr', 'interr').single;
         },
-        "hex": (List<ValueWrapper> l, List<String> s) {
+        "hex": (List<ValueWrapper> l, List<LazyString> s) {
           return ValueWrapper(
               stringType,
               l.single
@@ -142,24 +153,24 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
                   .toRadixString(16),
               'hex rtv');
         },
-        "chr": (List<ValueWrapper> l, List<String> s) {
+        "chr": (List<ValueWrapper> l, List<LazyString> s) {
           return ValueWrapper(
               stringType,
               String.fromCharCode(
                   l.single.valueC(null, s, -2, 0, 'interr', 'interr')),
               'chr rtv');
         },
-        "exit": (List<ValueWrapper> l, List<String> s) {
+        "exit": (List<ValueWrapper> l, List<LazyString> s) {
           exit(l.single.valueC(null, s, -2, 0, 'interr', 'interr'));
         },
-        "readFile": (List<ValueWrapper> l, List<String> s) {
+        "readFile": (List<ValueWrapper> l, List<LazyString> s) {
           return ValueWrapper(
               stringType,
               File('compiler/${l.single.valueC(null, s, -2, 0, 'interr', 'interr')}')
                   .readAsStringSync(),
               'readFile rtv');
         },
-        "readFileBytes": (List<ValueWrapper> l, List<String> s) {
+        "readFileBytes": (List<ValueWrapper> l, List<LazyString> s) {
           if (l.length == 0)
             throw FileInvalid("readFileBytes called with no args");
           File file = File(
@@ -169,10 +180,10 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
                   stringType, file.readAsBytesSync(), 'readFileBytes rtv')
               : throw FileInvalid("${l.single} is not a existing file");
         },
-        "println": (List<ValueWrapper> l, List<String> s) {
+        "println": (List<ValueWrapper> l, List<LazyString> s) {
           stdout.writeln(l
               .map(((e) => e.toStringWithStack(
-                  s + ['println calling toString()'],
+                  s + [NotLazyString('println calling toString()')],
                   -2,
                   0,
                   'interr',
@@ -180,22 +191,22 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
               .join(' '));
           return ValueWrapper(integerType, 0, 'println rtv');
         },
-        "throw": (List<ValueWrapper> l, List<String> s) {
+        "throw": (List<ValueWrapper> l, List<LazyString> s) {
           throw FileInvalid(
               l.single.valueC(null, s, -2, 0, 'interr', 'interr') +
                   "\nstack:\n" +
                   s.reversed.join('\n'));
         },
-        "joinList": (List<ValueWrapper> l, List<String> s) {
+        "joinList": (List<ValueWrapper> l, List<LazyString> s) {
           return ValueWrapper(
               stringType,
               l.single.valueC(null, s, -2, 0, 'interr', 'interr').join(''),
               'joinList rtv');
         },
-        "cast": (List<ValueWrapper> l, List<String> s) {
+        "cast": (List<ValueWrapper> l, List<LazyString> s) {
           return l.single;
         },
-        "substring": (List<ValueWrapper> l, List<String> s) {
+        "substring": (List<ValueWrapper> l, List<LazyString> s) {
           if (l[1].valueC(null, s, -2, 0, 'interr', 'interr') as int >
               (l[2].valueC(null, s, -2, 0, 'interr', 'interr') as int)) {
             throw FileInvalid(
@@ -218,7 +229,7 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
                       l[2].valueC(null, s, -2, 0, 'interr', 'interr') as int),
               'substring rtv');
         },
-        "sublist": (List<ValueWrapper> l, List<String> s) {
+        "sublist": (List<ValueWrapper> l, List<LazyString> s) {
           if (l[2].valueC(null, s, -2, 0, 'interr', 'interr') <
               l[1].valueC(null, s, -2, 0, 'interr', 'interr')) {
             throw FileInvalid(
@@ -233,7 +244,7 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
                       l[2].valueC(null, s, -2, 0, 'interr', 'interr') as int),
               'sublist rtv');
         },
-        "stackTrace": (List<ValueWrapper> l, List<String> s) {
+        "stackTrace": (List<ValueWrapper> l, List<LazyString> s) {
           return ValueWrapper(
               stringType, s.reversed.join('\n'), 'stackTrace rtv');
         },
@@ -241,11 +252,11 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics,
           ValueWrapper(Scope.tv_types[key]!, value, '$key from intrinsics'))));
     ;
   }
-  Scope scope = Scope(
+  Scope scope = Scope(false,
       intrinsics: intrinsics,
       parent: parent ?? intrinsics,
-      stack: (stack ?? []) + ['$filename'],
-      debugName: '$filename global scope');
+      stack: (stack ?? []) + [NotLazyString('$filename')],
+      debugName: NotLazyString('$filename global scope'));
   for (Statement statement in ast) {
     StatementResult sr = statement.run(scope);
     switch (sr.type) {

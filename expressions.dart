@@ -91,7 +91,7 @@ class EqualsExpression extends Expression {
                 eb.typeC(scope, scope.stack, line, col, workspace, file) &&
             ea.valueC(scope, scope.stack, line, col, workspace, file) ==
                 eb.valueC(scope, scope.stack, line, col, workspace, file),
-        '$this result');
+        LazyInterpolator(this, 'result'));
     return result;
   }
 
@@ -141,12 +141,11 @@ class BitXorExpression extends Expression {
   @override
   ValueWrapper eval(Scope scope) {
     return ValueWrapper(
-        integerType,
-        a.eval(scope).valueC(scope, scope.stack, line, col, workspace, file) ^
-            b
-                .eval(scope)
-                .valueC(scope, scope.stack, line, col, workspace, file),
-        '$this result');
+      integerType,
+      a.eval(scope).valueC(scope, scope.stack, line, col, workspace, file) ^
+          b.eval(scope).valueC(scope, scope.stack, line, col, workspace, file),
+      LazyInterpolator(this, 'result'),
+    );
   }
 
   String toString() => "$a ^ $b";
@@ -334,14 +333,21 @@ class BitNotExpression extends Expression {
 class MultiplyExpression extends Expression {
   final Expression a;
   final Expression b;
+  String toString() => "$a * $b";
 
   MultiplyExpression(this.a, this.b, int line, int col, String workspace, file)
       : super(line, col, workspace, file);
   @override
   ValueWrapper eval(Scope scope) {
+    var aval =
+        a.eval(scope).valueC(scope, scope.stack, line, col, workspace, file);
+    if (aval == null) {
+      throw FileInvalid(
+          'tried to do $a * $b but the first operand was null ${formatCursorPosition(line, col, workspace, file)}');
+    }
     return ValueWrapper(
         integerType,
-        a.eval(scope).valueC(scope, scope.stack, line, col, workspace, file) *
+        aval *
             b
                 .eval(scope)
                 .valueC(scope, scope.stack, line, col, workspace, file),
@@ -487,10 +493,11 @@ class AddExpression extends Expression {
           "$av ($a) or $bv ($b) is not an integer; attempted $a+$b ${formatCursorPosition(line, col, workspace, file)}\n ${scope.stack.reversed.join('\n')}");
     }
     return ValueWrapper(
-        integerType,
-        av.valueC(scope, scope.stack, line, col, workspace, file) +
-            bv.valueC(scope, scope.stack, line, col, workspace, file),
-        '$this result');
+      integerType,
+      av.valueC(scope, scope.stack, line, col, workspace, file) +
+          bv.valueC(scope, scope.stack, line, col, workspace, file),
+      LazyInterpolator(this, 'result'),
+    );
   }
 
   String toString() => "$a + $b";
@@ -515,7 +522,9 @@ class SuperExpression extends Expression {
     ClassValueType parent = classType;
     Scope superMethods;
     do {
-      parent = parent.parent as ClassValueType;
+      parent = parent.supertype ??
+          (throw FileInvalid(
+              "super expression failed to find $member in $classType or supertypes"));
       superMethods = scope
           .getVar('~${parent.name}~methods', line, col, 'interr',
               '<internal error: no methods>', tv)
@@ -525,7 +534,7 @@ class SuperExpression extends Expression {
         superMethods.getVar(member, line, col, workspace, file, tv);
     return ValueWrapper(
         x.typeC(scope, scope.stack, line, col, workspace, file),
-        (List<ValueWrapper> args2, List<String> stack2) => (x.valueC(
+        (List<ValueWrapper> args2, List<LazyString> stack2) => (x.valueC(
                 scope, scope.stack, line, col, workspace, file) as Function)(
             args2,
             stack2,
@@ -588,7 +597,7 @@ class UnwrapExpression extends Expression {
     ValueWrapper aval = a.eval(scope);
     if (aval.valueC(scope, scope.stack, line, col, workspace, file) == null) {
       throw FileInvalid(
-          "Failed unwrap of $aval ${formatCursorPosition(line, col, workspace, file)}\n${scope.stack.reversed.join('\n')}");
+          "Failed unwrap of null ($a) ${formatCursorPosition(line, col, workspace, file)}\n${scope.stack.reversed.join('\n')}");
     }
     return aval;
   }
@@ -630,9 +639,11 @@ class FunctionCallExpr extends Expression {
       }
     }
     //print("evaluated arguments...");
-    List<String> newStack = scope.stack.toList();
-    newStack[newStack.length - 1] +=
-        " ${formatCursorPosition(line, col, workspace, file)}";
+    List<LazyString> newStack = scope.stack.toList();
+    if (newStack.last is NotLazyString) {
+      newStack[newStack.length - 1] = CursorPositionLazyString(
+          (newStack.last as NotLazyString).str, line, col, workspace, file);
+    }
     ValueWrapper aEval = a.eval(scope);
     if (!aEval
         .typeC(scope, scope.stack, line, col, workspace, file)
@@ -779,12 +790,21 @@ class BitOrExpression extends Expression {
       : super(line, col, workspace, file);
   @override
   ValueWrapper eval(Scope scope) {
+    ValueWrapper av = a.eval(scope);
+    ValueWrapper bv = b.eval(scope);
+    if (!(av
+            .typeC(scope, scope.stack, line, col, workspace, file)
+            .isSubtypeOf(integerType) &&
+        bv
+            .typeC(scope, scope.stack, line, col, workspace, file)
+            .isSubtypeOf(integerType))) {
+      throw FileInvalid(
+          "$av ($a) or $bv ($b) is not an integer; attempted $a|$b ${formatCursorPosition(line, col, workspace, file)}\n${scope.stack.reversed.join('\n')}");
+    }
     return ValueWrapper(
         integerType,
-        a.eval(scope).valueC(scope, scope.stack, line, col, workspace, file) |
-            b
-                .eval(scope)
-                .valueC(scope, scope.stack, line, col, workspace, file),
+        av.valueC(scope, scope.stack, line, col, workspace, file) |
+            bv.valueC(scope, scope.stack, line, col, workspace, file),
         '$this result');
   }
 }

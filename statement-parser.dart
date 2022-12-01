@@ -52,9 +52,9 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
   ClassValueType type =
       ClassValueType(name, supertype as ClassValueType?, newScope, tokens.file);
   if (newScope != type.properties) {
-    if (supertype != type.parent) {
+    if (supertype != type.supertype) {
       throw FileInvalid(
-          "$name does not have the same supertype ($supertype) as forward declaration (${type.parent}) ${formatCursorPositionFromTokens(tokens)}");
+          "$name does not have the same supertype ($supertype) as forward declaration (${type.supertype}) ${formatCursorPositionFromTokens(tokens)}");
     }
   }
   TypeValidator fwdProps = type.properties.copy();
@@ -96,6 +96,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
     for (MapEntry<String, ValueType> value in fwdProps.types.entries) {
       if (newScope.types[value.key] != value.value) {
         if (value.value is GenericFunctionValueType &&
+            value.value is! FunctionValueType &&
             newScope.types[value.key] is FunctionValueType &&
             (newScope.types[value.key] as GenericFunctionValueType)
                     .returnType ==
@@ -108,7 +109,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
     }
   scope.classes[name] = newScope;
   if (hasFwdDecl) {
-    scope.directVars.remove(name); // will be re-added in line 107
+    scope.directVars.remove(name); // will be re-added in a few lines
   }
   scope.newVar(
     name,
@@ -125,6 +126,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
     tokens.workspace,
     tokens.file,
   );
+  scope.nonconst.remove(name);
   tokens.expectChar(TokenType.closeBrace);
   return ClassStatement(name, superclass, block, type, tokens.current.line,
       tokens.current.col, tokens.workspace, tokens.file);
@@ -432,7 +434,11 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           typeParams,
           tokens.file,
         )
-        ..directVars.addAll([ident2, ...params.map((e) => e.name)]);
+        ..directVars.addAll([
+          ident2,
+          if (isVararg) params.first.name,
+          if (!isVararg) ...params.map((e) => e.name)
+        ]);
       List<Statement> body = parseBlock(tokens, tv);
       tokens.expectChar(TokenType.closeBrace);
       scope.newVar(
@@ -448,6 +454,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         tokens.file,
         true,
       );
+      scope.nonconst.remove(ident2);
       return FunctionStatement(
         ValueType(null, ident1, tokens.current.line, tokens.current.col,
             tokens.workspace, tokens.file),
@@ -595,7 +602,8 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       String cln = tokens.currentIdent;
       tokens.moveNext();
       FunctionValueType? constructorType;
-      if (tokens.current is CharToken) {
+      if (tokens.current is CharToken &&
+          tokens.currentChar != TokenType.endOfStatement) {
         List<ValueType> parameters =
             parseArgList(tokens, (TokenIterator tokens) {
           ValueType result = ValueType(
@@ -611,31 +619,37 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
         });
         constructorType = FunctionValueType(nullType, parameters, tokens.file);
       }
-      if (tokens.currentIdent != 'extends') {
-        throw FileInvalid(
-            "Invalid fwdclass: expected 'extends' got ${tokens.currentIdent} ${formatCursorPositionFromTokens(tokens)}");
-      }
-      ClassValueType spt = ValueType(
-          null,
-          (tokens..moveNext()).currentIdent,
-          tokens.current.line,
-          tokens.current.col,
-          tokens.workspace,
-          tokens.file) as ClassValueType;
-      TypeValidator props = TypeValidator(scope)
-        ..types.addAll(spt.properties.types)
-        ..usedVars.addAll(spt.properties.usedVars)
-        ..nonconst.addAll(spt.properties.nonconst);
-      if (constructorType != null) {
-        props.types['constructor'] = constructorType;
+      ClassValueType? spt;
+      TypeValidator props = TypeValidator(scope);
+      if (tokens.current is IdentToken && tokens.currentIdent == 'extends') {
+        spt = ValueType(
+            null,
+            (tokens..moveNext()).currentIdent,
+            tokens.current.line,
+            tokens.current.col,
+            tokens.workspace,
+            tokens.file) as ClassValueType;
+        tokens.moveNext();
+        props
+          ..types.addAll(spt.properties.types)
+          ..usedVars.addAll(spt.properties.usedVars)
+          ..nonconst.addAll(spt.properties.nonconst);
+        if (constructorType != null) {
+          props.types['constructor'] = constructorType;
+        }
       }
       ClassValueType x = ClassValueType(cln, spt, props, tokens.file);
-      spt.subtypes.add(x);
+      spt?.subtypes.add(x);
+
       x.properties.types['this'] = x;
+      x.properties.types['constructor'] ??= (constructorType ??
+              spt?.properties.types['constructor'] ??
+              FunctionValueType(nullType, [], tokens.file))
+          .withReturnType(nullType, tokens.file);
       scope.newVar(
         cln,
         (constructorType ??
-                spt.properties.types['constructor'] ??
+                spt?.properties.types['constructor'] ??
                 FunctionValueType(nullType, [], tokens.file))
             .withReturnType(x, tokens.file),
         tokens.current.line,
@@ -643,7 +657,6 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
         tokens.workspace,
         tokens.file,
       );
-      tokens.moveNext();
       tokens.expectChar(TokenType.endOfStatement);
       scope.classes[cln] = x.properties;
       return NopStatement();

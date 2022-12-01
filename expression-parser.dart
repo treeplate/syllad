@@ -108,7 +108,6 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
             type = expr.type;
           } else if (expr.type.name == "Whatever") {
             // has been cast()-ed
-
           } else if (type != expr.type) {
             type = sharedSupertype;
           }
@@ -606,7 +605,8 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
       if (!operandA.type.isSubtypeOf(integerType)) {
-        throw FileInvalid("lhs of >= is not an integer (is a $operandA)");
+        throw FileInvalid(
+            "lhs of >= is not an integer (is $operandA, a ${operandA.type}) ${formatCursorPositionFromTokens(tokens)}");
       }
       if (!operandB.type.isSubtypeOf(integerType)) {
         throw FileInvalid(
