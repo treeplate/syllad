@@ -13,7 +13,7 @@ Strings start with `"` or `'` (the 'quote character'), {set *buffer* to empty} t
 - any other character. {append it to *buffer*}
 ### INTEGERS
 Integers start with one of `0123456789` {set *buffer* to that character} and then any number of:
-`0123456789xabcdefXABCDEF` {add each character tokenized to *buffer*, the resulting integer has content of the result of calling dart's int.parse method with *buffer* as the only argument}.
+`0123456789xabcdefXABCDEF` {add each character tokenized to *buffer*, the resulting integer has content of the result of calling dart's int.tryParse method with *buffer* as the only argument, if it returns null it is an invalid integer}.
 ### IDENTIFIERS
 Identifiers start with one character out of `a`-`z`, `A`-`Z`, `_` {set *buffer* to that character}, then any number of those characters or any of `0123456789` {add each character tokenized to *buffer*, the resulting identifier has content *buffer*}
 ### OTHER STUFF

@@ -15,17 +15,16 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         tokens.file,
       );
     case IdentToken:
-      if (tokens.currentIdent == 'super') {
+      if (tokens.currentIdent == variables['super']) {
         tokens.moveNext();
         tokens.expectChar(TokenType.period);
-        String member = tokens.currentIdent;
+        Variable member = tokens.currentIdent;
         ValueType? superclass = scope.currentClass.parent;
         if (superclass is! ClassValueType) {
-          throw FileInvalid(
-              '${scope.currentClass.name} has no superclass; attempted \'super.$member\' ${formatCursorPositionFromTokens(tokens)}');
+          throw BSCException('${scope.currentClass.name} has no superclass; attempted \'super.$member\' ${formatCursorPositionFromTokens(tokens)}');
         }
-        if (!superclass.properties.types.containsKey(member)) {
-          throw FileInvalid(
+        if (superclass.properties.igv(member, true, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file) == null) {
+          throw BSCException(
               '${scope.currentClass.name}\'s superclass (${superclass.name}) has no member $member; attempted \'super.$member\' ${formatCursorPositionFromTokens(tokens)}');
         }
         tokens.moveNext();
@@ -37,7 +36,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           tokens.workspace,
           tokens.file,
         );
-      } else if (tokens.currentIdent == 'assert') {
+      } else if (tokens.currentIdent == (variables['assert'] ??= Variable('assert'))) {
         tokens.moveNext();
         tokens.expectChar(TokenType.openParen);
         Expression condition = parseExpression(tokens, scope);
@@ -55,18 +54,15 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           tokens.workspace,
           tokens.file,
         );
-      } else if (tokens.currentIdent == '__LINE__') {
+      } else if (tokens.currentIdent == variables['__LINE__']) {
         tokens.moveNext();
-        return IntLiteralExpression(tokens.current.line, tokens.current.line,
-            tokens.current.col, tokens.workspace, tokens.file);
-      } else if (tokens.currentIdent == '__COL__') {
+        return IntLiteralExpression(tokens.current.line, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
+      } else if (tokens.currentIdent == variables['__COL__']) {
         tokens.moveNext();
-        return IntLiteralExpression(tokens.current.col, tokens.current.line,
-            tokens.current.col, tokens.workspace, tokens.file);
-      } else if (tokens.currentIdent == '__FILE__') {
+        return IntLiteralExpression(tokens.current.col, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
+      } else if (tokens.currentIdent == variables['__FILE__']) {
         tokens.moveNext();
-        return StringLiteralExpression(tokens.file, tokens.current.line,
-            tokens.current.col, tokens.workspace, tokens.file);
+        return StringLiteralExpression(tokens.file, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
       }
       scope.getVar(
         tokens.currentIdent,
@@ -77,7 +73,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         tokens.file,
         'as an expression',
       );
-      String i = tokens.currentIdent;
+      Variable i = tokens.currentIdent;
       tokens.moveNext();
       return GetExpr(
         i,
@@ -90,15 +86,18 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
     case StringToken:
       String s = tokens.string;
       tokens.moveNext();
-      return StringLiteralExpression(s, tokens.current.line, tokens.current.col,
-          tokens.workspace, tokens.file);
+      return StringLiteralExpression(s, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
+    case CommentFeatureToken:
+      String feature = tokens.commentFeature;
+      tokens.moveNext();
+      print('Unknown comment feature: "$feature" ${formatCursorPositionFromTokens(tokens)}');
+      return parseLiterals(tokens, scope);
     case CharToken:
       if (tokens.currentChar == TokenType.openSquare) {
         tokens.moveNext();
         List<Expression> elements = [];
         ValueType? type = null;
-        while (tokens.current is! CharToken ||
-            tokens.currentChar != TokenType.closeSquare) {
+        while (tokens.current is! CharToken || tokens.currentChar != TokenType.closeSquare) {
           Expression expr = parseExpression(tokens, scope);
           if (tokens.currentChar != TokenType.closeSquare) {
             tokens.expectChar(TokenType.comma);
@@ -106,7 +105,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           elements.add(expr);
           if (type == null) {
             type = expr.type;
-          } else if (expr.type.name == "Whatever") {
+          } else if (expr.type.name == whateverVariable) {
             // has been cast()-ed
           } else if (type != expr.type) {
             type = sharedSupertype;
@@ -116,19 +115,12 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           type = sharedSupertype;
         }
         tokens.moveNext();
-        if (tokens.current is CharToken &&
-            tokens.currentChar == TokenType.colon) {
+        if (tokens.current is CharToken && tokens.currentChar == TokenType.colon) {
           tokens.moveNext();
-          ValueType t = ValueType(
-              null,
-              tokens.currentIdent,
-              tokens.current.line,
-              tokens.current.col,
-              tokens.workspace,
-              tokens.file);
+          ValueType t = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
           for (Expression expr in elements) {
             if (!expr.type.isSubtypeOf(t)) {
-              throw FileInvalid(
+              throw BSCException(
                 'Invalid explicit list type (inferred type $type, provided type $t) ${formatCursorPositionFromTokens(tokens)}',
               );
             }
@@ -151,13 +143,12 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         tokens.moveNext();
         return r;
       }
-      throw FileInvalid(
+      throw BSCException(
         "Unexpected token ${tokens.current}    ${formatCursorPositionFromTokens(tokens)}",
       );
   }
-  assert(false);
-  return IntLiteralExpression(null as int, tokens.current.line,
-      tokens.current.col, tokens.workspace, tokens.file);
+  assert(false, "unreachable - unknown token type ${tokens.current}");
+  throw null as dynamic; // the perfect four-identifier statement
 }
 
 Expression parseBitOr(TokenIterator tokens, TypeValidator scope) {
@@ -228,15 +219,11 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
           tokens.moveNext();
           Expression operandB = parseExpression(tokens, scope);
           if (!operandB.type.isSubtypeOf(integerType)) {
-            throw FileInvalid(
-                "Attempted to subscript using non-integer index: $operandB. ${formatCursorPositionFromTokens(tokens)}");
+            throw BSCException("Attempted to subscript using non-integer index: $operandB. ${formatCursorPositionFromTokens(tokens)}");
           }
           tokens.expectChar(TokenType.closeSquare);
-          if (!result.type.isSubtypeOf(ListValueType(
-              ValueType(null, "Whatever", -2, 0, 'interr', 'internal'),
-              'internal'))) {
-            throw FileInvalid(
-                "tried to subscript ${result.type} ($result) ${formatCursorPositionFromTokens(tokens)}");
+          if (!result.type.isSubtypeOf(ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'internal'), 'internal'))) {
+            throw BSCException("tried to subscript ${result.type} ($result) ${formatCursorPositionFromTokens(tokens)}");
           }
           result = SubscriptExpression(
             result,
@@ -247,20 +234,15 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             tokens.file,
           );
         } else if (tokens.currentChar == TokenType.period) {
-          if (result.type is! ClassValueType &&
-              result.type.name != 'Whatever') {
-            throw FileInvalid(
-                "tried to access member of ${result.type} ${formatCursorPositionFromTokens(tokens)}");
+          if (result.type is! ClassValueType && result.type.name != whateverVariable) {
+            throw BSCException("tried to access member of ${result.type} ${formatCursorPositionFromTokens(tokens)}");
           }
           tokens.moveNext();
-          String operandB = tokens.currentIdent;
-          if (result.type.name != 'Whatever' &&
-              !(result.type as ClassValueType)
-                  .properties
-                  .types
-                  .containsKey(operandB)) {
-            throw FileInvalid(
-                "tried to access nonexistent member '$operandB' of ${result.type} ${formatCursorPositionFromTokens(tokens)}");
+          Variable operandB = tokens.currentIdent;
+          if (result.type.name != whateverVariable &&
+              ((result.type as ClassValueType).properties.igv(operandB, true, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file) ==
+                  null)) {
+            throw BSCException("tried to access nonexistent member '$operandB' of ${result.type} ${formatCursorPositionFromTokens(tokens)}");
           }
           tokens.moveNext();
           result = MemberAccessExpression(
@@ -274,8 +256,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
         } else if (tokens.currentChar == TokenType.bang) {
           tokens.moveNext();
           if (result.type is! NullableValueType) {
-            throw FileInvalid(
-                "Attempted unwrap of non-nullable type (${result.type}) ${formatCursorPositionFromTokens(tokens)}");
+            throw BSCException("Attempted unwrap of non-nullable type (${result.type}) ${formatCursorPositionFromTokens(tokens)}");
           }
           result = UnwrapExpression(
             result,
@@ -285,32 +266,25 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             tokens.file,
           );
         } else {
-          if (!result.type.isSubtypeOf(
-              GenericFunctionValueType(sharedSupertype, tokens.file))) {
-            throw FileInvalid(
-                "tried to call ${result.type} ($result) ${formatCursorPositionFromTokens(tokens)}");
+          if (!result.type.isSubtypeOf(GenericFunctionValueType(sharedSupertype, tokens.file))) {
+            throw BSCException("tried to call ${result.type} ($result) ${formatCursorPositionFromTokens(tokens)}");
           }
           tokens.moveNext();
           List<Expression> arguments = [];
-          while (tokens.current is! CharToken ||
-              tokens.currentChar != TokenType.closeParen) {
+          while (tokens.current is! CharToken || tokens.currentChar != TokenType.closeParen) {
             if ((result.type is FunctionValueType) &&
-                (result.type as FunctionValueType).parameters
-                    is! InfiniteIterable &&
-                (result.type as FunctionValueType).parameters.length <=
-                    arguments.length) {
-              throw FileInvalid(
-                  "Too many arguments to $result ${formatCursorPositionFromTokens(tokens)}");
+                (result.type as FunctionValueType).parameters is! InfiniteIterable &&
+                (result.type as FunctionValueType).parameters.length <= arguments.length) {
+              throw BSCException(
+                  "Too many arguments to $result, type is ${result.type} - expected ${(result.type as FunctionValueType).parameters}, got $arguments ${formatCursorPositionFromTokens(tokens)}");
             }
             Expression expr = parseExpression(
               tokens,
               scope,
             );
             if (result.type is FunctionValueType) {
-              if (!expr.type.isSubtypeOf((result.type as FunctionValueType)
-                  .parameters
-                  .elementAt(arguments.length))) {
-                throw FileInvalid(
+              if (!expr.type.isSubtypeOf((result.type as FunctionValueType).parameters.elementAt(arguments.length))) {
+                throw BSCException(
                     "parameter ${arguments.length} of $result expects type ${(result.type as FunctionValueType).parameters.elementAt(arguments.length)} got $expr (a ${expr.type}) ${formatCursorPositionFromTokens(tokens)}");
               }
             }
@@ -320,11 +294,9 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             arguments.add(expr);
           }
           if (result.type is FunctionValueType &&
-              (result.type as FunctionValueType).parameters
-                  is! InfiniteIterable &&
-              (result.type as FunctionValueType).parameters.length !=
-                  arguments.length) {
-            throw FileInvalid(
+              (result.type as FunctionValueType).parameters is! InfiniteIterable &&
+              (result.type as FunctionValueType).parameters.length != arguments.length) {
+            throw BSCException(
                 "Not enough arguments to $result (expected ${(result.type as FunctionValueType).parameters}, got $arguments) ${formatCursorPositionFromTokens(tokens)}");
           }
           tokens.moveNext();
@@ -428,8 +400,7 @@ Expression parseNots(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       Expression operand = parseNots(tokens, scope);
       return SubtractExpression(
-        IntLiteralExpression(0, tokens.current.line, tokens.current.col,
-            tokens.workspace, tokens.file),
+        IntLiteralExpression(0, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file),
         operand,
         tokens.current.line,
         tokens.current.col,
@@ -442,10 +413,9 @@ Expression parseNots(TokenIterator tokens, TypeValidator scope) {
     }
   }
   Expression operand = parseFunCalls(tokens, scope);
-  if (tokens.current is IdentToken && tokens.currentIdent == 'is') {
+  if (tokens.current is IdentToken && tokens.currentIdent == variables['is']) {
     tokens.moveNext();
-    ValueType type = ValueType(null, tokens.currentIdent, tokens.current.line,
-        tokens.current.col, tokens.workspace, tokens.file);
+    ValueType type = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
     tokens.moveNext();
     return IsExpr(
       operand,
@@ -456,10 +426,9 @@ Expression parseNots(TokenIterator tokens, TypeValidator scope) {
       tokens.file,
     );
   }
-  if (tokens.current is IdentToken && tokens.currentIdent == 'as') {
+  if (tokens.current is IdentToken && tokens.currentIdent == variables['as']) {
     tokens.moveNext();
-    ValueType type = ValueType(null, tokens.currentIdent, tokens.current.line,
-        tokens.current.col, tokens.workspace, tokens.file);
+    ValueType type = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
     tokens.moveNext();
     return AsExpr(
       operand,
@@ -540,10 +509,10 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
       if (!operandA.type.isSubtypeOf(integerType)) {
-        throw FileInvalid("lhs of < is not an integer (is a $operandA)");
+        throw BSCException("lhs of < is not an integer (is a $operandA)");
       }
       if (!operandB.type.isSubtypeOf(integerType)) {
-        throw FileInvalid("rhs of < is not an integer (is a $operandB)");
+        throw BSCException("rhs of < is not an integer (is a $operandB)");
       }
       return LessExpression(
         operandA,
@@ -557,10 +526,10 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
       if (!operandA.type.isSubtypeOf(integerType)) {
-        throw FileInvalid("lhs of <= is not an integer (is a $operandA)");
+        throw BSCException("lhs of <= is not an integer (is a $operandA)");
       }
       if (!operandB.type.isSubtypeOf(integerType)) {
-        throw FileInvalid("rhs of <= is not an integer (is a $operandB)");
+        throw BSCException("rhs of <= is not an integer (is a $operandB)");
       }
       return OrExpression(
         LessExpression(
@@ -588,10 +557,10 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
       if (!operandA.type.isSubtypeOf(integerType)) {
-        throw FileInvalid("lhs of > is not an integer (is a $operandA)");
+        throw BSCException("lhs of > is not an integer (is a $operandA)");
       }
       if (!operandB.type.isSubtypeOf(integerType)) {
-        throw FileInvalid("rhs of > is not an integer (is a $operandB)");
+        throw BSCException("rhs of > is not an integer (is a $operandB)");
       }
       return GreaterExpression(
         operandA,
@@ -605,12 +574,10 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
       if (!operandA.type.isSubtypeOf(integerType)) {
-        throw FileInvalid(
-            "lhs of >= is not an integer (is $operandA, a ${operandA.type}) ${formatCursorPositionFromTokens(tokens)}");
+        throw BSCException("lhs of >= is not an integer (is $operandA, a ${operandA.type}) ${formatCursorPositionFromTokens(tokens)}");
       }
       if (!operandB.type.isSubtypeOf(integerType)) {
-        throw FileInvalid(
-            "rhs of >= is not an integer (is a $operandB ${formatCursorPositionFromTokens(tokens)})");
+        throw BSCException("rhs of >= is not an integer (is a $operandB ${formatCursorPositionFromTokens(tokens)})");
       }
       return OrExpression(
         GreaterExpression(
@@ -645,14 +612,11 @@ Expression parseEqNeq(TokenIterator tokens, TypeValidator scope) {
     if (tokens.currentChar == TokenType.equals) {
       tokens.moveNext();
       Expression operandB = parseEqNeq(tokens, scope);
-      /*if (operandA.type != sharedSupertype &&
-          operandA.type.name != "Whatever" &&
-          operandB.type != sharedSupertype &&
-          operandB.type.name != "Whatever" &&
-          (!operandA.type.isSubtypeOf(operandB.type) ||
-              !operandB.type.isSubtypeOf(operandA.type))) {
-        return BoringExpr(false, booleanType);
-      }*/
+      if (!operandA.type.isSubtypeOf(operandB.type) && !operandB.type.isSubtypeOf(operandA.type)) {
+        throw BSCException(
+          "lhs and rhs of == are not compatible types (lhs is $operandA, a ${operandA.type}, rhs is $operandB, a ${operandB.type}) ${formatCursorPositionFromTokens(tokens)}}",
+        );
+      }
       return EqualsExpression(
         operandA,
         operandB,
@@ -689,12 +653,10 @@ Expression parseBitAnd(TokenIterator tokens, TypeValidator scope) {
     tokens.moveNext();
     Expression operandB = parseBitAnd(tokens, scope);
     if (!operandA.type.isSubtypeOf(integerType)) {
-      throw FileInvalid(
-          "lhs of & is not an integer (is $operandA, a ${operandA.type} ${formatCursorPositionFromTokens(tokens)})");
+      throw BSCException("lhs of & is not an integer (is $operandA, a ${operandA.type} ${formatCursorPositionFromTokens(tokens)})");
     }
     if (!operandB.type.isSubtypeOf(integerType)) {
-      throw FileInvalid(
-          "rhs of & is not an integer (is $operandB, a ${operandB.type} ${formatCursorPositionFromTokens(tokens)})");
+      throw BSCException("rhs of & is not an integer (is $operandB, a ${operandB.type} ${formatCursorPositionFromTokens(tokens)})");
     }
     return BitAndExpression(
       operandA,
@@ -714,12 +676,10 @@ Expression parseBitXor(TokenIterator tokens, TypeValidator scope) {
     tokens.moveNext();
     Expression operandB = parseBitXor(tokens, scope);
     if (!operandA.type.isSubtypeOf(integerType)) {
-      throw FileInvalid(
-          "lhs of ^ is not an integer (is $operandA, a ${operandA.type} ${formatCursorPositionFromTokens(tokens)})");
+      throw BSCException("lhs of ^ is not an integer (is $operandA, a ${operandA.type} ${formatCursorPositionFromTokens(tokens)})");
     }
     if (!operandB.type.isSubtypeOf(integerType)) {
-      throw FileInvalid(
-          "rhs of ^ is not an integer (is $operandB, a ${operandB.type} ${formatCursorPositionFromTokens(tokens)})");
+      throw BSCException("rhs of ^ is not an integer (is $operandB, a ${operandB.type} ${formatCursorPositionFromTokens(tokens)})");
     }
     return BitXorExpression(
       operandA,

@@ -1,0 +1,25 @@
+// expected output: SUCCESS
+
+class A {
+    Null foo() {
+      println('SUCCESS');
+    }
+}
+
+class B extends A {
+    Null foo() {
+      println('FAIL');
+    }
+
+    Null bar() {
+      super.foo();
+    }
+}
+
+class C extends B {
+    Null baz() {
+        super.bar();
+    }
+}
+
+C().baz();

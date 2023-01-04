@@ -1,0 +1,8 @@
+// expected output: <Pass>
+class Fail {
+    String toString() {
+        return "<Pass>";
+    }
+}
+
+println(Fail());

@@ -1,3 +1,4 @@
+// expected exit code is 0
 String plural(Integer n, String singular, String plural) {
   if (n == 1) {
     return singular;
@@ -9,7 +10,7 @@ String bottles(Integer count) {
   if (count == 0) {
     return 'No bottles of beer';
   }
-  return concat(_stringify(count), ' ', plural(count, 'bottle', 'bottles'), ' of beer');
+  return concat(count, ' ', plural(count, 'bottle', 'bottles'), ' of beer');
 }
 
 String wall(Integer count) {
@@ -41,4 +42,3 @@ Null allBottles() {
 println('99 BOTTLES OF BEER ON THE WALL');
 println();
 allBottles();
-assert(_blockCount == 1, 'memory leak');

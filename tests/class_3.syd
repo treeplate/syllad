@@ -1,0 +1,21 @@
+// expected output: 1
+// expected output: 6
+
+class A {
+  Integer foo() { return 1; }
+}
+
+class B extends A {
+  Whatever foo = super.foo;
+
+  Null setFoo(IntegerFunction v) {
+    foo = v;
+  }
+}
+
+Integer six() { return 6; }
+
+B b = B();
+println(b.foo());
+b.setFoo(six);
+println(b.foo());

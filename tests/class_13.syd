@@ -1,0 +1,7 @@
+// expected error: class A has no superclass - attempted 'super'
+
+class A {
+    String toString() {
+        return super.toString();
+    }
+}

@@ -1,0 +1,43 @@
+String input = readFile('day2.in');
+StringList turns = split(input, '\n');
+Integer total = 0;
+for (turn in turns) {
+  StringList moves = split(turn, ' ');
+  if (moves[1] == 'X') {
+    if (moves[0] == 'A') {
+        total += 3;
+    }
+    if (moves[0] == 'B') {
+        total += 1;
+    }
+    if (moves[0] == 'C') {
+        total += 2;
+    }
+  } else if (moves[1] == 'Y') {
+    total += 3;
+    if (moves[0] == 'A') {
+        total += 1;
+    }
+    if (moves[0] == 'B') {
+        total += 2;
+    }
+    if (moves[0] == 'C') {
+        total += 3;
+    }
+  } else if (moves[1] == 'Z') {
+    total += 6;
+    if (moves[0] == 'A') {
+        total += 2;
+    }
+    if (moves[0] == 'B') {
+        total += 3;
+    }
+    if (moves[0] == 'C') {
+        total += 1;
+    }
+  } else {
+    println(concat('ERR: is "', moves[1], '"'));
+  }
+}
+
+println(total);

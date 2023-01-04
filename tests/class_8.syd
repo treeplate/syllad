@@ -1,0 +1,3 @@
+// expected output: Pass
+class Pass {}
+println((Pass() as Whatever).className);

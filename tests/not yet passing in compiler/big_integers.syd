@@ -1,4 +1,5 @@
 // expected error: error: integer literal too big
+
 // (currently buggy in compiler -- no compile time error is reported)
 
 Integer n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;

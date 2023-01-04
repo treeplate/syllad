@@ -77,39 +77,39 @@ Integer compareString(String a, String b) {
   }
 }
 
-Integer quickSortPartition(StringList list, Integer begin, Integer end) {
-  String pivotValue = list[end - 1];
+Integer quickSortPartition(WhateverList list, Integer begin, Integer end, IntegerFunction comparator) {
+  Whatever pivotValue = list[end - 1];
   Integer leftIndex = begin - 1;
   Integer rightIndex = begin;
   while (rightIndex < end - 1) {
-    if (compareString(list[rightIndex], pivotValue) < 0) {
+    if (comparator(list[rightIndex], pivotValue) < 0) {
       leftIndex += 1;
-      String temp = list[leftIndex];
+      Whatever temp = list[leftIndex];
       list[leftIndex] = list[rightIndex];
       list[rightIndex] = temp;
     }
     rightIndex += 1;
   }
-  String temp = list[leftIndex + 1];
+  Whatever temp = list[leftIndex + 1];
   list[leftIndex + 1] = list[rightIndex];
   list[rightIndex] = temp;
   return leftIndex + 1;
 }
 
-Null quickSortRange(StringList list, Integer begin, Integer end) {
+Null quickSortRange(WhateverList list, Integer begin, Integer end, IntegerFunction comparator) {
   assert(begin + 1 < end, 'quickSortRange called with less than two items');
-  Integer pivot = quickSortPartition(list, begin, end);
+  Integer pivot = quickSortPartition(list, begin, end, comparator);
   if (begin + 1 < pivot) {
-    quickSortRange(list, begin, pivot);
+    quickSortRange(list, begin, pivot, comparator);
   }
   if (pivot + 2 < end) {
-    quickSortRange(list, pivot + 1, end);
+    quickSortRange(list, pivot + 1, end, comparator);
   }
 }
 
-Null sort(StringList list) {
+Null sortWithComparator(WhateverList list, IntegerFunction comparator) {
   if (len(list) > 1) {
-    quickSortRange(list, 0, len(list));
+    quickSortRange(list, 0, len(list), comparator);
   }
 }
 
@@ -150,7 +150,6 @@ class Object {
 // whether this makes any sense or not is unclear.
 Integer hashString(String data) {
   Integer result = 5381;
-  Integer c;
   for (c in scalarValues(data)) {
     result = ((result << 5) + result) ^ c;
   }
@@ -165,6 +164,7 @@ Integer hashAnything(Anything data) {
 }
 
 // Map has set, get, remove, keys, values
+// an implementation of .containsKey would be identical to get(n) != null, so just use that
 class Map extends Object {
   // outer list is indexed by hash mod length
   // it is a sparse list (hence nullable)
@@ -183,7 +183,7 @@ class Map extends Object {
     AnythingListListNullableList table = table;
     AnythingListListNullable entry = table[entryIndex];
     if (entry == null) {
-      table[entryIndex] = [[key, value]];
+      table[entryIndex] = [[key, value]]:AnythingList;
       length += 1;
       return;
     }
@@ -197,7 +197,7 @@ class Map extends Object {
     length += 1;
   }
 
-  Null remove(Anything key) {
+  Null remove(Anything key) { // included for completeness #ignore_unused
     assert(len(table) > 0, 'Cannot remove from an empty Map.');
     Integer hashCode = hashAnything(key);
     Integer entryIndex = hashCode % len(table);
@@ -235,6 +235,7 @@ class Map extends Object {
       index += 1;
     }
     table = newTable;
+    length = 0; // gets reset by nonGrowingSet
     for (entry in oldTable) {
       if (entry != null) {
         for (record in entry!) {
@@ -442,4 +443,18 @@ class Set extends Object {
       '}',
     );
   }
+}
+
+Boolean listEquals(WhateverList list1, WhateverList list2) {
+  if (len(list1) != len(list2)) {
+    return false;
+  }
+  Integer index = 0;
+  while (index < len(list1)) {
+    if (list1[index] != list2[index]) {
+      return false;
+    }
+    index += 1;
+  }
+  return true;
 }

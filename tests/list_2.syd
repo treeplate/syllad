@@ -6,7 +6,7 @@ IntegerList tripled = [3, 6, 9]:Integer;
 Integer index = 0;
 for (expected in tripled) {
   if (expected != numbers[index] * 3) {
-    print('mismatch on index', index);
+    print('mismatch on index', index, '- expected', expected, 'but got', numbers[index] * 3);
     exit(1);
   }
   index += 1;

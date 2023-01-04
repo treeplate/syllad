@@ -1,10 +1,7 @@
 // expected output: allocated a pointer!
-// expected output: freed a pointer!
 
 Integer ptr = _alloc(12);
 if (ptr > 0) {
   println('allocated a pointer!');
 }
-if (_free(ptr)) {
-  println('freed a pointer!');
-}
+_free(ptr);

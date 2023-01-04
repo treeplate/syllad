@@ -1,0 +1,7 @@
+// expected error: null is not a boolean - tried to do an if statement with null as the condition
+println('FAIL 1');
+if (null) {
+  println('FAIL 2');
+} else {
+  println('FAIL 3');
+}

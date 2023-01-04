@@ -1,0 +1,6 @@
+// expected output: HOORAY
+
+namespace (foo) {
+    String test = 'HOORAY';
+    println(test);
+}

@@ -4,6 +4,8 @@ import 'syd-utils.syd';
 import 'syd-compiler.syd';
 import 'syd-loop-scopes.syd';
 
+// TODO: remove "walk"
+
 class TypeIdentifier extends AstNode {
   String name;
   
@@ -72,9 +74,9 @@ class Expression extends AstNode {
 
 class StringLiteralExpression extends Expression {
   String value;
-  String label;
 
   Slot generateInstructions(CompiledScope scope) {
+    scope.environment().intrinsicsLibrary.coreStringType.markConstructed();
     Slot result = scope.environment().registerStringConstant('string', value, sourceLocation.lineNo, sourceLocation.colNo, sourceLocation.filename);
     scope.references.add(result); // TODO: ideally we would be able to tree shake references from dead code too, not just unreferenced functions
     return result;
@@ -139,6 +141,7 @@ class ListLiteralExpression extends Expression {
     SlotList elements = []:Slot;
     for (value in values) {
       append(elements, value.generateInstructions(scope));
+      // xxxx static type checks
     }
     Integer initialLength = 1;
     if (len(elements) > initialLength) {
@@ -188,20 +191,18 @@ class LValueExpression extends Expression {
 }
 
 class VariableLValue extends LValue {
-  Slot variable;
+  IdentifierEntity variable;
 
   Null assign(CompiledScope scope, Slot rValue, SourceLocation sourceLocation) {
-    if (!rValue.staticType.isSubtypeOf(variable.staticType)) {
-      throw(concat('Cannot assign ', rValue.staticType.name, ' to variable of type ', variable.staticType.name, ' at ', sourceLocation));
+    if (!rValue.staticType.isSubtypeOf(variable.staticType())) {
+      throw(concat('Cannot assign ', rValue.staticType.name, ' to variable of type ', variable.staticType().name, ' at ', sourceLocation));
     }
-    scope.emitTypeCheck(rValue, variable.staticType, scope.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage as Slot, rValue.debugName, true);
-    scope.emitInstruction(DecrefInstruction(variable));
-    scope.emitInstruction(MoveInstruction(variable, rValue, 'store value'));
-    scope.emitInstruction(MoveTypeToTypeInstruction(variable, rValue, scope.environment(), 'store type'));
-    scope.emitIncref(variable, true);
+    scope.references.add(scope.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage);
+    scope.emitTypeCheck(rValue, variable.staticType(), scope.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage, rValue.debugName, true); // TODO: replace debugName ("what" argument) with real explanation
+    variable.write(scope, rValue);
   }
 
-  Null constructor(Slot variableArg) {
+  Null constructor(IdentifierEntity variableArg) {
     super.constructor();
     variable = variableArg;
   }
@@ -214,37 +215,41 @@ class VariableExpression extends LValueExpression {
     return name;
   }
 
-  Slot generateInstructions(CompiledScope scope) {
-    SlotNullable originalSlot = scope.lookupIdentifier(name);
-    if (originalSlot == null) {
+  IdentifierEntity lookupCurrentIdentifier(CompiledScope scope) {
+    IdentifierEntityNullable result = scope.lookupIdentifier(name);
+    if (result == null) {
       throw(concat('Identifier "', name, '" not known at ', sourceLocation));
     }
-    if (originalSlot!.isMutable()) {
+    if (!result!.isDefined()) {
+      // for compatibility with the interpreter
+      throw(concat('Class "', name, '" has not yet been defined at ', sourceLocation));
+    }
+    return result!;
+  }
+
+  Slot generateInstructions(CompiledScope scope) {
+    Slot originalSlot = lookupCurrentIdentifier(scope).forRead(scope);
+    if (originalSlot.isMutable()) {
       rc referenceCountStyle;
-      if (originalSlot!.staticType.neverReferenceCounted()) {
+      if (originalSlot.staticType.neverReferenceCounted()) {
         referenceCountStyle = rcNever;
       } else {
         referenceCountStyle = rcOnStack;
       }
-      DynamicSlot copy = scope.registerDynamicValue(originalSlot!.staticType, referenceCountStyle, concat('copy of ', name));
+      DynamicSlot copy = scope.registerDynamicValue(originalSlot.staticType, referenceCountStyle, concat('copy of ', name));
       // TODO: optimizer should elide the copy if not needed
-      scope.emitInstruction(MoveInstruction(copy, originalSlot!, concat('make a copy of ', name, '\'s value in case it changes before we use it')));
-      scope.emitInstruction(MoveTypeToTypeInstruction(copy, originalSlot!, scope.environment(), concat('make a copy of ', name, '\'s type in case it changes before we use it')));
+      scope.emitInstruction(MoveInstruction(copy, originalSlot, concat('make a copy of ', name, '\'s value in case it changes before we use it')));
+      scope.emitInstruction(MoveTypeToTypeInstruction(copy, originalSlot, scope.environment(), concat('make a copy of ', name, '\'s type in case it changes before we use it')));
       if (!copy.staticType.neverReferenceCounted()) {
         scope.emitIncref(copy, true /* isGCRoot */);
       }
       return copy;
     }
-    return originalSlot!;
+    return originalSlot;
   }
 
   LValue generateLValue(CompiledScope scope) {
-    SlotNullable originalSlot = scope.lookupIdentifier(name);
-    if (originalSlot == null) {
-      throw(concat('Identifier "', name, '" not known at ', sourceLocation));
-    }
-    assert(originalSlot!.isMutable(), concat(name, '\'s slot is immutable'));
-    return VariableLValue(originalSlot!);
+    return VariableLValue(lookupCurrentIdentifier(scope));
   }
 
   Null constructor(String nameArg, SourceLocation sourceLocationArg) {
@@ -261,7 +266,8 @@ class SubscriptLValue extends LValue {
     if (!rValue.staticType.isSubtypeOf(elementType)) {
       throw(concat('Cannot assign ', rValue.staticType.name, ', to list element of type ', elementType.name, ' at ', sourceLocation));
     }
-    scope.emitTypeCheck(rValue, elementType, scope.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage as Slot, rValue.debugName, true);
+    scope.references.add(scope.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage);
+    scope.emitTypeCheck(rValue, elementType, scope.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage as Slot, rValue.debugName, true); // TODO: replace debugName ("what" argument) with real explanation
     DynamicSlot oldValue = scope.registerDynamicValue(elementType, rcOnHeap, concat('old value in list'));
     scope.emitInstruction(MoveDerefInstruction(oldValue, pointer, 0x08, 'read old value'));
     scope.emitInstruction(MoveDerefToTypeInstruction(oldValue, pointer, 0x00, 'read old type'));
@@ -302,18 +308,20 @@ class SubscriptExpression extends LValueExpression {
     } else {
       throw(concat('"', list, '", a ', _evaluatedList.staticType.name, ', is not a list (and therefore cannot be subscripted) at ', sourceLocation));
     }
-    scope.emitTypeCheck(_evaluatedList, scope.environment().subscriptableType, scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage, concat(list), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(_evaluatedList, scope.environment().subscriptableType, scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage, concat(list), true); // TODO: replace toString ("what" argument) with real explanation
     _evaluatedArgument = argument.generateInstructions(scope);
     if (!_evaluatedArgument.staticType.isSubtypeOf(scope.environment().intrinsicsLibrary.coreIntegerType)) {
       throw(concat('Subscript index is not an Integer at ', sourceLocation, ' (is ', _evaluatedArgument.staticType.name, ')'));
     }
+    scope.references.add(scope.environment().intrinsicsLibrary.subscriptTypeCheckFailureMessage);
     scope.emitTypeCheck(
       _evaluatedArgument,
       scope.environment().intrinsicsLibrary.coreIntegerType,
       scope.environment().intrinsicsLibrary.subscriptTypeCheckFailureMessage as Slot,
       _evaluatedArgument.debugName,
       true,
-    );
+    ); // TODO: replace debugName ("what" argument) with real explanation
   }
 
   Slot generateInstructions(CompiledScope scope) {
@@ -365,8 +373,21 @@ class MemberAccessExpression extends LValueExpression {
   }
 
   Slot generateInstructions(CompiledScope scope) {
-    // TODO: implement member access
-    throw('member access not implemented');
+    Slot lSlot = object.generateInstructions(scope);
+    if (lSlot.staticType is ClassType) {
+      assert(lSlot is DynamicSlot, 'How could an expression with static type that is a class not return a DynamicSlot when compiled?');
+      ClassType class = lSlot.staticType as ClassType;
+      MemberDescriptionNullable memberDescription = class.getMember(member);
+      if (memberDescription != null && memberDescription!.isDefined()) {
+        return class.createIdentifierEntity(scope, lSlot as DynamicSlot, member).forRead(scope);
+      }
+      throw(concat('nonexistent member ', member, ' at ', sourceLocation));
+    }
+    Integer memberId = scope.environment().atomizeForDynamicDispatch(member);
+    Slot dynamicLookup = scope.lookupIntrinsic(scope.environment().dynamicLookupIntrinsicName);
+    Slot getter = scope.emitSubroutineCall(dynamicLookup, [ lSlot, scope.environment().integer(memberId) ]:Slot, null);
+    Slot result = scope.emitSubroutineCall(getter, [ ]:Slot, null);
+    return result;
   }
 
   Null constructor(Expression objectArg, String memberArg, SourceLocation sourceLocationArg) {
@@ -374,6 +395,115 @@ class MemberAccessExpression extends LValueExpression {
     object = objectArg;
     member = memberArg;
   }
+}
+
+CompiledSubroutine evaluateSuper(CompiledScope scope, String method, SourceLocation sourceLocation) {
+  CompiledStackFrameScope stackFrame = scope.stackFrame();
+  if (!stackFrame is CompiledSubroutine) {
+    throw(concat('super expression used outside method at ', sourceLocation));
+  }
+  ClassTypeNullable hostClass = (stackFrame as CompiledSubroutine).parentClass;
+  if (hostClass == null) {
+    throw(concat('super expression used in function instead of method at ', sourceLocation));
+  }
+  if (hostClass!.supertype == hostClass) {
+    assert(hostClass!.supertype == scope.lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName), 'unexpected root class');
+    throw(concat('super expression used in base class at ', sourceLocation));
+  }
+  if (hostClass!.supertype == scope.lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName)) {
+    throw(concat('super expression used in base class at ', sourceLocation));
+  }
+  ClassType superclass = hostClass!.supertype;
+  MemberDescriptionNullable memberDescription = superclass.getMember(method);
+  if (memberDescription == null) {
+    throw(concat('Superclass does not have a method "', method, '" as referenced at ', sourceLocation));
+  }
+  assert(memberDescription!.isDefined(), 'superclass methods not all defined');
+  if (memberDescription == null) {
+    throw(concat('Superclass does not have a method "', method, '" as referenced at ', sourceLocation));
+  }
+  while (memberDescription!.isField) {
+    if (superclass.supertype == superclass) {
+      throw(concat('Superclass member "', method, '" is a field, not a method, but was referenced in super expression at ', sourceLocation));
+    }
+    superclass = superclass.supertype;
+    memberDescription = superclass.getMember(method);
+    if (memberDescription == null) {
+      throw(concat('Superclass member "', method, '" is a field, not a method, but was referenced in super expression at ', sourceLocation));
+    }
+  }
+  return memberDescription!.methodImplementation!;
+}
+
+class SuperExpression extends Expression {
+  String method;
+
+  String toStringIndent(Integer indent) {
+    return concat('super.', method);
+  }
+
+  Slot generateInstructions(CompiledScope scope) {
+    CompiledSubroutine targetMethod = evaluateSuper(scope, method, sourceLocation);
+    CompiledSubroutine thisMethod = scope.stackFrame() as CompiledSubroutine;
+    targetMethod.type.markConstructed();
+    return scope.emitSubroutineCall(
+      scope.lookupIntrinsic(scope.environment().createMethodPointerIntrinsicName),
+      [
+        thisMethod.thisPointer,
+        CompiledSubroutineSlot(targetMethod, thisMethod.thisPointer /* not used */),
+        TypeCodeSlot(scope.environment(), targetMethod.type),
+      ]:Slot,
+      null /* sourceLocations */,
+    );
+  }
+
+  Null constructor(String methodArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
+    method = methodArg;
+  }
+}
+
+Slot generateInstructionsForSubroutineCallExpression(CompiledScope scope, Slot subroutine, ExpressionList arguments, Expression subroutineReference, SourceLocation sourceLocation) {
+  CompilationEnvironment environment = scope.environment();
+  SlotList argumentValues = []:Slot;
+  SourceLocationList sourceLocations = []:SourceLocation;
+  Type subroutineType;
+  if (subroutine is MethodSlot) {
+    subroutineType = (subroutine as MethodSlot).subroutineType;
+  } else if (subroutine is CompiledSubroutineSlot) {
+    subroutineType = (subroutine as CompiledSubroutineSlot).subroutine.type;
+  } else {
+    subroutineType = subroutine.staticType;
+  }
+  if (subroutineType.isSubtypeOf(environment.subroutineType)) {
+    for (argument in arguments) {
+      // xxxx static type checks
+      append(sourceLocations, argument.sourceLocation);
+      append(argumentValues, argument.generateInstructions(scope));
+    }
+  } else {
+    throw(concat('"', subroutineReference.toStringIndent(0), '" is not a subroutine at ', sourceLocation, ' (is ', subroutineType.name, ')'));
+  }
+  if (subroutineType is SubroutineTypeWithSpecificParameters) {
+    if (len(argumentValues) != len((subroutineType as SubroutineTypeWithSpecificParameters).parameterTypes)) {
+      throw(concat('wrong number of arguments to subroutine at ', sourceLocation, ' (expected ', len((subroutineType as SubroutineTypeWithSpecificParameters).parameterTypes), ', got ', len(argumentValues), ')'));
+    }
+  }
+  Type expectedType;
+  if (subroutine is MethodSlot || subroutine is CompiledSubroutineSlot) {
+    expectedType = environment.intrinsicsLibrary.coreSubroutineCodeAddressType;
+  } else {
+    expectedType = environment.subroutineType;
+  }
+  scope.references.add(scope.environment().intrinsicsLibrary.subroutineCallTypeCheckFailureMessage);
+  scope.emitTypeCheck(
+    subroutine,
+    expectedType,
+    environment.intrinsicsLibrary.subroutineCallTypeCheckFailureMessage as Slot,
+    subroutine.debugName,
+    true,
+  ); // TODO: replace debugName ("what" argument) with real explanation
+  return scope.emitSubroutineCall(subroutine, argumentValues, sourceLocations);
 }
 
 class SubroutineCallExpression extends Expression {
@@ -401,31 +531,173 @@ class SubroutineCallExpression extends Expression {
   }
 
   Slot generateInstructions(CompiledScope scope) {
-    CompilationEnvironment environment = scope.environment();
-    Slot subroutine = subroutineReference.generateInstructions(scope);
-    SlotList argumentValues = []:Slot;
-    SourceLocationList sourceLocations = []:SourceLocation;
-    if (subroutine.staticType.isSubtypeOf(environment.subroutineType)) {
-      for (argument in arguments) {
-        append(sourceLocations, argument.sourceLocation);
-        append(argumentValues, argument.generateInstructions(scope));
-      }
-    } else {
-      throw(concat('"', subroutineReference.toStringIndent(0), '" is not a subroutine at ', sourceLocation, ' (is ', subroutine.staticType.name, ')'));
-    }
-    scope.emitTypeCheck(
-      subroutine,
-      environment.subroutineType,
-      environment.intrinsicsLibrary.subroutineCallTypeCheckFailureMessage as Slot,
-      subroutine.debugName,
-      true,
-    );
-    return scope.emitSubroutineCall(subroutine, argumentValues, sourceLocations);
+    return generateInstructionsForSubroutineCallExpression(scope, subroutineReference.generateInstructions(scope), arguments, subroutineReference, sourceLocation);
   }
 
   Null constructor(Expression subroutineReferenceArg, ExpressionList argumentsArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     subroutineReference = subroutineReferenceArg;
+    arguments = argumentsArg;
+  }
+}
+
+class VariableSubroutineCallExpression extends Expression {
+  String name;
+  ExpressionList arguments;
+
+  Null walk(NullFunction callback, Anything context) {
+    for (child in arguments) {
+      callback(child, context);
+    }
+  }
+
+  String toStringIndent(Integer indent) {
+    StringList argumentsList = []:String;
+    Integer index = 0;
+    while (index < len(arguments)) {
+      if (index > 0) {
+        append(argumentsList, ', ');
+      }
+      append(argumentsList, arguments[index].toStringIndent(indent));
+      index += 1;
+    }
+    return concat(name, '(', joinList(argumentsList), ')');
+  }
+  
+  Slot lookupCurrentIdentifier(CompiledScope scope) {
+    IdentifierEntityNullable entity = scope.lookupIdentifier(name);
+    if (entity == null) {
+      throw(concat('Identifier "', name, '" not known at ', sourceLocation));
+    }
+    Slot result = entity!.forCall(scope);
+    if (!result.isDefined()) {
+      // for compatibility with the interpreter
+      throw(concat('Identifier "', name, '" has not yet been defined at ', sourceLocation));
+    }
+    return result;
+  }
+
+  Slot generateVariable(CompiledScope scope) {
+    Slot originalSlot = lookupCurrentIdentifier(scope);
+    if (originalSlot.isMutable()) {
+      rc referenceCountStyle;
+      if (originalSlot.staticType.neverReferenceCounted()) {
+        referenceCountStyle = rcNever;
+      } else {
+        referenceCountStyle = rcOnStack;
+      }
+      DynamicSlot copy = scope.registerDynamicValue(originalSlot.staticType, referenceCountStyle, concat('copy of ', name));
+      // TODO: optimizer should elide the copy if not needed
+      scope.emitInstruction(MoveInstruction(copy, originalSlot, concat('make a copy of ', name, '\'s value in case it changes before we use it')));
+      scope.emitInstruction(MoveTypeToTypeInstruction(copy, originalSlot, scope.environment(), concat('make a copy of ', name, '\'s type in case it changes before we use it')));
+      if (!copy.staticType.neverReferenceCounted()) {
+        scope.emitIncref(copy, true /* isGCRoot */);
+      }
+      copy.freeze();
+      return copy;
+    }
+    return originalSlot;
+  }
+
+  Slot generateInstructions(CompiledScope scope) {
+    return generateInstructionsForSubroutineCallExpression(scope, generateVariable(scope), arguments, this, sourceLocation);
+  }
+
+  Null constructor(String nameArg, ExpressionList argumentsArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
+    name = nameArg;
+    arguments = argumentsArg;
+  }
+}
+
+class MemberAccessSubroutineCallExpression extends Expression {
+  Expression object;
+  String member;
+  ExpressionList arguments;
+
+  String toStringIndent(Integer indent) {
+    StringList argumentsList = []:String;
+    Integer index = 0;
+    while (index < len(arguments)) {
+      if (index > 0) {
+        append(argumentsList, ', ');
+      }
+      append(argumentsList, arguments[index].toStringIndent(indent));
+      index += 1;
+    }
+    return concat(object.toStringIndent(indent), '.', member, '(', joinList(argumentsList), ')');
+  }
+
+  Null walk(NullFunction callback, Anything context) {
+    callback(object, context);
+    for (child in arguments) {
+      callback(child, context);
+    }
+  }
+
+  Slot generateInstructions(CompiledScope scope) {
+    Slot subroutine;
+    Slot lSlot = object.generateInstructions(scope);
+    if (lSlot.staticType is ClassType) {
+      assert(lSlot is DynamicSlot, 'How could an expression with static type that is a class not return a DynamicSlot when compiled?');
+      ClassType class = lSlot.staticType as ClassType;
+      MemberDescriptionNullable memberDescription = class.getMember(member);
+      if (memberDescription != null && memberDescription!.isDefined()) {
+        subroutine = class.createIdentifierEntity(scope, lSlot as DynamicSlot, member).forCall(scope);
+      } else {
+        throw(concat('nonexistent member ', member, ' at ', sourceLocation));
+      }
+    } else {
+      throw(concat('cannot call member whose static type is not known at compile time; consider casting to AnythingFunction at ', sourceLocation));
+      // Integer memberId = scope.environment().atomizeForDynamicDispatch(member);
+      // Slot dynamicLookup = scope.lookupIntrinsic(scope.environment().dynamicLookupIntrinsicName);
+      // Slot getter = scope.emitSubroutineCall(dynamicLookup, [ lSlot, scope.environment().integer(memberId) ]:Slot, null);
+      // subroutine = scope.emitSubroutineCall(getter, [ ]:Slot, null);
+    }
+    return generateInstructionsForSubroutineCallExpression(scope, subroutine, arguments, this, sourceLocation);
+  }
+
+  Null constructor(Expression objectArg, String memberArg, ExpressionList argumentsArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
+    object = objectArg;
+    member = memberArg;
+    arguments = argumentsArg;
+  }
+}
+
+class SuperSubroutineCallExpression extends Expression {
+  String method;
+  ExpressionList arguments;
+
+  String toStringIndent(Integer indent) {
+    StringList argumentsList = []:String;
+    Integer index = 0;
+    while (index < len(arguments)) {
+      if (index > 0) {
+        append(argumentsList, ', ');
+      }
+      append(argumentsList, arguments[index].toStringIndent(indent));
+      index += 1;
+    }
+    return concat('super.', method, '(', joinList(argumentsList), ')');
+  }
+
+  Null walk(NullFunction callback, Anything context) {
+    for (child in arguments) {
+      callback(child, context);
+    }
+  }
+
+  Slot generateInstructions(CompiledScope scope) {
+    CompiledSubroutine targetMethod = evaluateSuper(scope, method, sourceLocation);
+    CompiledSubroutine thisMethod = scope.stackFrame() as CompiledSubroutine;
+    Slot subroutine = CompiledSubroutineSlot(targetMethod, thisMethod.thisPointer);
+    return generateInstructionsForSubroutineCallExpression(scope, subroutine, arguments, this, sourceLocation);
+  }
+
+  Null constructor(String methodArg, ExpressionList argumentsArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
+    method = methodArg;
     arguments = argumentsArg;
   }
 }
@@ -497,7 +769,8 @@ class AsOperatorExpression extends Expression {
     if (!rhs.isSubtypeOf(exprSlot.staticType)) {
       throw(concat('Cannot cast ', exprSlot.staticType.name, ' to ', rhs.name, ' at ', sourceLocation));
     }
-    scope.emitTypeCheck(exprSlot, rhs, scope.environment().intrinsicsLibrary.asOperatorFailureMessage, concat(this), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.asOperatorFailureMessage);
+    scope.emitTypeCheck(exprSlot, rhs, scope.environment().intrinsicsLibrary.asOperatorFailureMessage, concat(this), true); // xxx mention the fact that it's a type check in the [what] argument
     // TODO: this new slot should be identical to the source except for the static type, but right now the slot manager can't handle that
     DynamicSlot result = scope.registerDynamicValue(rhs, rcNever, concat('cast of ', exprSlot.debugName, ' to ', rhs.name));
     scope.emitInstruction(MoveInstruction(result, exprSlot, concat('copy value of ', exprSlot.debugName, ' for cast to ', rhs.name)));
@@ -557,7 +830,7 @@ class ReinterpretDynamicAsOperatorExpression extends Expression {
     Slot rhs = type.generateInstructions(scope);
     DynamicSlot result = scope.registerDynamicValue(scope.environment().intrinsicsLibrary.coreAnythingType, rcNever, concat('force cast of ', lhs.debugName, ' to the type with code ', rhs.debugName));
     scope.emitInstruction(MoveInstruction(result, lhs, result.debugName));
-    scope.emitInstruction(MoveValueToTypeInstruction(result, rhs, result.debugName));
+    scope.emitInstruction(MoveValueToTypeInstruction(result, rhs));
     return result;
   }
 
@@ -628,7 +901,8 @@ class IntegerNegationExpression extends UnaryExpression {
     if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
       throw(concat('Expected Integer, but found ', rhsValue.staticType.name, ', as operand of unary ', describeOperator(), ' operator at ', sourceLocation));
     }
-    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
   }
 
   Type returnType(CompiledIntrinsicsLibrary intrinsics) {
@@ -649,7 +923,8 @@ class PlusExpression extends UnaryExpression {
     if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
       throw(concat('Expected Integer, but found ', rhsValue.staticType.name, ', as operand of unary ', describeOperator(), ' operator at ', sourceLocation));
     }
-    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
   }
 
   Type returnType(CompiledIntrinsicsLibrary intrinsics) {
@@ -671,7 +946,8 @@ class BooleanNotExpression extends UnaryExpression {
     if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreBooleanType)) {
       throw(concat('Expected Boolean, but found ', rhsValue.staticType.name, ', as operand of unary ', describeOperator(), ' operator at ', sourceLocation));
     }
-    scope.emitTypeCheck(rhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(rhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
   }
 
   Type returnType(CompiledIntrinsicsLibrary intrinsics) {
@@ -692,7 +968,8 @@ class BitwiseNotExpression extends UnaryExpression {
     if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
       throw(concat('Expected Integer, but found ', rhsValue.staticType.name, ', as operand of unary ', describeOperator(), ' operator at ', sourceLocation));
     }
-    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
   }
 
   Type returnType(CompiledIntrinsicsLibrary intrinsics) {
@@ -718,7 +995,7 @@ class TypeOfExpression extends UnaryExpression {
   }
 
   Null generateExpressionInstructions(Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(MoveTypeToValueInstruction(result, rhsValue, 'get type of rhs'));
+    scope.emitInstruction(MoveTypeToValueInstruction(result, rhsValue));
   }
 }
 
@@ -731,7 +1008,8 @@ class IteratorTypeOfExpression extends UnaryExpression {
     if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
       throw(concat('Expected Integer, but found ', rhsValue.staticType.name, ', as operand of unary ', describeOperator(), ' operator at ', sourceLocation));
     }
-    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
   }
 
   Type returnType(CompiledIntrinsicsLibrary intrinsics) {
@@ -754,7 +1032,8 @@ class ListTypeOfExpression extends UnaryExpression {
     if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
       throw(concat('Expected Integer, but found ', rhsValue.staticType.name, ', as operand of unary ', describeOperator(), ' operator at ', sourceLocation));
     }
-    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
   }
 
   Type returnType(CompiledIntrinsicsLibrary intrinsics) {
@@ -768,6 +1047,7 @@ class ListTypeOfExpression extends UnaryExpression {
   }
 }
 
+// This marks the type as constructed, but not as type checked.
 class TypeToCodeExpression extends Expression {
   TypeIdentifier rhs;
 
@@ -789,6 +1069,7 @@ class TypeToCodeExpression extends Expression {
 
   Slot generateInstructions(CompiledScope scope) {
     Type rhsValue = rhs.generateInstructions(scope);
+    rhsValue.markConstructed();
     return TypeCodeSlot(scope.environment(), rhsValue);
   }
 
@@ -866,11 +1147,13 @@ class NumericOperatorExpression extends OperatorExpression {
     if (!lhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
       throw(concat('Expected Integer, but found ', lhsValue.staticType.name, ', as left hand operand of ', describeOperator(), ' operator at ', sourceLocation));
     }
-    scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(lhs), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(lhs), true); // TODO: replace toString ("what" argument) with real explanation
     if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
       throw(concat('Expected Integer, but found ', rhsValue.staticType.name, ', as right hand operand of ', describeOperator(), ' operator at ', sourceLocation));
     }
-    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
   }
 
   Type returnType(CompiledIntrinsicsLibrary intrinsics) {
@@ -997,7 +1280,6 @@ class OperatorEqualsEqualsExpression extends OperatorExpression {
   }
 
   Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    // TODO: StoreEqualityInstruction needs to implement string comparisons
     scope.storeEquality(lhsValue, rhsValue, result, false);
   }
 }
@@ -1019,7 +1301,6 @@ class OperatorBangEqualsExpression extends OperatorExpression {
   }
 
   Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    // TODO: StoreEqualityInstruction needs to implement string comparisons
     scope.storeEquality(lhsValue, rhsValue, result, true);
   }
 }
@@ -1033,11 +1314,13 @@ class OperatorNumericCmpExpression extends OperatorExpression {
     if (!lhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
       throw(concat('Expected Integer, but found ', lhsValue.staticType.name, ', as left hand operand of ', describeOperator(), ' operator at ', sourceLocation));
     }
-    scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(lhs), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(lhs), true); // TODO: replace toString ("what" argument) with real explanation
     if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
       throw(concat('Expected Integer, but found ', rhsValue.staticType.name, ', as right hand operand of ', describeOperator(), ' operator at ', sourceLocation));
     }
-    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
   }
 
   Type returnType(CompiledIntrinsicsLibrary intrinsics) {
@@ -1098,11 +1381,13 @@ class OperatorLogicalAndExpression extends OperatorExpression {
     if (!lhsValue.staticType.isSubtypeOf(intrinsics.coreBooleanType)) {
       throw(concat('Expected Boolean, but found ', lhsValue.staticType.name, ', as left hand operand of ', describeOperator(), ' operator at ', sourceLocation));
     }
-    scope.emitTypeCheck(lhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(lhs), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(lhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(lhs), true); // TODO: replace toString ("what" argument) with real explanation
     if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreBooleanType)) {
       throw(concat('Expected Boolean, but found ', rhsValue.staticType.name, ', as right hand operand of ', describeOperator(), ' operator at ', sourceLocation));
     }
-    scope.emitTypeCheck(rhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(rhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
   }
 
   Type returnType(CompiledIntrinsicsLibrary intrinsics) {
@@ -1124,11 +1409,13 @@ class OperatorLogicalOrExpression extends OperatorExpression {
     if (!lhsValue.staticType.isSubtypeOf(intrinsics.coreBooleanType)) {
       throw(concat('Expected Boolean, but found ', lhsValue.staticType.name, ', as left hand operand of ', describeOperator(), ' operator at ', sourceLocation));
     }
-    scope.emitTypeCheck(lhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(lhs), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(lhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(lhs), true); // TODO: replace toString ("what" argument) with real explanation
     if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreBooleanType)) {
       throw(concat('Expected Boolean, but found ', rhsValue.staticType.name, ', as right hand operand of ', describeOperator(), ' operator at ', sourceLocation));
     }
-    scope.emitTypeCheck(rhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(rhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
   }
 
   Type returnType(CompiledIntrinsicsLibrary intrinsics) {
@@ -1141,13 +1428,68 @@ class OperatorLogicalOrExpression extends OperatorExpression {
   }
 }
 
-
 class DeclarationStatement extends Statement {
   String identifier;
+
+  // Static type of the thing being declared.
+  Type staticType; // must be set by generateInstructions
 
   Null constructor(String identifierArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     identifier = identifierArg;
+  }
+}
+
+class FieldDeclarationStatement extends DeclarationStatement {
+  TypeIdentifier type;
+  ExpressionNullable rValue;
+  
+  String toStringIndent(Integer indent) {
+    if (rValue == null) {
+      return concat(type.toStringIndent(indent), ' ', identifier, ';\n');
+    }
+    return concat(type.toStringIndent(indent), ' ', identifier, ' = ', rValue!.toStringIndent(indent), ';\n');
+  }
+
+  Null generateInitializerInstructions(CompiledScope constructor) {
+    if (rValue != null) {
+      Slot rSlot = rValue!.generateInstructions(constructor);
+      if (!rSlot.staticType.isSubtypeOf(staticType)) {
+        throw(concat('Cannot assign ', rSlot.staticType.name, ' to field of type ', staticType.name, ' at ', sourceLocation));
+      }
+      constructor.references.add(constructor.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage);
+      constructor.emitTypeCheck(rSlot, staticType, constructor.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage as Slot, rSlot.debugName, true); // TODO: replace debugName ("what" argument) with real explanation
+      (constructor as CompiledSubroutine).parentClass!.createIdentifierEntity(constructor as CompiledSubroutine, (constructor as CompiledSubroutine).thisPointer, identifier).write(constructor, rSlot);
+    }
+  }
+
+  Null declare(ClassType classType, CompiledScope scope) {
+    staticType = type.generateInstructions(scope);
+    MemberDescriptionNullable inheritedMember = classType.getMember(identifier);
+    if (inheritedMember != null) {
+      if (inheritedMember!.isInherited) {
+        if (!staticType.isSubtypeOf(inheritedMember!.staticType)) {
+          throw(concat('Inherited ', identifier, ' has type ', inheritedMember!.staticType.name,
+                       ', but is overridden with incompatible type ', staticType.name, ' at ', sourceLocation));
+        }
+      } else {
+        throw(concat('Identifier ', identifier, ' redeclared at ', sourceLocation));
+      }
+    }
+    classType.registerMember(identifier, staticType, true, generateInitializerInstructions);
+  }
+  
+  Null generateInstructions(CompiledScope scope) {
+    assert(scope is CompiledSubroutine, 'FieldDeclarationStatement compiled outside of class constructor');
+    assert((scope as CompiledSubroutine).parentClass != null, 'FieldDeclarationStatement compiled outside of class');
+    generateInitializerInstructions(scope);
+    (scope as CompiledSubroutine).parentClass!.getMember(identifier)!.define();
+  }
+
+  Null constructor(TypeIdentifier typeArg, String identifierArg, ExpressionNullable rValueArg, SourceLocation sourceLocationArg) {
+    super.constructor(identifierArg, sourceLocationArg);
+    type = typeArg;
+    rValue = rValueArg;
   }
 }
 
@@ -1163,14 +1505,18 @@ class VariableDeclarationStatement extends DeclarationStatement {
   }
   
   Null generateInstructions(CompiledScope scope) {
-    Type typeValue = type.generateInstructions(scope);
-    DynamicSlot lSlot = scope.registerVariable(identifier, typeValue);
+    staticType = type.generateInstructions(scope);
+    if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
+      throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
+    }
+    DynamicSlot lSlot = scope.registerVariable(identifier, staticType);
     if (rValue != null) {
       Slot rSlot = rValue!.generateInstructions(scope);
       if (!rSlot.staticType.isSubtypeOf(lSlot.staticType)) {
         throw(concat('Cannot assign ', rSlot.staticType.name, ' to variable of type ', lSlot.staticType.name, ' at ', sourceLocation));
       }
-      scope.emitTypeCheck(rSlot, typeValue, scope.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage as Slot, rSlot.debugName, true);
+      scope.references.add(scope.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage);
+      scope.emitTypeCheck(rSlot, staticType, scope.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage as Slot, rSlot.debugName, true); // TODO: replace debugName ("what" argument) with real explanation
       scope.emitInstruction(MoveInstruction(lSlot, rSlot, concat('value initialization of variable declaration for ', lSlot.debugName, ' (', rSlot.debugName, ')')));
       scope.emitInstruction(MoveTypeToTypeInstruction(lSlot, rSlot, scope.environment(), concat('type initialization of variable declaration for ', lSlot.debugName)));
       scope.emitIncref(lSlot, true);
@@ -1184,11 +1530,10 @@ class VariableDeclarationStatement extends DeclarationStatement {
   }
 }
 
-class SubroutineDeclarationStatement extends DeclarationStatement {
+class AbstractSubroutineDeclarationStatement extends DeclarationStatement {
   TypeIdentifier returnType;
   String identifier;
   AnythingListList parameters; // pairs of type (TypeIdentifier) and identifier (String)
-  Boolean isIntrinsic;
   Boolean isVarArgs;
   StatementBlock body;
 
@@ -1196,46 +1541,60 @@ class SubroutineDeclarationStatement extends DeclarationStatement {
     callback(body, context);
   }
 
-  Null generateInstructions(CompiledScope scope) {
+  ClassTypeNullable receiverType() {
+    abstract();
+  }
+
+  Null registerSubroutine(CompiledScope scope, CompiledSubroutine subroutine) {
+    abstract();
+  }
+
+  CompiledSubroutine subroutine;
+
+  Null generateStaticType(CompiledScope scope) {
     Type compiledReturnType = returnType.generateInstructions(scope);
     TypeList compiledParameterTypes = []:Type;
     for (entry in parameters) {
       append(compiledParameterTypes, (entry[0] as TypeIdentifier).generateInstructions(scope));
     }
-    CompiledSubroutine subroutine;
     if (isVarArgs) {
-      SubroutineTypeWithVarArgs subroutineType = createOrFindSubroutineTypeWithVarArgs(
+      assert(len(compiledParameterTypes) == 1, 'unexpected number of parameters to varargs function');
+      staticType = createOrFindSubroutineTypeWithVarArgs(
         scope.environment(),
         compiledReturnType,
         compiledParameterTypes,
       );
-      subroutine = CompiledVarArgsSubroutine(scope, subroutineType, identifier);
-      assert(len(compiledParameterTypes) == 1, 'unexpected number of parameters to varargs function');
+      createOrFindIteratorType(scope.environment(), compiledParameterTypes[0]).markConstructed();
+      createOrFindListType(scope.environment(), compiledParameterTypes[0]).markConstructed();
+    } else {
+      staticType = createOrFindSubroutineTypeWithSpecificParameters(
+        scope.environment(),
+        compiledReturnType,
+        compiledParameterTypes,
+      );
+    }
+  }
+
+  Null generateInstructions(CompiledScope scope) {
+    assert(staticType != null, 'call generateStaticType before generateInstructions');
+    if (isVarArgs) {
+      subroutine = CompiledVarArgsSubroutine(scope, staticType as SubroutineTypeWithVarArgs, identifier, receiverType());
       String name = parameters[0][1] as String;
-      Type type = compiledParameterTypes[0];
+      Type type = (staticType as SubroutineTypeWithVarArgs).parameterType;
       (subroutine as CompiledVarArgsSubroutine).emitVarArgsParameterChecks(type, (subroutine as CompiledVarArgsSubroutine).registerVarArgsParameter(name, type) as VarArgsParameterSlot);
     } else {
-      SubroutineTypeWithSpecificParameters subroutineType = createOrFindSubroutineTypeWithSpecificParameters(
-        scope.environment(),
-        compiledReturnType,
-        compiledParameterTypes,
-      );
-      subroutine = CompiledSubroutineWithSpecificParameters(scope, subroutineType, identifier);
+      subroutine = CompiledSubroutineWithSpecificParameters(scope, staticType as SubroutineTypeWithSpecificParameters, identifier, receiverType());
       SlotList parameterSlots = []:Slot;
       Integer index = 0;
       for (parameter in parameters) {
         String name = parameter[1] as String;
-        Type type = compiledParameterTypes[index];
+        Type type = (staticType as SubroutineTypeWithSpecificParameters).parameterTypes[index];
         append(parameterSlots, (subroutine as CompiledSubroutineWithSpecificParameters).registerParameter(name, type, index));
         index += 1;
       }
       (subroutine as CompiledSubroutineWithSpecificParameters).emitParameterChecks(parameterSlots);
     }
-    SubroutineSlot slot = scope.registerSubroutine(subroutine);
-    if (isIntrinsic) {
-      scope.environment().registerIntrinsic(slot);
-    }
-    // TODO: declare slot for "this" and "closure"
+    registerSubroutine(scope, subroutine);
     body.generateInstructions(subroutine);
   }
 
@@ -1253,13 +1612,74 @@ class SubroutineDeclarationStatement extends DeclarationStatement {
     return concat(returnType.toStringIndent(indent), ' ', identifier, '(', joinList(parametersList), ') {\n', bodyString, '}\n');
   }
 
-  Null constructor(TypeIdentifier returnTypeArg, String identifierArg, AnythingListList parametersArg, Boolean isVarArgsArg, StatementBlock bodyArg, SourceLocation sourceLocationArg, Boolean isIntrinsicArg) {
+  Null constructor(TypeIdentifier returnTypeArg, String identifierArg, AnythingListList parametersArg, Boolean isVarArgsArg, StatementBlock bodyArg, SourceLocation sourceLocationArg) {
     assert(!isVarArgsArg || (len(parametersArg) == 1), 'varargs is only valid with a single parameter');
     super.constructor(identifierArg, sourceLocationArg);
     returnType = returnTypeArg;
     parameters = parametersArg;
     isVarArgs = isVarArgsArg;
     body = bodyArg;
+  }
+}
+
+class MethodDeclarationStatement extends AbstractSubroutineDeclarationStatement {
+  ClassType parentClass;
+
+  Null declare(ClassType classType, CompiledScope scope) {
+    generateStaticType(scope);
+    MemberDescriptionNullable inheritedMember = classType.getMember(identifier);
+    if (inheritedMember != null) {
+      if (inheritedMember!.isInherited) {
+        if (!staticType.isSubtypeOf(inheritedMember!.staticType)) {
+          throw(concat('Inherited ', identifier, ' has type ', inheritedMember!.staticType.name,
+                       ', but is overridden with incompatible type ', staticType.name, ' at ', sourceLocation));
+        }
+      } else {
+        throw(concat('Identifier ', identifier, ' redeclared at ', sourceLocation));
+      }
+    }
+    classType.registerMember(identifier, staticType, false, null);
+    parentClass = classType;
+  }
+  
+  ClassTypeNullable receiverType() {
+    return parentClass;
+  }
+
+  Null registerSubroutine(CompiledScope scope, CompiledSubroutine subroutine) {
+    scope.registerNestedScope(subroutine);
+    MemberDescription member = parentClass.getMember(identifier)!;
+    member.define();
+    member.setMethodImplementation(subroutine);
+    scope.environment().addSubroutine(subroutine);
+    scope.references.add(SubroutineSlot(subroutine, false));
+  }
+}
+
+class SubroutineDeclarationStatement extends AbstractSubroutineDeclarationStatement {
+  Boolean isIntrinsic;
+
+  ClassTypeNullable receiverType() {
+    return null;
+  }
+
+  Null registerSubroutine(CompiledScope scope, CompiledSubroutine subroutine) {
+    SubroutineSlot slot = scope.registerSubroutine(subroutine, false);
+    if (isIntrinsic) {
+      scope.environment().registerIntrinsic(slot);
+    }
+  }
+
+  Null generateInstructions(CompiledScope scope) {
+    if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
+      throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
+    }
+    super.generateStaticType(scope);
+    super.generateInstructions(scope);
+  }
+
+  Null constructor(TypeIdentifier returnTypeArg, String identifierArg, AnythingListList parametersArg, Boolean isVarArgsArg, StatementBlock bodyArg, SourceLocation sourceLocationArg, Boolean isIntrinsicArg) {
+    super.constructor(returnTypeArg, identifierArg, parametersArg, isVarArgsArg, bodyArg, sourceLocationArg);
     isIntrinsic = isIntrinsicArg;
   }
 }  
@@ -1270,8 +1690,12 @@ class GenericSystemSubroutineDeclarationStatement extends DeclarationStatement {
   AnythingListList parameters; // pairs of type (TypeIdentifier) and identifier (String)
   String library;
   String externalName;
+  Boolean isIntrinsic;
 
   Null generateInstructions(CompiledScope scope) {
+    if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
+      throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
+    }
     Type compiledReturnType = returnType.generateInstructions(scope);
     TypeList compiledParameterTypes = []:Type;
     StringList compiledParameterNames = []:String;
@@ -1279,7 +1703,7 @@ class GenericSystemSubroutineDeclarationStatement extends DeclarationStatement {
       append(compiledParameterTypes, (entry[0] as TypeIdentifier).generateInstructions(scope));
       append(compiledParameterNames, entry[1] as String);
     }
-    scope.registerSubroutine(GenericSystemCallSubroutine(
+    CompiledSubroutine subroutine = GenericSystemCallSubroutine(
       scope,
       compiledReturnType,
       compiledParameterTypes,
@@ -1287,7 +1711,12 @@ class GenericSystemSubroutineDeclarationStatement extends DeclarationStatement {
       library,
       externalName,
       identifier,
-    ));
+    );
+    staticType = subroutine.type;
+    SubroutineSlot slot = scope.registerSubroutine(subroutine, false);
+    if (isIntrinsic) {
+      scope.environment().registerIntrinsic(slot);
+    }
   }
 
   String toStringIndent(Integer indent) {
@@ -1303,12 +1732,13 @@ class GenericSystemSubroutineDeclarationStatement extends DeclarationStatement {
     return concat(returnType.toStringIndent(indent), ' ', identifier, '(', joinList(parametersList), ') __extern \'', escapeString(library), '\' \'', escapeString(externalName), '\'\n');
   }
 
-  Null constructor(TypeIdentifier returnTypeArg, String identifierArg, AnythingListList parametersArg, String libraryArg, String externalNameArg, SourceLocation sourceLocationArg) {
+  Null constructor(TypeIdentifier returnTypeArg, String identifierArg, AnythingListList parametersArg, String libraryArg, String externalNameArg, SourceLocation sourceLocationArg, Boolean isIntrinsicArg) {
     super.constructor(identifierArg, sourceLocationArg);
     returnType = returnTypeArg;
     parameters = parametersArg;
     library = libraryArg;
     externalName = externalNameArg;
+    isIntrinsic = isIntrinsicArg;
   }
 }  
 
@@ -1336,11 +1766,15 @@ class EnumDeclaration extends DeclarationStatement {
     if (scope.environment().isCompoundType(identifier)) {
       throw(concat('"', identifier, '" is not a valid enum type name at ', sourceLocation));
     }
-    EnumType type = EnumType(scope.environment(), identifier, values);
-    globalScope.declareType(type);
+    staticType = EnumType(scope.environment(), identifier);
+    globalScope.declareType(staticType);
     Integer index = 0;
     for (value in values) {
-      scope.registerNumericConstant(concat(identifier, value), index, type);
+      String name = concat(identifier, value);
+      if (scope.isIdentifierDeclaredInLocalScope(name)) {
+        throw(concat('Cannot redeclare identifier "', name, '" at ', sourceLocation));
+      }
+      scope.registerNumericConstant(name, index, staticType);
       index += 1;
     }
   }
@@ -1353,36 +1787,95 @@ class EnumDeclaration extends DeclarationStatement {
 
 class AbstractClassDeclaration extends DeclarationStatement {
   TypeIdentifierNullable superclassName;
+  Boolean isIntrinsic;
   
-  ClassType declareType(CompiledScope scope) {
-    Type superclass;
-    if (superclassName == null) {
-      superclass = scope.environment().intrinsicsLibrary.coreClassType;
-      if (!(superclass is ClassType)) {
-        throw(concat('Specified type is not a class at ', superclassName!.sourceLocation));
+  Null declareType(CompiledScope scope) {
+    TypeNullable superclass;
+    if (isIntrinsic && identifier == scope.environment().coreClassTypeIntrinsicName) {
+      if (superclassName != null) {
+        throw(concat('Intrinsic class cannot have a superclass as ', sourceLocation));
       }
+      superclass = null;
+    } else if (superclassName == null) {
+      superclass = scope.lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName);
     } else {
       superclass = superclassName!.generateInstructions(scope);
     }
-    ClassType type = ClassType(scope.environment(), identifier, superclass as ClassType);
-    scope.globalScope().declareType(type);
-    return type;
+    staticType = ClassType(scope.environment(), identifier, superclass);
+    scope.globalScope().declareType(staticType);
+    if (isIntrinsic) {
+      scope.environment().registerClassIntrinsic(staticType as ClassType);
+    }
   }
 
-  Slot declareConstructor(CompiledScope scope, ClassType type, TypeList parameters) {
-    SubroutineTypeWithSpecificParameters subroutineType = createOrFindSubroutineTypeWithSpecificParameters(
-      scope.environment(),
-      type,
-      parameters,
-    );
-    CompiledSubroutineWithSpecificParameters constructor = CompiledSubroutineWithSpecificParameters(scope, subroutineType, identifier);
-    // TODO: type-check parameters
-    return scope.registerSubroutine(constructor);
+  Null declareConstructor(CompiledScope scope, TypeList parameters, Boolean isVarArgs) {
+    if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
+      throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
+    }
+    AbstractSubroutineTypeWithSpecificParameters subroutineType;
+    if (isVarArgs) {
+      subroutineType = createOrFindSubroutineTypeWithVarArgs(
+        scope.environment(),
+        staticType,
+        parameters,
+      );
+    } else {
+      subroutineType = createOrFindSubroutineTypeWithSpecificParameters(
+        scope.environment(),
+        staticType,
+        parameters,
+      );
+    }
+    CompiledGeneratedConstructorSubroutine constructor = CompiledGeneratedConstructorSubroutine(scope, subroutineType, identifier, staticType as ClassType);
+    (staticType as ClassType).setConstructorSubroutine(scope.registerSubroutine(constructor, true));
   }
 
-  Null constructor(String identifierArg, TypeIdentifierNullable superclassNameArg, SourceLocation sourceLocationArg) {
+  Null constructor(String identifierArg, TypeIdentifierNullable superclassNameArg, Boolean isIntrinsicArg, SourceLocation sourceLocationArg) {
     super.constructor(identifierArg, sourceLocationArg);
     superclassName = superclassNameArg;
+    isIntrinsic = isIntrinsicArg;
+  }
+}
+
+class ForwardClassDeclaration extends AbstractClassDeclaration {
+  TypeIdentifierListNullable constructorParameterTypes;
+  Boolean isVarArgs;
+  
+  String toStringIndent(Integer indent) {
+    StringList buffer = ['fwdclass ', identifier, ' '];
+    if (superclassName != null) {
+      append(buffer, 'extends ');
+      append(buffer, superclassName!.toStringIndent(indent));
+    }
+    append(buffer, ';\n');
+    return joinList(buffer);
+  }
+
+  Null generateInstructions(CompiledScope scope) {
+    declareType(scope);
+    if (constructorParameterTypes != null) {
+      TypeList parameterTypes = []:Type;
+      for (identifier in constructorParameterTypes!) {
+        append(parameterTypes, identifier.generateInstructions(scope));
+      }
+      assert(!isVarArgs || len(parameterTypes) == 1, 'varargs must have one parameter in their list');
+      declareConstructor(scope, parameterTypes, isVarArgs);
+    } else {
+      assert((staticType as ClassType).supertype != scope.lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName), 'parser failed to give empty list of arguments');
+      // If no parameters are given on the fwdclass declaration, but the declaration
+      // has a superclass, then the arguments from the superclass constructor are implied.
+      declareConstructor(
+        scope,
+        ((staticType as ClassType).supertype.constructorSubroutine.staticType as SubroutineTypeWithSpecificParameters).parameterTypes,
+        (staticType as ClassType).supertype.constructorSubroutine.staticType is SubroutineTypeWithVarArgs,
+      );
+    }
+  }
+
+  Null constructor(String classNameArg, TypeIdentifierListNullable constructorParameterTypesArg, Boolean isVarArgsArg, TypeIdentifierNullable superclassNameArg, Boolean isIntrinsicArg, SourceLocation sourceLocationArg) {
+    super.constructor(classNameArg, superclassNameArg, isIntrinsicArg, sourceLocationArg);
+    constructorParameterTypes = constructorParameterTypesArg;
+    isVarArgs = isVarArgsArg;
   }
 }
 
@@ -1405,55 +1898,148 @@ class ClassDeclaration extends AbstractClassDeclaration {
     return joinList(buffer);
   }
 
+  String kConstructor = 'constructor';
+
   Null generateInstructions(CompiledScope scope) {
-    TypeNullable type = scope.globalScope().lookupType(identifier);
-    if (type == null) {
-      type = declareType(scope);
-      declareConstructor(scope, type! as ClassType, []:Type /* TODO: constructor parameters */);
+    TypeNullable existingStaticType = scope.globalScope().lookupType(identifier);
+    if (existingStaticType == null) {
+      declareType(scope);
     } else {
-      // TODO: verify that |type| is a matching forward class declaration
-      // TODO: add our constructor if necessary
-    }
-    // TODO: declare class members
-    // TODO: compile scope of constructor
-    throw('classes not implemented');
-  }
-
-  Null constructor(String classNameArg, TypeIdentifierNullable superclassNameArg, DeclarationStatementList membersArg, SourceLocation sourceLocationArg) {
-    super.constructor(classNameArg, superclassNameArg, sourceLocationArg);
-    members = membersArg;
-  }
-}
-
-class ForwardClassDeclaration extends AbstractClassDeclaration {
-  TypeIdentifierListNullable constructorParameterTypes;
-  DeclarationStatementList members;
-  
-  String toStringIndent(Integer indent) {
-    StringList buffer = ['fwdclass ', identifier, ' '];
-    if (superclassName != null) {
-      append(buffer, 'extends ');
-      append(buffer, superclassName!.toStringIndent(indent));
-    }
-    append(buffer, ';\n');
-    return joinList(buffer);
-  }
-
-  Null generateInstructions(CompiledScope scope) {
-    ClassType type = declareType(scope);
-    if (constructorParameterTypes != null) {
-      TypeList parameterTypes = []:Type;
-      for (identifier in constructorParameterTypes!) {
-        append(parameterTypes, identifier.generateInstructions(scope));
+      staticType = existingStaticType!;
+      // either someone declared an unrelated type with the same name (bad)
+      // or, they used fwdclass (good).
+      if (!(staticType is ClassType)) {
+        throw(concat('Type ', identifier, ' redeclared at ', sourceLocation));
+      } else if ((staticType as ClassType).members.length != 0) {
+        throw(concat('Class ', identifier, ' redeclared at ', sourceLocation));
+      } else if (superclassName == null) {
+        if ((staticType as ClassType).supertype != staticType) {
+          throw(concat('Forward class declaration for ', identifier, ' used supertype ', (staticType as ClassType).supertype.name, ', but class declaration had no supertype at ', sourceLocation));
+        }
+      } else {
+        Type superclass = superclassName!.generateInstructions(scope);
+        if (superclass != (staticType as ClassType).supertype) {
+          throw(concat('Forward class declaration for ', identifier, ' used supertype ', (staticType as ClassType).supertype.name, ', but class declaration uses supertype ', superclass.name, ', at ', sourceLocation));
+        }
       }
-      Slot constructor = declareConstructor(scope, type, parameterTypes);
-      // TODO: register the constructor with the class type somehow
     }
+    (staticType as ClassType).markAsDefined();
+    if (!(staticType as ClassType).supertype.isDefined) {
+      assert(superclassName != null, 'we were not defined wat');
+      throw(concat('Cannot extend a class that has not yet been defined at ', superclassName!.sourceLocation));
+    }
+    // register members on the class type
+    (staticType as ClassType).inheritMembersFromSupertype();
+    for (member in members) {
+      if (member is FieldDeclarationStatement) {
+        (member as FieldDeclarationStatement).declare(staticType as ClassType, scope);
+      } else if (member is MethodDeclarationStatement) {
+        (member as MethodDeclarationStatement).declare(staticType as ClassType, scope);
+      } else {
+        assert(false, concat('unexpected declaration statement (', member.className, ') in class at ', member.sourceLocation));
+      }
+    }
+    DeclarationStatementNullable constructorMember = null;
+    for (member in members) {
+      if (member.identifier == kConstructor) {
+        // we found it!
+        constructorMember = member;
+        break;
+      }
+    }
+    TypeList constructorParameters;
+    Boolean constructorIsVarArgs;
+    if (constructorMember != null) {
+      // we have an explicit constructor
+      if (!constructorMember!.staticType.isSubtypeOf(createOrFindSubroutineTypeWithAnyArgs(scope.environment(), scope.environment().intrinsicsLibrary.coreNullType))) {
+        throw(concat('Constructor must be a NullFunction, but is declared as a ', constructorMember!.staticType.name, ' at ', constructorMember!.sourceLocation));
+      }
+      if (constructorMember is AbstractSubroutineDeclarationStatement) {
+        // constructor was declared as a method on this class
+        if ((constructorMember as AbstractSubroutineDeclarationStatement).isVarArgs) {
+          constructorParameters = [(constructorMember!.staticType as SubroutineTypeWithVarArgs).parameterType]:Type;
+          constructorIsVarArgs = true;
+        } else {
+          assert(constructorMember!.staticType is SubroutineTypeWithSpecificParameters, 'unexpected subroutine type');
+          Type getTypes(Anything tuple) {
+            return ((tuple as AnythingList)[0] as TypeIdentifier).generateInstructions(scope);
+          }
+          constructorParameters = map((constructorMember as AbstractSubroutineDeclarationStatement).parameters, getTypes) as TypeList;
+          constructorIsVarArgs = false;
+        }
+      } else {
+        // constructor was probably declared as a property on this class (grr!)
+        assert(constructorMember!.staticType is SubroutineTypeWithAnyArguments, 'unexpected subroutine type');
+        constructorParameters = [scope.environment().intrinsicsLibrary.coreAnythingType]:Type;
+        constructorIsVarArgs = true;
+      }
+    } else if ((staticType as ClassType).supertype == staticType) {
+      // this must be the __Object definition
+      throw(concat('Base class must have an explicit constructor but has none at ', sourceLocation));
+    } else {
+      // we did not have an explicit constructor, so our constructor just defers to the superclass constructor
+      if ((staticType as ClassType).supertype.constructorSubroutine.staticType is SubroutineTypeWithVarArgs) {
+        constructorParameters = [((staticType as ClassType).supertype.constructorSubroutine.staticType as SubroutineTypeWithVarArgs).parameterType]:Type;
+        constructorIsVarArgs = true;
+      } else {
+        assert((staticType as ClassType).supertype.constructorSubroutine.staticType is SubroutineTypeWithSpecificParameters, 'unexpected subroutine type');
+        constructorParameters = ((staticType as ClassType).supertype.constructorSubroutine.staticType as SubroutineTypeWithSpecificParameters).parameterTypes;
+        constructorIsVarArgs = false;
+      }
+    }
+    if (existingStaticType != null) {
+      // we must have had a forward class declaration; check that what we are going to define matches it
+      if (constructorIsVarArgs) {
+        assert(len(constructorParameters) == 1, 'internal inconsistency');
+        if (!((staticType as ClassType).constructorSubroutine.staticType is SubroutineTypeWithVarArgs) ||
+             ((staticType as ClassType).constructorSubroutine.staticType as SubroutineTypeWithVarArgs).parameterType != constructorParameters[0]) {
+          throw(concat('Forward class declaration constructor signature did not match constructor declaration at ', constructorMember!.sourceLocation));
+        }
+      } else {
+        if (!((staticType as ClassType).constructorSubroutine.staticType is SubroutineTypeWithSpecificParameters) ||
+            !listEquals(((staticType as ClassType).constructorSubroutine.staticType as SubroutineTypeWithSpecificParameters).parameterTypes, constructorParameters)) {
+          throw(concat('Forward class declaration constructor signature did not match constructor declaration at ', constructorMember!.sourceLocation));
+        }
+      }
+    } else {
+      declareConstructor(scope, constructorParameters, constructorIsVarArgs);
+    }
+    SubroutineSlot constructorScopeSlot = (staticType as ClassType).constructorSubroutine;
+    constructorScopeSlot.markAsDefined();
+    CompiledGeneratedConstructorSubroutine constructorScope = constructorScopeSlot.subroutine as CompiledGeneratedConstructorSubroutine;
+    Slot classAllocator = constructorScope.lookupIntrinsic(scope.environment().classAllocatorIntrinsicName);
+    Slot thisSlot = constructorScope.emitSubroutineCall(classAllocator, [ VmtSlot(scope.environment(), staticType as ClassType) ]:Slot, null);
+    assert(thisSlot is DynamicSlot, 'Tried to inline class allocator?');
+    constructorScope.setThisPointer(thisSlot as DynamicSlot);
+    // call initializers
+    ClassTypeList classHierarchy = []:ClassType;
+    ClassType classType = staticType as ClassType;
+    while (classType.supertype != classType) {
+      classType = classType.supertype;
+      append(classHierarchy, classType);
+    }
+    Integer index = len(classHierarchy) - 1;
+    while (index >= 0) {
+      for (initializer in classHierarchy[index].initializers) {
+        initializer(constructorScope);
+      }
+      index -= 1;
+    }
+    for (member in members) {
+      member.generateInstructions(constructorScope);
+    }
+    if ((staticType as ClassType).supertype != staticType) {
+      (staticType as ClassType).constructorSubroutine.subroutine.references.add((staticType as ClassType).supertype.constructorSubroutine);
+    }
+    Slot lookup = constructorScope.localLookupIdentifier('constructor')!.forCall(constructorScope);
+    constructorScope.setActualConstructor(TailRecursionCodePointerSlot(scope.environment().intrinsicsLibrary.coreSubroutineCodeAddressType, 'class constructor code address'));
+    constructorScope.emitInstruction(MoveInstruction(constructorScope.actualConstructor, lookup, concat('copy address of \'', constructorScope.parentClass!.name, '.constructor\' method for use with "jmp" below' /* in generateFinalReturn */)));
+    constructorScope.emitReturnFrom(constructorScope, thisSlot);
   }
 
-  Null constructor(String classNameArg, TypeIdentifierListNullable constructorParameterTypesArg, TypeIdentifierNullable superclassNameArg, SourceLocation sourceLocationArg) {
-    super.constructor(classNameArg, superclassNameArg, sourceLocationArg);
-    constructorParameterTypes = constructorParameterTypesArg;
+  Null constructor(String classNameArg, TypeIdentifierNullable superclassNameArg, DeclarationStatementList membersArg, Boolean isIntrinsicArg, SourceLocation sourceLocationArg) {
+    super.constructor(classNameArg, superclassNameArg, isIntrinsicArg, sourceLocationArg);
+    members = membersArg;
   }
 }
 
@@ -1467,6 +2053,7 @@ class ForwardClassPropertyDeclaration extends DeclarationStatement {
 
   Null generateInstructions(CompiledScope scope) {
     // TODO: declare the property on the class
+    // TODO: must set this.staticType (from DeclarationStatement)
   }
 
   Null constructor(TypeIdentifier hostClassArg, TypeIdentifier propertyTypeArg, String identifierArg, SourceLocation sourceLocationArg) {
@@ -1517,8 +2104,15 @@ class ReturnStatement extends Statement {
     }
     CompiledSubroutine subroutine = scope.stackFrame() as CompiledSubroutine;
     if (expression != null) {
-      subroutine.emitReturnFrom(scope, expression!.generateInstructions(scope));
+      Slot returnValue = expression!.generateInstructions(scope);
+      if (!returnValue.staticType.isSubtypeOf(subroutine.type.returnType)) {
+        throw(concat('Type of return statement (', returnValue.staticType.name, ') does not match expected return type (', subroutine.type.returnType.name, ') at ', sourceLocation));
+      }
+      subroutine.emitReturnFrom(scope, returnValue);
     } else {
+      if (!scope.environment().intrinsicsLibrary.coreNullType.isSubtypeOf(subroutine.type.returnType)) {
+        throw(concat('Tried to return null from a function whose expected return type is ', subroutine.type.returnType.name, ' at ', sourceLocation));
+      }
       subroutine.emitReturnFrom(scope, scope.environment().intrinsicsLibrary.coreNull);
     }
   }
@@ -1687,8 +2281,9 @@ class OperatorAssignmentStatement extends AssignmentStatement {
 
 class NumericOperatorAssignmentStatement extends OperatorAssignmentStatement {
   Null generateTypeCheckInstructions(Slot lhsValue, Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, lhsValue.debugName, true);
-    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, rhsValue.debugName, true);
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, lhsValue.debugName, true); // TODO: replace debugName ("what" argument) with real explanation
+    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, rhsValue.debugName, true); // TODO: replace debugName ("what" argument) with real explanation
   }
 }
 
@@ -1777,6 +2372,9 @@ class IfStatement extends Statement {
 
   Null generateInstructions(CompiledScope scope) {
     Slot expressionHandle = expression.generateInstructions(scope);
+    if (!expressionHandle.staticType.isSubtypeOf(scope.environment().intrinsicsLibrary.coreBooleanType)) {
+      throw(concat('If expression must be a boolean, not a ', expressionHandle.staticType.name, ', at ', sourceLocation));
+    }
     CompiledNestedScope blockScope = CompiledNestedScope(scope, scope.environment().generateLabel(concat(camelCase(scope.name), '$if')));
     block.generateInstructions(blockScope);
     CompiledNestedScopeNullable elseBlockScope = null;
@@ -1784,6 +2382,8 @@ class IfStatement extends Statement {
       elseBlockScope = CompiledNestedScope(scope, scope.environment().generateLabel(concat(camelCase(scope.name), '$else')));
       elseClause!.generateInstructions(elseBlockScope!);
     }
+    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
+    scope.emitTypeCheck(expressionHandle, scope.environment().intrinsicsLibrary.coreBooleanType, scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage, 'if condition', true); // xxx mention the fact that it's a type check in the [what] argument
     scope.emitConditionalBlock(blockScope, elseBlockScope, expressionHandle, (scope.environment().intrinsicsLibrary.coreFalse as Slot), 'if', concat(expression));
   }
 
@@ -1916,7 +2516,8 @@ class ForStatement extends Statement {
     if (!iterableSlot.staticType.isSubtypeOf(environment.iterableType)) {
       throw(concat('Expected an iterable type in "for" statement, but ', iterable.toStringIndent(0), ' is of type ', iterableSlot.staticType.name, ' at ', iterable.sourceLocation));
     }
-    scope.emitTypeCheck(iterableSlot, environment.iterableType, environment.intrinsicsLibrary.subscriptTypeCheckFailureMessage, concat(iterable), true);
+    scope.references.add(scope.environment().intrinsicsLibrary.forLoopIterableTypeCheckFailureMessage);
+    scope.emitTypeCheck(iterableSlot, environment.iterableType, environment.intrinsicsLibrary.forLoopIterableTypeCheckFailureMessage, concat(iterable), true); // TODO: replace toString ("what" argument) with real explanation
     Slot iteratorSlot = scope.emitSubroutineCall(
       scope.lookupIntrinsic(environment.iteratorIntrinsicName),
       [ iterableSlot ]:Slot,
@@ -1942,6 +2543,7 @@ class ForStatement extends Statement {
     }
     loopScope.emitBreakInstructionFrom(loopScope);
     loopScope.emitInstruction(LabelInstruction(loopBodyLabel, concat('start of ', loopScope.name)));
+    assert(loopScope.identifiers.length == 0, 'newly created scope has identifiers in scope');
     DynamicSlot variableSlot = loopScope.registerVariable(variable, variableType);
     Slot currentValue = loopScope.emitSubroutineCall(
       loopScope.lookupIntrinsic(environment.currentIntrinsicName),
@@ -1983,8 +2585,6 @@ class Program extends Library {
     super.generateInstructions(scope);
     scope.emitInstruction(CommentInstruction('Terminate application - call exit(0)'));
     Slot exitCode = scope.environment().integer(0);
-    Slot exit = scope.environment().intrinsicsLibrary.coreExit;
-    scope.references.add(exit);
-    scope.emitSubroutineCall(exit, [exitCode], null);
+    scope.emitSubroutineCall(scope.lookupIntrinsic(scope.environment().exitIntrinsicName), [exitCode]:Slot, null /* sourceLocations */);
   }
 }

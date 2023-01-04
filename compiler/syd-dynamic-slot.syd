@@ -5,9 +5,16 @@ import 'syd-slots.syd';
 
 class Operation extends Object {
   SlotContext scope; // used to determine if we're going to mutate things in another scope in the stack frame
-  Null constructor(SlotContext scopeArg) {
+  Object client;
+
+  String toString() {
+    return concat('<', className, '@', internalObjectId, ': scope=', scope, '; client=', client, '>');
+  }
+
+  Null constructor(SlotContext scopeArg, Object clientArg) {
     super.constructor();
     scope = scopeArg;
+    client = clientArg;
   }
 }
 class OperationRead extends Operation { }
@@ -53,6 +60,12 @@ class DynamicSlotStory extends Object {
     typePinned = false;
   }
 
+  Boolean needForever = false;
+
+  Null markNeededForever() {
+    needForever = true;
+  }
+
   Boolean expired = false;
 
   Boolean stillAlive() {
@@ -60,42 +73,48 @@ class DynamicSlotStory extends Object {
   }
 
   Null recomputeExpired() {
-    expired = expired || ((position >= len(operations)) && depth <= 1);
+    expired = !needForever && (expired || ((position >= len(operations)) && depth <= 1));
   }
 
-  Null willRead(SlotContext scope) {
+  Null willRead(SlotContext scope, Object client) {
     assert(position == 0, 'willRead called out of order');
     assert(depth == -1, 'willRead called on initalized slot');
-    append(operations, OperationRead(scope));
+    append(operations, OperationRead(scope, client));
   }
 
-  Null willWrite(SlotContext scope) {
+  Null willWrite(SlotContext scope, Object client) {
     assert(position == 0, 'willWrite called out of order');
     assert(depth == -1, 'willRead called on initalized slot');
-    append(operations, OperationWrite(scope));
+    append(operations, OperationWrite(scope, client));
   }
 
   Boolean debugReadForDecrefScheduled = false;
 
-  Null willReadForDecref(SlotContext scope) {
+  String toString() {
+    return concat(slot, ' story #', internalObjectId, ', with values: ', values, ' and types: ', dynamicTypes, ', operations: ', operations, ', position: ', position, ', depth: ', depth, ', expired: ', expired);
+  }
+
+  Null willReadForDecref(SlotContext scope, Object client) {
     assert(!debugReadForDecrefScheduled, 'Called willReadForDecref twice');
     assert(depth > -1, 'willReadForDecref called on uninitalized slot');
-    append(operations, OperationRead(scope));
+    append(operations, OperationRead(scope, client));
     debugReadForDecrefScheduled = true;
   }
 
-  Null didRead(SlotContext scope) {
+  Null didRead(SlotContext scope, Object client) {
     assert(len(operations) > position, concat('unplanned read of ', slot, '; operations were ', operations));
     assert(operations[position] is OperationRead, concat('unplanned read of ', slot, ' at position ', position, '; operations were ', operations));
     assert(operations[position].scope == scope, concat('unplanned read of ', slot, ' at position ', position, ' (scope mismatch; expected, ', operations[position].scope, ' but was in ', scope, ')'));
+    assert(operations[position].client == client, concat('misuse of operation ', operations[position], ' by unauthorized client ', client));
     position += 1;
     recomputeExpired();
   }
 
-  Null didWrite(SlotContext scope) {
+  Null didWrite(SlotContext scope, Object client) {
     assert(len(operations) > position, concat('unplanned write of ', slot, '; operations were ', operations));
     assert(operations[position] is OperationWrite, concat('unplanned write of ', slot, ' at position ', position, '; operations were ', operations));
     assert(operations[position].scope == scope, concat('unplanned write of ', slot, ' at position ', position, ' (scope mismatch)'));
+    assert(operations[position].client == client, concat('misuse of operation ', operations[position], ' by unauthorized client ', client));
     position += 1;
     recomputeExpired();
   }
@@ -204,7 +223,8 @@ class DynamicSlotStory extends Object {
 
   Null exitNestedScope() {
     assert(len(values) == len(dynamicTypes), 'DynamicSlot desync');
-    assert(!valuePinned && !typePinned, concat('cannot exit nested scope while pinned (slot: ', slot, ')'));
+    assert(!valuePinned || (depth > 1 && (values[depth - 1] == values[depth - 2])), concat('cannot exit nested scope while pinned (slot: ', slot, ')'));
+    assert(!typePinned || (depth > 1 && (dynamicTypes[depth - 1] == dynamicTypes[depth - 2])), concat('cannot exit nested scope while pinned (slot: ', slot, ')'));
     assert(depth > -1, concat('cannot exit nested scope of uninitialized slot ', slot));
     assert(depth > 0, 'cannot use finalized slot');
     depth -= 1;
@@ -214,7 +234,7 @@ class DynamicSlotStory extends Object {
   Operand value() {
     assert(len(values) == len(dynamicTypes), 'DynamicSlot desync');
     assert(depth > -1, 'use initialize() to initialize a slot');
-    assert(depth > 0, 'cannot use finalized slot');
+    assert(depth > 0, concat('cannot use finalized slot: ', this));
     assert(values[depth - 1] != null || !stillAlive(), 'living slot was discarded');
     assert(values[depth - 1] != null, concat('called value() on discarded slot ', slot));
     return values[depth - 1];
@@ -298,50 +318,50 @@ class DynamicSlot extends Slot {
     storyFor(scope).unpinType();
   }
 
+  Null markNeededForever(SlotContext scope) {
+    storyFor(scope).markNeededForever();
+  }
+
   Boolean stillAlive(SlotContext scope) {
     return storyFor(scope).stillAlive();
   }
 
-  Null willRead(SlotContext scope) {
+  Null willRead(SlotContext scope, Object client) {
     if (scope.slotScope() != homeScope.slotScope()) {
       referencedFromMultipleStackFrames = true;
     }
-    storyFor(scope).willRead(scope);
+    storyFor(scope).willRead(scope, client);
   }
 
-  Null willWrite(SlotContext scope) {
+  Null willWrite(SlotContext scope, Object client) {
     if (scope.slotScope() != homeScope.slotScope()) {
       referencedFromMultipleStackFrames = true;
     }
-    storyFor(scope).willWrite(scope);
+    storyFor(scope).willWrite(scope, client);
   }
 
   rc referenceCountStyle;
 
-  Null willReadForDecref(SlotContext scope) {
+  Null willReadForDecref(SlotContext scope, Object client) {
     assert(referenceCountStyle != rcNever, concat('No need to read for decref if the slot is not reference counted (', this, ')'));
-    storyFor(scope).willReadForDecref(scope);
+    storyFor(scope).willReadForDecref(scope, client);
   }
 
-  Null didRead(SlotContext scope) {
-    storyFor(scope).didRead(scope);
+  Null didRead(SlotContext scope, Object client) {
+    storyFor(scope).didRead(scope, client);
   }
 
-  Null didWrite(SlotContext scope) {
-    storyFor(scope).didWrite(scope);
+  Null didWrite(SlotContext scope, Object client) {
+    storyFor(scope).didWrite(scope, client);
   }
 
   Boolean needsToBeMutable(SlotContext scope) {
     return storyFor(scope).needsToBeMutable(scope);
   }
 
-  Boolean debugWriteScheduled(SlotContext scope) {
-    return storyFor(scope).debugWriteScheduled();
-  }
-
   Null willInitializeToRegister(SlotContext scope) {
     storyFor(scope); // we need to make sure we make the story this is for
-    assert(stories.length <= 1, 'willInitialize should only be called from a slot that has only been used from one stack frame');
+    assert(stories.length == 1, 'willInitialize should only be called from a slot that has only been used from one stack frame');
     assert(!initializeToRegisterScheduled, 'Called willInitialize twice');
     initializeToRegisterScheduled = true;
   }
@@ -407,8 +427,14 @@ class DynamicSlot extends Slot {
     return storyFor(scope).depth;
   }
 
+  Boolean _isMutable = true;
+
   Boolean isMutable() {
-    return true;
+    return _isMutable;
+  }
+
+  Null freeze() {
+    _isMutable = false;
   }
 
   String toString() {

@@ -3,8 +3,9 @@ import 'syd-slots.syd';
 import 'syd-dynamic-slot.syd';
 import 'syd-operands.syd';
 
-fwdclass SlotManager extends Object;
+fwdclass SlotManager(SlotContext, Type, Type, Type, String) extends Object;
 fwdclassprop NullFunction SlotManager._releaseOperand;
+fwdclassprop NullFunction SlotManager.exitNestedScope;
 
 // Data structures:
 //
@@ -25,14 +26,22 @@ fwdclassprop NullFunction SlotManager._releaseOperand;
 Integer _gcBlockHeaderRefCount = 0 * 8;
 Integer _gcBlockHeaderLength = 1 * 8;
 Integer _gcBlockStringData = 2 * 8;
-Integer _gcBlockHeaderScratchSpace = 2 * 8;
-Integer _gcBlockHeaderEntryPointer = 3 * 8;
+Integer _gcBlockHeaderScratchSpace = 2 * 8; // for completeness #ignore_unused
+Integer _gcBlockHeaderEntryPointer = 3 * 8; // for completeness #ignore_unused
 Integer _gcBlockData = 4 * 8;
-Integer _listBlockSize = _gcBlockData + 0 * 16 + 8;
+Integer _listBlockSize = _gcBlockData + 0 * 16 + 8; // for completeness #ignore_unused
 Integer _listBlockData = _gcBlockData + 1 * 16 + 8;
 Integer _subroutineReceiverType = _gcBlockData + 0 * 16;
 Integer _subroutineReceiverPointer = _gcBlockData + 0 * 16 + 8;
+Integer _subroutineCodeType = _gcBlockData + 1 * 16; // for completeness #ignore_unused
 Integer _subroutineCodePointer = _gcBlockData + 1 * 16 + 8;
+
+Integer vmtTypeCode = 0; // class type code (may be -1 if never constructed or type checked) #ignore_unused
+Integer vmtFieldCount = 1; // amount of storage space to allocate for class #ignore_unused
+Integer vmtClassNamePointer = 2; // pointer to a String data structure with the class name, used to initialize className field #ignore_unused
+Integer vmtParentVmtPointer = 3; // pointer to the VMT structure for the parent class, points to this VMT for __Object #ignore_unused
+Integer vmtDynamicDispatchTable = 4; // DDT in VMT #ignore_unused
+Integer vmtHeaderFieldCount = 5; // number of 64 bit header fields before the actual virtual method table
 
 // Managed Operand
 // TODO: this really should be an AssignedOperand or something like that, it's slots that are managed not operands
@@ -218,7 +227,6 @@ Register64OperandList preferredRegisters = [
 // you read something into rax and rcx, then read it into rax again, it should be a no-op).
 // TODO: track when a slot is used for the last time, and stop maintaining it after that point.
 // TODO: track which non-volatile registers we used so that we can properly write prolog/epilog.
-// TODO: consider using the shadow space in addition to the stack
 
 Integer slotManagers = 0;
 
@@ -248,7 +256,7 @@ class Chains extends Object {
     backwards.set(to, null);
   }
 
-  OperandList forwardsKeys() {
+  OperandList forwardsKeys() { // included for completeness #ignore_unused
     return forwards.keys() as OperandList;
   }
 
@@ -304,32 +312,6 @@ class SlotManager extends Object {
     return len(stackStatus) * 0x08;
   }
 
-  String basicSETS(Anything se) {
-    StackEntry stackEntry = se as StackEntry;
-    String slotName = '(no slot)';
-    if(stackEntry.slot != null) {
-      slotName = stackEntry.slot!.debugName;
-    }
-    return concat(stackEntry.operand, ': ', slotName, concat(' storing ', stackEntry.what));
-  }
-
-  String prettyStackStatus() {
-    return join(map(stackStatus, basicSETS) as StringList, '\n');
-  }
-
-  String basicRETS(Anything se) {
-    RegisterEntry registerEntry = se as RegisterEntry;
-    String slotName = '(no slot)';
-    if(registerEntry.slot != null) {
-      slotName = registerEntry.slot!.debugName;
-    }
-    return concat(registerEntry.operand, ': ', slotName, concat(' storing ', registerEntry.what));
-  }
-
-  String prettyRegisterStatus() {
-    return join(map(registerStatus.values(), basicRETS) as StringList, '\n');
-  }
-
   Mop findMop(Operand value) {
     // TODO: need to make this O(1) not O(N)
     assert(!(value is Mop), 'unexpected managed operand');
@@ -344,10 +326,10 @@ class SlotManager extends Object {
   Operand operandFor(Slot slot, Storing what) {
     assert(what != StoringInternal && what != StoringNothing && what != StoringImmediate, 'invalid location for operandFor');
     if (what == StoringValue) {
-      return slot.value(homeScope);
+      return slot.value(getScope());
     }
     assert(what == StoringType, 'unknown Storing variant');
-    return slot.dynamicType(homeScope);
+    return slot.dynamicType(getScope());
   }
 
   Boolean isPinned(Slot slot, Storing what) {
@@ -531,7 +513,7 @@ class SlotManager extends Object {
   // should be called when something in a register needs to be thrown out of that register
   Null clearRegisterEntry(RegisterEntry entry) {
     if (entry.slot is DynamicSlot) {
-      assert(!isPinned(entry.slot!, entry.what), 'clearRegisterEntry tried to clear pinned slot');
+      assert(!isPinned(entry.slot!, entry.what), concat('clearRegisterEntry tried to clear pinned slot ', entry.slot, ' out of ', entry));
       if ((entry.slot! as DynamicSlot).stillAlive(scopes[nestedScopeDepth])) {
         assert(entry.operand == operandFor(entry.slot!, entry.what), concat('RegisterEntry inconsistent - it\'s slot is in a different place (', operandFor(entry.slot!, entry.what), ') than the register it represents: ', entry));
         // move original slot into anything but registers
@@ -563,8 +545,8 @@ class SlotManager extends Object {
   Null trackSlot(DynamicSlot slot) {
     if (!trackedSlots.has(slot)) {
       trackedSlots.add(slot);
-      if (slot.referenceCountStyle != rcNever) {
-        slot.willReadForDecref(scopes[nestedScopeDepth]);
+      if (slot.referenceCountStyle != rcNever && slot.homeScope.slotScope() == getScope().slotScope()) {
+        slot.willReadForDecref(scopes[nestedScopeDepth], this);
       }
     }
   }
@@ -585,7 +567,7 @@ class SlotManager extends Object {
     //return;
     assert(slotManagers == 1, concat(slotManagers, ' slot managers alive when calling verifyInvariants()'));
     for (slot in trackedSlots.values() as DynamicSlotIterable) {
-      if (slot.stillAlive(scopes[nestedScopeDepth])) {
+      if (slot.stillAlive(getScope())) {
         verifySlotMatchesEntry(slot, StoringValue);
         verifySlotMatchesEntry(slot, StoringType);
       }
@@ -730,31 +712,31 @@ class SlotManager extends Object {
 
   // Ensures that the returned Mop allows you to read the given slot's value.
   // Comment will be used as the comment if you need to move the slot.
-  Mop read(Slot slot, Integer allowedOperandKinds, String comment) {
+  Mop read(Slot slot, Integer allowedOperandKinds, String comment, Object client) {
     Mop result = manageSlot(slot, StoringValue, true, allowedOperandKinds, comment);
-    slot.didRead(scopes[nestedScopeDepth]);
+    slot.didRead(scopes[nestedScopeDepth], client);
     return result;
   }
 
   // provides a Mop that _must_ be written to before being released.
   // updates the value of slot.
-  Mop write(Slot slot, Integer allowedOperandKinds) {
+  Mop write(Slot slot, Integer allowedOperandKinds, Object client) {
     Mop result = manageSlot(slot, StoringValue, false, allowedOperandKinds, '(this comment should not be used)');
-    slot.didWrite(scopes[nestedScopeDepth]);
+    slot.didWrite(scopes[nestedScopeDepth], client);
     return result;
   }
 
   // updates a slot to have a particular hard-coded value
-  Null hardcode(Slot slot, ImmediateOperand operand, String comment) {
+  Null hardcode(Slot slot, ImmediateOperand operand, String comment, Object client) {
     if (slot is DynamicSlot) {
-      slot.didWrite(scopes[nestedScopeDepth]);
+      slot.didWrite(scopes[nestedScopeDepth], client);
       if (slot.value(homeScope).equals(operand)) {
         return;
       }
       updateOperandFor(slot as DynamicSlot, StoringValue, operand);
       (slot as DynamicSlot).updateValue(scopes[nestedScopeDepth], operand);
     } else {
-      Mop mop = write(slot, register | memory);
+      Mop mop = write(slot, register | memory, client);
       emitMov(blocks[nestedScopeDepth], mop, operand, comment);
       mop.release();
     }
@@ -763,7 +745,7 @@ class SlotManager extends Object {
   // provides a Mop that will contain source's value until it is written to,
   // and thereafter contains target. If not written to, target will have had
   // source assigned to it.
-  Mop readForMutation(Slot source, Slot target, Integer allowedOperandKinds, StringNullable comment) {
+  Mop readForMutation(Slot source, Slot target, Integer allowedOperandKinds, StringNullable comment, Object client) {
     // TODO: if this is the last time we read source, then rather than moving source to target,
     // we could just forget source now and reuse its operand for target (making this a no-op
     // in the assembler output).
@@ -778,37 +760,37 @@ class SlotManager extends Object {
       }
       emitMov(blocks[nestedScopeDepth], result.operand, source.value(homeScope), nonNullComment);
     }
-    source.didRead(scopes[nestedScopeDepth]);
-    target.didWrite(scopes[nestedScopeDepth]);
+    source.didRead(scopes[nestedScopeDepth], client);
+    target.didWrite(scopes[nestedScopeDepth], client);
     return result;
   }
 
   // ensures that the returned Mop allows you to read the given slot's type.
-  Mop readType(Slot slot, Integer allowedOperandKinds, String comment) {
+  Mop readType(Slot slot, Integer allowedOperandKinds, String comment, Object client) {
     Mop result = manageSlot(slot, StoringType, true, allowedOperandKinds, comment);
-    slot.didRead(scopes[nestedScopeDepth]);
+    slot.didRead(scopes[nestedScopeDepth], client);
     return result;
   }
 
   // provides a Mop that _must_ be written to before being released.
   // updates the type of slot.
-  Mop writeType(Slot slot, Integer allowedOperandKinds) {
+  Mop writeType(Slot slot, Integer allowedOperandKinds, Object client) {
     Mop result = manageSlot(slot, StoringType, false, allowedOperandKinds, '(this comment should not be used)');
-    slot.didWrite(scopes[nestedScopeDepth]);
+    slot.didWrite(scopes[nestedScopeDepth], client);
     return result;
   }
 
   // updates a slot to have a particular hard-coded value
-  Null hardcodeType(Slot slot, ImmediateOperand operand, String comment) {
+  Null hardcodeType(Slot slot, ImmediateOperand operand, String comment, Object client) {
     if (slot is DynamicSlot) {
-      slot.didWrite(scopes[nestedScopeDepth]);
+      slot.didWrite(scopes[nestedScopeDepth], client);
       if (slot.dynamicType(homeScope).equals(operand)) {
         return;
       }
       updateOperandFor(slot as DynamicSlot, StoringType, operand);
       (slot as DynamicSlot).updateDynamicType(scopes[nestedScopeDepth], operand);
     } else {
-      Mop mop = writeType(slot, register | memory);
+      Mop mop = writeType(slot, register | memory, client);
       emitMov(blocks[nestedScopeDepth], mop, operand, comment);
       mop.release();
     }
@@ -817,7 +799,7 @@ class SlotManager extends Object {
   // provides a Mop that will contain source's dynamic type until it is written to,
   // and thereafter contains target's dynamicType. If not written to, target will have had
   // source assigned to it.
-  Mop readTypeForMutation(Slot source, Slot target, Integer allowedOperandKinds, StringNullable comment) {
+  Mop readTypeForMutation(Slot source, Slot target, Integer allowedOperandKinds, StringNullable comment, Object client) {
     Mop result = manageSlot(target, StoringType, source == target, allowedOperandKinds, concat('move ', source.debugName, '\'s type to ', target.debugName, '\'s type'));
     if (source != target) {
       String nonNullComment;
@@ -829,27 +811,27 @@ class SlotManager extends Object {
       // TODO: if the operand we assigned to result happens to be where source was just before, we can omit this mov
       emitMov(blocks[nestedScopeDepth], result.operand, source.dynamicType(homeScope), nonNullComment);
     }
-    source.didRead(scopes[nestedScopeDepth]);
-    target.didWrite(scopes[nestedScopeDepth]);
+    source.didRead(scopes[nestedScopeDepth], client);
+    target.didWrite(scopes[nestedScopeDepth], client);
     return result;
   }
 
   // provides a Mop that will contain source's dynamic type until it is written to,
   // and thereafter contains target's value. If not written to, target will have had
   // source assigned to it.
-  Mop readTypeToValueForMutation(Slot source, Slot target, Integer allowedOperandKinds) {
+  Mop readTypeToValueForMutation(Slot source, Slot target, Integer allowedOperandKinds, Object client) {
     Mop result = manageSlot(target, StoringValue, false, allowedOperandKinds, '(this comment should not be used)');
     emitMov(blocks[nestedScopeDepth], result.operand, source.dynamicType(homeScope), concat('store ', source.debugName, '\'s type in ', target.debugName, ' value slot'));
-    source.didRead(scopes[nestedScopeDepth]);
-    target.didWrite(scopes[nestedScopeDepth]);
+    source.didRead(scopes[nestedScopeDepth], client);
+    target.didWrite(scopes[nestedScopeDepth], client);
     return result;
   }
 
-  Mop readValueToTypeForMutation(Slot source, Slot target, Integer allowedOperandKinds) {
+  Mop readValueToTypeForMutation(Slot source, Slot target, Integer allowedOperandKinds, Object client) {
     Mop result = manageSlot(target, StoringType, false, allowedOperandKinds, '(this comment should not be used)');
     emitMov(blocks[nestedScopeDepth], result.operand, source.value(homeScope), concat('store ', source.debugName, ' value in ', target.debugName, '\'s type slot'));
-    source.didRead(scopes[nestedScopeDepth]);
-    target.didWrite(scopes[nestedScopeDepth]);
+    source.didRead(scopes[nestedScopeDepth], client);
+    target.didWrite(scopes[nestedScopeDepth], client);
     return result;
   }
 
@@ -934,9 +916,6 @@ class SlotManager extends Object {
   Null pin(RegisterSlot slot) {
     verifyInvariants();
     _pinRegister(slot, (slot.value(homeScope) as Register64Operand).bit);
-    if (slot is RegistersSlot) {
-      _pinRegister(slot, (slot.dynamicType(homeScope) as Register64Operand).bit);
-    }
     verifyInvariants();
   }
 
@@ -961,9 +940,6 @@ class SlotManager extends Object {
   Null releaseOperands(Integer operandKinds) {
     verifyInvariants();
     assert((operandKinds & ~register) == 0, 'cannot release non-register operand kinds');
-    // we have to make the list first because otherwise we would be mutating the list
-    // while iterating over it which is very brittle.
-    MopList discardList = []:Mop;
     for (register in preferredRegisters) {
       if ((operandKinds & register.bit) > 0) {
         RegisterEntry entry = registerStatus.get(register.bit) as RegisterEntry;
@@ -1040,8 +1016,10 @@ class SlotManager extends Object {
     assert(!(end is ImmediateOperand), 'invalid chain end');
     Operand to = end;
     SlotStatusEntryNullable toEntry = null;
+    String blockExitType = 'synthetic';
     if (doUpdates) {
       toEntry = getEntry(to);
+      blockExitType = 'genuine';
     }
     while (true) {
       OperandNullable from = chains.goBackwards(to);
@@ -1053,14 +1031,18 @@ class SlotManager extends Object {
         break;
       }
       SlotStatusEntryNullable fromEntry = null;
+      String slotName = '???';
       if (doUpdates) {
         fromEntry = getEntry(from!)!;
+        if (fromEntry!.slot != null) {
+          slotName = fromEntry!.slot!.debugName;
+        }
         if (toEntry != null) {
           toEntry!.assignSlot(fromEntry!.slot, fromEntry!.what);
         }
       }
       chains.removeEntry(from!, to);
-      emitMov(blocks[nestedScopeDepth], to, from!, 'restoring slots to previous scope state');
+      emitMov(blocks[nestedScopeDepth], to, from!, concat('restoring slot (', slotName, ') to previous scope state for ', blockExitType, ' block exit'));
       to = from!;
       if (doUpdates) {
         toEntry = fromEntry;
@@ -1104,6 +1086,7 @@ class SlotManager extends Object {
   }
 
   Null emitDecref(DynamicSlot value, Boolean doDidRead) {
+    enterNestedScope(scopes[nestedScopeDepth], blocks[nestedScopeDepth]); /// ????
     if (value.referenceCountStyle != rcNever) {
       Boolean isGCRoot = value.referenceCountStyle == rcOnStack;
       assert(isGCRoot || value.referenceCountStyle == rcOnHeap, concat('reference count style ', value.referenceCountStyle, ' unsupported'));
@@ -1184,6 +1167,7 @@ class SlotManager extends Object {
             }
           }
           save(volatileRegister);
+          // in theory the stack is always 16-byte aligned at this point
           block.addCode('call', [decrefLabel], 'call decref');
           releaseOperands(volatileRegister);
           block.addCode('add', [rsp, '20h'], 'free shadow space for decref');
@@ -1191,18 +1175,21 @@ class SlotManager extends Object {
         }
       }
       if (doDidRead) {
-        value.didRead(scopes[nestedScopeDepth]);
+        value.didRead(scopes[nestedScopeDepth], this);
       }
     }
+    exitNestedScope(scopes[nestedScopeDepth], false); //// ???????
   }
 
-  Null doScopeExit(Set exitingScopes, Boolean doUpdates) {
+  Null doScopeExit(Set exitingScopes, Boolean doUpdates, Boolean doDecref) {
     verifyInvariants();
     assertAllReleased();
-    for (entry in trackedSlots.values()) {
-      DynamicSlot slot = entry as DynamicSlot;
-      if (exitingScopes.has(slot.homeScope)) {
-        emitDecref(slot, doUpdates);
+    if (doDecref) {
+      for (entry in trackedSlots.values()) {
+        DynamicSlot slot = entry as DynamicSlot;
+        if (exitingScopes.has(slot.homeScope) /*|| slot.depth(getScope()) == 1*/) {
+          emitDecref(slot, doUpdates);
+        }
       }
     }
     Chains chains = Chains();
@@ -1234,13 +1221,15 @@ class SlotManager extends Object {
       }
     }
     if (doUpdates) {
-      trackedSlots = remainingTrackedSlots;
+      if (doDecref) {
+        trackedSlots = remainingTrackedSlots;
+      }
       nestedScopeDepth -= 1;
     }
     verifyInvariants();
   }
 
-  Null emitSyntheticNestedScopeExit(SlotContext exitingScope) {
+  Null emitSyntheticNestedScopeExit(SlotContext exitingScope, Boolean doDecref) {
     assertAllReleased();
     Integer exitCount = 0;
     Set exitingTrackedScopes = Set();
@@ -1250,15 +1239,15 @@ class SlotManager extends Object {
       assert(exitCount <= nestedScopeDepth, 'inconsistent scopes');
     }
     exitingTrackedScopes.add(exitingScope);
-    doScopeExit(exitingTrackedScopes, false);
+    doScopeExit(exitingTrackedScopes, false, doDecref);
   }
 
-  Null exitNestedScope(SlotContext exitingScope) {
+  Null exitNestedScope(SlotContext exitingScope, Boolean doDecref) {
     assert(exitingScope == scopes[nestedScopeDepth], 'cannot exit multiple scopes at once');
     assertAllReleased();
     Set exitingTrackedScopes = Set();
     exitingTrackedScopes.add(exitingScope);
-    doScopeExit(exitingTrackedScopes, true);
+    doScopeExit(exitingTrackedScopes, true, doDecref);
     assert(nestedScopeDepth >= -1, 'too deep');
   }
 

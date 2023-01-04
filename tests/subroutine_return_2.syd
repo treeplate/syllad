@@ -1,5 +1,4 @@
 // expected error: error: type mismatch for function return value, expected String, got Integer
-// expected exit code: 1
 
 String foo() {
   return 5;

@@ -1,0 +1,7 @@
+// expected error: class A has no superclass - attempted 'super'
+
+class A {
+    Null constructor() {
+        super.constructor();
+    }
+}

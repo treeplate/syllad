@@ -5,7 +5,7 @@ fwdclass Operand extends Object;
 fwdclass ImmediateOperand extends Operand;
 fwdclass RegisterOperand extends Operand;
 fwdclassprop BooleanFunction RegisterOperand.equals;
-fwdclass Register64Operand extends RegisterOperand;
+fwdclass Register64Operand(String, String, String, Integer) extends RegisterOperand;
 fwdclass MemoryOperand extends Operand;
 fwdclass AddressComputationOperand(Register64OperandNullable, Register64OperandNullable, Integer, Integer, String) extends MemoryOperand;
 
@@ -477,10 +477,6 @@ class AddressComputationOperand extends MemoryOperand {
 class DereferenceLabelOperand extends MemoryOperand {
   String value;
 
-  Integer minBits() {
-    return 64;
-  }
-
   Boolean isOperandKind(Integer kind) {
     return (kind & global) > 0;
   }
@@ -498,17 +494,13 @@ class DereferenceLabelOperand extends MemoryOperand {
         && (other as DereferenceLabelOperand).value == value;
   }
 
-  MemoryOperand withOffset(Integer offset) {
-    throw('not available');
-  }
-
   Null constructor(String valueArg) {
     super.constructor();
     value = valueArg;
   }
 }
 
-class StackMetrics {
+class StackMetrics extends Object {
   // TODO: this is seperate from len(SlotManager.stackStatus), so we have multiple sources of truth 
   Integer stackSize = 0;
   Integer pushLevel = 0;

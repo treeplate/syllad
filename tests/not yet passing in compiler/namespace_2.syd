@@ -1,0 +1,7 @@
+// expected output: Foobar Foobaz Foobar Foobaz
+
+enum Foo { bar baz }
+
+namespace (Foo) {
+  println(Foobar, Foobaz, bar, baz);
+}

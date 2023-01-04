@@ -92,9 +92,9 @@ enum tt {
 class Token extends Object {
   tt type;
   SourceLocation sourceLocation;
-  AnythingNullable data;
+  Anything data;
 
-  Null constructor(tt typeArg, SourceLocation sourceLocationArg, AnythingNullable dataArg) {
+  Null constructor(tt typeArg, SourceLocation sourceLocationArg, Anything dataArg) {
     super.constructor();
     type = typeArg;
     sourceLocation = sourceLocationArg;
@@ -243,7 +243,7 @@ class Token extends Object {
   }
 }
 
-TokenList tokenize(IntegerIterable source, String filename) {
+TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
   stderr(concat('tokenizing "', filename, '"...'));
   Integer lineNo = 1;
   Integer colNo = 0;
@@ -367,8 +367,13 @@ TokenList tokenize(IntegerIterable source, String filename) {
         if ((ch >= 0x30 && ch <= 0x39) || // 0-9
             (ch >= 0x41 && ch <= 0x5a) || // A-Z
             (ch >= 0x61 && ch <= 0x7a) || // a-z
-            (ch == 0x5f)) {
+            (ch == 0x5f)) { // _
           append(cast(buffer), chr(ch));
+          break;
+        } else if (internal && ch == 0x23) { /* # */
+          append(cast(buffer), chr(ch));
+          append(tokens, Token(ttIdentifier, SourceLocation(lineNo, colNo, filename), joinList(cast(buffer))));
+          state = tsTop;
           break;
         } else {
           append(tokens, Token(ttIdentifier, SourceLocation(lineNo, colNo - 1, filename), joinList(cast(buffer))));
@@ -805,7 +810,7 @@ TokenList tokenize(IntegerIterable source, String filename) {
   return tokens;
 }
 
-class TokenConsumer {
+class TokenConsumer extends Object {
   TokenList tokens;
   Integer index;
 

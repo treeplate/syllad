@@ -1,0 +1,14 @@
+// expected output: Line 1
+// expected output: Line 2
+
+if (true) {
+  println('Line 1');
+} else {
+  println('FAIL 1');
+}
+
+if (false) {
+  println('FAIL 2');
+} else {
+  println('Line 2');
+}

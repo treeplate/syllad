@@ -1,0 +1,25 @@
+StringList parts = split(readFile('day5.in'), '\n\n');
+assert(len(parts) == 2, 'more or less than one \\n\\n');
+
+StringList stacks = split(parts[0], '\n');
+StringListList realStacks = []:StringList;
+for (stack in stacks) {
+  StringList crates = split(stack, '');
+  append(realStacks, crates);
+}
+StringList instrs = split(parts[1], '\n');
+for (inst in instrs) {
+  StringList parts2 = split(inst, ' ');
+  Integer i = parseInt(parts2[0]);
+  StringList tl = []:String;
+  while (i > 0) {
+    i--;
+    append(tl, pop(realStacks[parseInt(parts2[1]) - 1]) as String);
+  }
+  i = parseInt(parts2[0]);
+  while (i > 0) {
+    i--;
+    append(realStacks[parseInt(parts2[2]) - 1], pop(tl) as String);
+  }
+}
+println(join(map(realStacks, last) as StringList, '')); // part 2 (*specially formatted input file!*)

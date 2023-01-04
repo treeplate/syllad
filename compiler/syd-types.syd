@@ -2,20 +2,19 @@ import 'core.syd';
 import 'syd-assembler.syd';
 import 'syd-operands.syd';
 
-fwdclass Type extends Object;
-fwdclass NullableType extends Type;
+fwdclass TypeRegistry extends Object;
+fwdclass Type(TypeRegistry, String) extends Object;
+fwdclass NullableType(TypeRegistry, Type) extends Type;
 fwdclass NumericType extends Type;
-fwdclass EnumType extends NumericType;
-fwdclass ClassType extends Type;
-fwdclass AbstractSubroutineType extends Type;
+fwdclass EnumType(TypeRegistry, String, StringList) extends NumericType;
+fwdclass AbstractSubroutineType(TypeRegistry, Type) extends Type;
 fwdclass SubroutineTypeWithAnyArguments extends AbstractSubroutineType;
 fwdclass AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineType;
-fwdclass AbstractListType extends Type;
-fwdclass ReadOnlyListType extends AbstractListType;
-fwdclass ListType extends AbstractListType;
-fwdclass IterableType extends Type;
-fwdclass IteratorType extends Type;
-fwdclass TypeRegistry extends Object;
+fwdclass AbstractListType(TypeRegistry, String, Type) extends Type;
+fwdclass ReadOnlyListType(TypeRegistry, Type) extends AbstractListType;
+fwdclass ListType(TypeRegistry, Type) extends AbstractListType;
+fwdclass IterableType(TypeRegistry, Type) extends Type;
+fwdclass IteratorType(TypeRegistry, Type) extends Type;
 
 fwdclassprop Type NullableType.subtype;
 fwdclassprop TypeList AbstractSubroutineTypeWithSpecificParameters.parameterTypes;
@@ -30,7 +29,6 @@ fwdclassprop ReadOnlyListTypeList TypeRegistry.typesOfReadOnlyLists;
 fwdclassprop ListTypeList TypeRegistry.typesOfLists;
 fwdclassprop IterableTypeList TypeRegistry.typesOfIterables;
 fwdclassprop IteratorTypeList TypeRegistry.typesOfIterators;
-
 class Type extends Object {
   IntegerNullable code = null;
   String name;
@@ -50,18 +48,26 @@ class Type extends Object {
 
   Boolean isConstructed = false;
   Boolean isUsedInTypeCheck = false;
+  Boolean canSetUsageFlags = true;
 
   // Should be called by the code that calls the constructor.
   // Implied by __as__.
   Null markConstructed() {
+    assert(canSetUsageFlags, 'cannot mark constructed type that finalizeUsageFlags has been called on');
     isConstructed = true;
   }
 
   Null markUsedInTypeCheck() {
+    assert(canSetUsageFlags, 'cannot mark used in type check type that finalizeUsageFlags has been called on');
     isUsedInTypeCheck = true;
   }
 
+  Null finalizeUsageFlags() {
+    canSetUsageFlags = false;
+  }
+
   Null assignCode(Integer codeArg) {
+    assert(!canSetUsageFlags, 'call finalizeUsageFlags before assigning code');
     code = codeArg;
   }
 
@@ -73,7 +79,7 @@ class Type extends Object {
 
   String toString() {
     if (code != null) {
-      return concat(name, '\'', code!);
+      return concat(name, '\'', hex(code!));
     }
     return name;
   }
@@ -237,36 +243,13 @@ class StringType extends Type {
   }
 }
 
-class EnumValue extends Object {
-  EnumType type;
-  String name;
-  Integer index;
-
-  Null constructor(EnumType typeArg, String nameArg, Integer indexArg) {
-    super.constructor();
-    type = typeArg;
-    name = nameArg;
-    index = indexArg;
-  }
-}
-
 class EnumType extends NumericType {
-  Map values = Map();
 
   Boolean isSubtypeOf(Type other) {
     return other == this
         || other is AnythingType
         || other is WhateverType
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
-  }
-
-  Null constructor(TypeRegistry typeRegistryArg, String nameArg, StringList valuesArg) {
-    super.constructor(typeRegistryArg, nameArg);
-    Integer index = 0;
-    for (value in valuesArg) {
-      values.set(value, EnumValue(this, value, index));
-      index += 1;
-    }
   }
 }
 
@@ -284,40 +267,6 @@ class GarbageCollectableType extends Type {
 
   Null constructor(TypeRegistry typeRegistryArg) {
     super.constructor(typeRegistryArg, 'GarbageCollectable');
-  }
-}
-
-class ClassType extends Type {
-  // xxx properties, methods, constructor...
-
-  ClassType supertype;
-
-  Boolean isSubtypeOf(Type other) {
-    if (this == other) {
-      return true;
-    }
-    if (supertype != this) {
-      return supertype.isSubtypeOf(other);
-    }
-    return other is AnythingType
-        || other is WhateverType
-        || other is GarbageCollectableType
-        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
-  }
-
-  Boolean neverReferenceCounted() {
-    return false;
-  }
-
-  Null constructor(TypeRegistry typeRegistryArg, String nameArg, ClassType supertypeArg) {
-    super.constructor(typeRegistryArg, nameArg);
-    supertype = supertypeArg;
-  }
-}
-
-class RootClassType extends ClassType {
-  Null constructor(TypeRegistry typeRegistryArg) {
-    super.constructor(typeRegistryArg, '<object>', this);
   }
 }
 
@@ -364,6 +313,10 @@ class SubroutineTypeWithAnyArguments extends AbstractSubroutineType {
 class AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineType {
   Boolean equals(Type returnTypeArg, TypeList parameterTypesArg, Boolean isVarArgsArg) {
     abstract();
+  }
+
+  Null markUsedInTypeCheck() {
+    assert(false, concat(name, ' type cannot be used in a type check.'));
   }
 
   Null verifyArguments(TypeList argumentTypes, SourceLocationList sourceLocations) {
@@ -553,6 +506,9 @@ class ReadOnlyListType extends AbstractListType {
 
   Boolean isSubtypeOf(Type other) {
     return (other is ReadOnlyListType && elementType.isSubtypeOf((other as ReadOnlyListType).elementType))
+        || (other is IterableType &&
+            elementType.isSubtypeOf((other as IterableType).elementType) &&
+            (other as IterableType).elementType.isSubtypeOf(elementType))
         || other is AnythingType
         || other is WhateverType
         || other is GarbageCollectableType // not technically true of VarArgs per se but any time it would matter it is true
@@ -679,10 +635,9 @@ class SubroutineCodeAddressType extends Type {
   }
 
   Null constructor(TypeRegistry typeRegistryArg) {
-    super.constructor(typeRegistryArg, '<subroutine code address>');
+    super.constructor(typeRegistryArg, '__CodeAddress');
   }
 }
-
 
 class TypeRegistry extends Object {
   TypeList types = []:Type;
@@ -709,6 +664,7 @@ class TypeRegistry extends Object {
     TypeList constructedAndTypeChecked = []:Type;
     TypeList typeCheckedNotConstructed = []:Type;
     for (type in types) {
+      type.finalizeUsageFlags();
       if (type.isConstructed) {
         if (type.isUsedInTypeCheck) {
           append(constructedAndTypeChecked, type);

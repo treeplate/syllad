@@ -1,1 +1,0 @@
-These tests are for compiler intrinsics, not language features.

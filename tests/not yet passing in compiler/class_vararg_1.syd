@@ -1,0 +1,7 @@
+// expected output: [1, 2]
+
+class Foo  {
+  Null constructor(Integer... a) { println(a); }
+}
+
+Foo(1, 2);

@@ -1,4 +1,4 @@
-// expected exit code: 0
+// expected exit code is 0
 _gcLocked += 1;
 
 Null test1() {
@@ -26,12 +26,12 @@ Null runGC() {
 assert(_debugLiveBlocks == 0, 'started with unexpected allocations');
 test1();
 runGC();
-assert(_debugLiveBlocks == 0, 'leaked memory');
+assert(_debugLiveBlocks == 0, 'leaked memory 1');
 
 test2();
 runGC();
-assert(_debugLiveBlocks == 0, 'leaked memory');
+assert(_debugLiveBlocks == 0, 'leaked memory 2');
 
 test3();
 runGC();
-assert(_debugLiveBlocks == 0, 'leaked memory');
+assert(_debugLiveBlocks == 0, 'leaked memory 3');

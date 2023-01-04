@@ -1,0 +1,19 @@
+// expected output: B::test
+
+class A {
+  Null test() {
+    println('A::test');
+  }
+}
+
+class B extends A {
+  NullFunction grab() {
+    return test;
+  }
+
+  Null test() {
+    println('B::test');
+  }
+}
+
+B().grab()();

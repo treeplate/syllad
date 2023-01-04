@@ -1,0 +1,12 @@
+// expected output: 1 2 3 4 5
+// expected output: 1 2 1 2
+
+String foobar = '1';
+String foobaz = '2';
+String bar = '3';
+String baz = '4';
+String foo = '5';
+println(foobar, foobaz, bar, baz, foo);
+namespace (foo) {
+  println(foobar, foobaz, bar, baz);
+}

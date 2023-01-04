@@ -1,0 +1,11 @@
+// expected output: <function (method Pa.ss)>
+
+class Pa {
+    Null ss() {
+      throw('FAIL');
+    }
+}
+
+class Fail extends Pa {}
+
+print(Fail().ss);

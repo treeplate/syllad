@@ -1,0 +1,10 @@
+// expected output: 2
+// expected output: 1
+
+Integer i = 0;
+i += 3;
+i -= 2;
+i++;
+println(i);
+i--;
+println(i);

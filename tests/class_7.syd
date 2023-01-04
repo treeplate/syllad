@@ -1,0 +1,11 @@
+// expected output: PASS
+
+class Test {
+  String field = "FAIL";
+  Test method() {
+    field = "PASS";
+    return this;
+  }
+}
+
+println(Test().method().field);

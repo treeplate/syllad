@@ -1,0 +1,9 @@
+// expected output: PASS
+
+class Test {
+  Null method() {
+    println("PASS");
+  }
+}
+
+Test().method();

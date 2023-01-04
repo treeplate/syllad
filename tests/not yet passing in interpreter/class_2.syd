@@ -1,0 +1,15 @@
+// expected error: cannot reassign 'x'
+
+class A {
+  Whatever x;
+}
+
+class B extends A {
+  String x(String a, Integer b, String c) {}
+
+  Null bar() {
+    x = padLeft;
+  }
+}
+B b = B();
+b.bar();

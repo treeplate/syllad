@@ -1,6 +1,34 @@
 import 'lexer.dart';
 
 Map<String, TypeValidator> loadedGlobalScopes = {};
+Map<Variable, MapEntry<Stopwatch, int>> profile = {};
+const Variable whateverVariable = Variable("Whatever");
+const Variable classMethodsVariable = Variable("~class~methods");
+const Variable fwdclassVariable = Variable("fwdclass");
+const Variable fwdclasspropVariable = Variable("fwdclassprop");
+const Variable classVariable = Variable("class");
+const Variable namespaceVariable = Variable("namespace");
+const Variable importVariable = Variable("import");
+const Variable whileVariable = Variable("while");
+const Variable breakVariable = Variable("break");
+const Variable continueVariable = Variable("continue");
+const Variable returnVariable = Variable("return");
+const Variable ifVariable = Variable("if");
+const Variable enumVariable = Variable("enum");
+const Variable forVariable = Variable("for");
+const Variable constVariable = Variable("const");
+Variable classNameVariable = Variable("className");
+Variable constructorVariable = Variable("constructor");
+Variable thisVariable = Variable("this");
+Variable throwVariable = Variable("throw");
+
+Null handleVariable(Variable variable) {
+  if (variables[variable.name] == null) {
+    variables[variable.name] = variable;
+  } else {
+    throw "Attempted to create duplicate variable $variable";
+  }
+}
 
 class LazyInterpolator {
   final Object a;
@@ -11,164 +39,46 @@ class LazyInterpolator {
   LazyInterpolator(this.a, this.b);
 }
 
+Map<String, Variable> variables = {};
+
+class Variable {
+  final String name;
+
+  String toString() => '{$name varvar}';
+
+  const Variable(this.name);
+}
+
 class TypeValidator {
-  TypeValidator(this.parent);
-  final TypeValidator? parent;
-  Map<String, TypeValidator> classes = {};
-  List<String> nonconst = [];
-  ValueType get currentClass =>
-      types['this'] ?? (throw FileInvalid("Super called outside class"));
-  Map<String, ValueType> types = {
-    "true": booleanType,
-    "false": booleanType,
-    "null": nullType,
-    "print": FunctionValueType(
-        integerType, InfiniteIterable(sharedSupertype), 'intrinsics'),
-    "stderr": FunctionValueType(
-        integerType, InfiniteIterable(sharedSupertype), 'intrinsics'),
-    "concat": FunctionValueType(
-        stringType, InfiniteIterable(sharedSupertype), 'intrinsics'),
-    "parseInt": FunctionValueType(integerType, [stringType], 'intrinsics'),
-    'addLists': FunctionValueType(
-        ListValueType(sharedSupertype, 'intrinsics'),
-        InfiniteIterable(ListValueType(
-            ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
-            'intrinsics')),
-        'intrinsics'),
-    'charsOf': FunctionValueType(IterableValueType(stringType, 'intrinsics'),
-        [stringType], 'intrinsics'),
-    'scalarValues': FunctionValueType(
-        IterableValueType(integerType, 'intrinsics'),
-        [stringType],
-        'intrinsics'),
-    'split': FunctionValueType(ListValueType(stringType, 'intrinsics'),
-        [stringType, stringType], 'intrinsics'),
-    'len': FunctionValueType(
-        integerType,
-        [
-          ListValueType(
-              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
-              'intrinsics')
-        ],
-        'intrinsics'),
-    'input': FunctionValueType(stringType, [], 'intrinsics'),
-    'append': FunctionValueType(
-        sharedSupertype,
-        [
-          ListValueType(
-              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
-              'intrinsics'),
-          sharedSupertype
-        ],
-        'intrinsics'),
-    'iterator': FunctionValueType(
-        IteratorValueType(sharedSupertype, 'intrinsics'),
-        [
-          IterableValueType(
-              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
-              'intrinsics')
-        ],
-        'intrinsics'),
-    'next': FunctionValueType(booleanType,
-        [IteratorValueType(sharedSupertype, 'intrinsics')], 'intrinsics'),
-    'current': FunctionValueType(sharedSupertype,
-        [IteratorValueType(sharedSupertype, 'intrinsics')], 'intrinsics'),
-    'stringTimes':
-        FunctionValueType(stringType, [stringType, integerType], 'intrinsics'),
-    'copy': FunctionValueType(
-        ListValueType(
-            ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
-            'intrinsics'),
-        [
-          IterableValueType(
-              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
-              'intrinsics')
-        ],
-        'intrinsics'),
-    'first': FunctionValueType(
-        sharedSupertype,
-        [
-          IterableValueType(
-              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
-              'intrinsics')
-        ],
-        'intrinsics'),
-    'last': FunctionValueType(
-        sharedSupertype,
-        [
-          IterableValueType(
-              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
-              'intrinsics')
-        ],
-        'intrinsics'),
-    'single': FunctionValueType(
-        sharedSupertype,
-        [
-          IterableValueType(
-              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
-              'intrinsics')
-        ],
-        'intrinsics'),
-    'hex': FunctionValueType(stringType, [integerType], 'intrinsics'),
-    'chr': FunctionValueType(stringType, [integerType], 'intrinsics'),
-    'exit': FunctionValueType(nullType, [integerType], 'intrinsics'),
-    'readFile': FunctionValueType(stringType, [stringType], 'intrinsics'),
-    'readFileBytes': FunctionValueType(
-        ListValueType(integerType, 'intrinsics'), [stringType], 'intrinsics'),
-    'println': FunctionValueType(
-        integerType, InfiniteIterable(sharedSupertype), 'intrinsics'),
-    'throw': FunctionValueType(nullType, [stringType], 'intrinsics'),
-    'cast': FunctionValueType(
-        ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
-        [sharedSupertype],
-        'intrinsics'),
-    'joinList': FunctionValueType(
-        stringType,
-        [
-          ListValueType(
-              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
-              'intrinsics')
-        ],
-        'intrinsics'),
-    'className': stringType,
-    'pop': FunctionValueType(nullType, [], 'intrinsics'),
-    'substring': FunctionValueType(
-        stringType, [stringType, integerType, integerType], 'intrinsics'),
-    'sublist': FunctionValueType(
-        ListValueType(
-            ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
-            'intrinsics'),
-        [
-          ListValueType(
-              ValueType(null, "Whatever", -2, 0, 'interr', 'intrinsics'),
-              'intrinsics'),
-          integerType,
-          integerType
-        ],
-        'intrinsics'),
-    'stackTrace': FunctionValueType(stringType, [], 'intrinsics'),
-  };
+  final String debugName;
+  TypeValidator get intrinsics => parents.isEmpty ? this : parents.first.intrinsics;
 
-  List<String> directVars = ['true', 'false', 'null'];
+  TypeValidator(this.parents, this.debugName);
+  final List<TypeValidator> parents;
+  Map<Variable, TypeValidator> classes = {};
+  List<Variable> nonconst = [];
+  ValueType get currentClass => igv(thisVariable, true) ?? (throw ("Super called outside class (stack trace is dart stack trace, not syd stack trace)"));
+  Map<Variable, ValueType> types = {};
 
-  List<String> usedVars = [];
+  List<Variable> directVars = sdv.toList();
+  static List<Variable> sdv = [Variable('true'), Variable('false'), Variable('null')];
 
-  void setVar(String name, int subscripts, ValueType value, int line, int col,
-      String workspace, String file) {
-    if (!types.containsKey(name)) {
-      throw FileInvalid(
-          "Cannot assign to $name, an undeclared variable ${formatCursorPosition(line, col, workspace, file)}");
+  Set<Variable> usedVars = {};
+
+  void setVar(Variable name, int subscripts, ValueType value, int line, int col, String workspace, String file) {
+    if (igv(name, false, line, col, workspace, file) == null) {
+      throw BSCException("Cannot assign to $name, an undeclared variable ${formatCursorPosition(line, col, workspace, file)}");
     }
-    if (!nonconst.contains(name) && subscripts == 0) {
-      throw FileInvalid(
+    if (!igvnc(name) && subscripts == 0) {
+      throw BSCException(
         "Cannot reassign $name ${formatCursorPosition(line, col, workspace, file)}",
       );
     }
     int oldSubs = subscripts;
-    ValueType type = types[name]!;
+    ValueType type = igv(name, false, line, col, workspace, file)!;
     while (subscripts > 0) {
       if (type is! ListValueType) {
-        throw FileInvalid(
+        throw BSCException(
           "Expected a list, got $type when trying to subscript $name ${formatCursorPosition(line, col, workspace, file)}",
         );
       }
@@ -176,17 +86,15 @@ class TypeValidator {
       subscripts--;
     }
     if (!value.isSubtypeOf(type)) {
-      throw FileInvalid(
+      throw BSCException(
         "Expected $type, got $value while setting $name${"[...]" * oldSubs} to $value ${formatCursorPosition(line, col, workspace, file)}",
       );
     }
   }
 
-  void newVar(String name, ValueType type, int line, int col, String workspace,
-      String file,
-      [bool constant = false]) {
+  void newVar(Variable name, ValueType type, int line, int col, String workspace, String file, [bool constant = false]) {
     if (directVars.contains(name)) {
-      throw FileInvalid(
+      throw BSCException(
         'Attempted redeclare of existing variable $name ${formatCursorPosition(line, col, workspace, file)}',
       );
     }
@@ -197,27 +105,21 @@ class TypeValidator {
     }
   }
 
-  ValueType getVar(String name, int subscripts, int line, int col,
-      String workspace, String file, String context) {
-    ValueType? realtype = types[name];
+  ValueType getVar(Variable name, int subscripts, int line, int col, String workspace, String file, String context) {
+    ValueType? realtype = igv(name, true, line, col, workspace, file);
     if (realtype == null) {
       String? filename;
       for (MapEntry<String, TypeValidator> e in loadedGlobalScopes.entries) {
-        if (e.value.types.containsKey(name)) {
+        if (e.value.igv(name, true, line, col, workspace, file) != null) {
           filename = e.key;
         }
       }
-      throw FileInvalid(
+      throw BSCException(
           "Attempted to retrieve $name ($context), which is undefined. ${filename == null ? '' : '(maybe you meant to import $filename?) '}${formatCursorPosition(line, col, workspace, file)}");
-    } else {
-      usedVars.add(name);
-      if (parent?.types.containsKey(name) ?? false) {
-        parent!.getVar(name, subscripts, line, col, workspace, file, 'error');
-      }
     }
     while (subscripts > 0) {
       if (realtype is! ListValueType) {
-        throw FileInvalid(
+        throw BSCException(
           "Expected a list, but got $realtype when trying to subscript $name ${formatCursorPosition(line, col, workspace, file)}",
         );
       }
@@ -227,77 +129,120 @@ class TypeValidator {
     return realtype!;
   }
 
+  ValueType? igv(Variable name, bool addToUsedVars, [int line = -2, int col = 0, String workspace = '', String file = '']) {
+    if (addToUsedVars) usedVars.add(name);
+    return types[name] ?? parents.map((e) => e.igv(name, addToUsedVars, line, col, workspace, file)).firstWhere((e) => e != null, orElse: () => null);
+  }
+
+  bool igvnc(Variable name) {
+    return nonconst.contains(name) || parents.map((e) => e.igvnc(name)).firstWhere((e) => e, orElse: () => false);
+  }
+
   TypeValidator copy() {
-    return TypeValidator(parent)
-      ..types = Map.of(types)
-      ..nonconst = nonconst.toList();
+    return TypeValidator(parents, debugName + ' copy')..nonconst = nonconst.toList();
+  }
+}
+
+T? orElse<T>(T? a, T? b) {
+  if (a != null) {
+    return a;
+  }
+  return b;
+}
+
+class NamespaceTypeValidator extends TypeValidator {
+  final TypeValidator deferTarget;
+  final Variable namespace;
+
+  NamespaceTypeValidator(this.deferTarget, this.namespace) : super([deferTarget], 'namespace of $namespace');
+  @override
+  late Map<Variable, TypeValidator> classes = deferTarget.classes;
+
+  @override
+  List<Variable> directVars = [];
+
+  @override
+  late List<Variable> nonconst = [];
+
+  @override
+  Map<Variable, ValueType> types = {};
+
+  @override
+  Set<Variable> usedVars = {};
+
+  @override
+  TypeValidator copy() {
+    return NamespaceTypeValidator(deferTarget, namespace);
+  }
+
+  @override
+  ValueType get currentClass => deferTarget.currentClass;
+
+  @override
+  ValueType? igv(Variable name, bool addToUsedVars, [int line = -2, int col = 0, String workspace = '', String file = '']) {
+    if (addToUsedVars) usedVars.add(name);
+    return types[name] ??
+        deferTarget.igv(variables[namespace.name + name.name] ??= Variable(namespace.name + name.name), addToUsedVars, line, col, workspace, file) ??
+        deferTarget.igv(name, addToUsedVars, line, col, workspace, file);
   }
 }
 
 void throwWithStack(Scope scope, List<LazyString> stack, String value) {
-  ValueWrapper thrower = scope.getVar(
-      'throw', -2, 0, 'in throwWithStack', 'while throwing $value', null);
-  thrower._value([ValueWrapper(stringType, value, 'string to throw')], stack);
+  ValueWrapper thrower = scope.getVar(throwVariable, -2, 0, 'in throwWithStack', 'while throwing $value', null);
+  thrower.valueC<void Function(List<ValueWrapper>, List<LazyString>)>(scope, stack, -2, 0, 'in throwWithStack', 'while throwing $value')(
+      [ValueWrapper(stringType, value, 'string to throw')], stack);
 }
 
-class ValueWrapper {
-  final ValueType? _type;
-  final dynamic _value;
+class ValueWrapper<T extends Object?> {
+  final ValueType<T>? _type;
+  final T? _value;
   final Object debugCreationDescription;
   final bool canBeRead;
-  ValueType typeC(Scope? scope, List<LazyString> stack, int line, int col,
-      String workspace, String filename) {
+  ValueType typeC(Scope? scope, List<LazyString> stack, int line, int col, String workspace, String filename) {
     if (canBeRead) {
       return _type!;
     } else {
-      return valueC(scope, stack, line, col, workspace, filename);
+      return valueC(scope, stack, line, col, workspace, filename) as ValueType;
     }
   }
 
-  dynamic valueC(Scope? scope, List<LazyString> stack, int line, int col,
-      String workspace, String filename) {
+  /// This function gets the value of the wrapper, and throws an error if the value wrapper is sentinel
+  R valueC<R>(Scope? scope, List<LazyString> stack, int line, int col, String workspace, String filename) {
     if (canBeRead) {
-      return _value;
+      R rtv = _value as R;
+      return rtv;
     } else {
       scope == null
-          ? (throw FileInvalid(
+          ? (throw BSCException(
               "$debugCreationDescription was attempted to be read while uninititalized ${formatCursorPosition(line, col, workspace, filename)}\n${stack.reversed.join('\n')}"))
           : throwWithStack(
               scope,
               stack,
               "$debugCreationDescription was attempted to be read while uninititalized ${formatCursorPosition(line, col, workspace, filename)}",
             );
-      throw (FileInvalid('internal error: throw did not exit'));
+      throw (BSCException('internal error: throw did not exit'));
     }
   }
 
-  ValueWrapper(this._type, this._value, this.debugCreationDescription,
-      [this.canBeRead = true]);
+  ValueWrapper(this._type, this._value, this.debugCreationDescription, [this.canBeRead = true]) : assert(_value.runtimeType != TA);
 
-  String toString() => toStringWithStack(
-      [NotLazyString('internal error: ValueWrapper.toString() called')],
-      -2,
-      0,
-      'interr',
-      'interrr');
+  String toString() => toStringWithStack([NotLazyString('internal error: ValueWrapper.toString() called')], -2, 0, 'interr', 'interrr');
 
-  String toStringWithStack(
-      List<LazyString> s, int line, int col, String workspace, String file) {
-    return _value is Function
-        ? "<function ($debugCreationDescription)>"
-        : toStringWithStacker(this, s, line, col, workspace, file);
+  String toStringWithStack(List<LazyString> s, int line, int col, String workspace, String file) {
+    return _value is Function ? "<function ($debugCreationDescription)>" : toStringWithStacker(this, s, line, col, workspace, file);
   }
 }
 
+typedef TA = dynamic Function(List<ValueWrapper> args, List<LazyString>, [Scope?, ValueType?]);
+
 class NamespaceScope implements Scope {
   final Scope deferTarget;
-  final String namespace;
+  final Variable namespace;
 
   NamespaceScope(this.deferTarget, this.namespace);
 
   @override
-  Map<String, ValueWrapper> get values =>
-      throw UnsupportedError("NamespaceScope.values");
+  Map<Variable, ValueWrapper> values = {};
 
   @override
   void addParent(Scope scope) {
@@ -308,86 +253,78 @@ class NamespaceScope implements Scope {
   ClassValueType get currentClass => deferTarget.currentClass;
 
   @override
-  LazyString get debugName =>
-      NotLazyString('namespace $namespace of $deferTarget');
+  LazyString get debugName => NotLazyString('namespace $namespace of $deferTarget');
 
   @override
   ClassValueType? get declaringClass => deferTarget.declaringClass;
 
   @override
-  ValueWrapper getVar(String name, int line, int column, String workspace,
-      String file, TypeValidator? validator) {
+  ValueWrapper getVar(Variable name, int line, int column, String workspace, String file, TypeValidator? validator) {
     ValueWrapper? val = internal_getVar(name);
-    if (val == null) throw FileInvalid('TODO');
+    if (val == null) throw BSCException('tried to access nonexistent $name from namespace scope  ${formatCursorPosition(line, column, workspace, file)}');
     return val;
   }
 
   @override
-  ValueWrapper? internal_getVar(String name) {
-    // TODO: implement internal_getVar
-    throw UnimplementedError();
+  ValueWrapper? internal_getVar(Variable name) {
+    return values[name] ??
+        deferTarget.internal_getVar(variables[namespace.name + name.name] ??= Variable(namespace.name + name.name)) ??
+        deferTarget.internal_getVar(name);
   }
 
   @override
-  // TODO: implement intrinsics
-  Scope? get intrinsics => throw UnimplementedError();
+  Scope? get intrinsics => deferTarget.intrinsics;
 
   @override
-  // TODO: implement parents
-  List<Scope> get parents => throw UnimplementedError();
+  List<Scope> get parents => [deferTarget];
 
   @override
-  void setVar(String name, List<int> subscripts, ValueWrapper value, int line,
-      int col, String workspace, String file) {
-    // TODO: implement setVar
+  void setVar(Variable name, List<int> subscripts, ValueWrapper value, int line, int col, String workspace, String file) {
+    if (deferTarget.internal_getVar(variables[namespace.name + name.name] ??= Variable(namespace.name + name.name)) != null) {
+      deferTarget.setVar(variables[namespace.name + name.name] ??= Variable(namespace.name + name.name), subscripts, value, line, col, workspace, file);
+    }
+    deferTarget.setVar(name, subscripts, value, line, col, workspace, file);
   }
 
   @override
-  // TODO: implement stack
-  List<LazyString> get stack => throw UnimplementedError();
+  late List<LazyString> stack = deferTarget.stack + [NotLazyString('namespace of $namespace')]; // xxx optimize
 
   @override
-  String toStringWithStack(List<LazyString> stack2, int line, int col,
-      String workspace, String file) {
-    // TODO: implement toStringWithStack
-    throw UnimplementedError();
+  String toStringWithStack(List<LazyString> stack2, int line, int col, String workspace, String file) {
+    return deferTarget.toStringWithStack(stack2, line, col, workspace, file);
   }
 
   @override
-  // TODO: implement isClass
-  bool get isClass => throw UnimplementedError();
+  bool get isClass => false;
 
   @override
-  // TODO: implement typeIfClass
-  ClassValueType? get typeIfClass => throw UnimplementedError();
+  ClassValueType? get typeIfClass => null;
 }
 
 Map<String, int> fileTypes = {};
 
-class ValueType {
+class ValueType<T extends Object?> {
   final ValueType? parent;
-  final String name;
+  final Variable name;
 
-  String toString() => name;
-  bool operator ==(x) =>
-      x is ValueType && this.isSubtypeOf(x) && x.isSubtypeOf(this);
+  String toString() => name.name;
+  bool operator ==(x) => x is ValueType && this.isSubtypeOf(x) && x.isSubtypeOf(this);
 
   ValueType.internal(this.parent, this.name, String file) {
     if (types[name] != null) {
-      throw FileInvalid("Repeated creation of $name");
+      throw BSCException("Repeated creation of ${name.name}");
     }
     types[name] = this;
     fileTypes[file] = (fileTypes[file] ?? 0) + 1;
   }
-  static final Map<String, ValueType> types = {};
-  factory ValueType(ValueType? parent, String name, int line, int col,
-      String workspace, String file) {
+  static final Map<Variable, ValueType> types = {};
+  static ValueType create(ValueType? parent, Variable name, int line, int col, String workspace, String file) {
     return types[name] ??
-        (name.endsWith("Iterable")
+        (name.name.endsWith("Iterable")
             ? IterableValueType(
-                ValueType(
+                ValueType.create(
                   sharedSupertype,
-                  name.substring(0, name.length - 8),
+                  variables[name.name.substring(0, name.name.length - 8)] ?? Variable(name.name.substring(0, name.name.length - 8)),
                   line,
                   col,
                   workspace,
@@ -395,11 +332,11 @@ class ValueType {
                 ),
                 file,
               )
-            : name.endsWith("Iterator")
+            : name.name.endsWith("Iterator")
                 ? IteratorValueType(
-                    ValueType(
+                    ValueType.create(
                       sharedSupertype,
-                      name.substring(0, name.length - 8),
+                      variables[name.name.substring(0, name.name.length - 8)] ?? Variable(name.name.substring(0, name.name.length - 8)),
                       line,
                       col,
                       workspace,
@@ -407,11 +344,11 @@ class ValueType {
                     ),
                     file,
                   )
-                : name.endsWith("List")
+                : name.name.endsWith("List")
                     ? ListValueType(
-                        ValueType(
+                        ValueType.create(
                           sharedSupertype,
-                          name.substring(0, name.length - 4),
+                          variables[name.name.substring(0, name.name.length - 4)] ?? Variable(name.name.substring(0, name.name.length - 4)),
                           line,
                           col,
                           workspace,
@@ -419,11 +356,11 @@ class ValueType {
                         ),
                         file,
                       )
-                    : name.endsWith("Function")
+                    : name.name.endsWith("Function")
                         ? GenericFunctionValueType(
-                            ValueType(
+                            ValueType.create(
                               sharedSupertype,
-                              name.substring(0, name.length - 8),
+                              variables[name.name.substring(0, name.name.length - 8)] ?? Variable(name.name.substring(0, name.name.length - 8)),
                               line,
                               col,
                               workspace,
@@ -431,29 +368,27 @@ class ValueType {
                             ),
                             file,
                           )
-                        : name.endsWith("Nullable")
-                            ? NullableValueType(
-                                name.substring(0, name.length - 8),
-                                ValueType(
+                        : name.name.endsWith("Nullable")
+                            ? NullableValueType<Object?>(
+                                ValueType.create(
                                   sharedSupertype,
-                                  name.substring(0, name.length - 8),
+                                  variables[name.name.substring(0, name.name.length - 8)] ?? Variable(name.name.substring(0, name.name.length - 8)),
                                   line,
                                   col,
                                   workspace,
                                   file,
                                 ),
                                 file)
-                            : basicTypes(
-                                name, parent, line, col, workspace, file));
+                            : basicTypes(name, parent, line, col, workspace, file));
   }
+
   bool isSubtypeOf(ValueType possibleParent) {
     var bool = name == possibleParent.name ||
         (parent != null && parent!.isSubtypeOf(possibleParent)) ||
-        name == 'Whatever' ||
-        possibleParent.name == 'Whatever' ||
-        (name == 'Null' && possibleParent is NullableValueType) ||
-        (possibleParent is NullableValueType &&
-            isSubtypeOf(possibleParent.genericParam));
+        name == whateverVariable ||
+        possibleParent.name == whateverVariable ||
+        (name == nullType.name && possibleParent is NullableValueType) ||
+        (possibleParent is NullableValueType && isSubtypeOf(possibleParent.genericParam));
     return bool;
   }
 
@@ -462,55 +397,43 @@ class ValueType {
   }
 }
 
-class NullableValueType extends ValueType {
-  final ValueType genericParam;
+class NullableValueType<T> extends ValueType<T?> {
+  final ValueType<T> genericParam;
 
-  NullableValueType(String name, this.genericParam, String file)
-      : super.internal(sharedSupertype, name + 'Nullable', file);
+  NullableValueType(this.genericParam, String file)
+      : super.internal(sharedSupertype, variables[genericParam.name.name + 'Nullable'] ??= Variable(genericParam.name.name + 'Nullable'), file);
 
   bool isSubtypeOf(ValueType other) {
-    return super.isSubtypeOf(other) ||
-        (other is NullableValueType &&
-            genericParam.isSubtypeOf(other.genericParam));
+    return super.isSubtypeOf(other) || (other is NullableValueType && genericParam.isSubtypeOf(other.genericParam));
   }
 }
 
-class ClassValueType extends ValueType {
-  ClassValueType.internal(
-      String name, this.supertype, this.properties, String file)
-      : super.internal(supertype ?? sharedSupertype, "$name", file);
-  factory ClassValueType(String name, ClassValueType? supertype,
-      TypeValidator properties, String file) {
-    return (ValueType.types[name] ??=
-            ClassValueType.internal(name, supertype, properties, file))
-        as ClassValueType;
+class ClassValueType extends ValueType<Scope> {
+  ClassValueType.internal(Variable name, this.supertype, this.properties, String file) : super.internal(supertype ?? sharedSupertype, name, file);
+  factory ClassValueType(Variable name, ClassValueType? supertype, TypeValidator properties, String file) {
+    return (ValueType.types[name] ??= ClassValueType.internal(name, supertype, properties, file)) as ClassValueType;
   }
   final TypeValidator properties;
   final ClassValueType? supertype;
   final List<ClassValueType> subtypes = [];
 
-  Iterable<ClassValueType> get allDescendants => subtypes
-      .expand((element) => element.allDescendants.followedBy([element]));
-  ValueType? recursiveLookup(String v) {
-    return properties.types[v] ?? supertype?.recursiveLookup(v);
+  Iterable<ClassValueType> get allDescendants => subtypes.expand((element) => element.allDescendants.followedBy([element]));
+  MapEntry<ValueType, ClassValueType>? recursiveLookup(Variable v) {
+    return properties.igv(v, true) != null ? MapEntry(properties.igv(v, true)!, this) : supertype?.recursiveLookup(v);
   }
 }
 
-class GenericFunctionValueType extends ValueType {
+class GenericFunctionValueType<T> extends ValueType<SydFunction<T>> {
   GenericFunctionValueType.internal(this.returnType, String file)
-      : super.internal(sharedSupertype, "${returnType}Function", file);
+      : super.internal(sharedSupertype, variables["${returnType}Function"] ??= Variable("${returnType}Function"), file);
   final ValueType returnType;
   factory GenericFunctionValueType(ValueType returnType, String file) {
-    return (ValueType.types["${returnType}Function"] ??=
-            GenericFunctionValueType.internal(returnType, file))
-        as GenericFunctionValueType;
+    return (ValueType.types[variables["${returnType}Function"] ??= Variable("${returnType}Function")] ??=
+        GenericFunctionValueType<T>.internal(returnType, file)) as GenericFunctionValueType<T>;
   }
   @override
   bool isSubtypeOf(final ValueType possibleParent) {
-    return super.isSubtypeOf(possibleParent) ||
-        ((possibleParent is! FunctionValueType &&
-                possibleParent is GenericFunctionValueType) &&
-            returnType.isSubtypeOf(possibleParent.returnType));
+    return super.isSubtypeOf(possibleParent) || ((possibleParent is GenericFunctionValueType) && returnType.isSubtypeOf(possibleParent.returnType));
   }
 
   GenericFunctionValueType withReturnType(ValueType rt, String file) {
@@ -518,63 +441,54 @@ class GenericFunctionValueType extends ValueType {
   }
 }
 
-class IterableValueType extends ValueType {
+class IterableValueType<T, RT extends Iterable<T>> extends ValueType<RT> {
   IterableValueType.internal(this.genericParameter, String file)
-      : super.internal(sharedSupertype, "${genericParameter}Iterable", file);
+      : super.internal(sharedSupertype, variables["${genericParameter}Iterable"] ??= Variable("${genericParameter}Iterable"), file);
   factory IterableValueType(ValueType genericParameter, String file) {
-    return ValueType.types["${genericParameter}Iterable"]
-            as IterableValueType? ??
-        IterableValueType.internal(genericParameter, file);
+    return ValueType.types[variables["${genericParameter}Iterable"] ??= Variable("${genericParameter}Iterable")] as IterableValueType<T, RT>? ??
+        IterableValueType<T, RT>.internal(genericParameter, file);
   }
   final ValueType genericParameter;
   @override
   bool isSubtypeOf(ValueType possibleParent) {
-    return super.isSubtypeOf(possibleParent) ||
-        (possibleParent is IterableValueType &&
-            genericParameter.isSubtypeOf(possibleParent.genericParameter));
+    return super.isSubtypeOf(possibleParent) || (possibleParent is IterableValueType && genericParameter.isSubtypeOf(possibleParent.genericParameter));
   }
 }
 
-class IteratorValueType extends ValueType {
+class IteratorValueType<T> extends ValueType<Iterator<T>> {
   IteratorValueType.internal(this.genericParameter, String file)
-      : super.internal(sharedSupertype, "${genericParameter}Iterator", file);
+      : super.internal(sharedSupertype, variables["${genericParameter}Iterator"] ??= Variable("${genericParameter}Iterator"), file);
   factory IteratorValueType(ValueType genericParameter, String file) {
-    return ValueType.types["${genericParameter}Iterator"]
-            as IteratorValueType? ??
-        IteratorValueType.internal(genericParameter, file);
+    return ValueType.types[variables["${genericParameter}Iterator"] ??= Variable("${genericParameter}Iterator")] as IteratorValueType<T>? ??
+        IteratorValueType<T>.internal(genericParameter, file);
   }
   final ValueType genericParameter;
   @override
   bool isSubtypeOf(ValueType possibleParent) {
-    return super.isSubtypeOf(possibleParent) ||
-        (possibleParent is IteratorValueType &&
-            genericParameter.isSubtypeOf(possibleParent.genericParameter));
+    return super.isSubtypeOf(possibleParent) || (possibleParent is IteratorValueType && genericParameter.isSubtypeOf(possibleParent.genericParameter));
   }
 }
 
-class ListValueType extends IterableValueType {
-  ListValueType.internal(this.genericParameter, String file)
-      : super.internal(IterableValueType(genericParameter, file), file);
-  late String name = "${genericParameter}List";
+class ListValueType<T> extends IterableValueType<T, List<T>> {
+  ListValueType.internal(this.genericParameter, String file) : super.internal(IterableValueType(genericParameter, file), file);
+  late Variable name = variables["${genericParameter}List"] ??= Variable("${genericParameter}List");
   factory ListValueType(ValueType genericParameter, String file) {
-    return ValueType.types["${genericParameter}List"] as ListValueType? ??
-        ListValueType.internal(genericParameter, file);
+    return ValueType.types[variables["${genericParameter}List"] ??= Variable("${genericParameter}List")] as ListValueType<T>? ??
+        ListValueType<T>.internal(genericParameter, file);
   }
   final ValueType genericParameter;
   @override
   bool isSubtypeOf(ValueType possibleParent) {
     return name == possibleParent.name ||
         (parent != null && parent!.isSubtypeOf(possibleParent)) ||
-        (possibleParent is IterableValueType &&
-            genericParameter == possibleParent.genericParameter) ||
-        (possibleParent is NullableValueType &&
-            isSubtypeOf(possibleParent.genericParam));
+        (possibleParent is IterableValueType && genericParameter == possibleParent.genericParameter) ||
+        (possibleParent is NullableValueType && isSubtypeOf(possibleParent.genericParam));
   }
 }
 
 class Parameter {
   final ValueType type;
-  final String name;
+  final Variable name;
 
   String toString() => "$type $name";
 
@@ -592,6 +506,8 @@ enum StatementResultType {
 class StatementResult {
   final StatementResultType type;
   final ValueWrapper? value;
+
+  String toString() => 'StatementResult.${type.name}($value)';
 
   StatementResult(this.type, [this.value]);
 }
@@ -613,21 +529,15 @@ class CursorPositionLazyString extends LazyString {
   final String file;
   final String workspace;
 
-  String toString() =>
-      '$str ${formatCursorPosition(line, col, workspace, file)}';
+  String toString() => '$str ${formatCursorPosition(line, col, workspace, file)}';
 
-  CursorPositionLazyString(
-      this.str, this.line, this.col, this.file, this.workspace);
+  CursorPositionLazyString(this.str, this.line, this.col, this.workspace, this.file);
 }
 
+typedef SydFunction<T extends Object?> = ValueWrapper<T> Function(List<ValueWrapper> args, List<LazyString>, [Scope?, ValueType?]);
+
 class Scope {
-  Scope(this.isClass,
-      {this.intrinsics,
-      Scope? parent,
-      required this.stack,
-      this.declaringClass,
-      required this.debugName,
-      this.typeIfClass})
+  Scope(this.isClass, {this.intrinsics, Scope? parent, required this.stack, this.declaringClass, required this.debugName, this.typeIfClass})
       : parents = [if (parent != null) parent];
   final LazyString debugName;
   final List<Scope> parents;
@@ -642,33 +552,33 @@ class Scope {
     Scope node = this;
     while (node.declaringClass == null && !node.isClass) {
       if (node.parents.isEmpty) {
-        throw FileInvalid("Called super expression outside class (in $this)");
+        throw BSCException("Called super expression outside class (in $this)");
       }
       node = node.parents.first;
     }
     return node.declaringClass ?? node.typeIfClass!;
   }
 
-  String toString() => toStringWithStack(
-      [NotLazyString('internal error')], -2, 0, 'interr', 'interr');
-
-  String toStringWithStack(List<LazyString> stack2, int line, int col,
-      String workspace, String file) {
-    return values.containsKey('toString')
-        ? values['toString']!
-            .valueC(this, stack2 + [NotLazyString("implicit toString")], line,
-                col, workspace, file)
-            (<ValueWrapper>[], stack2 + [NotLazyString("implicit toString")])
-            .value
-            .valueC(this, stack2 + [NotLazyString("implicit toString")], line,
-                col, workspace, file)
-        : "<${values['className']?.valueC(this, stack2, line, col, workspace, file) ?? '($debugName: stack: $stack)'}>";
+  String toString() {
+    try {
+      return toStringWithStack([NotLazyString('internal error')], -2, 0, 'interr', 'interr');
+    } on SydException catch (e) {
+      return 'ToString fail - debugName: $debugName (error: $e)';
+    }
   }
 
-  final Map<String, ValueWrapper> values = {};
-  static final Map<String, ValueType> tv_types = TypeValidator(null).types;
-  void setVar(String name, List<int> subscripts, ValueWrapper value, int line,
-      int col, String workspace, String file) {
+  String toStringWithStack(List<LazyString> stack2, int line, int col, String workspace, String file) {
+    return values.containsKey(variables['toString'])
+        ? values[variables['toString']]!
+            .valueC<SydFunction>(this, stack2 + [NotLazyString("implicit toString")], line, col, workspace, file)
+            (<ValueWrapper>[], stack2 + [NotLazyString("implicit toString")])
+            .valueC(this, stack2 + [NotLazyString("implicit toString")], line, col, workspace, file)
+        : "<${values[variables['className']]?.valueC(this, stack2, line, col, workspace, file) ?? '($debugName: stack: $stack)'}>";
+  }
+
+  final Map<Variable, ValueWrapper> values = {};
+
+  void setVar(Variable name, List<int> subscripts, ValueWrapper value, int line, int col, String workspace, String file) {
     if (!values.containsKey(name)) {
       for (Scope parent in parents) {
         if (parent.internal_getVar(name) != null) {
@@ -680,21 +590,17 @@ class Scope {
     if (subscripts.length == 0) {
       values[name] = value;
     } else {
-      if (!values.containsKey(name))
-        throw FileInvalid(
-            "attempted $name${subscripts.map((e) => '[$e]').join()} = $value but $name did not exist");
-      List<ValueWrapper> list =
-          values[name]!.valueC(this, stack, line, col, workspace, file);
+      if (!values.containsKey(name)) throw BSCException("attempted $name${subscripts.map((e) => '[$e]').join()} = $value but $name did not exist");
+      List<ValueWrapper> list = values[name]!.valueC(this, stack, line, col, workspace, file);
       while (subscripts.length > 1) {
-        list = list[subscripts.first]
-            .valueC(this, stack, line, col, workspace, file);
+        list = list[subscripts.first].valueC(this, stack, line, col, workspace, file);
         subscripts.removeAt(0);
       }
       list[subscripts.single] = value;
     }
   }
 
-  ValueWrapper? internal_getVar(String name) {
+  ValueWrapper? internal_getVar(Variable name) {
     if (values[name] != null) {
       return values[name];
     }
@@ -707,15 +613,12 @@ class Scope {
     return null;
   }
 
-  ValueWrapper getVar(String name, int line, int column, String workspace,
-      String file, TypeValidator? validator) {
+  ValueWrapper getVar(Variable name, int line, int column, String workspace, String file, TypeValidator? validator) {
     var val = internal_getVar(name);
     return val ??
         (validator?.classes.containsKey(name) ?? false
-            ? (throw FileInvalid(
-                "class $name has not yet been defined ${formatCursorPosition(line, column, workspace, file)}"))
-            : (throw FileInvalid(
-                "$name nonexistent ${formatCursorPosition(line, column, workspace, file)}")));
+            ? (throw BSCException("class ${name.name} has not yet been defined ${formatCursorPosition(line, column, workspace, file)}"))
+            : (throw BSCException("${name.name} nonexistent ${formatCursorPosition(line, column, workspace, file)} ${stack.reversed.join("\n")}")));
   }
 
   void addParent(Scope scope) {
@@ -723,28 +626,24 @@ class Scope {
   }
 }
 
-class FunctionValueType extends GenericFunctionValueType {
+class FunctionValueType<T extends Object?> extends GenericFunctionValueType<T> {
   Iterable<ValueType> parameters;
   ValueType returnType;
   late final String stringParams = parameters.toString();
-  late final String name =
-      "${returnType}Function(${stringParams.substring(1, stringParams.length - 1)})";
+  late final Variable name = variables["${returnType}Function(${stringParams.substring(1, stringParams.length - 1)})"] ??=
+      Variable("${returnType}Function(${stringParams.substring(1, stringParams.length - 1)})");
 
-  FunctionValueType.internal(this.returnType, this.parameters, String file)
-      : super.internal(returnType, file);
+  FunctionValueType.internal(this.returnType, this.parameters, String file) : super.internal(returnType, file);
   FunctionValueType withReturnType(ValueType rt, String file) {
     return FunctionValueType(rt, parameters, file);
   }
 
-  factory FunctionValueType(
-      ValueType returnType, Iterable<ValueType> parameters, String file) {
-    String str = parameters.toString();
-    return ValueType.types[
-            "${returnType}Function(${str.substring(1, str.length - 1)})"] =
-        ValueType.types[
-                    "${returnType}Function(${str.substring(1, str.length - 1)})"]
-                as FunctionValueType? ??
-            FunctionValueType.internal(returnType, parameters, file);
+  factory FunctionValueType(ValueType returnType, Iterable<ValueType> parameters, String file) {
+    return ValueType.types[variables["${returnType}Function(${parameters.toString().substring(1, parameters.toString().length - 1)})"] ??=
+        Variable("${returnType}Function(${parameters.toString().substring(1, parameters.toString().length - 1)})")] = ValueType.types[
+            variables["${returnType}Function(${parameters.toString().substring(1, parameters.toString().length - 1)})"] ??=
+                Variable("${returnType}Function(${parameters.toString().substring(1, parameters.toString().length - 1)})")] as FunctionValueType<T>? ??
+        FunctionValueType<T>.internal(returnType, parameters, file);
   }
   @override
   bool isSubtypeOf(ValueType possibleParent) {
@@ -757,10 +656,8 @@ class FunctionValueType extends GenericFunctionValueType {
     if (!returnType.isSubtypeOf(possibleParent.returnType)) {
       return false;
     }
-    if (possibleParent.parameters is InfiniteIterable ||
-        parameters is InfiniteIterable) {
-      if (possibleParent.parameters is! InfiniteIterable ||
-          parameters is! InfiniteIterable) return false;
+    if (possibleParent.parameters is InfiniteIterable || parameters is InfiniteIterable) {
+      if (possibleParent.parameters is! InfiniteIterable || parameters is! InfiniteIterable) return false;
     } else if (parameters.length != possibleParent.parameters.length) {
       return false;
     }
@@ -771,35 +668,26 @@ class FunctionValueType extends GenericFunctionValueType {
   }
 }
 
-final ValueType sharedSupertype =
-    ValueType.internal(null, 'Anything', 'intrinsics');
-final ValueType integerType =
-    ValueType.internal(sharedSupertype, 'Integer', 'intrinsics');
-final ValueType stringType =
-    ValueType.internal(sharedSupertype, 'String', 'intrinsics');
-final ValueType booleanType =
-    ValueType.internal(sharedSupertype, 'Boolean', 'intrinsics');
-final ValueType nullType =
-    ValueType.internal(sharedSupertype, 'Null', 'intrinsics');
+final ValueType sharedSupertype = ValueType.internal(null, variables['Anything']!, 'intrinsics');
+final ValueType<int> integerType = ValueType.internal(sharedSupertype, variables['Integer']!, 'intrinsics');
+final ValueType<String> stringType = ValueType.internal(sharedSupertype, variables['String']!, 'intrinsics');
+final ValueType<bool> booleanType = ValueType.internal(sharedSupertype, variables['Boolean']!, 'intrinsics');
+final ValueType<Null> nullType = ValueType.internal(sharedSupertype, variables['Null']!, 'intrinsics');
 
-ValueType basicTypes(String name, ValueType? parent, int line, int col,
-    String workspace, String file) {
+ValueType basicTypes(Variable name, ValueType? parent, int line, int col, String workspace, String file) {
   switch (name) {
-    case 'Whatever':
-    case '~class_methods':
+    case whateverVariable:
+    case classMethodsVariable:
       return ValueType.internal(parent, name, file);
     default:
-      throw FileInvalid(
-          "'$name' type doesn't exist ${formatCursorPosition(line, col, workspace, file)}");
+      throw BSCException("'${name.name}' type doesn't exist ${formatCursorPosition(line, col, workspace, file)}");
   }
 }
 
-List<T> parseArgList<T>(
-    TokenIterator tokens, T Function(TokenIterator) parseArg) {
+List<T> parseArgList<T>(TokenIterator tokens, T Function(TokenIterator) parseArg) {
   tokens.expectChar(TokenType.openParen);
   List<T> params = [];
-  while (tokens.current is! CharToken ||
-      tokens.currentChar != TokenType.closeParen) {
+  while (tokens.current is! CharToken || tokens.currentChar != TokenType.closeParen) {
     params.add(parseArg(tokens));
     if (tokens.currentChar != TokenType.closeParen) {
       tokens.expectChar(TokenType.comma);
@@ -825,19 +713,18 @@ class InfiniteIterable<E> implements Iterable<E> {
 
   @override
   bool any(bool Function(E element) test) {
-    // TODO: implement any
-    throw UnimplementedError();
+    return test(value);
   }
 
   @override
   Iterable<R> cast<R>() {
-    // TODO: implement cast
+    // waiting for someone to use
     throw UnimplementedError();
   }
 
   @override
   bool contains(Object? element) {
-    // TODO: implement contains
+    // waiting for someone to use
     throw UnimplementedError();
   }
 
@@ -848,14 +735,15 @@ class InfiniteIterable<E> implements Iterable<E> {
 
   @override
   bool every(bool Function(E element) test) {
-    // TODO: implement every
+    // waiting for someone to use
     throw UnimplementedError();
   }
 
   @override
   Iterable<T> expand<T>(Iterable<T> Function(E element) toElements) {
-    // TODO: implement expand
-    throw UnimplementedError();
+    throw UnsupportedError(
+      "$InfiniteIterable cannot expand(), would need to call toElements() an infinite amount of times",
+    );
   }
 
   @override
@@ -863,14 +751,15 @@ class InfiniteIterable<E> implements Iterable<E> {
 
   @override
   E firstWhere(bool Function(E element) test, {E Function()? orElse}) {
-    // TODO: implement firstWhere
+    // waiting for someone to use
     throw UnimplementedError();
   }
 
   @override
   T fold<T>(T initialValue, T Function(T previousValue, E element) combine) {
-    // TODO: implement fold
-    throw UnimplementedError();
+    throw UnsupportedError(
+      "$InfiniteIterable cannot fold(), would need to call combine() an infinite amount of times",
+    );
   }
 
   @override
@@ -880,35 +769,45 @@ class InfiniteIterable<E> implements Iterable<E> {
 
   @override
   void forEach(void Function(E element) action) {
-    throw UnsupportedError("$InfiniteIterable iteration goes on forever");
+    throw UnsupportedError(
+      "$InfiniteIterable forEach() iteration goes on forever",
+    );
   }
 
   @override
-  // TODO: implement isEmpty
+  // waiting for someone to use
   bool get isEmpty => throw UnimplementedError();
 
   @override
-  // TODO: implement isNotEmpty
+  // waiting for someone to use
   bool get isNotEmpty => throw UnimplementedError();
 
   @override
   String join([String separator = ""]) {
-    throw UnsupportedError("$InfiniteIterable cannot be joined together");
+    throw UnsupportedError("$InfiniteIterable cannot be joined together - result would be an infinite string");
   }
 
   @override
-  // TODO: implement last
-  E get last => throw UnimplementedError();
+  E get last => throw UnsupportedError("$InfiniteIterable has no last element");
 
   @override
   E lastWhere(bool Function(E element) test, {E Function()? orElse}) {
-    // TODO: implement lastWhere
-    throw UnimplementedError();
+    if (!test(value)) {
+      // xxx should we call for all elements or is just one fine?
+      return (orElse == null
+          ? () {
+              throw Exception("No orElse, but test() returned false on $this");
+            }
+          : () {
+              // waiting for use
+              throw UnimplementedError();
+            })();
+    }
+    throw UnsupportedError("$InfiniteIterable has no last element");
   }
 
   @override
-  // TODO: implement length
-  int get length => throw UnsupportedError("$this got length called on it");
+  int get length => throw UnsupportedError("$InfiniteIterable has an infinite length, which is not an integer");
 
   @override
   E reduce(E Function(E value, E element) combine) {
@@ -916,9 +815,7 @@ class InfiniteIterable<E> implements Iterable<E> {
   }
 
   @override
-  // TODO: implement single
-  E get single => throw StateError(
-      "$InfiniteIterable has more than one element when calling 'single'");
+  E get single => throw StateError("$this has more than one element when calling 'single'");
 
   @override
   E singleWhere(bool Function(E element) test, {E Function()? orElse}) {
@@ -927,47 +824,47 @@ class InfiniteIterable<E> implements Iterable<E> {
 
   @override
   Iterable<E> skip(int count) {
-    // TODO: implement skip
+    // waiting for use
     throw UnimplementedError();
   }
 
   @override
   Iterable<E> skipWhile(bool Function(E value) test) {
-    // TODO: implement skipWhile
+    // waiting for use
     throw UnimplementedError();
   }
 
   @override
   Iterable<E> take(int count) {
-    // TODO: implement take
+    // waiting for use
     throw UnimplementedError();
   }
 
   @override
   Iterable<E> takeWhile(bool Function(E value) test) {
-    // TODO: implement takeWhile
+    // waiting for use
     throw UnimplementedError();
   }
 
   @override
   List<E> toList({bool growable = true}) {
-    throw StateError("$InfiniteIterable cannot be converted to $List<$E>");
+    throw StateError("$InfiniteIterable cannot be converted to $List<$E> - would be an infinite list");
   }
 
   @override
   Set<E> toSet() {
-    throw StateError("$InfiniteIterable cannot be converted to $Set<$E>");
+    throw StateError("$InfiniteIterable cannot be converted to $Set<$E> - would be an infinite set");
   }
 
   @override
   Iterable<E> where(bool Function(E element) test) {
-    // TODO: implement where
+    // waiting for use
     throw UnimplementedError();
   }
 
   @override
   Iterable<T> whereType<T>() {
-    // TODO: implement whereType
+    // waiting for use
     throw UnimplementedError();
   }
 }
@@ -986,12 +883,9 @@ class InfiniteIterator<T> extends Iterator<T> {
   }
 }
 
-String toStringWithStacker(ValueWrapper x, List<LazyString> s, int line,
-    int col, String workspace, String file) {
+String toStringWithStacker(ValueWrapper x, List<LazyString> s, int line, int col, String workspace, String file) {
   if (x.typeC(null, s, line, col, workspace, file) is ClassValueType) {
-    return x
-        .valueC(null, s, line, col, workspace, file)
-        .toStringWithStack(s, line, col, workspace, file);
+    return x.valueC<Scope>(null, s, line, col, workspace, file).toStringWithStack(s, line, col, workspace, file);
   } else {
     return x.valueC(null, s, line, col, workspace, file).toString();
   }

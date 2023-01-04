@@ -20,9 +20,9 @@ import 'syd-utils.syd';
      *  rsp+50h : rbp+40h : type of arg 1
      *  rsp+48h : rbp+38h : pointer to return value
      *  rsp+40h : rbp+30h : pointer to return value type
-     *  rsp+38h : rbp+28h : shadow r9
-     *  rsp+30h : rbp+20h : shadow r8
-     *  rsp+28h : rbp+18h : shadow rdx
+     *  rsp+38h : rbp+28h : "shadow r9", actually used as scratch space for class constructor return value
+     *  rsp+30h : rbp+20h : "shadow r8", actually used as scratch space for class constructor return type
+     *  rsp+28h : rbp+18h : "shadow rdx", actually used as scratch space for tail recursion code address
      *  rsp+20h : rbp+10h : shadow rcx
      *  rsp+18h : rbp +8h : return address
      *  rsp+10h : rbp     : saved non-volatile register rbp                      
@@ -42,29 +42,33 @@ import 'syd-utils.syd';
 // ============================================================================
 // FORWARD DECLARATIONS
 // ============================================================================
-fwdclass Constant extends Object;
+fwdclass Constant(String, StringList, StringNullableList) extends Object;
+fwdclass ClassType(TypeRegistry, String, TypeNullable) extends Type;
 fwdclass CompilationEnvironment extends TypeRegistry;
-fwdclass CompiledScope extends SlotContext;
+fwdclass CompiledScope(SlotContextNullable, String) extends SlotContext;
 fwdclass CompiledNestedScope(CompiledScope, String) extends CompiledScope;
-fwdclass CompiledStackFrameScope extends CompiledScope;
-fwdclass CompiledSubroutine extends CompiledStackFrameScope;
+fwdclass CompiledStackFrameScope(CompiledScopeNullable, String) extends CompiledScope;
+fwdclass CompiledSubroutine(CompiledScopeNullable, AbstractSubroutineTypeWithSpecificParameters, String, ClassTypeNullable) extends CompiledStackFrameScope;
 fwdclass CompiledLibrary(CompilationEnvironment, String) extends CompiledStackFrameScope;
-fwdclass CompiledIntrinsicsLibrary extends CompiledLibrary;
+fwdclass CompiledIntrinsicsLibrary(CompilationEnvironment, String) extends CompiledLibrary;
 fwdclass Instruction extends Object;
-fwdclass CompiledSubroutineWithSpecificParameters extends CompiledSubroutine;
-fwdclass BuiltInSubroutine extends CompiledSubroutineWithSpecificParameters;
-fwdclass BuiltInPrintSubroutine(CompiledIntrinsicsLibrary) extends BuiltInSubroutine;
-fwdclass BuiltInExitSubroutine(CompiledIntrinsicsLibrary) extends BuiltInSubroutine;
+fwdclass CompiledSubroutineWithSpecificParameters(CompiledScope, SubroutineTypeWithSpecificParameters, String, Null) extends CompiledSubroutine;
+fwdclass CompiledGeneratedConstructorSubroutine extends CompiledSubroutine;
+fwdclass BuiltInSubroutine(CompiledScopeNullable, AbstractSubroutineTypeWithSpecificParameters, String, ClassTypeNullable) extends CompiledSubroutineWithSpecificParameters;
 fwdclass BuiltInLenSubroutine(CompiledIntrinsicsLibrary) extends BuiltInSubroutine;
 fwdclass BuiltInDebuggerSubroutine(CompiledIntrinsicsLibrary) extends BuiltInSubroutine;
-fwdclass CompilerIntrinsic extends BuiltInSubroutine;
+fwdclass MemberDescription(String, Type, Boolean) extends Object;
+fwdclass BuiltInGetterMethod(CompiledIntrinsicsLibrary, ClassType, MemberDescription) extends BuiltInSubroutine;
+fwdclass BuiltInSetterMethod(CompiledIntrinsicsLibrary, ClassType, MemberDescription) extends BuiltInSubroutine;
+fwdclass CompilerIntrinsic(CompiledIntrinsicsLibrary, SubroutineTypeWithSpecificParameters, String, Null) extends BuiltInSubroutine;
 fwdclass BuiltInReadFromAddressIntrinsic(CompiledIntrinsicsLibrary) extends CompilerIntrinsic;
 fwdclass BuiltInWriteToAddressIntrinsic(CompiledIntrinsicsLibrary) extends CompilerIntrinsic;
 fwdclass CompiledVarArgsSubroutine extends CompiledSubroutine;
-fwdclass SubroutineSlot extends CompileTimeLabelSlot;
-fwdclass CompiledInternalProcedure extends CompiledStackFrameScope;
-fwdclass CompiledInternalProcedureSlot extends CompileTimeLabelSlot;
+fwdclass SubroutineSlot(CompiledSubroutine, Boolean) extends CompileTimeLabelSlot;
+fwdclass CompiledInternalProcedure(CompiledScope, String) extends CompiledStackFrameScope;
+fwdclass CompiledInternalProcedureSlot(CompiledInternalProcedure) extends CompileTimeLabelSlot;
 fwdclass ConstantSlot(Type, Constant, String) extends ImmediateDataLabelSlot;
+fwdclass IdentifierEntity extends Object;
 
 // CompiledScope
 fwdclassprop CompiledScopeNullable CompiledScope.parent;
@@ -75,18 +79,22 @@ fwdclassprop CompilationEnvironmentFunction CompiledScope.environment;
 fwdclassprop CompiledStackFrameScopeFunction CompiledScope.stackFrame;
 fwdclassprop CompiledLibraryFunction CompiledScope.globalScope;
 fwdclassprop NullFunction CompiledScope.prepareSlots;
-fwdclassprop SlotNullableFunction CompiledScope.internalLookupIdentifier;
+fwdclassprop IdentifierEntityNullableFunction CompiledScope.internalLookupIdentifier;
+fwdclassprop NullFunction CompiledScope.addRemainingReferences;
 fwdclassprop NullFunction CompiledScope.prepareInstructions;
 fwdclassprop NullFunction CompiledScope.generateAssemblerBlock;
 fwdclassprop NullFunction CompiledScope.emitInstruction;
 fwdclassprop DynamicSlotFunction CompiledScope.registerDynamicValue;
-fwdclassprop SlotFunction CompiledScope.registerStaticValue;
 fwdclassprop SubroutineSlotFunction CompiledScope.registerSubroutine;
+fwdclassprop SlotFunction CompiledScope.emitSubroutineCall;
 fwdclassprop NullFunction CompiledScope.registerNestedScope;
 fwdclassprop StringFunction CompiledScope.labelPrefix;
 fwdclassprop DynamicSlotFunction CompiledScope.registerSlot;
 fwdclassprop NullFunction CompiledScope.emitIsOperatorCheck;
 fwdclassprop NullFunction CompiledScope.emitBlock;
+fwdclassprop NullFunction CompiledScope.emitIncref;
+fwdclassprop SlotFunction CompiledScope.lookupIntrinsic;
+fwdclassprop ClassTypeFunction CompiledScope.lookupIntrinsicClass;
 
 // CompiledStackFrameScope
 fwdclassprop Boolean CompiledStackFrameScope.isUsed;
@@ -123,14 +131,15 @@ fwdclassprop SubroutineCodeAddressType CompiledIntrinsicsLibrary.coreSubroutineC
 fwdclassprop GarbageCollectableType CompiledIntrinsicsLibrary.coreGarbageCollectableType;
 fwdclassprop AnythingType CompiledIntrinsicsLibrary.coreAnythingType;
 fwdclassprop NullFunction CompiledIntrinsicsLibrary.generateScopes;
+fwdclassprop SubroutineSlot CompiledIntrinsicsLibrary.coreError;
 fwdclassprop ImmediateSlot CompiledIntrinsicsLibrary.coreSentinel;
 fwdclassprop ImmediateSlot CompiledIntrinsicsLibrary.coreNull;
-fwdclassprop Slot CompiledIntrinsicsLibrary.corePrint;
-fwdclassprop Slot CompiledIntrinsicsLibrary.coreExit;
+fwdclassprop ImmediateSlot CompiledIntrinsicsLibrary.coreFalse;
 fwdclassprop Slot CompiledIntrinsicsLibrary.boundsFailureMessage;
 fwdclassprop Slot CompiledIntrinsicsLibrary.returnValueTypeCheckFailureMessage;
 fwdclassprop Slot CompiledIntrinsicsLibrary.parameterTypeCheckFailureMessage;
 fwdclassprop Slot CompiledIntrinsicsLibrary.parameterCountCheckFailureMessage;
+fwdclassprop Slot CompiledIntrinsicsLibrary.assignToMethodMessage;
 fwdclassprop CompiledInternalProcedureSlotFunction CompiledIntrinsicsLibrary.lookupInternalProcedureSlot;
 
 // CompilationEnvironment
@@ -150,6 +159,26 @@ fwdclassprop CompiledInternalProcedure CompiledInternalProcedureSlot.compiledInt
 // ConstantSlot
 fwdclassprop Constant ConstantSlot.constant;
 
+// ClassType
+fwdclassprop NullFunction ClassType.propagateNeedsMethodsFor;
+fwdclassprop NullFunction ClassType.assignIndicies;
+fwdclassprop NullFunction ClassType.populateMembers;
+fwdclassprop Map ClassType.members;
+fwdclassprop NullFunction ClassType.generateVmt;
+fwdclassprop String ClassType.vmtLabel;
+fwdclassprop Set ClassType.subtypes;
+fwdclassprop SubroutineSlot ClassType.constructorSubroutine;
+
+// MemberDescription
+fwdclassprop IntegerNullable MemberDescription.fieldIndex;
+fwdclassprop IntegerNullable MemberDescription.methodsIndex;
+fwdclassprop String MemberDescription.name;
+fwdclassprop Type MemberDescription.staticType;
+fwdclassprop Boolean MemberDescription.isField;
+fwdclassprop Boolean MemberDescription.needsField;
+fwdclassprop Boolean MemberDescription.needsMethods;
+fwdclassprop CompiledSubroutine MemberDescription.methodImplementation;
+fwdclassprop BooleanFunction MemberDescription.isDefined;
 
 // ============================================================================
 // COMPILATION ENVIRONMENT
@@ -195,7 +224,7 @@ class CompilationEnvironment extends TypeRegistry {
   }
 
   Slot integer(Integer value) {
-    intrinsicsLibrary.coreIntegerType.markConstructed();
+    assert(intrinsicsLibrary.coreIntegerType.isConstructed, 'integer caller must call IntegerType.isConstructed');
     return ImmediateIntegerSlot(intrinsicsLibrary.coreIntegerType, value, concat(hex(value), ' (integer)'));
   }
 
@@ -211,7 +240,7 @@ class CompilationEnvironment extends TypeRegistry {
     if (maybeConstant == null) {
       SourceLocation source = SourceLocation(line, col, file);
       String label = generateLabel(labelBase);
-      // XXX length is wrong, we should be giving the byte length in whatever encoding we use (probably UTF-8? though windows, so maybe UTF-16?)
+      // TODO: length is wrong, we should be giving the byte length in whatever encoding we use (probably UTF-8? though windows, so maybe UTF-16?)
       StringList data = ['dq -01h', concat('dq ', len(scalarValues(value)))]:String;
       StringNullableList comments = ['String constant (reference count)', 'Length']:StringNullable;
       if (value != '') {
@@ -235,9 +264,21 @@ class CompilationEnvironment extends TypeRegistry {
       maybeConstant = Constant(label, data, comments);
       stringAtomTable.set(value, maybeConstant);
       append(constants, maybeConstant);
-      intrinsicsLibrary.coreStringType.markConstructed();
+      assert(intrinsicsLibrary.coreStringType.isConstructed, 'caller of registerStringConstant must markConstructed string type');
     }
     return ConstantSlot(intrinsicsLibrary.coreStringType, maybeConstant!, /* debugName: */ labelBase);
+  }
+
+  Map dynamicDispatchAtomTable = Map(); // String -> Integer
+  Integer atomizeForDynamicDispatch(String identifier) {
+    if (dynamicDispatchAtomTable.get(identifier) != null) {
+      return dynamicDispatchAtomTable.get(identifier) as Integer;
+    }
+    dynamicDispatchAtomTable.set(identifier, dynamicDispatchAtomTable.length);
+    return dynamicDispatchAtomTable.length - 1;
+  }
+  Boolean neededForDynamicDispatch(String identifier) {
+    return dynamicDispatchAtomTable.get(identifier) != null;
   }
 
   CompiledLibraryNullable runtimeLibrary = null; 
@@ -275,12 +316,17 @@ class CompilationEnvironment extends TypeRegistry {
     runtimeLibrary = runtimeLibraryArg;
   }
 
+  String errorIntrinsicName = '_error';
+  String exitIntrinsicName = 'exit';
   String freeIntrinsicName = '_free';
   String listConstructorIntrinsicName = '_listConstructor';
+  String classAllocatorIntrinsicName = '_classAllocator';
   String appendIntrinsicName = 'append';
   String iteratorIntrinsicName = 'iterator';
   String currentIntrinsicName = 'current';
   String nextIntrinsicName = 'next';
+  String createMethodPointerIntrinsicName = '_createMethodPointer';
+  String dynamicLookupIntrinsicName = '_dynamicLookup';
 
   // use CompiledScope.lookupIntrinsic() to reference this
   Map intrinsics = Map(); // String -> SubroutineSlot
@@ -289,12 +335,28 @@ class CompilationEnvironment extends TypeRegistry {
     intrinsics.set(intrinsic.subroutine.name, intrinsic);
   }
 
+  String coreClassTypeIntrinsicName = '__Object';
+
+  // use CompiledScope.lookupIntrinsicClass() to reference this
+  Map classIntrinsics = Map(); // String -> ClassType
+
+  Null registerClassIntrinsic(ClassType intrinsic) {
+    classIntrinsics.set(intrinsic.name, intrinsic);
+  }
+
+  Boolean prepareInstructionsHappened = false;
+
   Null markUsedScopesFor(CompiledScope scope) {
+    //stderr('markUsedScopesFor', scope, 'with references', scope.references);
     for (slot in scope.references.values()) {
+      assert(slot is Slot, concat('unexpected reference found in ', scope.name, '\'s references list; expected only Slots, but found a ', (slot as Whatever).className));
       if (slot is SubroutineSlot) {
         CompiledSubroutine subroutine = (slot as SubroutineSlot).subroutine;
         if (!subroutine.isUsed) {
           subroutine.markUsed();
+          if (prepareInstructionsHappened) {
+            subroutine.prepareInstructions();
+          }
           markUsedScopesFor(subroutine);
         }
       } else if (slot is CompiledInternalProcedureSlot) {
@@ -312,6 +374,15 @@ class CompilationEnvironment extends TypeRegistry {
     }
   }
 
+  Null markConstructedClasses(ClassType target) {
+    if (target.constructorSubroutine.subroutine.isUsed) {
+      target.markConstructed();
+    }
+    for (subclass in target.subtypes.values()) {
+      markConstructedClasses(subclass as ClassType);
+    }
+  }
+
   Null markUsedScopes() {
     markUsedScopesFor(intrinsicsLibrary);
     markUsedScopesFor(runtimeLibrary!);
@@ -320,12 +391,16 @@ class CompilationEnvironment extends TypeRegistry {
       assert(library is CompiledLibrary, concat(libraryName, ' was never fully compiled'));
       markUsedScopesFor(library as CompiledLibrary);
     }
+    markConstructedClasses(runtimeLibrary!.lookupIntrinsicClass(coreClassTypeIntrinsicName));
   }
 
-  CompiledSubroutineList subroutines = []:CompiledSubroutine; 
+  Set subroutines = Set(); // CompiledSubroutine
+  CompiledSubroutineList subroutinesInDeclarationOrder = []:CompiledSubroutine;
 
   Null addSubroutine(CompiledSubroutine subroutine) { 
-    append(subroutines, subroutine);
+    assert(!subroutines.has(subroutine), ' redundant call to addSubroutine');
+    subroutines.add(subroutine);
+    append(subroutinesInDeclarationOrder, subroutine);
   }
 
   Null prepareInstructions() {
@@ -334,10 +409,22 @@ class CompilationEnvironment extends TypeRegistry {
     for (libraryName in libraryNames) {
       (libraries.get(libraryName) as CompiledLibrary).prepareInstructions();
     }
-    for (subroutine in subroutines) {
+    for (subroutine in subroutinesInDeclarationOrder) {
       if (subroutine.isUsed) {
+        stderr('  preparing', subroutine.name);
         subroutine.prepareInstructions();
       }
+    }
+  }
+
+  Null addRemainingReferences() {
+    intrinsicsLibrary.addRemainingReferences();
+    runtimeLibrary!.addRemainingReferences();
+    for (libraryName in libraryNames) {
+      (libraries.get(libraryName) as CompiledLibrary).addRemainingReferences();
+    }
+    for (subroutine in subroutinesInDeclarationOrder) {
+      subroutine.addRemainingReferences();
     }
   }
 
@@ -361,9 +448,15 @@ class CompilationEnvironment extends TypeRegistry {
     append(comment, '   ; Columns:');
     for (supertype in sortedTypes) {
       if (supertype.isUsedInTypeCheck) {
+        bits += 1;
+        if (bits > 8) {
+          append(comment, '\n   ;         ');
+          bits = 0;
+        }
         append(comment, concat(' ', supertype));
       }
     }
+    bits = 0;
     append(comment, '\n');
     for (type in sortedTypes) {
       if (type.isConstructed) {
@@ -388,9 +481,11 @@ class CompilationEnvironment extends TypeRegistry {
           }
         }
         append(comment, concat('  ', type, '\n'));
-        append(bytes, byte);
-        byte = 0;
-        bits = 0;
+        if (bits > 0) {
+          append(bytes, byte);
+          byte = 0;
+          bits = 0;
+        }
       }
       if (type.isUsedInTypeCheck) {
         width += 1;
@@ -518,6 +613,17 @@ class CompilationEnvironment extends TypeRegistry {
     _generateIteratorTypeTable(assembler, iteratorTypeTableLabel);
     _generateListTypeTable(assembler, listTypeTableLabel);
   }
+
+  Null finalizeClassTypes(Assembler assembler) {
+    ClassType rootClass = intrinsicsLibrary.lookupIntrinsicClass(coreClassTypeIntrinsicName);
+    rootClass.assignIndicies(this, 0, 0);
+    rootClass.populateMembers(this);
+  }
+
+  Null generateVmts(Assembler assembler) {
+    ClassType rootClass = intrinsicsLibrary.lookupIntrinsicClass(coreClassTypeIntrinsicName);
+    rootClass.generateVmt(this, assembler);
+  }
   
   Null allocateSlots(Assembler assembler) {
     intrinsicsLibrary.allocateSlots(assembler);
@@ -527,7 +633,7 @@ class CompilationEnvironment extends TypeRegistry {
       assert(library is CompiledLibrary, concat(libraryName, ' was never fully compiled'));
       (library as CompiledLibrary).allocateSlots(assembler);
     }
-    for (subroutine in subroutines) {
+    for (subroutine in subroutinesInDeclarationOrder) {
       if (subroutine.isUsed) {
         subroutine.allocateSlots(assembler);
       }
@@ -535,14 +641,20 @@ class CompilationEnvironment extends TypeRegistry {
   }
 
   Null generateAssembler(Assembler assembler) {
+    stderr('  compiling constants...');
     AssemblerBlock mainBlock = assembler.createBlock();
     for (constant in constants) {
-      assembler.addConst(constant.label, constant.data, constant.comments);
+      if (constant.isUsed) {
+        assembler.addConst(constant.label, constant.data, constant.comments);
+      }
     }
+    stderr('  compiling intrinsics library...');
     intrinsicsLibrary.generateAssembler(assembler); // generates decrefs
     intrinsicsLibrary.generateAssemblerBlock(mainBlock);
+    stderr('  compiling runtime library...');
     runtimeLibrary!.generateAssemblerBlock(mainBlock);
     for (libraryName in libraryNames) {
+      stderr('  compiling', libraryName, 'library...');
       Anything library = libraries.get(libraryName);
       assert(library is CompiledLibrary, concat(libraryName, ' was never fully compiled'));
       (library as CompiledLibrary).generateAssemblerBlock(mainBlock);
@@ -551,8 +663,11 @@ class CompilationEnvironment extends TypeRegistry {
     mainBlock.addComment('End of global scope');
     mainBlock.addCode('ret', [], 'exit application');
     assembler.addLabeledBlock('main', mainBlock, null, null);
-    for (subroutine in subroutines) {
+    Integer index = 0;
+    for (subroutine in subroutinesInDeclarationOrder) {
+      index += 1;
       if (subroutine.isUsed) {
+        stderr(concat('  compiling ', subroutine.name, ' (', index, '/', len(subroutinesInDeclarationOrder), ')'));
         subroutine.generateAssembler(assembler);
       }
     }
@@ -560,14 +675,21 @@ class CompilationEnvironment extends TypeRegistry {
 
   Null compile(Assembler assembler) {
     // the phase before this is Library.generateScopes() in syd_ast.syd
+    stderr('addRemainingReferences...');
+    addRemainingReferences();
     stderr('markUsedScopes...');
     markUsedScopes();
     stderr('prepareInstructions...');
+    prepareInstructionsHappened = true;
     prepareInstructions();
+    stderr('finalizeClassTypes...');
+    finalizeClassTypes(assembler);
     stderr('assignTypeCodes...');
     assignTypeCodes();
     stderr('generateTypeTable...');
     generateTypeTables(assembler);
+    stderr('generateVmts...');
+    generateVmts(assembler);
     stderr('allocateSlots...');
     allocateSlots(assembler);
     stderr('generateAssembler...');
@@ -609,64 +731,101 @@ class TypeTableWidthSlot extends CompileTimeIntegerSlot {
   }
 }
 
-class TypeBitSlot extends CompileTimeIntegerSlot {
-  CompilationEnvironment environment;
-  Type staticType;
+class VmtSlot extends CompileTimeLabelSlot {
+  ClassType classType;
 
-  Integer numericValue() {
-    return (staticType.code - environment.typeTableOffset) % 8;
+  String labelValue() {
+    return classType.vmtLabel;
   }
 
-  Null constructor(CompilationEnvironment environmentArg, Type staticTypeArg) {
-    super.constructor(environmentArg.intrinsicsLibrary.coreIntegerType, concat('bit offset for ', staticTypeArg));
+  Operand value(SlotContext scope) {
+    return DataAddressOperand(labelValue());
+  }
+
+  Null constructor(CompilationEnvironment environmentArg, ClassType classTypeArg) {
+    super.constructor(environmentArg.intrinsicsLibrary.coreIntegerType, concat('vmt pointer for ', classTypeArg.name));
+    classType = classTypeArg;
+  }
+}
+
+enum MemberProperty { Type Getter Setter MethodImplementation }
+
+class VmtMemberSlot extends CompileTimeIntegerSlot {
+  MemberDescription member;
+  MemberProperty property;
+
+  Integer propertyIndex() {
+    if (property == MemberPropertyType) { return 0; }
+    if (property == MemberPropertySetter) { return 1; }
+    if (property == MemberPropertyGetter) { return 2; }
+    assert(property == MemberPropertyMethodImplementation, 'invalid MemberProperty');
+    return 3;
+  }
+
+  Integer numericValue() {
+    return vmtHeaderFieldCount * 8 + member.methodsIndex * 4 * 8 + propertyIndex() * 8; // header + method offset + member property
+  }
+
+  Null constructor(CompilationEnvironment environmentArg, MemberDescription memberArg, MemberProperty propertyArg) {
+    super.constructor(environmentArg.intrinsicsLibrary.coreIntegerType, concat(propertyArg, ' method offset from start of vmt'));
+    member = memberArg;
+    property = propertyArg;
+  }
+}
+
+class TypeBitSlot extends CompileTimeIntegerSlot {
+  CompilationEnvironment environment;
+  Type sourceType;
+
+  Integer numericValue() {
+    return (sourceType.code - environment.typeTableOffset) % 8;
+  }
+
+  Null constructor(CompilationEnvironment environmentArg, Type sourceTypeArg) {
+    super.constructor(environmentArg.intrinsicsLibrary.coreIntegerType, concat('bit offset for ', sourceTypeArg));
     environment = environmentArg;
-    staticType = staticTypeArg;
-    staticType.markUsedInTypeCheck();
+    sourceType = sourceTypeArg;
+    assert(sourceType.isUsedInTypeCheck, 'caller of TypeBitSlot must mark type as used in type check');
   }
 }
 
 class TypeByteSlot extends CompileTimeIntegerSlot {
   CompilationEnvironment environment;
-  Type staticType;
+  Type sourceType;
 
   Integer numericValue() {
-    assert(staticType.code != null, concat(staticType, ' does not have an assigned code'));
-    return (staticType.code - environment.typeTableOffset) / 8;
+    assert(sourceType.code != null, concat(sourceType, ' does not have an assigned code'));
+    return (sourceType.code - environment.typeTableOffset) / 8;
   }
 
-  Null constructor(CompilationEnvironment environmentArg, Type staticTypeArg) {
-    super.constructor(environmentArg.intrinsicsLibrary.coreIntegerType, concat('byte offset for ', staticTypeArg));
+  Null constructor(CompilationEnvironment environmentArg, Type sourceTypeArg) {
+    super.constructor(environmentArg.intrinsicsLibrary.coreIntegerType, concat('byte offset for ', sourceTypeArg));
     environment = environmentArg;
-    staticType = staticTypeArg;
-    staticType.markUsedInTypeCheck();
+    sourceType = sourceTypeArg;
+    assert(sourceType.isUsedInTypeCheck, 'caller of TypeByteSlot must mark type as used in type check');
   }
 }
 
 class TypeCodeSlot extends CompileTimeIntegerSlot {
-  CompilationEnvironment environment;
-  Type typeArg;
+  Type sourceType;
 
   Integer numericValue() {
-    assert(typeArg.code != null, concat(typeArg, ' does not have an assigned code'));
-    return typeArg.code;
+    assert(sourceType.code != null, concat(sourceType, ' does not have an assigned code'));
+    return sourceType.code;
   }
 
-  Operand dynamicType(SlotContext scope) {
-    return ImmediateIntegerOperand(staticType.code!);
-  }
-
-  Null constructor(CompilationEnvironment environmentArg, Type typeArgArg) {
-    super.constructor(environmentArg.intrinsicsLibrary.coreIntegerType, concat('code of ', typeArgArg));
-    environment = environmentArg;
-    typeArg = typeArgArg;
-    typeArg.markUsedInTypeCheck();
+  Null constructor(CompilationEnvironment environmentArg, Type sourceTypeArg) {
+    super.constructor(environmentArg.intrinsicsLibrary.coreIntegerType, concat('code of ', sourceTypeArg));
+    sourceType = sourceTypeArg;
   }
 }
 
+// slot that points to a function pointer block
 class SubroutineSlot extends CompileTimeLabelSlot {
   CompiledSubroutine subroutine;
 
   String labelValue() {
+    assert(subroutine.isUsed, concat('can\'t get label of unused subroutine (', subroutine.name, ' is not mark as used)'));
     return subroutine.functionPointerLabel;
   }
 
@@ -675,12 +834,38 @@ class SubroutineSlot extends CompileTimeLabelSlot {
     return DataAddressOperand(labelValue());
   }
 
-  Null constructor(CompiledSubroutine subroutineArg) {
+  Boolean _isConstructor;
+  Boolean _isDefined = false;
+  Boolean isDefined() {
+    return !_isConstructor || _isDefined;
+  }
+
+  Null markAsDefined() {
+    assert(_isConstructor, 'cannot mark non-constructor as defined, those are always defined on declaration');
+    _isDefined = true;
+  }
+
+  Null constructor(CompiledSubroutine subroutineArg, Boolean isConstructorArg) {
     subroutine = subroutineArg;
     super.constructor(subroutine.type, subroutine.name);
+    assert(!isConstructorArg || subroutineArg is CompiledGeneratedConstructorSubroutine, 'wrong type for constructor subroutine');
+    _isConstructor = isConstructorArg;
   }
 }
 
+// dynamic slot that happens to let us smuggle a "this" pointer and subroutine type
+class MethodSlot extends DynamicSlot {
+  DynamicSlot thisSlot;
+  Type subroutineType;
+  
+  Null constructor(Type staticTypeArg, SlotContext homeScopeArg, rc referenceCountStyleArg, StringNullable nameArg, String debugNameArg, DynamicSlot thisSlotArg, Type subroutineTypeArg) {
+    super.constructor(staticTypeArg, homeScopeArg, referenceCountStyleArg, nameArg, debugNameArg);
+    thisSlot = thisSlotArg;
+    subroutineType = subroutineTypeArg;
+  }
+}
+
+// pointer to actual code for internal procedures
 class CompiledInternalProcedureSlot extends CompileTimeLabelSlot {
   CompiledInternalProcedure compiledInternalProcedure;
 
@@ -688,13 +873,33 @@ class CompiledInternalProcedureSlot extends CompileTimeLabelSlot {
     return compiledInternalProcedure.name;
   }
 
-  Operand value() {
+  Operand value(SlotContext scope) {
     return CodeAddressOperand(labelValue());
   }
 
   Null constructor(CompiledInternalProcedure compiledInternalProcedureArg) {
     compiledInternalProcedure = compiledInternalProcedureArg;
     super.constructor(compiledInternalProcedure.type(), compiledInternalProcedure.name);
+  }
+}
+
+// pointer to actual code for user functions
+class CompiledSubroutineSlot extends CompileTimeLabelSlot {
+  CompiledSubroutine subroutine;
+  DynamicSlotNullable thisSlot;
+
+  String labelValue() {
+    return subroutine.label;
+  }
+
+  Operand value(SlotContext scope) {
+    return CodeAddressOperand(labelValue());
+  }
+
+  Null constructor(CompiledSubroutine subroutineArg, DynamicSlotNullable thisSlotArg) {
+    subroutine = subroutineArg;
+    thisSlot = thisSlotArg;
+    super.constructor(subroutine.environment().intrinsicsLibrary.coreSubroutineCodeAddressType, subroutine.name);
   }
 }
 
@@ -707,6 +912,641 @@ class ConstantSlot extends ImmediateDataLabelSlot {
   }
 }
 
+// thisSlot points to the value with the type 8 bytes earlier
+class FieldSlot extends Slot {
+  MemberDescription member;
+  Slot thisSlot;
+
+  Boolean isMutable() {
+    return true;
+  }
+
+  Operand value(SlotContext scope) {
+    assert(thisSlot.value(scope) is Register64Operand, concat('FieldSlot expects thisSlot to be pinned to a Register64Operand, operand is ', thisSlot.value(scope)));
+    return (thisSlot.value(scope) as Register64Operand).dereference().withOffset(_gcBlockData + member.fieldIndex * 16 + 8);
+  }
+
+  Operand dynamicType(SlotContext scope) {
+    assert(thisSlot.value(scope) is Register64Operand, concat('FieldSlot expects thisSlot to be pinned to a Register64Operand, operand is ', thisSlot.value(scope)));
+    return (thisSlot.value(scope) as Register64Operand).dereference().withOffset(_gcBlockData + member.fieldIndex * 16);
+  }
+
+  Null constructor(Slot thisSlotArg, MemberDescription memberArg, String debugNameArg) {
+    super.constructor(memberArg.staticType, debugNameArg);
+    thisSlot = thisSlotArg;
+    member = memberArg;
+  }
+}
+
+
+// ============================================================================
+// SPECIALIZED TYPES
+// ============================================================================
+
+class IdentifierEntity extends Object {
+  Boolean isDefined() { abstract(); }
+  Type staticType() { abstract(); }
+  Slot forRead(CompiledScope scope) { abstract(); }
+  Slot forCall(CompiledScope scope) { abstract(); }
+  Null write(CompiledScope scope, Slot value) { abstract(); }
+}
+
+class SlotIdentifierEntity extends IdentifierEntity {
+  Slot slot;
+
+  Boolean isDefined() { return slot.isDefined(); }
+
+  Type staticType() { return slot.staticType; }
+
+  Slot forRead(CompiledScope scope) { return slot; }
+
+  Slot forCall(CompiledScope scope) { return slot; }
+
+  Null write(CompiledScope scope, Slot value) { 
+    scope.emitInstruction(DecrefInstruction(slot));
+    scope.emitInstruction(MoveInstruction(slot, value, 'store value'));
+    scope.emitInstruction(MoveTypeToTypeInstruction(slot, value, scope.environment(), 'store type'));
+    scope.emitIncref(slot, true);
+  }
+
+  Null constructor(Slot slotArg) {
+    super.constructor();
+    slot = slotArg;
+  }
+}
+
+class MemberIdentifierEntity extends IdentifierEntity {
+  DynamicSlot thisSlot;
+  MemberDescription member;
+  String debugName;
+
+  Boolean isDefined() { return member.isDefined(); }
+
+  Type staticType() { return member.staticType; }
+
+  Null debugCheckInvariants() { }
+
+  Null constructor(DynamicSlot thisSlotArg, MemberDescription memberArg, String debugNameArg) {
+    super.constructor();
+    thisSlot = thisSlotArg;
+    member = memberArg;
+    debugName = debugNameArg;
+    debugCheckInvariants();
+  }
+}
+
+class FieldIdentifierEntity extends MemberIdentifierEntity {
+  Slot forRead(CompiledScope scope) {
+    Slot field = FieldSlot(thisSlot, member, debugName);
+    rc referenceCountStyle;
+    if (field.staticType.neverReferenceCounted()) {
+      referenceCountStyle = rcNever;
+    } else {
+      referenceCountStyle = rcOnStack;
+    }
+    DynamicSlot copy = scope.registerDynamicValue(field.staticType, referenceCountStyle, concat('copy of ', debugName));
+    scope.emitInstruction(MoveToSpecificOperandInstruction(nonvolatileRegister, thisSlot, true, 'move "this" pointer to register to dereference a field'));
+    scope.emitInstruction(PinSlotValueInstruction(thisSlot));
+    scope.emitInstruction(MoveInstruction(copy, field, concat('make a copy of ', debugName, '\'s value in case it changes before we use it')));
+    scope.emitInstruction(MoveTypeToTypeInstruction(copy, field, scope.environment(), concat('make a copy of ', debugName, '\'s type in case it changes before we use it')));
+    scope.emitInstruction(UnpinSlotValueInstruction(thisSlot));
+    if (!copy.staticType.neverReferenceCounted()) {
+      scope.emitIncref(copy, true /* isGCRoot */);
+    }
+    copy.freeze(); // so that generateVariable doesn't copy it again
+    return copy;
+  }
+
+  Slot forCall(CompiledScope scope) {
+    return forRead(scope);
+  }
+
+  Null write(CompiledScope scope, Slot value) {
+    Slot field = FieldSlot(thisSlot, member, debugName);
+    scope.emitInstruction(MoveToSpecificOperandInstruction(nonvolatileRegister, thisSlot, true, 'move "this" pointer to register to derefrence a field'));
+    scope.emitInstruction(PinSlotValueInstruction(thisSlot));
+    scope.emitInstruction(DecrefInstruction(field));
+    scope.emitInstruction(MoveInstruction(field, value, concat('store ', value.debugName, ' value in ', field.debugName)));
+    scope.emitInstruction(MoveTypeToTypeInstruction(field, value, scope.environment(), concat('store ', value.debugName, ' type in ', field.debugName)));
+    scope.emitIncref(field, false);
+    scope.emitInstruction(UnpinSlotValueInstruction(thisSlot));
+  }
+
+  Null debugCheckInvariants() {
+    super.debugCheckInvariants();
+    assert(member.needsField, 'inconsistency');
+  }
+}
+
+class MethodIdentifierEntity extends MemberIdentifierEntity {
+  Slot forRead(CompiledScope scope) {
+    member.staticType.markConstructed();
+    return scope.emitSubroutineCall(
+      scope.lookupIntrinsic(scope.environment().createMethodPointerIntrinsicName),
+      [
+        thisSlot,
+        forCall(scope),
+        TypeCodeSlot(scope.environment(), member.staticType),
+      ]:Slot,
+      null,
+    );
+  }
+
+  MethodSlot forCall(CompiledScope scope) {
+    MethodSlot slot = MethodSlot(scope.environment().intrinsicsLibrary.coreSubroutineCodeAddressType, scope, rcNever, null, concat('code address for ', debugName), thisSlot, member.staticType);
+    scope.registerSlot(slot);
+    scope.emitInstruction(MoveDerefInstruction(slot, thisSlot, _gcBlockData + 8, 'get vmt'));
+    scope.emitInstruction(AddInstruction(slot, VmtMemberSlot(scope.environment(), member, MemberPropertyMethodImplementation), slot, 'add offset for dereference'));
+    scope.emitInstruction(MoveDerefInstruction(slot, slot, 0, 'get call method'));
+    scope.environment().intrinsicsLibrary.coreSubroutineCodeAddressType.markConstructed();
+    scope.emitInstruction(MoveValueToTypeInstruction(slot, TypeCodeSlot(scope.environment(), scope.environment().intrinsicsLibrary.coreSubroutineCodeAddressType)));
+    return slot;
+  }
+
+  Null write(CompiledScope scope, Slot value) {
+    throw('cannot write to a guaranteed method');
+  }
+
+  Null debugCheckInvariants() {
+    super.debugCheckInvariants();
+    assert(member.needsMethods, 'inconsistency');
+  }
+}
+
+class AmbiguousMemberIdentifierEntity extends MemberIdentifierEntity {
+  Slot forRead(CompiledScope scope) {
+    MethodSlot slot = MethodSlot(scope.environment().intrinsicsLibrary.coreSubroutineCodeAddressType, scope, rcNever, null, 'temporary for AmbiguousMemberIdentifierEntity.forRead', thisSlot, createOrFindSubroutineTypeWithSpecificParameters(scope.environment(), member.staticType, []:Type));
+    scope.registerSlot(slot);
+    scope.emitInstruction(MoveDerefInstruction(slot, thisSlot, _gcBlockData + 8, 'get vmt'));
+    scope.emitInstruction(AddInstruction(slot, VmtMemberSlot(scope.environment(), member, MemberPropertyGetter), slot, 'add offset for dereference'));
+    scope.emitInstruction(MoveDerefInstruction(slot, slot, 0, concat('get getter method for ', member.name)));
+    return scope.emitSubroutineCall(slot, []:Slot, null);
+  }
+
+  Slot forCall(CompiledScope scope) {
+    return forRead(scope);
+  }
+
+  Null write(CompiledScope scope, Slot value) {
+    MethodSlot slot = MethodSlot(scope.environment().intrinsicsLibrary.coreSubroutineCodeAddressType, scope, rcNever, null, 'temporary for AmbiguousMemberIdentifierEntity.write', thisSlot, member.staticType);
+    scope.registerSlot(slot);
+    scope.emitInstruction(MoveDerefInstruction(slot, thisSlot, _gcBlockData + 8, 'get vmt'));
+    scope.emitInstruction(AddInstruction(slot, VmtMemberSlot(scope.environment(), member, MemberPropertySetter), slot, 'add offset for dereference'));
+    scope.emitInstruction(MoveDerefInstruction(slot, slot, 0, 'get setter method'));
+    scope.emitSubroutineCall(slot, []:Slot, null);
+    Slot field = FieldSlot(thisSlot, member, debugName);
+    scope.emitInstruction(MoveToSpecificOperandInstruction(nonvolatileRegister, thisSlot, true, 'move "this" pointer to register to dereference a field for writing'));
+    scope.emitInstruction(PinSlotValueInstruction(thisSlot));
+    scope.emitInstruction(DecrefInstruction(field));
+    scope.emitInstruction(MoveInstruction(field, value, concat('store ', value.debugName, ' value in ', field.debugName)));
+    scope.emitInstruction(MoveTypeToTypeInstruction(field, value, scope.environment(), concat('store ', value.debugName, ' type in ', field.debugName)));
+    scope.emitIncref(field, false);
+    scope.emitInstruction(UnpinSlotValueInstruction(thisSlot));
+  }
+}
+
+class MemberDescription extends Object {
+  String name;
+  Type staticType;
+  Boolean isInherited;
+  Boolean hasSuperclassMember = false;
+  Boolean isField; // whether this class specifically has a method or a field with this name
+  Boolean needsField = false; // this member needs storage in this class OR a superclass
+  Boolean needsMethods = false; // this member has methods in this class OR a superclass OR a subclass
+  Boolean isAmbiguous = false; // this member is a field/method in this class, and the opposite in a subclass
+  Boolean needsDynamicDispatch = false;
+
+  IntegerNullable fieldIndex = null;
+  IntegerNullable methodsIndex = null;
+  CompiledSubroutineNullable getter = null; // generated method used when a method is used as a field, or in general for getting the member when it is both a field and a method
+  CompiledSubroutineNullable setter = null; // generated method called immediately prior to setting the field, if it is both a field and a method
+  CompiledSubroutineNullable methodImplementation = null; // actual method implementation when we have one
+
+  Boolean setNeedsField() {
+    if (needsField) {
+      return false;
+    }
+    needsField = true;
+    return true;
+  }
+
+  Boolean setNeedsMethods() {
+    if (needsMethods) {
+      return false;
+    }
+    needsMethods = true;
+    return true;
+  }
+
+  Null setIsField() {
+    assert(needsField, 'cannot be a field if it does not need a field');
+    isField = true;
+  }
+
+  Null setIsMethod() {
+    assert(needsMethods, 'cannot be a method if it does not need methods');
+    isField = false;
+  }
+
+  Null setIsAmbiguous() {
+    isAmbiguous = true;
+  }
+
+  Null prepareForAssignIndicies(CompilationEnvironment environment) {
+    needsDynamicDispatch = environment.neededForDynamicDispatch(name);
+    if (needsDynamicDispatch) {
+      setNeedsMethods();
+    }
+  }
+
+  Null assignIndicies(CompilationEnvironment environment, Integer fieldIndexArg, Integer methodsIndexArg) {
+    assert(fieldIndex == null && methodsIndex == null, 'assignIndicies called redundantly');
+    assert(needsField || needsMethods, 'assignIndicies called before setNeedsField/setNeedsMethods');
+    if (needsField) {
+      fieldIndex = fieldIndexArg;
+    }
+    if (needsMethods) {
+      methodsIndex = methodsIndexArg;
+    }
+  }
+
+  Null setSetter(CompiledSubroutine subroutineArg) {
+    setter = subroutineArg;
+  }
+
+  Null setGetter(CompiledSubroutine subroutineArg) {
+    getter = subroutineArg;
+  }
+
+  Null setMethodImplementation(CompiledSubroutine subroutineArg) {
+    methodImplementation = subroutineArg;
+  }
+
+  Boolean _isDefined = false;
+
+  Boolean isDefined() {
+    return isInherited || hasSuperclassMember || _isDefined;
+  }
+
+  Null define() {
+    assert(!isInherited, concat('use override() before define() for reintroduced inherited members'));
+    assert(!_isDefined, concat('tried to mark member ', name, ' as defined twice'));
+    _isDefined = true;
+  }
+
+  Null override(Type staticTypeArg) {
+    assert(!_isDefined, concat('tried to mark member ', name, ' as defined twice'));
+    assert(staticTypeArg.isSubtypeOf(staticType), 'type mismatch');
+    staticType = staticTypeArg;
+    isInherited = false;
+    hasSuperclassMember = true;
+    getter = null;
+    setter = null;
+    methodImplementation = null;
+  }
+
+  MemberDescription inherit() {
+    MemberDescription result = MemberDescription(name, staticType, true);
+    if (needsField) {
+      result.setNeedsField();
+    }
+    if (needsMethods) {
+      result.setNeedsMethods();
+    }
+    if (isField) {
+      result.setIsField();
+    } else {
+      result.setIsMethod();
+    }
+    if (getter != null) {
+      result.setGetter(getter!);
+    }
+    if (setter != null) {
+      result.setSetter(setter!);
+    }
+    if (methodImplementation != null) {
+      result.setMethodImplementation(methodImplementation!);
+    }
+    return result;
+  }
+
+  String toString() {
+    return concat('MemberDescription: ', staticType, ' ', name, ' (methodsIndex=', methodsIndex, '; fieldIndex=', fieldIndex, ')');
+  }
+
+  Null constructor(String nameArg, Type staticTypeArg, Boolean isInheritedArg) {
+    super.constructor();
+    name = nameArg;
+    staticType = staticTypeArg;
+    isInherited = isInheritedArg;
+  }
+}
+
+class ClassType extends Type {
+  ClassType supertype;
+
+  Boolean isDefined = false;
+
+  Null markAsDefined() {
+    assert(!isDefined, 'cannot mark a class as defined twice');
+    isDefined = true;
+  }
+
+  Set subtypes = Set();
+
+  Map members = Map(); // name to MemberDescription
+  Boolean isConstructedOrSubclassIsConstructed = false;
+
+  Null markConstructed() {
+    super.markConstructed();
+    if (!isConstructedOrSubclassIsConstructed && supertype != this) {
+      supertype.markConstructed();
+    }
+    isConstructedOrSubclassIsConstructed = true;
+  }
+
+  // This is the generated constructor (the one with the name of the class),
+  // not the method called constructor (which this one calls).
+  SubroutineSlot constructorSubroutine;
+
+  Null setConstructorSubroutine(SubroutineSlot constructorSubroutineArg) {
+    constructorSubroutine = constructorSubroutineArg;
+  }
+
+  Null inheritMembersFromSupertype() {
+    assert(members.length == 0, 'cannot inherit members twice');
+    for (member in supertype.members.values()) {
+      members.set((member as MemberDescription).name, (member as MemberDescription).inherit());
+    }
+  }
+
+  Null propagateNeedsMethodsFor(String name) {
+    assert(members.get(name) != null, 'propagateNeedsMethodsFor called with name that did not exist');
+    if ((members.get(name) as MemberDescription).setNeedsMethods()) {
+      for (subclass in subtypes.values()) {
+        (subclass as ClassType).propagateNeedsMethodsFor(name);
+      }
+    }
+  }
+
+  NullFunctionList initializers = []:NullFunction;
+
+  Null registerMember(String name, Type type, Boolean isField, NullFunctionNullable initializer) {
+    assert(supertype.members.get(name) == null || type.isSubtypeOf((supertype.members.get(name) as MemberDescription).staticType),
+           'tried to register overriding member with broader type than inherited type');
+    MemberDescriptionNullable inheritedMember = members.get(name) as MemberDescriptionNullable;
+    MemberDescription member;
+    Boolean isInherited = inheritedMember != null;
+    assert(inheritedMember == null || inheritedMember!.isInherited == true, 'inconsistent inheritance status');
+    if (isInherited) {
+      inheritedMember!.override(type);
+      member = inheritedMember!;
+    } else {
+      member = MemberDescription(name, type, false);
+      members.set(name, member);
+    }
+    if (isField) {
+      if (member.setNeedsField() && isInherited) {
+        ClassType node = this;
+        while (node != node.supertype && node.supertype.members.get(name) != null) {
+          node = node.supertype;
+          (node.members.get(name) as MemberDescription).setIsAmbiguous();
+        }
+      }
+      member.setIsField();
+      append(initializers, initializer);
+    } else {
+      assert(initializer == null, 'Initializers can only be used with fields.');
+      if (member.setNeedsMethods()) {
+        if (isInherited) {  
+          // also require methods for it in the rest of the class hierarchy
+          // TODO: this propagation logic should wait until we've computed which classes are used
+          ClassType node = this;
+          while (node != node.supertype && node.supertype.members.get(name) != null) {
+            node = node.supertype;
+            (node.members.get(name) as MemberDescription).setIsAmbiguous();
+          }
+          node.propagateNeedsMethodsFor(name);
+        }
+      }
+      member.setIsMethod();
+    }
+  }
+
+  MemberDescriptionNullable getMember(String name) {
+    return members.get(name) as MemberDescriptionNullable;
+  }
+
+  Integer fieldCount;
+  Integer methodCount;
+
+  Null assignIndicies(CompilationEnvironment environment, Integer nextField, Integer nextMethods) {
+    fieldCount = 0;
+    methodCount = 0;
+    for (member in members.values()) {
+      MemberDescriptionNullable inheritedMember = supertype.members.get((member as MemberDescription).name) as MemberDescriptionNullable;
+      (member as MemberDescription).prepareForAssignIndicies(environment);
+      Integer fieldIndex = -1;
+      Integer methodsIndex = -1;
+      if (inheritedMember != null && supertype != this && inheritedMember!.needsField) {
+        assert((member as MemberDescription).needsField, 'inconsistency in needsField');
+        fieldIndex = inheritedMember!.fieldIndex!;
+      } else if ((member as MemberDescription).needsField) {
+        fieldIndex = nextField;
+        nextField += 1;
+      }
+      if (inheritedMember != null && supertype != this && inheritedMember!.needsMethods) {
+        assert((member as MemberDescription).needsMethods, 'inconsistency in needsMethods');
+        methodsIndex = inheritedMember!.methodsIndex!;
+      } else if ((member as MemberDescription).needsMethods) {
+        methodsIndex = nextMethods;
+        nextMethods += 1;
+      }
+      (member as MemberDescription).assignIndicies(environment, fieldIndex, methodsIndex);
+      if ((member as MemberDescription).needsField) {
+        fieldCount += 1;
+      }
+      if ((member as MemberDescription).needsMethods) {
+        methodCount += 1;
+      }
+    }
+    assert(methodCount == nextMethods, concat('inconsistent method count: ', methodCount, ' vs ', nextMethods));
+    for (subtype in subtypes.values()) {
+      (subtype as ClassType).assignIndicies(environment, nextField, nextMethods);
+    }
+  }
+
+  Null populateMembers(CompilationEnvironment environment) {
+    if (!isConstructedOrSubclassIsConstructed) {
+      return;
+    }
+    for (member in members.values() as MemberDescriptionList) {
+      if (member.needsMethods) {
+        assert(member.getter == null, 'where did you come from');
+        if (member.getter == null) {
+          member.setGetter(BuiltInGetterMethod(environment.intrinsicsLibrary, this, member));
+          environment.addSubroutine(member.getter!);
+          environment.markUsedScopesFor(member.getter!); // TODO: track use more properly
+        }
+        assert(member.setter == null, 'where did you come from');
+        if (member.setter == null) {
+          member.setSetter(BuiltInSetterMethod(environment.intrinsicsLibrary, this, member));
+          environment.addSubroutine(member.setter!);
+          environment.markUsedScopesFor(member.setter!); // TODO: track use more properly
+        }
+      }
+    }
+    for (subtype in subtypes.values()) {
+      (subtype as ClassType).populateMembers(environment);
+    }
+  }
+
+  IdentifierEntity createIdentifierEntity(CompiledScope scope, DynamicSlot thisSlot, String name) {
+    MemberDescription member = getMember(name)!;
+    if (member.isAmbiguous) {
+      return AmbiguousMemberIdentifierEntity(thisSlot, member, concat(this.name, '.', name));
+    }
+    if (member.isField) {
+      return FieldIdentifierEntity(thisSlot, member, concat(this.name, '.', name));
+    }
+    return MethodIdentifierEntity(thisSlot, member, concat(this.name, '.', name));
+  }
+
+  String vmtLabel;
+  String ddtLabel;
+
+  Null generateVmt(CompilationEnvironment environment, Assembler assembler) {
+    if (constructorSubroutine.subroutine.isUsed) {
+      vmtLabel = environment.generateLabel(concat(name, '$vmt')); // virtual method table
+      ddtLabel = environment.generateLabel(concat(name, '$ddt')); // dynamic dispatch table
+  
+      // VMT
+      StringList vmtLines = []:String;
+      StringNullableList vmtComments = []:StringNullable;
+  
+      append(vmtComments, 'type code');
+      if (code != null) {
+        append(vmtLines, concat('dq ', hex32(code!)));
+      } else {
+        // this class is never constructed or type checked, so has no type code
+        append(vmtLines, 'dq -1');
+      }
+  
+      append(vmtComments, 'number of fields to allocate during construction');
+      append(vmtLines, concat('dq ', fieldCount));
+  
+      append(vmtComments, 'pointer to class name');
+      assert(environment.intrinsicsLibrary.coreStringType.isConstructed, 'Cannot encode string into VMT; strings are not used anywhere in this program.');
+      ConstantSlot classNameSlot = environment.registerStringConstant(concat(name, '$className'), name, __LINE__, __COL__, __FILE__);
+      append(vmtLines, concat('dq ', classNameSlot.label));
+
+      // Pointer to parent VMT
+      // TODO: we should remove this  
+      if (supertype.constructorSubroutine.subroutine.isUsed) {
+        append(vmtLines, concat('dq ', supertype.vmtLabel));
+        append(vmtComments, 'pointer to parent VMT');
+      } else {
+        append(vmtLines, concat('dq 0'));
+        append(vmtComments, 'pointer to parent VMT is bogus because parent VMT is not included in binary');
+      }
+  
+      append(vmtComments, 'pointer to member lookup table for dynamic dispatch (to implement (foo as Whatever).bar)');
+      append(vmtLines, concat('dq ', ddtLabel));
+  
+      // there must be exactly vmtHeaderFieldCount * 8 bytes from the label to here.
+  
+      MemberDescriptionList sortedMethods = []:MemberDescription;
+      for (member in members.values()) {
+        if ((member as MemberDescription).needsMethods) {
+          append(sortedMethods, member);
+        }
+      }
+      Integer indexComparator(MemberDescription a, MemberDescription b) {
+        return a.methodsIndex! - b.methodsIndex;
+      }
+      sortWithComparator(sortedMethods, indexComparator);
+      Integer debugIndex = 0;
+      for (member in sortedMethods) {
+        if ((member as MemberDescription).needsMethods) {
+          assert((member as MemberDescription).methodsIndex == debugIndex, concat('methods out of sync: method ', name, '.', (member as MemberDescription).name, ' has index ', (member as MemberDescription).methodsIndex, ' but we have seen ', debugIndex, ' method(s) so far'));
+          append(vmtComments, concat(name, '.', (member as MemberDescription).name));
+          String methodLabel;
+          if ((member as MemberDescription).methodImplementation == null) {
+            methodLabel = '0h';
+          } else {
+            methodLabel = (member as MemberDescription).methodImplementation!.label;
+          }
+          String typeCode;
+          if ((member as MemberDescription).isField) {
+            typeCode = '-1';
+          } else {
+            typeCode = hex32((member as MemberDescription).staticType.code!);
+          }
+          append(vmtLines, concat('dq ', typeCode, ', ', (member as MemberDescription).setter!.label, ', ', (member as MemberDescription).getter!.label, ', ', methodLabel));
+          debugIndex++;
+        }
+      }
+  
+      assembler.addConst(vmtLabel, vmtLines, vmtComments);
+  
+      // DDT
+      StringList ddtLines = []:String;
+      StringNullableList ddtComments = []:StringNullable;
+      MemberDescriptionList sortedMembers = []:MemberDescription;
+      for (member in members.values()) {
+        if ((member as MemberDescription).needsDynamicDispatch) {
+          append(sortedMembers, member);
+        }
+      }
+      Integer atomComparator(MemberDescription a, MemberDescription b) {
+        return environment.atomizeForDynamicDispatch(a.name) - environment.atomizeForDynamicDispatch(b.name);
+      }
+      sortWithComparator(sortedMembers, atomComparator);
+      append(ddtLines, concat('dq ', len(sortedMembers)));
+      append(ddtComments, 'Number of members used in dynamic dispatch');
+      for (member in sortedMembers) {
+        append(ddtLines, concat(
+          'dd ', environment.atomizeForDynamicDispatch(member.name), // low bits, member identifier
+           ', ', hex32(vmtHeaderFieldCount * 8 + member.methodsIndex * 4 * 8 + 16), // high bits, offset into vmt to getter function, from vmt pointer
+        ));
+        append(ddtComments, concat('dynamic dispatch data for ', name, '.', member.name));
+      } 
+      assembler.addConst(ddtLabel, ddtLines, ddtComments);
+    }
+
+    for (subtype in subtypes.values()) {
+      (subtype as ClassType).generateVmt(environment, assembler);
+    }
+  }
+
+  Boolean isSubtypeOf(Type other) {
+    if (this == other) {
+      return true;
+    }
+    if (supertype != this) {
+      return supertype.isSubtypeOf(other);
+    }
+    return other is AnythingType
+        || other is WhateverType
+        || other is GarbageCollectableType
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
+  }
+  
+  Boolean neverReferenceCounted() {
+    return false;
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg, String nameArg, TypeNullable supertypeArg) {
+    super.constructor(typeRegistryArg, nameArg);
+    assert(supertypeArg is ClassTypeNullable, 'passed in non-class type to classtype constructor');
+    if (supertypeArg == null) {
+      supertype = this;
+    } else {
+      supertype = supertypeArg as ClassType;
+      supertype.subtypes.add(this);
+    }
+  }
+}
 
 // ============================================================================
 // SPECIALIZED INSTRUCTIONS
@@ -730,7 +1570,6 @@ class DoBlockInstruction extends Instruction {
   }
 }
 
-
 // ============================================================================
 // SCOPES
 // ============================================================================
@@ -739,10 +1578,6 @@ class CompiledScope extends SlotContext {
   // parent scope, for lookups
   CompiledScopeNullable parent;
   String name; // TODO: rethink exactly what this means
-
-  SlotContextNullable getParent() {
-    return parent;
-  }
 
   CompiledLibrary globalScope() { 
     assert(parent != null, 'compiled scope chain failure');
@@ -780,16 +1615,24 @@ class CompiledScope extends SlotContext {
 
   Set references = Set(); // Slots
 
-  SlotNullable lookupIdentifier(String name) {
-    SlotNullable result = internalLookupIdentifier(name);
-    if (result != null) {
-      references.add(result!);
+  IdentifierEntityNullable lookupIdentifier(String name) {
+    IdentifierEntityNullable result = internalLookupIdentifier(name);
+    if (result is SlotIdentifierEntity) {
+      references.add((result as SlotIdentifierEntity).slot);
     }
     return result;
   }
 
-  SlotNullable internalLookupIdentifier(String name) {
-    SlotNullable value = identifiers.get(name) as SlotNullable;
+  IdentifierEntityNullable localLookupIdentifier(String name) {
+    SlotNullable slot = identifiers.get(name) as SlotNullable;
+    if (slot == null) {
+      return null;
+    }
+    return SlotIdentifierEntity(slot!);
+  }
+
+  IdentifierEntityNullable internalLookupIdentifier(String name) {
+    IdentifierEntityNullable value = localLookupIdentifier(name);
     if (value == null && parent != null) {
       value = parent!.internalLookupIdentifier(name);
     }
@@ -799,9 +1642,19 @@ class CompiledScope extends SlotContext {
   Slot lookupIntrinsic(String name) {
     SlotNullable result = environment().intrinsics.get(name) as SlotNullable;
     if (result == null) {
+      // TODO: this should be an assert, and we should verify all the intrinsics are defined when we're done reading the standard library.
       throw(concat('Compiler intrinsic "', name, '" is not declared.'));
     }
     references.add(result!);
+    return result!;
+  }
+
+  ClassType lookupIntrinsicClass(String name) {
+    ClassTypeNullable result = environment().classIntrinsics.get(name) as ClassTypeNullable;
+    if (result == null) {
+      // TODO: this should be an assert, and we should verify all the intrinsics are defined when we're done reading the standard library.
+      throw(concat('Compiler intrinsic "', name, '" is not declared.'));
+    }
     return result!;
   }
 
@@ -813,7 +1666,7 @@ class CompiledScope extends SlotContext {
 
   Set subscopes = Set(); // CompiledScope
 
-  Null registerNestedScope(CompiledNestedScope nestedScope) {
+  Null registerNestedScope(CompiledScope nestedScope) {
     subscopes.add(nestedScope);
   }
 
@@ -849,9 +1702,9 @@ class CompiledScope extends SlotContext {
     return slot;
   }
 
-  SubroutineSlot registerSubroutine(CompiledSubroutine subroutine) { 
+  SubroutineSlot registerSubroutine(CompiledSubroutine subroutine, Boolean isConstructor) { 
     assert(!isIdentifierDeclaredInLocalScope(subroutine.name), concat('tried to redeclare an identifier (', subroutine.name, ') within a scope'));
-    SubroutineSlot slot = SubroutineSlot(subroutine);
+    SubroutineSlot slot = SubroutineSlot(subroutine, isConstructor);
     identifiers.set(subroutine.name, slot);
     environment().addSubroutine(subroutine);
     subroutine.adoptSlot(slot);
@@ -880,12 +1733,43 @@ class CompiledScope extends SlotContext {
   // caller is responsible for setting it to Boolean!
   Null storeEquality(Slot a, Slot b, Slot target, Boolean negate) {
     // TODO: hard-code result for literal comparisons
-    // TODO: make this work for strings
     Slot valueTemp = registerDynamicValue(environment().intrinsicsLibrary.coreBooleanType, rcNever, concat('value result of == (testing ', a.debugName, ' and ', b.debugName, ')'));
     Slot typeTemp = registerDynamicValue(environment().intrinsicsLibrary.coreBooleanType, rcNever, concat('type result of == (testing ', a.debugName, ' and ', b.debugName, ')'));
     emitInstruction(SetSlotIfEqualInstruction(a, b, valueTemp, environment().intrinsicsLibrary.coreBooleanType, 'values equal?'));
     emitInstruction(SetSlotIfTypesEqualInstruction(a, b, typeTemp, environment().intrinsicsLibrary.coreBooleanType, 'types equal?'));
-    emitInstruction(AndInstruction(valueTemp, typeTemp, target, '&& type temp and value temp'));
+    emitInstruction(BiOperandInstruction('and', valueTemp, typeTemp, target, '&& type temp and value temp'));
+    // String comparisons
+    if (environment().intrinsicsLibrary.coreStringType.isSubtypeOf(a.staticType) && 
+        environment().intrinsicsLibrary.coreStringType.isSubtypeOf(b.staticType)) {
+      String afterBlockLabel = environment().generateLabel(concat(labelPrefix(), '$stringCompareEnd'));
+      emitInstruction(ConditionalJumpInstruction(target, environment().intrinsicsLibrary.coreFalse, ccNotEqual, afterBlockLabel, 'skip string compare if values definitely equal by pointer comparison'));
+      CompiledNestedScope block = CompiledNestedScope(this, 'string comparison');
+      // check that a is actually a string
+      String aIsStringLabel = environment().generateLabel(concat(labelPrefix(), '$aIsString'));
+      block.emitInstruction(ConditionalDynamicTypeJumpInstruction(a, environment().intrinsicsLibrary.coreStringType, ccEqual, aIsStringLabel, concat('verify that ', a.debugName, ' is a string before string compare')));
+      block.emitInstruction(SyntheticNestedScopeExitInstruction(block));
+      block.emitInstruction(JumpInstruction(afterBlockLabel, 'skip string compare; not a string'));
+      block.emitInstruction(LabelInstruction(aIsStringLabel, 'continue string comparison'));
+      // check that b is actually a string
+      String bIsStringLabel = environment().generateLabel(concat(labelPrefix(), '$bIsString'));
+      block.emitInstruction(ConditionalDynamicTypeJumpInstruction(b, environment().intrinsicsLibrary.coreStringType, ccEqual, bIsStringLabel, concat('verify that ', b.debugName, ' is a string before string compare')));
+      block.emitInstruction(SyntheticNestedScopeExitInstruction(block));
+      block.emitInstruction(JumpInstruction(afterBlockLabel, 'skip string compare; not a string'));
+      block.emitInstruction(LabelInstruction(bIsStringLabel, 'continue string comparison'));
+      // check that a and b have the same length
+      String abEqualLength = environment().generateLabel(concat(labelPrefix(), '$abEqualLength'));
+      Slot lengthA = block.registerDynamicValue(environment().intrinsicsLibrary.coreIntegerType, rcNever, concat('length of ', a.debugName));
+      block.emitInstruction(MoveDerefInstruction(lengthA, a, _gcBlockHeaderLength, concat('read length of ', a.debugName)));
+      Slot lengthB = block.registerDynamicValue(environment().intrinsicsLibrary.coreIntegerType, rcNever, concat('length of ', b.debugName));
+      block.emitInstruction(MoveDerefInstruction(lengthB, b, _gcBlockHeaderLength, concat('read length of ', b.debugName)));
+      block.emitInstruction(ConditionalJumpInstruction(lengthA, lengthB, ccEqual, abEqualLength, concat('verify that ', a.debugName, ' and ', b.debugName, ' have the same length')));
+      block.emitInstruction(SyntheticNestedScopeExitInstruction(block));
+      block.emitInstruction(JumpInstruction(afterBlockLabel, 'skip string compare; strings do not have the same length'));
+      block.emitInstruction(LabelInstruction(abEqualLength, 'continue string comparison'));
+      block.emitInstruction(StringComparisonInstruction(target, a, _gcBlockStringData, b, _gcBlockStringData, lengthA, concat('verify that ', a.debugName, ' and ', b.debugName, ' are string-equal')));
+      emitBlock(block);
+      emitInstruction(LabelInstruction(afterBlockLabel, 'after string comparison block'));
+    }
     if (negate) {
       emitInstruction(BiOperandInstruction('xor', target, environment().integer(1), target, concat('negating ', target)));
     }
@@ -931,6 +1815,7 @@ class CompiledScope extends SlotContext {
   //
   // Must be followed by jc or setc.
   Null emitIsOperatorCheck(Type staticType, Slot lhs, String what) {
+    // TODO: check if check can be hard-coded and handle accordingly if so
     CompilationEnvironment environment = environment();
     staticType.markUsedInTypeCheck();
     Slot typeTableWidth = TypeTableWidthSlot(environment);
@@ -940,7 +1825,7 @@ class CompiledScope extends SlotContext {
 
     // byte of lhs's type's row in the type table containing the bit for staticType
     Slot testByte = registerDynamicValue(environment.intrinsicsLibrary.coreIntegerType, rcNever, 'testByte');
-    emitInstruction(MoveTypeToValueInstruction(testByte, lhs, concat('move type of ', lhs.debugName, ' to testByte')));
+    emitInstruction(MoveTypeToValueInstruction(testByte, lhs));
     emitInstruction(UnsignedMultiplyInstruction(typeTableWidth, testByte, testByte, 'adjust to the relative start of that type\'s entry in the type table'));
     emitInstruction(AddInstruction(testByte, typeByte, testByte, 'adjust to the byte containing the bit to check against'));
     emitInstruction(AddInstruction(testByte, typeTablePointer, testByte, 'finally offset all of that by the start of the type table itself'));
@@ -987,18 +1872,28 @@ class CompiledScope extends SlotContext {
   
   // Caller should emit static and dynamic type checks on target.
   Slot emitSubroutineCall(Slot target, SlotList arguments, SourceLocationListNullable sourceLocations) {
-    assert(target.staticType.isSubtypeOf(environment().subroutineType), 'cannot call a non-function');
+    Type subroutineType;
+    if (target is MethodSlot) {
+      // we're dealing with a code address pointer
+      subroutineType = (target as MethodSlot).subroutineType;
+    } else if (target is CompiledSubroutineSlot) {
+      subroutineType = (target as CompiledSubroutineSlot).subroutine.type;
+    } else {
+      subroutineType = target.staticType;
+    }
+    assert(subroutineType.isSubtypeOf(environment().subroutineType), 'cannot call a non-function');
     emitInstruction(CommentInstruction(concat('Call ', target.debugName, ' with ', len(arguments), ' arguments')));
     CompilationEnvironment env = environment();
-    if (sourceLocations != null && target.staticType is AbstractSubroutineTypeWithSpecificParameters) {
+    if (sourceLocations != null && subroutineType is AbstractSubroutineTypeWithSpecificParameters) {
       TypeList argumentTypes = []:Type;
       for (argument in arguments) {
         append(argumentTypes, argument.staticType);
       }
-      (target.staticType as AbstractSubroutineTypeWithSpecificParameters).verifyArguments(argumentTypes, sourceLocations!);
+      (subroutineType as AbstractSubroutineTypeWithSpecificParameters).verifyArguments(argumentTypes, sourceLocations!);
     }
     Slot codeAddress;
-    Boolean usingLabel;
+    Boolean codeAddressIsDirect;
+    DynamicSlot thisPointer;
     if (target is SubroutineSlot) {
       // As an optimization, if we know the target precisely, we can pull out its slot and
       // jump directly to it instead of dereferencing through the function pointer block.
@@ -1008,16 +1903,33 @@ class CompiledScope extends SlotContext {
       }
       codeAddress = CodeLabelSlot(env.intrinsicsLibrary.coreSubroutineCodeAddressType, (target as SubroutineSlot).subroutine.label, concat('code address of ', target.debugName));
       env.intrinsicsLibrary.coreSubroutineCodeAddressType.markConstructed();
-      usingLabel = true;
+      codeAddressIsDirect = true;
+      thisPointer = registerDynamicValue(environment().intrinsicsLibrary.coreSentinelType, rcNever, 'this');
+    } else if (target is CompiledSubroutineSlot) {
+      // This is just a label directly, known at compile time, optionally with a "this" pointer.
+      codeAddress = target;
+      codeAddressIsDirect = true;
+      if ((target as CompiledSubroutineSlot).thisSlot == null) {
+        thisPointer = registerDynamicValue(environment().intrinsicsLibrary.coreSentinelType, rcNever, 'this');
+      } else {
+        thisPointer = (target as CompiledSubroutineSlot).thisSlot!;
+      }
+    } else if (target is MethodSlot) {
+      // This is just a label directly, determined at runtime.
+      codeAddress = target;
+      codeAddressIsDirect = true;
+      thisPointer = (target as MethodSlot).thisSlot;
     } else {
       codeAddress = target;
-      usingLabel = false;
+      codeAddressIsDirect = false; // meaning codeAddress is a pointer to the actual code address
+      thisPointer = registerDynamicValue(lookupIntrinsicClass(environment().coreClassTypeIntrinsicName), rcNever, 'this');
+      emitInstruction(MoveDerefInstruction(thisPointer, target, _subroutineReceiverPointer, 'read receiver pointer'));
+      emitInstruction(MoveDerefToTypeInstruction(thisPointer, target, _subroutineReceiverType, 'read receiver type'));
     }
-    Slot thisPointer = env.intrinsicsLibrary.coreSentinel; // placeholder code
     Slot closurePointer = env.intrinsicsLibrary.coreSentinel; // placeholder code
     Type returnType = env.intrinsicsLibrary.coreAnythingType;
-    if (target.staticType is AbstractSubroutineType) {
-      returnType = (target.staticType as AbstractSubroutineType).returnType;
+    if (subroutineType is AbstractSubroutineType) {
+      returnType = (subroutineType as AbstractSubroutineType).returnType;
     }
     // If the type of the return value is one that can be reference counted, the callee will
     // increment the reference count before returning, and we must match that with a corresponding
@@ -1044,24 +1956,24 @@ class CompiledScope extends SlotContext {
     emitInstruction(PinSlotTypeInstruction(returnValue));
     emitInstruction(LeaTypeInstruction(temporarySlot, returnValue, false, 'load address of return value\'s type'));
     emitInstruction(PushInstruction(temporarySlot, 'internal argument 5: pointer to return value slot\'s type')); // (also does some RecordPushes)
-    // TODO: "sub rsp, 8h; align to 16 byte boundary" XXX need to also implement this on callee side
+    env.intrinsicsLibrary.coreIntegerType.markConstructed(); // for env.integer call
     emitInstruction(SubInstruction(stackFrame().stackPointer, env.integer(0x20), stackFrame().stackPointer, 'allocate shadow space'));
     emitInstruction(RecordPushesInstruction(4)); // ("fake" pushes from changing the stack pointer)
     emitInstruction(MoveToSpecificOperandInstruction(r9.bit, thisPointer, true, 'internal argument 4: "this" pointer'));
-    //emitInstruction(PinSlotValueInstruction(thisPointer)); // TODO uncomment once we implement "this"
+    emitInstruction(PinSlotValueInstruction(thisPointer)); 
     emitInstruction(MoveTypeToSpecificOperandInstruction(r8.bit, thisPointer, true, 'internal argument 3: "this" pointer type'));
-    //emitInstruction(PinSlotTypeInstruction(thisPointer)); // TODO uncomment once we implement "this"
+    emitInstruction(PinSlotTypeInstruction(thisPointer)); 
     emitInstruction(MoveToSpecificOperandInstruction(rdx.bit, closurePointer, true, 'internal argument 2: closure pointer'));
     //emitInstruction(PinSlotValueInstruction(closurePointer)); // TODO uncomment once we implement closures
     emitInstruction(MoveToSpecificOperandInstruction(rcx.bit, env.integer(len(arguments)), true, 'internal argument 1: number of actual arguments'));
-    if (usingLabel) {
+    //emitInstruction(UnpinSlotValueInstruction(closurePointer)); // TODO uncomment once we implement closures
+    emitInstruction(UnpinSlotTypeInstruction(thisPointer)); 
+    emitInstruction(UnpinSlotValueInstruction(thisPointer));
+    if (codeAddressIsDirect) {
       emitInstruction(CallInstruction(codeAddress, 'jump to subroutine'));
     } else {
       emitInstruction(CallDerefInstruction(codeAddress, _subroutineCodePointer, 'jump to subroutine'));
     }
-    //emitInstruction(UnpinSlotValueInstruction(closurePointer)); // TODO uncomment once we implement closures
-    //emitInstruction(UnpinSlotTypeInstruction(thisPointer)); // TODO uncomment once we implement "this"
-    //emitInstruction(UnpinSlotValueInstruction(thisPointer)); // TODO uncomment once we implement "this"
     emitInstruction(UnpinSlotValueInstruction(returnValue));
     emitInstruction(UnpinSlotTypeInstruction(returnValue));
     emitInstruction(AddInstruction(stackFrame().stackPointer, env.integer(0x20 + 8 * 2 * len(arguments) + 16), stackFrame().stackPointer, 'release shadow space and arguments'));
@@ -1069,34 +1981,26 @@ class CompiledScope extends SlotContext {
     return returnValue;
   }
 
-  CompiledNestedScope createErrorHandlerBlock(Slot errorMessage, String what) {
+  CompiledNestedScope createErrorHandlerBlock(SlotList arguments, String what) {
     CompiledScope block = CompiledNestedScope(this, concat(camelCase(what), '$Error'));
     block.emitInstruction(CommentInstruction(concat('Error handling block for ', what)));
-    block.emitInstruction(Interrupt3Instruction());
-    String label = environment().generateLabel(concat(block.labelPrefix(), '$', camelCase(what), '$Ok'));
-    Slot printHandle = environment().intrinsicsLibrary.corePrint;
-    block.emitInstruction(CommentInstruction(concat(' - print(', errorMessage.debugName, ')')));
-    block.references.add(printHandle);
-    block.references.add(errorMessage);
-    block.emitSubroutineCall(printHandle, [ errorMessage ], null);
-    Slot exitHandle = environment().intrinsicsLibrary.coreExit;
-    Slot failureExitCode = environment().integer(0x01);
-    block.emitInstruction(CommentInstruction(concat(' - exit(1)')));
-    block.references.add(exitHandle);
-    block.emitSubroutineCall(exitHandle, [ failureExitCode ], null);
+    block.emitSubroutineCall(environment().intrinsicsLibrary.coreError, arguments, null /* sourceLocations */);
+    block.references.add(environment().intrinsicsLibrary.coreError);
     return block;
   }
 
   Null emitTypeCheck(Slot value, Type staticType, Slot errorMessage, String what, Boolean trustSlotStaticType) {
-    CompiledNestedScope block = createErrorHandlerBlock(errorMessage, what);
+    CompiledNestedScope block = createErrorHandlerBlock([errorMessage]:Slot, what); // TODO: need to include more arguments
     String continueLabelArg = concat(labelPrefix(), '$', camelCase(what));
     // TODO: xxxx we could also check if we can statically disprove compatibility
     // (or maybe assert that we can't, because if we can why is someone calling us)
     String continueLabel = environment().generateLabel(concat(continueLabelArg, '$TypeMatch'));
     if (!trustSlotStaticType || !value.canStaticallyProveTypeCompatibilityWith(staticType)) {
+      emitInstruction(CommentInstruction(concat('type check of ', value.debugName, ' type ', value.staticType, ' expecting ', staticType)));
       emitIsOperatorCheck(staticType, value, what); // actual type check is here
       emitInstruction(JcInstruction(continueLabel, 'skip next block if the type matches'));
     } else {
+      emitInstruction(CommentInstruction(concat('sentinel check of ', value.debugName, ' type ', value.staticType, ' expecting ', staticType)));
       // just check for sentinel (which might be present even if we trust the static type)
       // TODO: slots should track if they might be sentinel, so we can skip even this
       emitInstruction(JumpIfDynamicTypeNotEqualStaticTypeInstruction(value, environment().intrinsicsLibrary.coreSentinelType, continueLabel, concat('skip next block if ', value.debugName, ' is not sentinel')));
@@ -1123,11 +2027,6 @@ class CompiledScope extends SlotContext {
     }
     emitInstruction(LabelInstruction(labelEnd, concat('end of ', what)));
   }
-
-  // jumps to label if a == b
-  Null emitConditionalJump(String label, Slot a, Slot b, String comment) {
-    emitInstruction(JumpIfEqualInstruction(a, b, label, comment));
-  }
   
   // Computes the pointer for subscripting a list.
   // Returned slot is a pointer to the type/value pair, not the actual value.
@@ -1136,7 +2035,9 @@ class CompiledScope extends SlotContext {
     String labelBase = concat(labelPrefix(), '$subscript');
     String boundsErrorLabel = environment().generateLabel(concat(labelBase, '$boundsError'));
     String continueLabel = environment().generateLabel(concat(labelBase, '$inBounds'));
-    CompiledNestedScope boundsErrorBlock = createErrorHandlerBlock(environment().intrinsicsLibrary.boundsFailureMessage, 'subscript bounds error');
+    // TODO: add more arguments to createErrorHandlerBlock call
+    references.add(environment().intrinsicsLibrary.boundsFailureMessage);
+    CompiledNestedScope boundsErrorBlock = createErrorHandlerBlock([environment().intrinsicsLibrary.boundsFailureMessage]:Slot, 'subscript bounds error');
     Slot lengthSlot;
     Slot baseAddressSlot;
     if (list is VarArgsParameterSlot) {
@@ -1173,16 +2074,28 @@ class CompiledScope extends SlotContext {
 
   // COMPILER PHASES
 
-  Null prepareInstructions() {
-    for (instruction in instructions) {
-      stderr('preparing ', instruction, ' for ', this);
-      instruction.prepare(this);
-    }
-    stderr('done preparing instructions for ', this);
+  Null addRemainingReferences() {
+    // add any references that could not be added earlier
   }
 
-  Null generateAssemblerBlockPreamble(AssemblerBlock block) { }
-  Null generateAssemblerBlockPostamble(AssemblerBlock block) { }
+  Null prepareInstructions() {
+    for (instruction in instructions) {
+      instruction.prepare(this);
+    }
+  }
+
+  Null generateAssemblerBlockPreamble(AssemblerBlock block) {
+  }
+
+  Null generateAssemblerBlockPostamble(AssemblerBlock block) {
+  }
+
+  // We tell the slot manager to move things out of certain registers so that we can tell the slot manager to do a read in the postamble
+  // without trying to move whatever was in those registers into a stack slot (since doing so may affect the size of the stack, which is
+  // not ideal when you're already figuring out the epilog).
+  Null clearRegisters(AssemblerBlock subblock) {
+    // e.g. slotManager.clearRegisterEntry(slotManager.registerStatus.get(rax.bit) as RegisterEntry);
+  }
 
   Null generateAssemblerBlock(AssemblerBlock block) {
     if (len(instructions) == 0) {
@@ -1191,20 +2104,18 @@ class CompiledScope extends SlotContext {
     SlotManager manager = stackFrame().slotManager;
     manager.enterNestedScope(this, block);
     generateAssemblerBlockPreamble(block);
-    stderr(stringTimes('  ', block.currentIndent), '>>>', this, ':: generateAssemblerBlock');
     for (instruction in instructions) {
-      stderr(stringTimes('  ', block.currentIndent), '  ', instruction);
       instruction.generateAssemblerBlock(block, manager);
       manager.endOfInstruction();
     }
-    stderr(stringTimes('  ', block.currentIndent), '<<<', this, ':: generateAssemblerBlock');
+    clearRegisters(block);
+    manager.exitNestedScope(this, true);
     generateAssemblerBlockPostamble(block);
-    manager.exitNestedScope(this);
   }
 
-  Null constructor(CompiledScopeNullable parentArg, String nameArg) {
+  Null constructor(SlotContextNullable parentArg, String nameArg) {
     super.constructor();
-    parent = parentArg;
+    parent = parentArg as CompiledScopeNullable;
     name = nameArg;
     prepareSlots();
   }
@@ -1292,6 +2203,8 @@ class CompiledStackFrameScope extends CompiledScope {
     }
   }
 
+  Integer stackAdjustment;
+
   Null generatePrologAssemblerBlock(AssemblerBlock block) {
     block.addComment('Prolog');
     Register64OperandList registers = stackFrame().slotManager.usedRegisters.values() as Register64OperandList;
@@ -1303,17 +2216,28 @@ class CompiledStackFrameScope extends CompiledScope {
       // TODO: should list what variables we're allocating space for here
       // TODO: if stackSize > 8KB (0x2000), call __chkstk__
       assert(stackSize < 0x2000, 'need to implement calling __chkstk__');
-      block.addCode('sub', [rsp, hex8(stackSize)], 'allocate space for stack');
+      if ((stackSize + len(registers) * 0x08) % 0x10 != 0) {
+        stackAdjustment = stackSize;
+      } else {
+        stackAdjustment = stackSize + 0x08;
+      }
+    } else if ((len(registers) * 0x08) % 0x10 != 0) {
+      stackAdjustment = 0;
+    } else {
+      stackAdjustment = 0x08;
     }
-    block.addCode('lea', [rbp, concat('qword ptr [rsp + ', hex8(stackSize + len(registers) * 0x08), ']')], 'set up frame pointer');
+    if (stackAdjustment != 0) {
+      block.addCode('sub', [rsp, hex8(stackAdjustment)], 'allocate space for stack and align to 16 byte boundary');
+    }
+    block.addCode('lea', [rbp, concat('qword ptr [rsp + ', hex8(stackAdjustment + len(registers) * 0x08), ']')], 'set up frame pointer');
     assert(stackSize == slotManager.stackSize(), concat('prolog changed the stack size of ', name, ' (was ', stackSize, ' now is ', slotManager.stackSize(), ')'));
   }
 
   Null generateEpilogAssemblerBlock(AssemblerBlock block) {
     block.addComment('Epilog');
     Integer stackSize = slotManager.stackSize();
-    if (stackSize > 0) {
-      block.addCode('add', [rsp, hex8(stackSize)], 'free space for stack');
+    if (stackAdjustment > 0) {
+      block.addCode('add', [rsp, hex8(stackAdjustment)], 'free space for stack');
     }
     Register64OperandList registers = stackFrame().slotManager.usedRegisters.values() as Register64OperandList;
     Integer index = len(registers);
@@ -1328,16 +2252,9 @@ class CompiledStackFrameScope extends CompiledScope {
     // e.g. slotManager.initialize(parameterCount, rcx, parameterCount.staticType.asOperand());
   }
 
-  Null clearRegisters(AssemblerBlock subblock) {
-    // e.g. slotManager.clearRegisterEntry(slotManager.registerStatus.get(rax.bit) as RegisterEntry);
-  }
-
   Null generateAssemblerBlockPreamble(AssemblerBlock block) {
     initializeParameters();
-  }
-
-  Null generateAssemblerBlockPostamble(AssemblerBlock block) {
-    clearRegisters(block);
+    super.generateAssemblerBlockPreamble(block);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block) {
@@ -1360,20 +2277,21 @@ class CompiledStackFrameScope extends CompiledScope {
 
 class CompiledSubroutine extends CompiledStackFrameScope {
   AbstractSubroutineTypeWithSpecificParameters type; // subroutine signature
+  ClassTypeNullable parentClass;
   String label;
   String epilogLabel;
 
   // The parameter that contains a pointer to the return value.
-  Slot returnValuePointer;
+  ReturnValuePointerSlot returnValuePointer;
   // The parameter that contains a pointer to the return value type.
-  Slot returnValueTypePointer;
+  ReturnValueTypePointerSlot returnValueTypePointer;
 
   Null markUsed() {
     super.markUsed();
     type.markConstructed();
   }
 
-  SubroutineSlot slot;
+  SubroutineSlotNullable slot = null;
   String functionPointerLabel;
 
   Null adoptSlot(SubroutineSlot slotArg) {
@@ -1383,34 +2301,39 @@ class CompiledSubroutine extends CompiledStackFrameScope {
 
   Null allocateSlots(Assembler assembler) {
     super.allocateSlots(assembler);
-    functionPointerLabel = environment().generateLabel(concat(labelPrefix(), '$', 'functionPointer'));
-    assembler.addData(
-      functionPointerLabel,
-      [
-        'dq 1',
-        'dq 2',
-        'dq 0',
-        'dq -1',
-        concat('dq ', environment().intrinsicsLibrary.coreNullType.code),
-        'dq 0',
-        concat('dq ', environment().intrinsicsLibrary.coreSubroutineCodeAddressType.code),
-        concat('dq ', label),
-      ]:String,
-      [
-        'reference count',
-        'number of fields in function pointer block',
-        'scratch space for garbage collector',
-        'block list entry pointer (invalid for function pointers as they are not in the block list)',
-        'type of receiver (Null)',
-        'pointer to receiver (null)',
-        'type of code pointer (Integer)',
-        'code pointer',
-      ]:StringNullable,
-    );
+    if (slot != null) {
+      functionPointerLabel = environment().generateLabel(concat(labelPrefix(), '$', 'functionPointer'));
+      assembler.addData(
+        functionPointerLabel,
+        [
+          'dq 1',
+          'dq 2',
+          'dq 0',
+          'dq -1',
+          concat('dq ', environment().intrinsicsLibrary.coreNullType.code),
+          'dq 0',
+          concat('dq ', environment().intrinsicsLibrary.coreSubroutineCodeAddressType.code),
+          concat('dq ', label),
+        ]:String,
+        [
+          'reference count',
+          'number of fields in function pointer block',
+          'scratch space for garbage collector',
+          'block list entry pointer (invalid for function pointers as they are not in the block list)',
+          'type of receiver (Null)',
+          'pointer to receiver (null)',
+          'type of code pointer (Integer)',
+          'code pointer',
+        ]:StringNullable,
+      );
+    }
   }
 
   String labelPrefix() {
-    return concat('func$', name);
+    if (parentClass == null) {
+      return concat('func$', name);
+    }
+    return concat('method$', parentClass!.name, '$', name);
   }
 
   SlotNullable inline(CompiledScope scope, SlotList arguments) {
@@ -1419,9 +2342,10 @@ class CompiledSubroutine extends CompiledStackFrameScope {
 
   // This is called from other scopes (where we need to emit the instructions),
   // hence the scope argument.
+  // Caller is expected to do any needed static type checks.
   Null emitReturnFrom(CompiledScope scope, Slot value) {
-    // xxxx verify the type of value statically
-    scope.emitTypeCheck(value, type.returnType, environment().intrinsicsLibrary.returnValueTypeCheckFailureMessage as Slot, concat(name, ' return value'), true);
+    scope.references.add(environment().intrinsicsLibrary.returnValueTypeCheckFailureMessage);
+    scope.emitTypeCheck(value, type.returnType, environment().intrinsicsLibrary.returnValueTypeCheckFailureMessage as Slot, concat(name, ' return value'), true); // xxx mention the fact that it's a type check in the [what] argument
     scope.emitInstruction(MoveToDerefInstruction(returnValuePointer, value, 0, concat(name, ' return value')));
     scope.emitInstruction(MoveTypeToDerefInstruction(returnValueTypePointer, value, 0, environment(), concat('type of ', name, ' return value')));
     scope.emitIncref(value, true); // matched by DynamicSlot doing a decref on the receiving end (see emitSubroutineCall)
@@ -1430,7 +2354,12 @@ class CompiledSubroutine extends CompiledStackFrameScope {
   }
 
   DynamicSlot parameterCount;
+  DynamicSlot thisPointer;
   ConstantSlot nameConstant;
+
+  Boolean isMethod() {
+    return parentClass != null;
+  }
 
   Null prepareSlots() {
     label = environment().generateLabel(labelPrefix());
@@ -1439,14 +2368,31 @@ class CompiledSubroutine extends CompiledStackFrameScope {
     returnValueTypePointer = ReturnValueTypePointerSlot(environment().intrinsicsLibrary.coreIntegerType, concat('pointer to return value type of ', name));
     parameterCount = registerDynamicValue(environment().intrinsicsLibrary.coreIntegerType, rcNever, concat('parameter count of ', name));
     parameterCount.willInitializeToRegister(this);
+    if (isMethod()) {
+      thisPointer = registerVariable('this', parentClass!);
+      thisPointer.willInitializeToRegister(this);
+    }
+    environment().intrinsicsLibrary.coreStringType.markConstructed();
     nameConstant = environment().registerStringConstant(concat(label, '$annotation'), name, __LINE__, __COL__, __FILE__);
     references.add(nameConstant);
     super.prepareSlots();
   }
 
+  IdentifierEntityNullable localLookupIdentifier(String name) {
+    IdentifierEntityNullable value = super.localLookupIdentifier(name);
+    if (value == null && parentClass != null) { // explicitly _not_ using isMethod(), we don't know the runtime type!
+      MemberDescriptionNullable member = parentClass!.getMember(name);
+      if (member != null && member!.isDefined()) {
+        return parentClass!.createIdentifierEntity(this, thisPointer, name);
+      }
+    }
+    return value;
+  }
+
   Null prepareInstructions() {
     if (len(instructions) == 0 || !(last(instructions) is JumpInstruction)) {
       emitInstruction(CommentInstruction(concat('Implicit return from ', name)));
+      // xxxx should statically check that we don't get here if null is not a valid return value
       emitReturnFrom(this, environment().intrinsicsLibrary.coreNull);
     }
     super.prepareInstructions();
@@ -1454,24 +2400,32 @@ class CompiledSubroutine extends CompiledStackFrameScope {
 
   Null initializeParameters() {
     slotManager.initialize(parameterCount, rcx, parameterCount.staticType.asOperand());
+    if (isMethod()) {
+      slotManager.initialize(thisPointer, r9, r8);
+    }
   }
 
   Null clearRegisters(AssemblerBlock subblock) {
     slotManager.clearRegisterEntry(slotManager.registerStatus.get(rax.bit) as RegisterEntry);
   }
 
-  Null generateEpilogAssemblerBlock(AssemblerBlock block) {
-    Integer stackSize = slotManager.stackSize();
+  Null generateFinalSlotManagerCleanup(AssemblerBlock block) {
+    emitMov(block, rax, returnValuePointer.value(this), 'report address of return value');
+  }
+
+  Null generateAssemblerBlockPostamble(AssemblerBlock block) {
+    super.generateAssemblerBlockPostamble(block);
     block.addLabel(epilogLabel, null);
-    assert(stackSize == slotManager.stackSize(), concat('addCode changed the stack size of ', name, ' (was ', stackSize, ' now is ', slotManager.stackSize(), ')'));
-    slotManager.enterNestedScope(this, block);
-    assert(stackSize == slotManager.stackSize(), concat('enterNestedScope changed the stack size of ', name, ' (was ', stackSize, ' now is ', slotManager.stackSize(), ')'));
-    slotManager.read(returnValuePointer, rax.bit, 'report address of return value').release();
-    assert(stackSize == slotManager.stackSize(), concat('read into rax changed the stack size of ', name, ' (was ', stackSize, ' now is ', slotManager.stackSize(), ')'));
-    slotManager.exitNestedScope(this);
-    assert(stackSize == slotManager.stackSize(), concat('exitNestedScope changed the stack size of ', name, ' (was ', stackSize, ' now is ', slotManager.stackSize(), ')'));
-    super.generateEpilogAssemblerBlock(block);
+    generateFinalSlotManagerCleanup(block);
+  }
+
+  Null generateFinalReturn(AssemblerBlock block) {
     block.addCode('ret', [], 'return from subroutine');
+  }
+
+  Null generateEpilogAssemblerBlock(AssemblerBlock block) {
+    super.generateEpilogAssemblerBlock(block);
+    generateFinalReturn(block);
   }
 
   Null generateAssembler(Assembler assembler) {
@@ -1480,7 +2434,8 @@ class CompiledSubroutine extends CompiledStackFrameScope {
     assembler.addLabeledBlock(label, block, name, nameConstant.label);
   }
 
-  Null constructor(CompiledScopeNullable parentArg, AbstractSubroutineTypeWithSpecificParameters typeArg, String nameArg) {
+  Null constructor(CompiledScopeNullable parentArg, AbstractSubroutineTypeWithSpecificParameters typeArg, String nameArg, ClassTypeNullable parentClassArg) {
+    parentClass = parentClassArg as ClassTypeNullable;
     super.constructor(parentArg, nameArg);
     type = typeArg;
   }
@@ -1502,25 +2457,23 @@ class CompiledSubroutineWithSpecificParameters extends CompiledSubroutine {
   }
 
   Null emitParameterChecks(SlotList parameters) {
-    // xxxx verify the types statically
     // check for parameter count
     emitInstruction(CommentInstruction('Check parameter count'));
     Slot expectedParamCountValue = environment().integer(len(parameters));
+    // TODO: add more arguments to createErrorHandlerBlock call
+    references.add(environment().intrinsicsLibrary.parameterCountCheckFailureMessage);
     CompiledNestedScope block = createErrorHandlerBlock(
-      environment().intrinsicsLibrary.parameterCountCheckFailureMessage,
+      [ environment().intrinsicsLibrary.parameterCountCheckFailureMessage ]:Slot,
       'parameter count',
     );
     emitConditionalBlock(block, null, parameterCount, expectedParamCountValue, 'parameter count check', 'check number of parameters is as expected');
     Integer index = 0;
     for (parameter in parameters) {
       emitInstruction(CommentInstruction(concat('Check type of parameter ', index, ', ', parameter.debugName, ' (expecting ', parameter.staticType, ')')));
-      emitTypeCheck(parameter, parameter.staticType, environment().intrinsicsLibrary.parameterTypeCheckFailureMessage, parameter.debugName, false);
+      references.add(environment().intrinsicsLibrary.parameterTypeCheckFailureMessage);
+      emitTypeCheck(parameter, parameter.staticType, environment().intrinsicsLibrary.parameterTypeCheckFailureMessage, parameter.debugName, false); // xxx don't use debugName for [what] argument
       index += 1;
     }
-  }
-
-  Null constructor(CompiledScope parentArg, SubroutineTypeWithSpecificParameters signature, String name) { 
-    super.constructor(parentArg, signature, name);
   }
 }
 
@@ -1528,6 +2481,7 @@ class CompiledVarArgsSubroutine extends CompiledSubroutine {
   Slot registerVarArgsParameter(String name, Type type) {
     ReadOnlyListType listType = createOrFindReadOnlyListType(environment(), type);
     listType.markConstructed();
+    assert(identifiers.length == 0, 'varargs subroutine had multiple identifiers in scope');
     assert(!isIdentifierDeclaredInLocalScope(name), 'duplicate parameter name');
     Slot slot = VarArgsParameterSlot(listType, parameterCount, name);
     identifiers.set(name, slot);
@@ -1535,13 +2489,58 @@ class CompiledVarArgsSubroutine extends CompiledSubroutine {
   }
 
   Null emitVarArgsParameterChecks(Type parameterType, VarArgsParameterSlot varargs) {
-    // xxxx verify the types statically
-    CompiledNestedScope block = createErrorHandlerBlock(environment().intrinsicsLibrary.parameterTypeCheckFailureMessage, 'vararg types');
+    // TODO: add more arguments to createErrorHandlerBlock call
+    references.add(environment().intrinsicsLibrary.parameterTypeCheckFailureMessage);
+    CompiledNestedScope block = createErrorHandlerBlock([ environment().intrinsicsLibrary.parameterTypeCheckFailureMessage ]:Slot, 'vararg types');
     doIfVarArgsTypeMismatch(parameterType, varargs, concat(labelPrefix(), '$varargTypeChecks'), block, 'vararg types');
   }
+}
 
-  Null constructor(CompiledScope parentArg, SubroutineTypeWithVarArgs signature, String name) { 
-    super.constructor(parentArg, signature, name);
+class CompiledGeneratedConstructorSubroutine extends CompiledSubroutine {
+  Slot actualConstructor;
+  
+  Null setActualConstructor(Slot slot) {
+    actualConstructor = slot;
+  }
+
+  Null clearRegisters(AssemblerBlock subblock) {
+    super.clearRegisters(subblock);
+    slotManager.clearRegisterEntry(slotManager.registerStatus.get(rcx.bit) as RegisterEntry);
+    //slotManager.clearRegisterEntry(slotManager.registerStatus.get(rdx.bit) as RegisterEntry);
+    slotManager.clearRegisterEntry(slotManager.registerStatus.get(r8.bit) as RegisterEntry); // this type
+    slotManager.clearRegisterEntry(slotManager.registerStatus.get(r9.bit) as RegisterEntry); // this value
+  }
+
+  Null generateFinalSlotManagerCleanup(AssemblerBlock block) {
+    super.generateFinalSlotManagerCleanup(block);
+    block.addComment('generateFinalSlotManagerCleanup!');
+    emitMov(block, rcx, parameterCount.value(this), 'restore rcx (parameter count)');
+    //emitMov(block, rdx, closure.value(this), 'restore rdx (closure pointer)');
+    emitMov(block, r8, thisPointer.dynamicType(this), 'restore r8 (this type)');
+    emitMov(block, r9, thisPointer.value(this), 'restore r9 (this value)');
+  }
+
+  Null prepareInstructions() {
+    super.prepareInstructions();
+    parameterCount.markNeededForever(this);
+    thisPointer.markNeededForever(this);
+  }
+
+  Boolean isMethod() {
+    return false;
+  }
+
+  Null setThisPointer(DynamicSlot thisPointerArg) {
+    thisPointer = thisPointerArg;
+  }
+
+  Null generateFinalReturn(AssemblerBlock block) {
+    Slot fakeReturnValue = FakeReturnValueSlot(environment().intrinsicsLibrary.coreNullType, 'return value for \'constructor\'');
+    block.addCode('lea', [ r11, fakeReturnValue.dynamicType(this).toString() ], 'give \'constructor\' the location of our fake return type');
+    block.addCode('mov', [ returnValueTypePointer.epilogValue(this).toString(), r11 ], 'give \'constructor\' the location of our fake return type');
+    block.addCode('lea', [ r11, fakeReturnValue.value(this).toString() ], 'give \'constructor\' the location of our fake return value');
+    block.addCode('mov', [ returnValuePointer.epilogValue(this).toString(), r11 ], 'give \'constructor\' the location of our fake return value');
+    block.addCode('jmp', [ (actualConstructor as TailRecursionCodePointerSlot).epilogValue().toString() ], 'tail recurse into actual constructor');
   }
 }
 
@@ -1550,19 +2549,6 @@ class BuiltInSubroutine extends CompiledSubroutineWithSpecificParameters {
 
   StringList parameterDescriptions() {
     return []:String;
-  }
-
-  RegisterSlot arg4;
-  RegisterSlot arg3;
-  RegisterSlot arg2;
-  RegisterSlot arg1;
-
-  Null prepareSlots() {
-    super.prepareSlots();
-    arg4 = RegisterSlot(environment().intrinsicsLibrary.coreIntegerType, r9, 'x64 calling convention arg #4');
-    arg3 = RegisterSlot(environment().intrinsicsLibrary.coreIntegerType, r8, 'x64 calling convention arg #3');
-    arg2 = RegisterSlot(environment().intrinsicsLibrary.coreIntegerType, rdx, 'x64 calling convention arg #2');
-    arg1 = RegisterSlot(environment().intrinsicsLibrary.coreIntegerType, rcx, 'x64 calling convention arg #1');
   }
 
   // used to generate the instructions for the subroutine
@@ -1582,77 +2568,114 @@ class BuiltInSubroutine extends CompiledSubroutineWithSpecificParameters {
     generateInstructions();
     super.prepareInstructions();
   }
-
-  Null constructor(CompiledIntrinsicsLibrary parentArg, SubroutineTypeWithSpecificParameters signature, String name) { 
-    super.constructor(parentArg, signature, name);
-  }
 }
 
-class BuiltInPrintSubroutine extends BuiltInSubroutine {
-  StringList parameterDescriptions() {
-    return ['message to print to console'];
+class BuiltInErrorSubroutine extends CompiledSubroutine {
+  SlotNullable errorSlot;
+
+  Null addRemainingReferences() {
+    super.addRemainingReferences();
+    errorSlot = lookupIntrinsic(environment().errorIntrinsicName);
   }
 
-  Null generateInstructions() {
-    DynamicSlot stdHandle = registerDynamicValue((parent! as CompiledIntrinsicsLibrary).coreSystemType, rcNever, 'stdHandle, out param of GetStdHandle');
-    DynamicSlot lpNumberOfCharsWritten = registerDynamicValue((parent! as CompiledIntrinsicsLibrary).coreSystemType, rcNever, 'lpNumberOfCharsWritten, out param of WriteConsoleA');
-    Slot message = parameters[0];
-    emitInstruction(CommentInstruction('Calling GetStdHandle'));
-    emitInstruction(SubInstruction(stackPointer, environment().integer(0x20), stackPointer, 'allocate shadow space'));
-    emitInstruction(MoveToSpecificOperandInstruction(rcx.bit, environment().integer(-11), true, 'argument #1: STD_OUTPUT_HANDLE'));
-    emitInstruction(CallSystemInstruction('kernel32.lib', 'GetStdHandle', stdHandle, 'handle returned in rax'));
-    emitInstruction(AddInstruction(stackPointer, environment().integer(0x20), stackPointer, 'release shadow space'));
-    emitInstruction(CommentInstruction('Calling WriteConsoleA'));
-    emitInstruction(PushInstruction(environment().integer(0), 'argument #5: Reserved, must be NULL (lpReserved)'));
-    emitInstruction(SubInstruction(stackPointer, environment().integer(0x20), stackPointer, 'allocate shadow space'));
-    emitInstruction(RecordPushesInstruction(4)); // shadow space
-    emitInstruction(MoveToSpecificOperandInstruction(memory, lpNumberOfCharsWritten, false, 'allocate memory for lpNumberOfCharsWritten'));
-    emitInstruction(PinSlotValueInstruction(lpNumberOfCharsWritten));
-    emitInstruction(PinRegisterSlotInstruction(arg4));
-    emitInstruction(LeaInstruction(arg4, lpNumberOfCharsWritten, 0, false, 'argument #4: Number of characters written (lpNumberOfCharsWritten)'));
-    emitInstruction(PinRegisterSlotInstruction(arg3));
-    emitInstruction(MoveDerefInstruction(arg3, message, 0x08, 'argument #3: Length of buffer (nNumberOfCharsToWrite), from string structure'));
-    emitInstruction(PinRegisterSlotInstruction(arg2));
-    emitInstruction(AddInstruction(message, environment().integer(0x10), arg2, 'argument #2: Pointer to buffer to write (*lpBuffer)'));
-    emitInstruction(PinRegisterSlotInstruction(arg1));
-    emitInstruction(MoveInstruction(arg1, stdHandle, 'argument #1: Handle from GetStdHandle (hConsoleOutput)'));
-    emitInstruction(CallSystemInstruction('kernel32.lib', 'WriteConsoleA', null, 'returns Booleanean representing success in rax'));
-    emitInstruction(AddInstruction(stackPointer, environment().integer(0x28), stackPointer, 'release shadow space'));
-    emitInstruction(UnpinSlotValueInstruction(lpNumberOfCharsWritten));
-    emitInstruction(RecordPopsInstruction(5)); // shadow space and lpReserved
-    super.generateInstructions();
+  Null generateAssemblerBlock(AssemblerBlock block) {
+    assert(errorSlot != null, '"error" intrinsic undefined');
+    assert(errorSlot is SubroutineSlot, '"error" intrinsic has wrong type');
+    block.addCode('jmp', [ (errorSlot as SubroutineSlot).subroutine.label ], 'trampoline to error intrinsic');
   }
 
-  Null constructor(CompiledIntrinsicsLibrary parentArg) { 
+  Null constructor(CompiledIntrinsicsLibrary parentArg) {
     super.constructor(
       parentArg,
-      createOrFindSubroutineTypeWithSpecificParameters(parentArg.environment(), parentArg.coreNullType, [parentArg.coreStringType]:Type),
-      '__print',
+      createOrFindSubroutineTypeWithVarArgs(
+        parentArg.environment(),
+        parentArg.coreNullType,
+        [ parentArg.coreWhateverType ]:Type,
+      ),
+      '__error',
+      null /* parentClass */,
     );
   }
 }
 
-class BuiltInExitSubroutine extends BuiltInSubroutine {
+class BuiltInGetterMethod extends BuiltInSubroutine {
+  MemberDescription member;
+
   StringList parameterDescriptions() {
-    return ['exit code parameter'];
+    return []:String;
   }
 
   Null generateInstructions() {
-    Slot exitCode = parameters[0];
-    emitInstruction(CommentInstruction('Calling ExitProcess'));
-    emitInstruction(SubInstruction(stackPointer, environment().integer(0x20), stackPointer, 'allocate shadow space'));
-    emitInstruction(MoveToSpecificOperandInstruction(rcx.bit, exitCode, true, 'exit code'));
-    emitInstruction(CallSystemInstruction('kernel32.lib', 'ExitProcess', null, 'process should terminate at this point'));
-    emitInstruction(AddInstruction(stackPointer, environment().integer(0x20), stackPointer, 'release shadow space, just in case'));
+    assert(isMethod(), 'BuiltInGetterMethod is not a method');
+    if (member.isField) {
+      assert(member.needsField, 'isField but !needsField ?!');
+      Slot result = registerDynamicValue(type.returnType, rcNever, concat(parentClass!.name, '.', member.name));
+      assert(_gcBlockData > 0, concat('invalid _gcBlockData: ', _gcBlockData));
+      assert(member.fieldIndex! >= 0, concat('invalid field index for ', parentClass!.name, '.', member.name, ': ', member.fieldIndex));
+      emitInstruction(MoveDerefInstruction(result, thisPointer, _gcBlockData + member.fieldIndex * 16 + 8, concat('fetch value of ', parentClass!.name, '.', member.name)));
+      emitInstruction(MoveDerefToTypeInstruction(result, thisPointer, _gcBlockData + member.fieldIndex * 16, concat('fetch type of ', parentClass!.name, '.', member.name)));
+      emitReturnFrom(this, result);
+    } else {
+      assert(member.methodImplementation != null, 'not field but has no method?');
+      member.staticType.markConstructed();
+      emitReturnFrom(this, emitSubroutineCall(
+        lookupIntrinsic(environment().createMethodPointerIntrinsicName),
+        [
+          thisPointer,
+          CompiledSubroutineSlot(member.methodImplementation!, thisPointer /* not used*/),
+          TypeCodeSlot(environment(), member.staticType),
+        ]:Slot,
+        null /* sourceLocations */,
+      ));
+    }
     super.generateInstructions();
   }
 
-  Null constructor(CompiledIntrinsicsLibrary parentArg) { 
+  Null constructor(CompiledIntrinsicsLibrary parentArg, ClassType classArg, MemberDescription memberArg) { 
     super.constructor(
       parentArg,
-      createOrFindSubroutineTypeWithSpecificParameters(parentArg.environment(), parentArg.coreNullType, [ parentArg.coreIntegerType ]:Type),
-      'exit',
+      createOrFindSubroutineTypeWithSpecificParameters(parentArg.environment(), memberArg.staticType, []:Type),
+      concat(classArg.name, '$', memberArg.name, '$getter'),
+      classArg,
     );
+    member = memberArg;
+    assert(!isUsed, 'remove markUsed');
+    markUsed(); // TODO: track usage of methods
+    if (isUsed) {
+      prepareInstructions();
+    }
+  }
+}
+
+class BuiltInSetterMethod extends BuiltInSubroutine {
+  MemberDescription member;
+
+  StringList parameterDescriptions() {
+    return []:String;
+  }
+
+  Null generateInstructions() {
+    if (!member.isField) {
+      // TODO: provide more arguments to the createErrorHandlerBlock() call
+      references.add(environment().intrinsicsLibrary.assignToMethodMessage);
+      emitBlock(createErrorHandlerBlock([ environment().intrinsicsLibrary.assignToMethodMessage ]:Slot, 'method_assigning'));
+    }
+    super.generateInstructions();
+  }
+
+  Null constructor(CompiledIntrinsicsLibrary parentArg, ClassType classArg, MemberDescription memberArg) { 
+    super.constructor(
+      parentArg,
+      createOrFindSubroutineTypeWithSpecificParameters(parentArg.environment(), parentArg.coreNullType, []:Type),
+      concat(classArg.name, '$', memberArg.name, '$setter'),
+      classArg,
+    );
+    member = memberArg;
+    assert(!isUsed, 'remove markUsed');
+    markUsed(); // TODO: track usage of methods
+    if (isUsed) {
+      prepareInstructions();
+    }
   }
 }
 
@@ -1687,6 +2710,7 @@ class BuiltInLenSubroutine extends BuiltInSubroutine {
         [ createOrFindReadOnlyListType(parentArg.environment(), parentArg.coreWhateverType) ]:Type,
       ),
       'len',
+      null /* parentClass */,
     );
   }
 }
@@ -1715,6 +2739,7 @@ class BuiltInDebuggerSubroutine extends BuiltInSubroutine {
         []:Type,
       ),
       '__debugger',
+      null /* parentClass */,
     );
   }
 }
@@ -1767,6 +2792,7 @@ class BuiltInReadFromAddressIntrinsic extends CompilerIntrinsic {
         [ parentArg.coreIntegerType ]:Type,
       ),
       '__readFromAddress',
+      null /* parentClass */,
     );
   }
 }
@@ -1791,6 +2817,7 @@ class BuiltInIncrefIntrinsic extends CompilerIntrinsic {
         [ parentArg.coreAnythingType ]:Type,
       ),
       '__incref',
+      null /* parentClass */,
     );
   }
 }
@@ -1814,6 +2841,7 @@ class BuiltInWriteToAddressIntrinsic extends CompilerIntrinsic {
         [ parentArg.coreIntegerType, parentArg.coreIntegerType ]:Type,
       ),
       '__writeToAddress',
+      null /* parentClass */,
     );
   }
 }
@@ -1833,8 +2861,13 @@ class GenericSystemCallSubroutine extends CompiledSubroutineWithSpecificParamete
     }
     emitParameterChecks(parameters);
     emitInstruction(CommentInstruction(concat('Calling ', externalName)));
-    emitInstruction(SubInstruction(stackPointer, environment().integer(0x20), stackPointer, 'allocate shadow space'));
-    emitInstruction(RecordPushesInstruction(4)); // shadow space
+    Integer stackAlignment;
+    if (max(0, index - 4) % 2 == 0) {
+      stackAlignment = 0x20;
+    } else {
+      emitInstruction(PushInstruction(environment().integer(0x8877665544332211), 'align stack'));
+      stackAlignment = 0x28;
+    }
     index -= 1;
     while (index > 3) {
       emitInstruction(PushInstruction(parameters[index], concat('argument #', index + 1)));
@@ -1845,12 +2878,14 @@ class GenericSystemCallSubroutine extends CompiledSubroutineWithSpecificParamete
       emitInstruction(MoveToSpecificOperandInstruction(parameterRegisters[index].bit, parameters[index], true, concat('argument #', index + 1)));
       index -= 1;
     }
+    emitInstruction(SubInstruction(stackPointer, environment().integer(0x20), stackPointer, 'allocate shadow space'));
+    emitInstruction(RecordPushesInstruction(4)); // shadow space
     // It doesn't really make sense for the return value to ever be GarbageCollectable or String but if it is then
     // the emitReturnFrom below will incref it for us. Therefore we don't bother making our temporary reference counted.
     Slot returnValue = registerDynamicValue(type.returnType, rcNever, concat('return value of ', externalName, ' system call'));
     emitInstruction(CallSystemInstruction(library, externalName, returnValue, concat('calls ', externalName, ' from ', library)));
-    emitInstruction(AddInstruction(stackPointer, environment().integer(0x20 + 0x08 * max(0, len(parameters) - 4)), stackPointer, 'release shadow space and arguments if there were more than four'));
-    emitInstruction(RecordPopsInstruction(4 + max(0, len(parameters) - 4))); // shadow space and any arguments that didn't fit in the registers
+    emitInstruction(AddInstruction(stackPointer, environment().integer(stackAlignment + 0x08 * max(0, len(parameters) - 4)), stackPointer, 'release shadow space and arguments if there were more than four'));
+    emitInstruction(RecordPopsInstruction((stackAlignment / 0x08) + max(0, len(parameters) - 4))); // shadow space and any arguments that didn't fit in the registers
     emitInstruction(SetTypeInstruction(returnValue, type.returnType));
     emitReturnFrom(this, returnValue);
     super.prepareInstructions();
@@ -1861,6 +2896,7 @@ class GenericSystemCallSubroutine extends CompiledSubroutineWithSpecificParamete
       parentArg,
       createOrFindSubroutineTypeWithSpecificParameters(parentArg.environment(), returnTypeArg, argumentTypesArg),
       internalNameArg,
+      null /* parentClass */,
     );
     parameterNames = parameterNamesArg;
     library = libraryArg;
@@ -1892,8 +2928,8 @@ class CompiledLibrary extends CompiledStackFrameScope {
     append(libraries, library);
   }
 
-  SlotNullable internalLookupIdentifier(String name) {
-    SlotNullable result = super.internalLookupIdentifier(name);
+  IdentifierEntityNullable internalLookupIdentifier(String name) {
+    IdentifierEntityNullable result = super.internalLookupIdentifier(name);
     if (result == null) {
       for (library in libraries) {
         result = library.internalLookupIdentifier(name);
@@ -1910,7 +2946,7 @@ class CompiledLibrary extends CompiledStackFrameScope {
 
   Null declareType(Type type) {
     assert(!environment().isCompoundType(type.name), 'tried to declare a type that ends with a generic suffix');
-    assert(types.get(type.name) == null, 'tried to redefine a type name');
+    assert(types.get(type.name) == null, 'tried to redefine a type name'); // TODO: hoist this into real error messages in the AST
     types.set(type.name, type);
   }
 
@@ -1983,10 +3019,6 @@ class CompiledInternalProcedure extends CompiledStackFrameScope {
     generateAssemblerBlock(block);
     assembler.addLabeledBlock(name, block, null, null);
   }
-
-  Null constructor(String labelArg, CompiledScope parentArg) {
-    super.constructor(parentArg, labelArg);
-  }
 }
 
 class DecrefCompiledInternalProcedure extends CompiledInternalProcedure {
@@ -2013,7 +3045,7 @@ class DecrefCompiledInternalProcedure extends CompiledInternalProcedure {
     // management to be unnecessary or at least less invasive so as to make this correct while
     // remaining more simple than it would be with all the correct blocks.
     String decrefEndLabel = environment().generateLabel(concat(name, '$end'));
-    Slot valueDeref = SimpleMemorySlot(environment().intrinsicsLibrary.coreIntegerType, value, 'value dereferenced');
+    Slot valueDeref = DerefSlot(environment().intrinsicsLibrary.coreIntegerType, value, 'value dereferenced');
     // if value is a string or garbage-collectable then valueDeref is the reference count
     if (canBeGarbageCollectable) {
       assert(checkFirst, 'should have used a direct "dec" instead');
@@ -2033,7 +3065,7 @@ class DecrefCompiledInternalProcedure extends CompiledInternalProcedure {
     }
     if (canBeString) {
       if (checkFirst) {
-        emitInstruction(ConditionalDynamicTypeJumpInstruction(value, environment().intrinsicsLibrary.coreStringType, ccNotEqual, decrefEndLabel, 'skip string decref block if the value is not a String'));
+        emitInstruction(JumpIfDynamicTypeNotEqualStaticTypeInstruction(value, environment().intrinsicsLibrary.coreStringType, decrefEndLabel, 'skip string decref block if the value is not a String'));
       }
       emitInstruction(ConditionalJumpInstruction(valueDeref, environment().integer(0), ccLessThan, decrefEndLabel, 'skip string decref block for string constants'));
       emitInstruction(DecJccInstruction(valueDeref, ccNonZero, decrefEndLabel, concat('decrement reference count of ', value.debugName)));  
@@ -2047,11 +3079,11 @@ class DecrefCompiledInternalProcedure extends CompiledInternalProcedure {
   }
 
   Null constructor(Boolean canBeGarbageCollectableArg, Boolean canBeStringArg, Boolean checkFirstArg, String labelArg, CompiledScope parentArg) {
-    super.constructor(labelArg, parentArg);
+    super.constructor(parentArg, labelArg);
     canBeGarbageCollectable = canBeGarbageCollectableArg;
     canBeString = canBeStringArg;
     checkFirst = checkFirstArg;
-    assert(!canBeGarbageCollectable || checkFirst, 'Instead of using a DecrefCompiledInternalProcedure for the case of decreffing a known GC-able refrence, just use "dec". (true, x, false)');
+    assert(!canBeGarbageCollectable || checkFirst, 'Instead of using a DecrefCompiledInternalProcedure for the case of decreffing a known GC-able reference, just use "dec". (true, x, false)');
     assert(canBeGarbageCollectable || canBeString, 'This decref would be pointless... (false, false, x)');
   }
 }
@@ -2070,19 +3102,17 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
   ListDataType coreListDataType;
   GarbageCollectableType coreGarbageCollectableType;
 
-  RootClassType coreClassType;
-  ClosureType coreClosureType;
+  ClosureType coreClosureType; // will be used eventually, so #ignore_unused
   SystemType coreSystemType;
   SubroutineCodeAddressType coreSubroutineCodeAddressType;
   SentinelType coreSentinelType;
 
   ImmediateSlot coreSentinel;
   ImmediateSlot coreNull;
-  ImmediateSlot coreTrue;
+  ImmediateSlot coreTrue; // included for completeness, so #ignore_unused
   ImmediateSlot coreFalse;
 
-  Slot corePrint; // actually __print; the real print is in the rtl
-  Slot coreExit;
+  Slot coreError; // Trampoline to the intrinsic in the RTL, available before the RTL is compiled.
 
   Slot parameterCountCheckFailureMessage;
   Slot parameterTypeCheckFailureMessage;
@@ -2094,6 +3124,7 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
   Slot subroutineCallTypeCheckFailureMessage;
   Slot asOperatorFailureMessage;
   Slot boundsFailureMessage;
+  Slot assignToMethodMessage;
 
   Map internalProcedures = Map(); // ip -> CompiledInternalProcedureSlot
 
@@ -2136,11 +3167,9 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
   Null generateScopes() {
     CompilationEnvironment environment = environment();
     // internal types
-    coreClassType = RootClassType(environment);
     coreClosureType = ClosureType(environment);
     coreSystemType = SystemType(environment);
     coreSentinelType = SentinelType(environment);
-    coreSubroutineCodeAddressType = SubroutineCodeAddressType(environment);
     // built-in types
     coreAnythingType = AnythingType(environment);
     declareType(coreAnythingType);
@@ -2163,23 +3192,25 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
     declareType(coreListDataType);
     coreGarbageCollectableType = GarbageCollectableType(environment);
     declareType(coreGarbageCollectableType);
+    // intrinsic types
+    coreSubroutineCodeAddressType = SubroutineCodeAddressType(environment);
+    declareType(coreSubroutineCodeAddressType);
 
     // now that we have the types ready, set up the slots (like stackFramePointer)
     // which are used by the built-in functions
     super.prepareSlots();
 
     // built-in functions
-    corePrint = registerSubroutine(BuiltInPrintSubroutine(this));
-    coreExit = registerSubroutine(BuiltInExitSubroutine(this));
+    coreError = registerSubroutine(BuiltInErrorSubroutine(this), false);
 
     // built-in functions not used from compiler
-    registerSubroutine(BuiltInLenSubroutine(this));
-    registerSubroutine(BuiltInDebuggerSubroutine(this));
+    registerSubroutine(BuiltInLenSubroutine(this), false);
+    registerSubroutine(BuiltInDebuggerSubroutine(this), false);
 
     // intrinsic functions (functions that only work when inlined)
-    registerSubroutine(BuiltInReadFromAddressIntrinsic(this));
-    registerSubroutine(BuiltInWriteToAddressIntrinsic(this));
-    registerSubroutine(BuiltInIncrefIntrinsic(this));
+    registerSubroutine(BuiltInReadFromAddressIntrinsic(this), false);
+    registerSubroutine(BuiltInWriteToAddressIntrinsic(this), false);
+    registerSubroutine(BuiltInIncrefIntrinsic(this), false);
 
     // compiler-internal functions
     internalProcedures.set(ipDecrefMaybeGCOrString, CompiledInternalProcedureSlot(DecrefCompiledInternalProcedure(true, true, true, 'decrefMaybeGCOrString', this)));
@@ -2193,6 +3224,7 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
     }
 
     // messages
+    coreStringType.markConstructed();
     parameterCountCheckFailureMessage = environment.registerStringConstant(
       'parameterCountCheckFailureMessage',
       'error: function call received the wrong number of parameters (expected %d, received %d)\n',
@@ -2241,6 +3273,11 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
     boundsFailureMessage = environment.registerStringConstant(
       'boundsFailureMessage',
       'error: subscript index out of range (%d is not in range %d..%d)\n',
+      __LINE__, __COL__, __FILE__,
+    );
+    assignToMethodMessage = environment.registerStringConstant(
+      'assignToMethodMessage',
+      'error: tried to assign to a method',
       __LINE__, __COL__, __FILE__,
     );
   }

@@ -6,6 +6,3 @@ if (0 == 1) {
 if (0 == 0) {
   print("SUCCESS\n");
 }
-if (0 == false) {
-  print("FAIL 2");
-}

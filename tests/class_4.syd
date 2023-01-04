@@ -1,0 +1,6 @@
+// expected error: unknown identifier 'foo'
+
+class A {
+  Integer foo = foo + 1;
+}
+A();

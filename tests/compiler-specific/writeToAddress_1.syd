@@ -1,6 +1,5 @@
 // expected output: allocated a pointer!
 // expected output: cat
-// expected output: freed a pointer!
 
 Integer ptr = _alloc(24);
 if (ptr > 0) {
@@ -10,6 +9,4 @@ __writeToAddress(ptr, 0-1);
 __writeToAddress(ptr+8, 3);
 __writeToAddress(ptr+16, 0x3030303030746163);
 println(ptr __as__ String);
-if (_free(ptr)) {
-  println('freed a pointer!');
-}
+_free(ptr);

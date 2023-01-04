@@ -8,7 +8,8 @@
             "name": "Dart & Flutter",
             "request": "launch",
             "type": "dart",
-            "program": "main.dart"
+            "program": "main.dart",
+            "args": ["./compiler", "syd.syd", "temp.syd"],
         }
     ]
 }

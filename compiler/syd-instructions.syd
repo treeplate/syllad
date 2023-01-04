@@ -11,8 +11,6 @@ import 'syd-types.syd';
 class Instruction extends Object {
   Null prepare(SlotContext scope) { }
 
-  String toString() { return className; }
-
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     manager.assertBlockIdentityMatches(block);
     abstract();
@@ -97,12 +95,12 @@ class StoreCmpInstruction extends Instruction {
   cc flag;
 
   Null prepare(SlotContext scope) {
-    a.willRead(scope);
+    a.willRead(scope, this);
     if (b != a) {
-      b.willRead(scope);
+      b.willRead(scope, this);
     }
     if (target != a && target != b) {
-      target.willWrite(scope);
+      target.willWrite(scope, this);
     }
   }
 
@@ -112,17 +110,17 @@ class StoreCmpInstruction extends Instruction {
     if (hardcodedResult == null) {
       Mop aOperand;
       if (a == b) {
-        aOperand = manager.read(a, register, concat('we will be comparing ', a, ' with itself, so use a register'));
+        aOperand = manager.read(a, register, concat('we will be comparing ', a, ' with itself, so use a register'), this);
       } else {
-        aOperand = manager.read(a, register | memory, concat('reading first value to compare (', a, ')'));
+        aOperand = manager.read(a, register | memory, concat('reading first value to compare (', a, ')'), this);
       }
       Mop bOperand;
       if (a == b) {
         bOperand = aOperand;
       } else if (aOperand.isMemory()) {
-        bOperand = manager.read(b, register | immediate8 | immediate32, concat('reading second value to compare (', b, ')'));
+        bOperand = manager.read(b, register | immediate8 | immediate32, concat('reading second value to compare (', b, ')'), this);
       } else {
-        bOperand = manager.read(b, register | memory | immediate8 | immediate32, concat('reading second value to compare (', b, ')'));
+        bOperand = manager.read(b, register | memory | immediate8 | immediate32, concat('reading second value to compare (', b, ')'), this);
       }
       Mop targetOperand;
       if (target == a) {
@@ -132,7 +130,7 @@ class StoreCmpInstruction extends Instruction {
         assert(false, 'not implemented: we should have used readForMutation in this case');
         targetOperand = bOperand;
       } else {
-        targetOperand = manager.write(target, register | memory);
+        targetOperand = manager.write(target, register | memory, this);
       }
       block.addCode('xor', [targetOperand, targetOperand]:Anything, concat('clear ', target.debugName));
       block.addCode('cmp', [aOperand, bOperand]:Anything, concat('compare ', a.debugName, ' with ', b.debugName));
@@ -146,15 +144,15 @@ class StoreCmpInstruction extends Instruction {
       }
     } else {
       if (hardcodedResult!) {
-        manager.hardcode(target, ImmediateIntegerOperand(0x01), concat(a.debugName, ' ', describeCC(flag), ' ', b.debugName, ' is true'));
+        manager.hardcode(target, ImmediateIntegerOperand(0x01), concat(a.debugName, ' ', describeCC(flag), ' ', b.debugName, ' is true'), this);
       } else {
-        manager.hardcode(target, ImmediateIntegerOperand(0x00), concat(a.debugName, ' ', describeCC(flag), ' ', b.debugName, ' is false'));
+        manager.hardcode(target, ImmediateIntegerOperand(0x00), concat(a.debugName, ' ', describeCC(flag), ' ', b.debugName, ' is false'), this);
       }
       if (a != target) {
-        manager.read(a, anywhere, 'record as read').release();
+        manager.read(a, anywhere, 'record as read', this).release();
       }
       if (b != target && b != a) {
-        manager.read(b, anywhere, 'record as read').release();
+        manager.read(b, anywhere, 'record as read', this).release();
       }
     }
   }
@@ -182,9 +180,9 @@ class ConditionalJumpInstruction extends Instruction {
   cc check;
 
   Null prepare(SlotContext scope) {
-    a.willRead(scope);
+    a.willRead(scope, this);
     if (b != null) {
-      b!.willRead(scope);
+      b!.willRead(scope, this);
     }
   }
 
@@ -197,15 +195,15 @@ class ConditionalJumpInstruction extends Instruction {
     }
     BooleanNullable hardcodedResult = compareOperands(a.value(manager.getScope()), check, bValue);
     if (hardcodedResult == null) {
-      Mop aOperand = manager.read(a, register | memory, concat('reading first operand of cmp (', a.debugName, ') for a conditional jump'));
+      Mop aOperand = manager.read(a, register | memory, concat('reading first operand of cmp (', a.debugName, ') for a conditional jump'), this);
       if (b == null) {
         block.addCode('cmp', [aOperand, '0'], concat('compare ', a.debugName, ' to 0'));
       } else {
         Mop bOperand;
         if (aOperand.isMemory()) {
-          bOperand = manager.read(b!, register | immediate8 | immediate32, concat('reading second operand of cmp (', b!.debugName, ') for a conditional jump'));
+          bOperand = manager.read(b!, register | immediate8 | immediate32, concat('reading second operand of cmp (', b!.debugName, ') for a conditional jump'), this);
         } else {
-          bOperand = manager.read(b!, register | memory | immediate8 | immediate32, concat('reading second operand of cmp (', b!.debugName, ') for a conditional jump'));
+          bOperand = manager.read(b!, register | memory | immediate8 | immediate32, concat('reading second operand of cmp (', b!.debugName, ') for a conditional jump'), this);
         }
         block.addCode('cmp', [aOperand, bOperand]:Anything, concat('compare ', a.debugName, ' to ', b!.debugName));
         bOperand.release();
@@ -216,9 +214,9 @@ class ConditionalJumpInstruction extends Instruction {
       if (hardcodedResult!) {
         block.addCode('jmp', [label], comment);
       }
-      manager.read(a, anywhere, 'record as read').release();
+      manager.read(a, anywhere, 'record as read', this).release();
       if (b != a && b != null) {
-        manager.read(b!, anywhere, 'record as read').release();
+        manager.read(b!, anywhere, 'record as read', this).release();
       }
     }
   }
@@ -279,20 +277,20 @@ class ConditionalDynamicTypeJumpInstruction extends Instruction {
   cc check;
 
   Null prepare(SlotContext scope) {
-    a.willRead(scope);
+    a.willRead(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     BooleanNullable hardcodedResult = compareOperands(a.dynamicType(manager.getScope()), check, b.asOperand());
     if (hardcodedResult == null) {
-      Mop aOperand = manager.readType(a, register | memory, concat('reading first operand of cmp (', a.debugName, ') for a conditional jump'));
+      Mop aOperand = manager.readType(a, register | memory, concat('reading first operand of cmp (', a.debugName, ') for a conditional jump'), this);
       ImmediateOperand bOperand = b.asOperand();
       assert(bOperand.minBits() <= 32, 'Type.asOperand() is not an imm32');
       block.addCode('cmp', [aOperand, bOperand], concat('compare type of ', a.debugName, ' to ', b.name));
       aOperand.release();
       block.addCode(concat('j', ccSuffix(check)), [label], comment);
     } else {
-      manager.readType(a, anywhere, 'record as read').release();
+      manager.readType(a, anywhere, 'record as read', this).release();
       if (hardcodedResult!) {
         block.addCode('jmp', [label], comment);
       }
@@ -321,7 +319,7 @@ class SyntheticNestedScopeExitInstruction extends Instruction {
   SlotContext scope; // must be the exiting scope
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    manager.emitSyntheticNestedScopeExit(scope);
+    manager.emitSyntheticNestedScopeExit(scope, true);
   }
 
   Null constructor(SlotContext scopeArg) {
@@ -334,7 +332,7 @@ class SyntheticNestedAllScopesExitInstruction extends Instruction {
   SlotContext scope; // doesn't really matter exactly which scope it is, we just grab the stack frame from it
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    manager.emitSyntheticNestedScopeExit(scope.slotScope());
+    manager.emitSyntheticNestedScopeExit(scope.slotScope(), true);
   }
 
   Null constructor(SlotContext scopeArg) {
@@ -347,11 +345,11 @@ class IncrefInstruction extends Instruction {
   Slot slot;
 
   Null prepare(SlotContext scope) {
-    slot.willRead(scope);
+    slot.willRead(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    Mop register = manager.read(slot, register, 'read slot into register for dereferencing');
+    Mop register = manager.read(slot, register, 'read slot into register for dereferencing', this);
     block.addCode('inc', [(register.operand as Register64Operand).dereference().withOffset(_gcBlockHeaderRefCount)], concat('increment reference count of ', slot.debugName));
     register.release();
   }
@@ -382,11 +380,11 @@ class IncInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    a.willRead(scope);
+    a.willRead(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    Mop aOperand = manager.read(a, register | memory, concat('reading first operand of inc (', a.debugName, ')'));
+    Mop aOperand = manager.read(a, register | memory, concat('reading first operand of inc (', a.debugName, ')'), this);
     block.addCode('inc', [aOperand]:Anything, comment);
     aOperand.release();
   }
@@ -403,11 +401,11 @@ class DecInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    a.willRead(scope);
+    a.willRead(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    Mop aOperand = manager.read(a, register | memory, concat('reading first operand of dec (', a.debugName, ')'));
+    Mop aOperand = manager.read(a, register | memory, concat('reading first operand of dec (', a.debugName, ')'), this);
     block.addCode('dec', [aOperand]:Anything, comment);
     aOperand.release();
   }
@@ -427,11 +425,11 @@ class DecJccInstruction extends Instruction {
   cc check;
 
   Null prepare(SlotContext scope) {
-    a.willRead(scope);
+    a.willRead(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    Mop aOperand = manager.read(a, register | memory, concat('reading first operand of dec (', a.debugName, ') for a conditional jump'));
+    Mop aOperand = manager.read(a, register | memory, concat('reading first operand of dec (', a.debugName, ') for a conditional jump'), this);
     block.addCode('dec', [aOperand]:Anything, concat('decrement ', a.debugName));
     aOperand.release();
     block.addCode(concat('j', ccSuffix(check)), [label], comment);
@@ -454,29 +452,29 @@ class SetSlotIfEqualInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    a.willRead(scope);
-    b.willRead(scope);
-    target.willWrite(scope); // value
-    target.willWrite(scope); // type
+    a.willRead(scope, this);
+    b.willRead(scope, this);
+    target.willWrite(scope, this); // value
+    target.willWrite(scope, this); // type
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     assert(a != b && a != target && b != target, 'SetSlotIfEqualInstruction does not yet support duplicate slots');
-    Mop targetOperand = manager.write(target, register); // TODO: really this should take memory, but StackOperand needs to implement low8Bits first
+    Mop targetOperand = manager.write(target, register, this); // TODO: really this should take memory, but StackOperand needs to implement low8Bits first
     block.addCode('xor', [targetOperand, targetOperand], concat('zero ', target.debugName, ' to put the boolean in'));
-    Mop operandA = manager.read(a, register | memory, concat('reading first operand of cmp (', a, ') for a SetSlotIfEqualInstruction'));
+    Mop operandA = manager.read(a, register | memory, concat('reading first operand of cmp (', a, ') for a SetSlotIfEqualInstruction'), this);
     Mop operandB;
     if (operandA.isMemory()) {
-      operandB = manager.read(b, register | immediate8 | immediate32, concat('reading second operand of cmp (', b.debugName, ') for a SetSlotIfEqualInstruction'));
+      operandB = manager.read(b, register | immediate8 | immediate32, concat('reading second operand of cmp (', b.debugName, ') for a SetSlotIfEqualInstruction'), this);
     } else {
-      operandB = manager.read(b, register | memory | immediate8 | immediate32, concat('reading second operand of cmp (', b.debugName, ') for a SetSlotIfEqualInstruction'));
+      operandB = manager.read(b, register | memory | immediate8 | immediate32, concat('reading second operand of cmp (', b.debugName, ') for a SetSlotIfEqualInstruction'), this);
     }
     block.addCode('cmp', [operandA, operandB], comment);
     operandA.release();
     operandB.release();
     block.addCode('sete', [targetOperand.low8Bits()], concat('put result in ', target.debugName));
     targetOperand.release();
-    Mop targetTypeOperand = manager.writeType(target, register | memory);
+    Mop targetTypeOperand = manager.writeType(target, register | memory, this);
     emitMov(block, targetTypeOperand, targetType.asOperand(), concat(target.debugName, ' is a ', targetType));
     targetTypeOperand.release();
   }
@@ -500,29 +498,29 @@ class SetSlotIfTypesEqualInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    a.willRead(scope);
-    b.willRead(scope);
-    target.willWrite(scope); // value
-    target.willWrite(scope); // type
+    a.willRead(scope, this);
+    b.willRead(scope, this);
+    target.willWrite(scope, this); // value
+    target.willWrite(scope, this); // type
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     assert(a != b && a != target && b != target, 'SetSlotIfTypesEqualInstruction does not yet support duplicate slots');
-    Mop targetOperand = manager.write(target, register); // TODO: really this should take memory, but StackOperand needs to implement low8Bits first
+    Mop targetOperand = manager.write(target, register, this); // TODO: really this should take memory, but StackOperand needs to implement low8Bits first
     block.addCode('xor', [targetOperand, targetOperand], concat('zero ', target.debugName, ' to put the boolean in'));
-    Mop operandA = manager.readType(a, register | memory, concat('reading type of ', a.debugName, ' for comparison with type of ', b.debugName));
+    Mop operandA = manager.readType(a, register | memory, concat('reading type of ', a.debugName, ' for comparison with type of ', b.debugName), this);
     Mop operandB;
     if (operandA.isMemory()) {
-      operandB = manager.readType(b, register | immediate8 | immediate32, concat('reading type of ', b.debugName));
+      operandB = manager.readType(b, register | immediate8 | immediate32, concat('reading type of ', b.debugName), this);
     } else {
-      operandB = manager.readType(b, register | memory | immediate8 | immediate32, concat('reading type of ', b.debugName));
+      operandB = manager.readType(b, register | memory | immediate8 | immediate32, concat('reading type of ', b.debugName), this);
     }
     block.addCode('cmp', [operandA, operandB], comment);
     operandA.release();
     operandB.release();
     block.addCode('sete', [targetOperand.low8Bits()], concat('put result in ', target.debugName));
     targetOperand.release();
-    Mop targetTypeOperand = manager.writeType(target, register | memory);
+    Mop targetTypeOperand = manager.writeType(target, register | memory, this);
     emitMov(block, targetTypeOperand, targetType.asOperand(), concat(target.debugName, ' is a ', targetType));
     targetTypeOperand.release();
   }
@@ -543,11 +541,11 @@ class PushInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    source.willRead(scope);
+    source.willRead(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    Mop sourceOperand = manager.read(source, register | memory | immediate8 | immediate32, concat('reading ', source.debugName, ' for push'));
+    Mop sourceOperand = manager.read(source, register | memory | immediate8 | immediate32, concat('reading ', source.debugName, ' for push'), this);
     block.addCode('push', [sourceOperand], comment);
     manager.recordPushes(1);
     sourceOperand.release();
@@ -585,11 +583,11 @@ class PushTypeInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    source.willRead(scope);
+    source.willRead(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    Mop sourceOperand = manager.readType(source, register | memory | immediate8 | immediate32, concat('reading type of ', source.debugName));
+    Mop sourceOperand = manager.readType(source, register | memory | immediate8 | immediate32, concat('reading type of ', source.debugName), this);
     block.addCode('push', [sourceOperand], typeRegistry.withConstantTypeParenthetical(comment, sourceOperand.operand));
     manager.recordPushes(1);
     sourceOperand.release();
@@ -612,13 +610,14 @@ class CallInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    target.willRead(scope);
+    target.willRead(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     manager.save(volatileRegister);
     // TODO: tell manager to restore global variables
-    Mop targetOperand = manager.read(target, memory | nonvolatileRegister | immediate, concat('reading ', target.debugName, ' to call it'));
+    Mop targetOperand = manager.read(target, memory | nonvolatileRegister | immediate, concat('reading ', target.debugName, ' to call it'), this);
+    assert(manager.stackMetrics.pushLevel % 2 == 0, concat('stack misaligned unexpectedly - ', manager.stackMetrics.pushLevel, ' pushes'));
     block.addCode('call', [targetOperand], comment);
     targetOperand.release();
     manager.releaseOperands(volatileRegister);
@@ -642,17 +641,18 @@ class CallDerefInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    target.willRead(scope);
+    target.willRead(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    manager.save(volatileRegister);
+    manager.save(volatileRegister &~ (r8.bit|r9.bit|rdx.bit|rcx.bit));
     // TODO: tell manager to restore global variables
-    Mop targetOperand = manager.read(target, nonvolatileRegister, concat('reading ', target.debugName, ' to dereference it'));
+    Mop targetOperand = manager.read(target, nonvolatileRegister, concat('reading ', target.debugName, ' to dereference it'), this);
     AddressComputationOperand codeOperand = AddressComputationOperand(targetOperand.operand as Register64Operand, null, 1, offset, 'qword');
+    assert(manager.stackMetrics.pushLevel % 2 == 0, 'stack misaligned unexpectedly');
     block.addCode('call', [codeOperand], comment);
     targetOperand.release();
-    manager.releaseOperands(volatileRegister);
+    manager.releaseOperands(volatileRegister &~ (r8.bit|r9.bit|rdx.bit|rcx.bit));
   }
 
   Null constructor(Slot targetArg, Integer offsetArg, String commentArg) {
@@ -675,7 +675,7 @@ class CallSystemInstruction extends Instruction {
 
   Null prepare(SlotContext scope) {
     if (returnValue != null) {
-      returnValue!.willWrite(scope);
+      returnValue!.willWrite(scope, this);
     }
   }
 
@@ -683,11 +683,12 @@ class CallSystemInstruction extends Instruction {
     block.assembler.addIncludeLib(library);
     block.assembler.addExternProc(target);
     if (returnValue != null) {
-      manager.write(returnValue!, rax.bit); // Mop is released by releaseOperands below
+      manager.write(returnValue!, rax.bit, this); // Mop is released by releaseOperands below
       manager.save(volatileRegister - rax.bit);
     } else {
       manager.save(volatileRegister);
     }
+    assert(manager.stackMetrics.pushLevel % 2 == 0, concat('stack misaligned unexpectedly (', manager.stackMetrics.pushLevel, ' pushes)'));
     block.addCode('call', [target], comment);
     manager.releaseOperands(volatileRegister);
   }
@@ -741,15 +742,15 @@ class ShiftInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    lhs.willRead(scope);
-    rhs.willRead(scope);
-    result.willWrite(scope);
+    lhs.willRead(scope, this);
+    rhs.willRead(scope, this);
+    result.willWrite(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     assert(lhs != rhs && lhs != result && rhs != result, 'ShiftInstruction does not yet support duplicate slots');
-    Mop count = manager.read(rhs, rcx.bit | immediate8, concat('read ', rhs, ' into imm8 or cl for', opcode)); // this must be first, otherwise mutatedValue might use up rcx
-    Mop mutatedValue = manager.readForMutation(lhs, result, register | memory, null);
+    Mop count = manager.read(rhs, rcx.bit | immediate8, concat('read ', rhs, ' into imm8 or cl for', opcode), this); // this must be first, otherwise mutatedValue might use up rcx
+    Mop mutatedValue = manager.readForMutation(lhs, result, register | memory, null, this);
     block.addCode(opcode, [mutatedValue, count.low8Bits()], comment); // low8Bits() ensures we use cl not rcx
     mutatedValue.release();
     count.release();
@@ -758,45 +759,6 @@ class ShiftInstruction extends Instruction {
   Null constructor(String opcodeArg, Slot lhsArg, Slot rhsArg, Slot resultArg, String commentArg) {
     super.constructor();
     opcode = opcodeArg;
-    lhs = lhsArg;
-    rhs = rhsArg;
-    result = resultArg;
-    comment = commentArg;
-  }
-}
-
-class AndInstruction extends Instruction {
-  // TODO: if both aArg or bArg are immediates, hard code the result
-  // TODO: if one is zero, move the other to targetSlot
-  
-  Slot lhs;
-  Slot rhs;
-  Slot result;
-  String comment;
-
-  Null prepare(SlotContext scope) {
-    lhs.willRead(scope);
-    rhs.willRead(scope);
-    result.willWrite(scope);
-    super.prepare(scope);
-  }
-
-  Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    assert(lhs != rhs && lhs != result && rhs != result, 'AndInstruction does not yet support duplicate slots');
-    Mop lhsOperand = manager.readForMutation(lhs, result, register | memory, null);
-    Mop rhsOperand;
-    if (lhsOperand.isMemory()) {
-      rhsOperand = manager.read(rhs, register | immediate, concat('read second operand of and (', rhs.debugName, ') '));
-    } else {
-      rhsOperand = manager.read(rhs, register | memory | immediate, concat('read second operand of and (', rhs.debugName, ') '));
-    }
-    block.addCode('and', [lhsOperand, rhsOperand], comment);
-    lhsOperand.release();
-    rhsOperand.release();
-  }
-
-  Null constructor(Slot lhsArg, Slot rhsArg, Slot resultArg, String commentArg) {
-    super.constructor();
     lhs = lhsArg;
     rhs = rhsArg;
     result = resultArg;
@@ -814,9 +776,9 @@ class UnsignedMultiplyInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    lhs.willRead(scope);
-    rhs.willRead(scope);
-    result.willWrite(scope);
+    lhs.willRead(scope, this);
+    rhs.willRead(scope, this);
+    result.willWrite(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
@@ -826,14 +788,14 @@ class UnsignedMultiplyInstruction extends Instruction {
     if (lhs == rhs) {
       throw("not implemented"); // TODO
     } else if (lhs == result) {
-      mutatedValue = manager.readForMutation(lhs, result, rax.bit, 'multiplicand must be in rax for mul instruction'); // this must be first, otherwise operand might use up rax
-      operand = manager.read(rhs, register | memory, concat('read operand of mul (', rhs.debugName, ') '));
+      mutatedValue = manager.readForMutation(lhs, result, rax.bit, 'multiplicand must be in rax for mul instruction', this); // this must be first, otherwise operand might use up rax
+      operand = manager.read(rhs, register | memory, concat('read operand of mul (', rhs.debugName, ') '), this);
     } else if (rhs == result) {
-      mutatedValue = manager.readForMutation(rhs, result, rax.bit, null); // this must be first, otherwise operand might use up rax
-      operand = manager.read(lhs, register | memory, concat('read operand of mul (', lhs.debugName, ') ')); 
+      mutatedValue = manager.readForMutation(rhs, result, rax.bit, null, this); // this must be first, otherwise operand might use up rax
+      operand = manager.read(lhs, register | memory, concat('read operand of mul (', lhs.debugName, ') '), this); 
     } else {
-      mutatedValue = manager.readForMutation(lhs, result, rax.bit, null); // this must be first, otherwise operand might use up rax
-      operand = manager.read(rhs, register | memory, concat('read operand of mul (', rhs.debugName, ') '));
+      mutatedValue = manager.readForMutation(lhs, result, rax.bit, null, this); // this must be first, otherwise operand might use up rax
+      operand = manager.read(rhs, register | memory, concat('read operand of mul (', rhs.debugName, ') '), this);
     }
     block.addCode('mul', [operand], comment); 
     manager.releaseOperands(rdx.bit);
@@ -861,9 +823,9 @@ class SignedMultiplyInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    lhs.willRead(scope);
-    rhs.willRead(scope);
-    result.willWrite(scope);
+    lhs.willRead(scope, this);
+    rhs.willRead(scope, this);
+    result.willWrite(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
@@ -871,83 +833,83 @@ class SignedMultiplyInstruction extends Instruction {
     IntegerNullable lhsValue = lhs.value(manager.getScope()).toInteger();
     IntegerNullable rhsValue = rhs.value(manager.getScope()).toInteger();
     if (lhsValue != null && rhsValue != null) {
-      manager.read(lhs, anywhere, 'record as read').release();
+      manager.read(lhs, anywhere, 'record as read', this).release();
       if (lhs != rhs) {
-        manager.read(rhs, anywhere, 'record as read').release();
+        manager.read(rhs, anywhere, 'record as read', this).release();
       }
-      manager.hardcode(result, ImmediateIntegerOperand(lhsValue * rhsValue), comment);
+      manager.hardcode(result, ImmediateIntegerOperand(lhsValue * rhsValue), comment, this);
       return;
     } else if (lhsValue == 0) {
-      manager.read(lhs, anywhere, 'record as read').release();
+      manager.read(lhs, anywhere, 'record as read', this).release();
       if (lhs != rhs) {
-        manager.read(rhs, anywhere, 'record as read').release();
+        manager.read(rhs, anywhere, 'record as read', this).release();
       }
-      manager.hardcode(result, ImmediateIntegerOperand(0), comment);
+      manager.hardcode(result, ImmediateIntegerOperand(0), comment, this);
       return;
     } else if (rhsValue == 0) {
-      manager.read(lhs, anywhere, 'record as read').release();
+      manager.read(lhs, anywhere, 'record as read', this).release();
       if (lhs != rhs) {
-        manager.read(rhs, anywhere, 'record as read').release();
+        manager.read(rhs, anywhere, 'record as read', this).release();
       }
-      manager.hardcode(result, ImmediateIntegerOperand(0), comment);
+      manager.hardcode(result, ImmediateIntegerOperand(0), comment, this);
       return;
     } else if (lhsValue == 1) {
-      manager.read(lhs, anywhere, 'record as read').release();
-      if (rhsValue == result) {
-        manager.read(rhs, anywhere, 'record as read').release();
-        manager.write(result, register | memory).release();
+      manager.read(lhs, anywhere, 'record as read', this).release();
+      if (rhs == result) {
+        manager.read(rhs, anywhere, 'record as read', this).release();
+        manager.write(result, register | memory, this).release();
       } else {
-        manager.readForMutation(rhs, result, register | memory, comment).release();
+        manager.readForMutation(rhs, result, register | memory, comment, this).release();
       }
       return;
     } else if (rhsValue == 1) {
-      manager.read(rhs, anywhere, 'record as read').release();
-      if (lhsValue == result) {
-        manager.read(lhs, anywhere, 'record as read').release();
-        manager.write(result, register | memory).release();
+      manager.read(rhs, anywhere, 'record as read', this).release();
+      if (lhs == result) {
+        manager.read(lhs, anywhere, 'record as read', this).release();
+        manager.write(result, register | memory, this).release();
       } else {
-        manager.readForMutation(lhs, result, register | memory, comment).release();
+        manager.readForMutation(lhs, result, register | memory, comment, this).release();
       }
       return;
     } else if (rhs == result) {
       // we'll use the two operand form
       if (rhs == lhs) {
         // a = a * a
-        Mop op = manager.readForMutation(rhs, result, register, concat('read left and right hand side operands of imul (', rhs.debugName, '); will also become the result'));
+        Mop op = manager.readForMutation(rhs, result, register, concat('read left and right hand side operands of imul (', rhs.debugName, '); will also become the result'), this);
         append(operands, op);
         append(operands, op);
       } else {
         // a = b * a
-        append(operands, manager.readForMutation(rhs, result, register, concat('read right hand side operand of imul (', rhs.debugName, '), which is also the result')));
-        append(operands, manager.read(lhs, register | memory, concat('read left hand side operand of imul (', lhs.debugName, ')')));
+        append(operands, manager.readForMutation(rhs, result, register, concat('read right hand side operand of imul (', rhs.debugName, '), which is also the result'), this));
+        append(operands, manager.read(lhs, register | memory, concat('read left hand side operand of imul (', lhs.debugName, ')'), this));
       }
     } else if (rhs == lhs) {
       // we'll use the two operand form
       assert(rhs != result, 'internal error');
       // a = b * b
-      append(operands, manager.write(result, register));
-      append(operands, manager.read(lhs, register, concat('read left and right hand side operands of imul (', lhs.debugName, ')')));
+      append(operands, manager.write(result, register, this));
+      append(operands, manager.read(lhs, register, concat('read left and right hand side operands of imul (', lhs.debugName, ')'), this));
     } else {
-      Mop op3 = manager.read(rhs, register | memory | immediate8 | immediate32, concat('read right hand side operand of imul (', rhs.debugName, ')'));
+      Mop op3 = manager.read(rhs, register | memory | immediate8 | immediate32, concat('read right hand side operand of imul (', rhs.debugName, ')'), this);
       if (op3.isImmediate()) {
         // we have to use the three operand form
         if (result == lhs) {
           // a = a * c
-          Mop op = manager.readForMutation(lhs, result, register, concat('read left hand side operand of imul (', lhs.debugName, '), which is also the result'));
+          Mop op = manager.readForMutation(lhs, result, register, concat('read left hand side operand of imul (', lhs.debugName, '), which is also the result'), this);
           append(operands, op);
           append(operands, op);
           append(operands, op3);
         } else {
           // a = b * c
-          append(operands, manager.write(result, register));
-          append(operands, manager.read(lhs, register, concat('read left hand side operand of imul (', lhs.debugName, ')')));
+          append(operands, manager.write(result, register, this));
+          append(operands, manager.read(lhs, register, concat('read left hand side operand of imul (', lhs.debugName, ')'), this));
           append(operands, op3);
         }
       } else {
         // 2 operand form
         // a = a * c
         // a = b * c
-        append(operands, manager.readForMutation(lhs, result, register, concat('read left hand side operand of imul (', lhs.debugName, '), which is also the result')));
+        append(operands, manager.readForMutation(lhs, result, register, concat('read left hand side operand of imul (', lhs.debugName, '), which is also the result'), this));
         append(operands, op3);
       }
     }
@@ -989,19 +951,19 @@ class IntegerRemainderInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    lhs.willRead(scope);
-    rhs.willRead(scope);
-    result.willWrite(scope);
+    lhs.willRead(scope, this);
+    rhs.willRead(scope, this);
+    result.willWrite(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     assert(lhs != rhs && lhs != result && rhs != result, 'IntegerRemainderInstruction does not yet support duplicate slots');
     // TODO: optimize power-of-two divisions to shifts
-    manager.read(lhs, rax.bit, concat('put lhs of rdx division (', lhs, ') in rax')).release();
+    manager.read(lhs, rax.bit, concat('put lhs of rdx division (', lhs, ') in rax'), this).release();
     manager.save(rax.bit);
-    Mop resultOperand = manager.write(result, rdx.bit);
+    Mop resultOperand = manager.write(result, rdx.bit, this);
     block.addCode('cqo', [], 'zero-extend dividend (rax into rdx:rax)');
-    Mop rhsOperand = manager.read(rhs, register | memory, concat('read visible operand of div (', rhs, ') '));
+    Mop rhsOperand = manager.read(rhs, register | memory, concat('read visible operand of div (', rhs, ') '), this);
     block.addCode('idiv', [rhsOperand], concat(comment, ' (result, ', result.debugName, ', ends up in rdx)'));
     manager.releaseOperands(rax.bit);
     resultOperand.release();
@@ -1024,19 +986,19 @@ class IntegerDivisionInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    lhs.willRead(scope);
-    result.willWrite(scope);
-    rhs.willRead(scope);
+    lhs.willRead(scope, this);
+    result.willWrite(scope, this);
+    rhs.willRead(scope, this);
     super.prepare(scope);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     assert(lhs != rhs && lhs != result && rhs != result, 'IntegerDivisionInstruction does not yet support duplicate slots');
     // TODO: optimize power-of-two divisions to shifts
-    Mop dividendLow = manager.readForMutation(lhs, result, rax.bit, null); 
+    Mop dividendLow = manager.readForMutation(lhs, result, rax.bit, null, this); 
     manager.save(rdx.bit);
     block.addCode('cqo', [], 'zero-extend dividend');
-    Mop rhsOperand = manager.read(rhs, register | memory, concat('read operand of div (', rhs.debugName, ') '));
+    Mop rhsOperand = manager.read(rhs, register | memory, concat('read operand of div (', rhs.debugName, ') '), this);
     block.addCode('idiv', [rhsOperand], concat(comment, ' (result, ', result.debugName, ', is in rax)'));
     dividendLow.release();
     manager.releaseOperands(rdx.bit);
@@ -1060,20 +1022,24 @@ class BiOperandInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    lhs.willRead(scope);
-    rhs.willRead(scope);
-    result.willWrite(scope);
+    lhs.willRead(scope, this);
+    rhs.willRead(scope, this);
+    result.willWrite(scope, this);
     super.prepare(scope);
   }
 
+  // TODO: if both aArg or bArg are immediates, hard code the result
+  // TODO: for 'and', if one is zero, move the other to targetSlot
+  // TODO: if anding with a literal 0xFFFFFFFF, instead of using `and`, just use the low 32 bit register (e.g. eax instead of rax)
+
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     assert(lhs != rhs && rhs != result, concat('BiOperandInstruction does not yet support duplicate slots (except for lhs=result): \'', result.debugName, '\' = \'', lhs.debugName, '\' ', opcode, ' \'', rhs.debugName, '\''));
-    Mop lhsOperand = manager.readForMutation(lhs, result, register | memory, null);
+    Mop lhsOperand = manager.readForMutation(lhs, result, register | memory, null, this);
     Mop rhsOperand;
     if (lhsOperand.isMemory()) {
-      rhsOperand = manager.read(rhs, register | immediate, concat('read second operand of ', opcode, ' (', rhs.debugName, ')'));
+      rhsOperand = manager.read(rhs, register, concat('read second operand of ', opcode, ' (', rhs.debugName, ')'), this);
     } else {
-      rhsOperand = manager.read(rhs, register | memory | immediate, concat('read second operand of ', opcode, ' (', rhs.debugName, ')'));
+      rhsOperand = manager.read(rhs, register | memory, concat('read second operand of ', opcode, ' (', rhs.debugName, ')'), this);
     }
     block.addCode(opcode, [lhsOperand, rhsOperand], comment);
     lhsOperand.release();
@@ -1107,11 +1073,11 @@ class AddInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    lhs.willRead(scope);
+    lhs.willRead(scope, this);
     if (lhs != rhs) {
-      rhs.willRead(scope);
+      rhs.willRead(scope, this);
     }
-    result.willWrite(scope);
+    result.willWrite(scope, this);
     super.prepare(scope);
   }
 
@@ -1119,47 +1085,47 @@ class AddInstruction extends Instruction {
     IntegerNullable lhsValue = lhs.value(manager.getScope()).toInteger();
     IntegerNullable rhsValue = rhs.value(manager.getScope()).toInteger();
     if (lhsValue != null && rhsValue != null) {
-      manager.read(lhs, anywhere, 'record as read').release();
+      manager.read(lhs, anywhere, 'record as read', this).release();
       if (lhs != rhs) {
-        manager.read(rhs, anywhere, 'record as read').release();
+        manager.read(rhs, anywhere, 'record as read', this).release();
       }
-      manager.hardcode(result, ImmediateIntegerOperand(lhsValue + rhsValue), comment);
+      manager.hardcode(result, ImmediateIntegerOperand(lhsValue + rhsValue), comment, this);
     } else if (lhsValue == 0) {
-      manager.read(lhs, anywhere, 'record as read').release();
-      if (rhsValue == result) {
-        manager.read(rhs, anywhere, 'record as read').release();
-        manager.write(result, register | memory).release();
+      manager.read(lhs, anywhere, 'record as read', this).release();
+      if (rhs == result) {
+        manager.read(rhs, anywhere, 'record as read', this).release();
+        manager.write(result, register | memory, this).release();
       } else {
-        manager.readForMutation(rhs, result, register | memory, comment).release();
+        manager.readForMutation(rhs, result, register | memory, comment, this).release();
       }
     } else if (rhsValue == 0) {
-      manager.read(rhs, anywhere, 'record as read').release();
-      if (lhsValue == result) {
-        manager.read(lhs, anywhere, 'record as read').release();
-        manager.write(result, register | memory).release();
+      manager.read(rhs, anywhere, 'record as read', this).release();
+      if (lhs == result) {
+        manager.read(lhs, anywhere, 'record as read', this).release();
+        manager.write(result, register | memory, this).release();
       } else {
-        manager.readForMutation(lhs, result, register | memory, comment).release();
+        manager.readForMutation(lhs, result, register | memory, comment, this).release();
       }
     } else {
       Mop resultOperand;
       Mop otherOperand;
       if (lhs == result && rhs == result) {
-        resultOperand = manager.readForMutation(result, result, register, null);
+        resultOperand = manager.readForMutation(result, result, register, null, this);
         otherOperand = resultOperand;
       } else if (rhs == result) {
         // we flip them over in this case since the order doesn't matter
-        resultOperand = manager.readForMutation(rhs, result, register | memory, null);
+        resultOperand = manager.readForMutation(rhs, result, register | memory, null, this);
         if (resultOperand.isMemory()) {
-          otherOperand = manager.read(lhs, register | immediate8 | immediate32, concat('read first operand of + (', lhs.debugName, ')'));
+          otherOperand = manager.read(lhs, register | immediate8 | immediate32, concat('read first operand of + (', lhs.debugName, ')'), this);
         } else {
-          otherOperand = manager.read(lhs, register | memory | immediate8 | immediate32, concat('read first operand of + (', lhs.debugName, ')'));
+          otherOperand = manager.read(lhs, register | memory | immediate8 | immediate32, concat('read first operand of + (', lhs.debugName, ')'), this);
         }
       } else {
-        resultOperand = manager.readForMutation(lhs, result, register | memory, null);
+        resultOperand = manager.readForMutation(lhs, result, register | memory, null, this);
         if (resultOperand.isMemory()) {
-          otherOperand = manager.read(rhs, register | immediate8 | immediate32, concat('read second operand of + (', rhs.debugName, ')'));
+          otherOperand = manager.read(rhs, register | immediate8 | immediate32, concat('read second operand of + (', rhs.debugName, ')'), this);
         } else {
-          otherOperand = manager.read(rhs, register | memory | immediate8 | immediate32, concat('read second operand of + (', rhs.debugName, ')'));
+          otherOperand = manager.read(rhs, register | memory | immediate8 | immediate32, concat('read second operand of + (', rhs.debugName, ')'), this);
         }
       }
       block.addCode('add', [resultOperand, otherOperand], concat(comment, ' (result in ', result.debugName, ')'));
@@ -1186,20 +1152,20 @@ class SubInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    lhs.willRead(scope);
-    rhs.willRead(scope);
-    result.willWrite(scope);
+    lhs.willRead(scope, this);
+    rhs.willRead(scope, this);
+    result.willWrite(scope, this);
     super.prepare(scope);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     assert(lhs != rhs && rhs != result, 'SubInstruction does not support duplicate operands yet (except for lhs=result)');
-    Mop lhsOperand = manager.readForMutation(lhs, result, register | memory, null);
+    Mop lhsOperand = manager.readForMutation(lhs, result, register | memory, null, this);
     Mop rhsOperand;
     if (lhsOperand.isMemory()) {
-      rhsOperand = manager.read(rhs, register | immediate, concat('read second operand of - (', rhs.debugName, ')'));
+      rhsOperand = manager.read(rhs, register | immediate, concat('read second operand of - (', rhs.debugName, ')'), this);
     } else {
-      rhsOperand = manager.read(rhs, register | memory | immediate, concat('read second operand of - (', rhs.debugName, ')'));
+      rhsOperand = manager.read(rhs, register | memory | immediate, concat('read second operand of - (', rhs.debugName, ')'), this);
     }
     block.addCode('sub', [lhsOperand, rhsOperand], comment);
     lhsOperand.release();
@@ -1222,13 +1188,13 @@ class MonoOperandInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    source.willRead(scope);
-    target.willWrite(scope);
+    source.willRead(scope, this);
+    target.willWrite(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     assert(source != target, 'MonoOperandInstruction does not yet support duplicate slots');
-    Mop operand = manager.readForMutation(source, target, register | memory, null);
+    Mop operand = manager.readForMutation(source, target, register | memory, null, this);
     block.addCode(opcode, [operand], comment);
     operand.release();
   }
@@ -1248,12 +1214,12 @@ class MoveInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    source.willRead(scope);
-    target.willWrite(scope);
+    source.willRead(scope, this);
+    target.willWrite(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    manager.readForMutation(source, target, memory | register, comment).release();
+    manager.readForMutation(source, target, memory | register, comment, this).release();
   }
 
   Null constructor(Slot targetArg, Slot sourceArg, String commentArg) {
@@ -1273,16 +1239,16 @@ class MoveTypeToTypeInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    source.willRead(scope);
-    source.willRead(scope);
-    target.willWrite(scope);
+    source.willRead(scope, this);
+    source.willRead(scope, this);
+    target.willWrite(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    Mop sourceOperand = manager.readType(source, memory | register | immediate, 'internal error: this should not ever generate code');
+    Mop sourceOperand = manager.readType(source, memory | register | immediate, 'internal error: this should not ever generate code', this);
     String fullComment = typeRegistry.withConstantTypeParenthetical(comment, sourceOperand.operand);
     sourceOperand.release();
-    manager.readTypeForMutation(source, target, memory | register, fullComment).release();
+    manager.readTypeForMutation(source, target, memory | register, fullComment, this).release();
   }
 
   Null constructor(Slot targetArg, Slot sourceArg, TypeRegistry typeRegistryArg, String commentArg) {
@@ -1299,45 +1265,41 @@ class MoveTypeToTypeInstruction extends Instruction {
 class MoveTypeToValueInstruction extends Instruction {
   Slot target;
   Slot source;
-  String comment;
 
   Null prepare(SlotContext scope) {
-    source.willRead(scope);
-    target.willWrite(scope);
+    source.willRead(scope, this);
+    target.willWrite(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    manager.readTypeToValueForMutation(source, target, memory | register).release();
+    manager.readTypeToValueForMutation(source, target, memory | register, this).release();
   }
 
-  Null constructor(Slot targetArg, Slot sourceArg, String commentArg) {
+  Null constructor(Slot targetArg, Slot sourceArg) {
     assert(sourceArg != targetArg, 'redundant MoveInstruction');
     super.constructor();
     target = targetArg;
     source = sourceArg;
-    comment = commentArg;
   }
 }
 
 class MoveValueToTypeInstruction extends Instruction {
   Slot target;
   Slot source;
-  String comment;
 
   Null prepare(SlotContext scope) {
-    source.willRead(scope);
-    target.willWrite(scope);
+    source.willRead(scope, this);
+    target.willWrite(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    manager.readValueToTypeForMutation(source, target, memory | register).release();
+    manager.readValueToTypeForMutation(source, target, memory | register, this).release();
   }
 
-  Null constructor(Slot targetArg, Slot sourceArg, String commentArg) {
+  Null constructor(Slot targetArg, Slot sourceArg) {
     super.constructor();
     target = targetArg;
     source = sourceArg;
-    comment = commentArg;
   }
 }
 
@@ -1350,11 +1312,11 @@ class SetTypeInstruction extends Instruction {
 
   Null prepare(SlotContext scope) {
     source.markConstructed();
-    target.willWrite(scope);
+    target.willWrite(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    manager.hardcodeType(target, source.asOperand(), concat(target.debugName, ' is ', source.name));
+    manager.hardcodeType(target, source.asOperand(), concat(target.debugName, ' is ', source.name), this);
   }
 
   Null constructor(Slot targetArg, Type sourceArg) {
@@ -1372,12 +1334,12 @@ class LeaInstruction extends Instruction {
 
   Null prepare(SlotContext scope) {
     if (willRead) {
-      source.willRead(scope);
+      source.willRead(scope, this);
     } else {
       // this forces it into memory, but discards whatever current value is there
-      source.willWrite(scope);
+      source.willWrite(scope, this);
     }
-    target.willWrite(scope);
+    target.willWrite(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
@@ -1390,12 +1352,12 @@ class LeaInstruction extends Instruction {
     }
     Mop sourceOperand;
     if (willRead) {
-      sourceOperand = manager.read(source, allowedOperandKinds, concat('get ', source.debugName, ' ready for lea'));
+      sourceOperand = manager.read(source, allowedOperandKinds, concat('get ', source.debugName, ' ready for lea'), this);
     } else {
       assert(offset == 0, 'cannot write to a memory location offset from a slot using LeaInstruction'); // (or is that ok?)
-      sourceOperand = manager.write(source, allowedOperandKinds);
+      sourceOperand = manager.write(source, allowedOperandKinds, this);
     }
-    Mop targetOperand = manager.write(target, register);
+    Mop targetOperand = manager.write(target, register, this);
     Operand computedSource;
     if (offset != 0) {
       computedSource = AddressComputationOperand(sourceOperand.operand as Register64Operand, null, 1, offset, 'qword');
@@ -1427,23 +1389,23 @@ class LeaTypeInstruction extends Instruction {
 
   Null prepare(SlotContext scope) {
     if (willRead) {
-      source.willRead(scope);
+      source.willRead(scope, this);
     } else {
       // this forces it into memory, but discards whatever current value is there
-      source.willWrite(scope);
+      source.willWrite(scope, this);
     }
-    target.willWrite(scope);
+    target.willWrite(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     assert(source != target, 'LeaTypeInstruction does not support duplicate slots');
     Mop sourceOperand;
     if (willRead) {
-      sourceOperand = manager.readType(source, memory, concat('get ', source.debugName, '\'s type into memory for lea'));
+      sourceOperand = manager.readType(source, memory, concat('get ', source.debugName, '\'s type into memory for lea'), this);
     } else {
-      sourceOperand = manager.writeType(source, memory);
+      sourceOperand = manager.writeType(source, memory, this);
     }
-    Mop targetOperand = manager.write(target, register);
+    Mop targetOperand = manager.write(target, register, this);
     block.addCode('lea', [targetOperand, sourceOperand], comment);
     sourceOperand.release();
     targetOperand.release();
@@ -1467,20 +1429,20 @@ class MoveDerefInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    source.willRead(scope);
-    target.willWrite(scope);
+    source.willRead(scope, this);
+    target.willWrite(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     if (source == target) {
-      Mop operand = manager.readForMutation(source, target, register, concat('(this comment from ./compiler/', __FILE__, ':', __LINE__, ':', __COL__, ' should not be used)'));
+      Mop operand = manager.readForMutation(source, target, register, concat('(this comment from ./compiler/', __FILE__, ':', __LINE__, ':', __COL__, ' should not be used)'), this);
       AddressComputationOperand sourceAddressComputationOperand = AddressComputationOperand(operand.operand as Register64Operand, null, 1, offset, 'qword');
       emitMov(block, operand, sourceAddressComputationOperand, comment);
       operand.release();
       return;
     }
-    Mop sourceOperand = manager.read(source, register, concat('get ', source.debugName, ' into register to dereference it'));
-    Mop targetOperand = manager.write(target, register);
+    Mop sourceOperand = manager.read(source, register, concat('get ', source.debugName, ' into register to dereference it'), this);
+    Mop targetOperand = manager.write(target, register, this);
     AddressComputationOperand sourceAddressComputationOperand = AddressComputationOperand(sourceOperand.operand as Register64Operand, null, 1, offset, 'qword');
     emitMov(block, targetOperand, sourceAddressComputationOperand, comment);
     targetOperand.release();
@@ -1506,21 +1468,21 @@ class MoveDwordDerefInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    source.willRead(scope);
+    source.willRead(scope, this);
     if (source == target) {
-      temp!.willWrite(scope);
+      temp!.willWrite(scope, this);
     }
-    target.willWrite(scope);
+    target.willWrite(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     Mop sourceOperand;
     if (source == target) {
-      sourceOperand = manager.readForMutation(source, temp!, register, concat('get ', source.debugName, ' into register to avoid memory-to-memory mov'));
+      sourceOperand = manager.readForMutation(source, temp!, register, concat('get ', source.debugName, ' into register to avoid memory-to-memory mov'), this);
     } else {
-      sourceOperand = manager.read(source, register, concat('get ', source.debugName, ' into register to dereference it'));
+      sourceOperand = manager.read(source, register, concat('get ', source.debugName, ' into register to dereference it'), this);
     }
-    Mop targetOperand = manager.write(target, register);
+    Mop targetOperand = manager.write(target, register, this);
     block.addCode('xor', [targetOperand, targetOperand], 'clear target');
     AddressComputationOperand sourceAddressComputationOperand = AddressComputationOperand(sourceOperand.operand as Register64Operand, null, 1, offset, 'dword');
     emitMov(block, targetOperand.low32Bits(), sourceAddressComputationOperand, comment);
@@ -1550,14 +1512,14 @@ class MoveToDerefInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    source.willRead(scope);
-    target.willRead(scope);
+    source.willRead(scope, this);
+    target.willRead(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     assert(source != target, 'MoveToDerefInstruction does not support duplicate slots');
-    Mop sourceOperand = manager.read(source, register | immediate8 | immediate32, concat('read second operand of mov (', source.debugName, ') for MoveToDerefInstruction'));
-    Mop targetOperand = manager.read(target, register, concat('get ', target.debugName, ' into register to dereference it'));
+    Mop sourceOperand = manager.read(source, register | immediate8 | immediate32, concat('read second operand of mov (', source.debugName, ') for MoveToDerefInstruction'), this);
+    Mop targetOperand = manager.read(target, register, concat('get ', target.debugName, ' into register to dereference it'), this);
     AddressComputationOperand targetAddressComputationOperand = AddressComputationOperand(targetOperand.operand as Register64Operand, null, 1, offset, 'qword');
     emitMov(block, targetAddressComputationOperand, sourceOperand, comment);
     targetOperand.release();
@@ -1584,14 +1546,14 @@ class MoveTypeToDerefInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    source.willRead(scope);
-    target.willRead(scope);
+    source.willRead(scope, this);
+    target.willRead(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     assert(source != target, 'MoveTypeToDerefInstruction does not support duplicate slots');
-    Mop sourceOperand = manager.readType(source, register | immediate8 | immediate32, concat('reading type of ', source.debugName));
-    Mop targetOperand = manager.read(target, register, concat('get ', target.debugName, ' into register to dereference it'));
+    Mop sourceOperand = manager.readType(source, register | immediate8 | immediate32, concat('reading type of ', source.debugName), this);
+    Mop targetOperand = manager.read(target, register, concat('get ', target.debugName, ' into register to dereference it'), this);
     AddressComputationOperand targetAddressComputationOperand = AddressComputationOperand(targetOperand.operand as Register64Operand, null, 1, offset, 'qword');
     emitMov(block, targetAddressComputationOperand, sourceOperand, typeRegistry.withConstantTypeParenthetical(comment, sourceOperand.operand));
     targetOperand.release();
@@ -1617,14 +1579,14 @@ class MoveDerefToTypeInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    source.willRead(scope);
-    target.willWrite(scope);
+    source.willRead(scope, this);
+    target.willWrite(scope, this);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     assert(source != target, 'MoveDerefToTypeInstruction does not support duplicate slots');
-    Mop sourceOperand = manager.read(source, register, concat('read second operand of mov (', source.debugName, ') for MoveDerefToTypeInstruction'));
-    Mop targetOperand = manager.writeType(target, register);
+    Mop sourceOperand = manager.read(source, register, concat('read second operand of mov (', source.debugName, ') for MoveDerefToTypeInstruction'), this);
+    Mop targetOperand = manager.writeType(target, register, this);
     AddressComputationOperand sourceAddressComputationOperand = AddressComputationOperand(sourceOperand.operand as Register64Operand, null, 1, offset, 'qword');
     emitMov(block, targetOperand, sourceAddressComputationOperand, comment);
     targetOperand.release();
@@ -1651,18 +1613,18 @@ class MoveToSpecificOperandInstruction extends Instruction {
 
   Null prepare(SlotContext scope) {
     if (willRead) {
-      source.willRead(scope);
+      source.willRead(scope, this);
     } else {
-      source.willWrite(scope);
+      source.willWrite(scope, this);
     }
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     Mop result;
     if (willRead) {
-      result = manager.read(source, target, comment);
+      result = manager.read(source, target, comment, this);
     } else {
-      result = manager.write(source, target);
+      result = manager.write(source, target, this);
     }
     assert(result.operand.isOperandKind(target), concat('SlotManager.read gave invalid operand (', result, ') NOT ', describeOperandKinds(target), ' for ', source));
     result.release();
@@ -1688,18 +1650,18 @@ class MoveTypeToSpecificOperandInstruction extends Instruction {
 
   Null prepare(SlotContext scope) {
     if (willRead) {
-      source.willRead(scope);
+      source.willRead(scope, this);
     } else {
-      source.willWrite(scope);
+      source.willWrite(scope, this);
     }
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
     Mop result;
     if (willRead) {
-      result = manager.readType(source, target, comment);
+      result = manager.readType(source, target, comment, this);
     } else {
-      result = manager.writeType(source, target);
+      result = manager.writeType(source, target, this);
     }
     assert(result.operand.isOperandKind(target), concat('SlotManager.read gave invalid operand (', result, ') NOT ', describeOperandKinds(target), ' for ', source));
     result.release();
@@ -1721,15 +1683,15 @@ class BtDerefInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    lhs.willRead(scope);
-    rhs.willRead(scope);
+    lhs.willRead(scope, this);
+    rhs.willRead(scope, this);
     super.prepare(scope);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    Mop lhsOperand = manager.read(lhs, register, concat('read first operand of BtDerefInstruction (', lhs.debugName, ') into register to dereference it'));
+    Mop lhsOperand = manager.read(lhs, register, concat('read first operand of BtDerefInstruction (', lhs.debugName, ') into register to dereference it'), this);
     AddressComputationOperand lhsDerefOperand = AddressComputationOperand(lhsOperand.operand as Register64Operand, null, 1, 0, 'qword');
-    Mop rhsOperand = manager.read(rhs, register | immediate8, concat('read second operand of bt (', rhs.debugName, ')'));
+    Mop rhsOperand = manager.read(rhs, register | immediate8, concat('read second operand of bt (', rhs.debugName, ')'), this);
     block.addCode('bt', [lhsDerefOperand, rhsOperand], comment);
     lhsOperand.release();
     rhsOperand.release();
@@ -1778,12 +1740,12 @@ class SetcInstruction extends Instruction {
   String comment;
 
   Null prepare(SlotContext scope) {
-    target.willWrite(scope);
+    target.willWrite(scope, this);
     super.prepare(scope);
   }
 
   Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
-    Mop targetOperand = manager.write(target, register); // TODO: really this should take memory, but StackOperand needs to implement low8Bits first
+    Mop targetOperand = manager.write(target, register, this); // TODO: really this should take memory, but StackOperand needs to implement low8Bits first
     block.addCode('setc', [targetOperand.low8Bits()], comment);
     targetOperand.release();
   }
@@ -1874,5 +1836,58 @@ class TrackSlotInstruction extends Instruction {
   Null constructor(DynamicSlot slotArg) {
     super.constructor();
     slot = slotArg;
+  }
+}
+
+class StringComparisonInstruction extends Instruction {
+  Slot target;
+  Slot a;
+  Integer aOffset;
+  Slot b;
+  Integer bOffset;
+  Slot length;
+  String comment;
+
+  Null prepare(SlotContext scope) {
+    target.willWrite(scope, this);
+    length.willRead(scope, this);
+    a.willRead(scope, this);
+    b.willRead(scope, this);
+    super.prepare(scope);
+  }
+
+  Null generateAssemblerBlock(AssemblerBlock block, SlotManager manager) {
+    block.addComment(comment);
+    Mop targetOperand = manager.write(target, register &~ (rcx.bit | rdi.bit | rsi.bit), this);
+    block.addCode('xor', [targetOperand, targetOperand]:Anything, concat('clear ', target.debugName));
+    Mop lengthOperand = manager.read(length, rcx.bit, 'prepare length for rep instruction below', this);
+    Mop aOperand = manager.read(a, rdi.bit, 'first string to compare', this);
+    if (aOffset != 0) {
+      Operand computedSource = AddressComputationOperand(aOperand.operand as Register64Operand, null, 1, aOffset, 'qword');
+      block.addCode('lea', [aOperand, computedSource], 'offset to start of string comparison for first string');
+    }
+    Mop bOperand = manager.read(b, rsi.bit, 'seconds string to compare', this);
+    if (bOffset != 0) {
+      Operand computedSource = AddressComputationOperand(bOperand.operand as Register64Operand, null, 1, bOffset, 'qword');
+      block.addCode('lea', [bOperand, computedSource], 'offset to start of string comparison for second string');
+    }
+    block.addCode('cld', [], 'configure repe cmpsb to increment');
+    block.addCode('repe cmpsb', [], 'compare strings for rcx bytes, result in ZF (ZF=1 is a match)');
+    block.addCode('setz', [targetOperand.low8Bits()], 'store result from ZF');
+    aOperand.release();
+    bOperand.release();
+    lengthOperand.release();
+    targetOperand.release();
+  }
+
+  Null constructor(Slot targetArg, Slot aArg, Integer aOffsetArg, Slot bArg, Integer bOffsetArg, Slot lengthArg, String commentArg) {
+    super.constructor();
+    target = targetArg;
+    a = aArg;
+    aOffset = aOffsetArg;
+    b = bArg;
+    bOffset = bOffsetArg;
+    length = lengthArg;
+    comment = commentArg;
   }
 }

@@ -1,0 +1,54 @@
+import '../compiler/core.syd';
+
+StringList chars = charsOf(readFile('day6.in'));
+String a = 't';
+String b = 't';
+String c = 't';
+String d = 't';
+String e = 't';
+String f = 't';
+String g = 't';
+String h = 't';
+String i = 't';
+String j = 't';
+String k = 't';
+String l = 't';
+String m = 't';
+String n = 't';
+Integer i2 = 0;
+for (char in chars) {
+  n = m;
+  m = l;
+  l = k;
+  k = j;
+  j = i;
+  i = h;
+  h = g;
+  g = f;
+  f = e;
+  e = d;
+  d = c;
+  c = b;
+  b = a;
+  a = char;
+  Set s = Set();
+  s.add(a);
+  s.add(b);
+  s.add(c);
+  s.add(d);
+  s.add(e);
+  s.add(f);
+  s.add(g);
+  s.add(h);
+  s.add(i);
+  s.add(j);
+  s.add(k);
+  s.add(l);
+  s.add(m);
+  s.add(n);
+  if (s.length == 14) {
+    println(i2);
+    break;
+  }
+  i2++;
+}

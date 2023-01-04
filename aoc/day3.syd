@@ -1,0 +1,36 @@
+import '../compiler/core.syd';
+String file = readFile('day3.in');
+StringList sacks = split(file, '\n');
+Integer total = 0;
+StringList alpha = charsOf('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ');
+StringList c1;
+StringList c2;
+StringList c3;
+Integer i = 0;
+for (sack in sacks) {
+  StringList chars = copy(charsOf(sack));
+  if (i % 3 == 0) {
+    c1 = chars;
+  } else if (i % 3 == 1) {
+    c2 = chars;
+  } else {
+    c3 = chars;
+    for (char in c1) {
+      if (contains(c2, char) && contains(c3, char)) {
+        println(char);
+        Integer j = 0;
+        for (char2 in alpha) {
+          j++;
+          if (char == char2) {
+            total += j;
+            break;
+          }
+        }
+        break; 
+      }
+    }
+  }
+  i++;
+}
+
+println(total); // part 2

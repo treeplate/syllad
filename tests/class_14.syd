@@ -1,0 +1,4 @@
+// expected output: <Test>
+class Test {}
+
+println(Test());

@@ -1,0 +1,21 @@
+String file = readFile('day4.in');
+StringList pairs = split(file, '\n');
+Integer output = 0;
+for (pair in pairs) {
+    StringList elves = split(pair, ',');
+    StringList elf1 = split(elves[0], '-');
+    StringList elf2 = split(elves[1], '-');
+    if (
+        (parseInt(elf1[1]) >= parseInt(elf2[0])  
+         && (parseInt(elf2[0]) >= parseInt(elf1[0]))     
+          || (parseInt(elf2[1]) >= parseInt(elf1[0])     
+           && (parseInt(elf1[0]) >= parseInt(elf2[0]))))
+            || (parseInt(elf1[0]) <= parseInt(elf2[1])
+             && (parseInt(elf2[1]) <= parseInt(elf1[1]))
+              || (parseInt(elf2[0]) <= parseInt(elf1[1])
+               && (parseInt(elf1[1]) <= parseInt(elf2[1]))))) {
+        output++;
+    }
+}
+
+println(output); // part 2

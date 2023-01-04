@@ -1,5 +1,4 @@
 // expected error: "test", a NullFunction(Integer...), is not a list (and therefore cannot be subscripted) at line 5 column 16 in file temp.syd
-// expected exit code is 1
 
 Null test(Integer... args) {
   print(test[-1]);

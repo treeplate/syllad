@@ -4,10 +4,32 @@ import 'syd-ast.syd';
 // forward declaration
 ExpressionFunction parseExpression;
 
+ExpressionList parseArguments(TokenConsumer source) {
+  source.expectPunctuation(ttOpenParen);
+  ExpressionList arguments = []:Expression;
+  while (!source.isNext(ttCloseParen)) {
+    append(arguments, parseExpression(source));
+    if (!source.isNext(ttCloseParen)) {
+      source.expectPunctuation(ttComma);
+    }
+  }
+  source.expectPunctuation(ttCloseParen);
+  return arguments;
+}
+
 Expression parseExpressionLeaves(TokenConsumer source) {
-  // bool literals
   if (source.isNext(ttIdentifier)) {
     String identifier = source.readIdentifier();
+    if (identifier == 'super') {
+      source.expectPunctuation(ttPeriod);
+      identifier = source.readIdentifier();
+      if (source.isNext(ttOpenParen)) {
+        return SuperSubroutineCallExpression(identifier, parseArguments(source), source.lastLocation());
+      }
+      return SuperExpression(identifier, source.lastLocation());
+    } else if (source.isNext(ttOpenParen)) {
+      return VariableSubroutineCallExpression(identifier, parseArguments(source), source.lastLocation());
+    }
     return VariableExpression(identifier, source.lastLocation());
   }
   if (source.isNext(ttString)) {
@@ -89,16 +111,7 @@ Expression parseUnaryExpression(TokenConsumer source) {
   Expression result = parseExpressionLeaves(source);
   while (true) {
     if (source.isNext(ttOpenParen)) {
-      source.expectPunctuation(ttOpenParen);
-      ExpressionList arguments = []:Expression;
-      while (!source.isNext(ttCloseParen)) {
-        append(arguments, parseExpression(source));
-        if (!source.isNext(ttCloseParen)) {
-          source.expectPunctuation(ttComma);
-        }
-      }
-      source.expectPunctuation(ttCloseParen);
-      result = SubroutineCallExpression(result, arguments, source.lastLocation());
+      result = SubroutineCallExpression(result, parseArguments(source), source.lastLocation());
       continue;
     }
     if (source.isNext(ttOpenBracket)) {
@@ -111,7 +124,11 @@ Expression parseUnaryExpression(TokenConsumer source) {
     if (source.isNext(ttPeriod)) {
       source.expectPunctuation(ttPeriod);
       String identifier = source.readIdentifier();
-      result = MemberAccessExpression(result, identifier, source.lastLocation());
+      if (source.isNext(ttOpenParen)) {
+        result = MemberAccessSubroutineCallExpression(result, identifier, parseArguments(source), source.lastLocation());
+      } else {
+        result = MemberAccessExpression(result, identifier, source.lastLocation());
+      }
       continue;
     }
     if (source.isNext(ttBang)) {
@@ -419,6 +436,11 @@ Statement parseDeclaration(TokenConsumer source) {
       append(parameters, [ parameterType, parameterName ]);
     }
     source.expectPunctuation(ttCloseParen);
+    Boolean isIntrinsic = false;
+    if (source.isNextIdentifier('__intrinsic')) {
+      source.expectIdentifier('__intrinsic');
+      isIntrinsic = true;
+    }
     if (source.isNextIdentifier('__extern')) {
       if (isVarArgs) {
         throw(source.butFound('function body', '__extern keyword (which does not support varargs)'));
@@ -427,12 +449,7 @@ Statement parseDeclaration(TokenConsumer source) {
       String library = source.readString();
       String externalName = source.readString();
       source.expectPunctuation(ttSemicolon);
-      return GenericSystemSubroutineDeclarationStatement(type, identifier, parameters, library, externalName, location);
-    }
-    Boolean isIntrinsic = false;
-    if (source.isNextIdentifier('__intrinsic')) {
-      source.expectIdentifier('__intrinsic');
-      isIntrinsic = true;
+      return GenericSystemSubroutineDeclarationStatement(type, identifier, parameters, library, externalName, location, isIntrinsic);
     }
     StatementBlock block = parseBlock(source);
     return SubroutineDeclarationStatement(type, identifier, parameters, isVarArgs, block, location, isIntrinsic);
@@ -440,76 +457,55 @@ Statement parseDeclaration(TokenConsumer source) {
   if (source.isNext(ttSemicolon)) {
     SourceLocation location = source.lastLocation();
     source.expectPunctuation(ttSemicolon);
-    Expression initialValue;
     return VariableDeclarationStatement(type, identifier, null, location);
   }
   throw(source.expected('"=", "(", or ";"'));
 }
 
-Statement _parseStatement(TokenConsumer source) {
-  if (source.isNextIdentifier('enum')) {
-    source.expectIdentifier('enum');
-    String name = source.readIdentifier();
-    source.expectPunctuation(ttOpenBrace);
-    StringList values = []:String;
-    while (source.isNext(ttIdentifier)) {
-      append(values, source.readIdentifier());
-    }
-    source.expectPunctuation(ttCloseBrace);
-    return EnumDeclaration(name, values, source.lastLocation());
-  }
-  if (source.isNextIdentifier('class')) {
-    source.expectIdentifier('class');
-    String className = source.readIdentifier();
+Statement parseClassMemberDeclaration(TokenConsumer source) {
+  String typeName = source.readIdentifier();
+  TypeIdentifier type = TypeIdentifier(typeName, source.lastLocation());
+  String identifier = source.readIdentifier();
+  if (source.isNext(ttEquals)) {
+    source.expectPunctuation(ttEquals);
     SourceLocation location = source.lastLocation();
-    TypeIdentifierNullable superclassName = null;
-    if (source.isNextIdentifier('extends')) {
-      source.expectIdentifier('extends');
-      superclassName = TypeIdentifier(source.readIdentifier(), source.lastLocation());
-    }
-    source.expectPunctuation(ttOpenBrace);
-    DeclarationStatementList members = []:DeclarationStatement;
-    while (!source.isNext(ttCloseBrace)) {
-      append(members, parseDeclaration(source));
-    }
-    source.expectPunctuation(ttCloseBrace);
-    return ClassDeclaration(className, superclassName, members, location);
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(ttSemicolon);
+    return FieldDeclarationStatement(type, identifier, initializer, location);
   }
-  if (source.isNextIdentifier('fwdclass')) {
-    source.expectIdentifier('fwdclass');
-    String className = source.readIdentifier();
+  if (source.isNext(ttOpenParen)) {
     SourceLocation location = source.lastLocation();
-    TypeIdentifierListNullable constructorParameterTypes = null;
-    if (source.isNext(ttOpenParen)) {
-      source.expectPunctuation(ttOpenParen);
-      constructorParameterTypes = []:TypeIdentifier;
-      while (!source.isNext(ttCloseParen)) {
-        append(constructorParameterTypes!, TypeIdentifier(source.readIdentifier(), source.lastLocation()));
-        if (!source.isNext(ttCloseParen)) {
-          source.expectPunctuation(ttComma);
+    source.expectPunctuation(ttOpenParen);
+    AnythingListList parameters = []:AnythingList;
+    Boolean isVarArgs = false;
+    while (!source.isNext(ttCloseParen) && !isVarArgs) {
+      if (len(parameters) > 0) {
+        source.expectPunctuation(ttComma);
+      }
+      String parameterTypeName = source.readIdentifier();
+      TypeIdentifier parameterType = TypeIdentifier(parameterTypeName, source.lastLocation());
+      if (len(parameters) == 0) {
+        if (source.isNext(ttEllipsis)) {
+          source.expectPunctuation(ttEllipsis);
+          isVarArgs = true;
         }
       }
-      source.expectPunctuation(ttCloseParen);
+      String parameterName = source.readIdentifier();
+      append(parameters, [ parameterType, parameterName ]);
     }
-    TypeIdentifierNullable superclassName = null;
-    if (source.isNextIdentifier('extends')) {
-      source.expectIdentifier('extends');
-      superclassName = TypeIdentifier(source.readIdentifier(), source.lastLocation());
-    }
-    source.expectPunctuation(ttSemicolon);
-    return ForwardClassDeclaration(className, constructorParameterTypes, superclassName, location);
+    source.expectPunctuation(ttCloseParen);
+    StatementBlock block = parseBlock(source);
+    return MethodDeclarationStatement(type, identifier, parameters, isVarArgs, block, location);
   }
-
-  if (source.isNextIdentifier('fwdclassprop')) {
-    source.expectIdentifier('fwdclassprop');
-    TypeIdentifier propertyType = TypeIdentifier(source.readIdentifier(), source.lastLocation());
-    TypeIdentifier hostClass = TypeIdentifier(source.readIdentifier(), source.lastLocation());
-    source.expectPunctuation(ttPeriod);
-    String propertyName = source.readIdentifier();
+  if (source.isNext(ttSemicolon)) {
     SourceLocation location = source.lastLocation();
     source.expectPunctuation(ttSemicolon);
-    return ForwardClassPropertyDeclaration(hostClass, propertyType, propertyName, location);
+    return FieldDeclarationStatement(type, identifier, null, location);
   }
+  throw(source.expected('"=", "(", or ";"'));
+}
+
+Statement _parseStatement(TokenConsumer source) {
   if (source.isNextIdentifier('if')) {
     return parseIfStatement(source);
   }
@@ -645,12 +641,98 @@ Statement _parseStatement(TokenConsumer source) {
 }
 parseStatement = _parseStatement;
 
+Statement parseTopLevelStatement(TokenConsumer source) {
+  if (source.isNextIdentifier('enum')) {
+    source.expectIdentifier('enum');
+    String name = source.readIdentifier();
+    source.expectPunctuation(ttOpenBrace);
+    StringList values = []:String;
+    while (source.isNext(ttIdentifier)) {
+      append(values, source.readIdentifier());
+    }
+    source.expectPunctuation(ttCloseBrace);
+    return EnumDeclaration(name, values, source.lastLocation());
+  }
+  if (source.isNextIdentifier('class')) {
+    source.expectIdentifier('class');
+    String className = source.readIdentifier();
+    SourceLocation location = source.lastLocation();
+    TypeIdentifierNullable superclassName = null;
+    if (source.isNextIdentifier('extends')) {
+      source.expectIdentifier('extends');
+      superclassName = TypeIdentifier(source.readIdentifier(), source.lastLocation());
+    }
+    Boolean isIntrinsic = false;
+    if (source.isNextIdentifier('__intrinsic')) {
+      source.expectIdentifier('__intrinsic');
+      isIntrinsic = true;
+    }
+    source.expectPunctuation(ttOpenBrace);
+    DeclarationStatementList members = []:DeclarationStatement;
+    while (!source.isNext(ttCloseBrace)) {
+      append(members, parseClassMemberDeclaration(source));
+    }
+    source.expectPunctuation(ttCloseBrace);
+    return ClassDeclaration(className, superclassName, members, isIntrinsic, location);
+  }
+  if (source.isNextIdentifier('fwdclass')) {
+    source.expectIdentifier('fwdclass');
+    String className = source.readIdentifier();
+    SourceLocation location = source.lastLocation();
+    TypeIdentifierListNullable constructorParameterTypes = null;
+    Boolean isVarArgs = false;
+    if (source.isNext(ttOpenParen)) {
+      source.expectPunctuation(ttOpenParen);
+      constructorParameterTypes = []:TypeIdentifier;
+      while (!source.isNext(ttCloseParen)) {
+        append(constructorParameterTypes!, TypeIdentifier(source.readIdentifier(), source.lastLocation()));
+        if (len(constructorParameterTypes!) == 1) {
+          if (source.isNext(ttEllipsis)) {
+            source.expectPunctuation(ttEllipsis);
+            isVarArgs = true;
+            break;
+          }
+        }
+        if (!source.isNext(ttCloseParen)) {
+          source.expectPunctuation(ttComma);
+        }
+      }
+      source.expectPunctuation(ttCloseParen);
+    }
+    TypeIdentifierNullable superclassName = null;
+    if (source.isNextIdentifier('extends')) {
+      source.expectIdentifier('extends');
+      superclassName = TypeIdentifier(source.readIdentifier(), source.lastLocation());
+    } else if (constructorParameterTypes == null) {
+      constructorParameterTypes = []:TypeIdentifier;
+    }
+    Boolean isIntrinsic = false;
+    if (source.isNextIdentifier('__intrinsic')) {
+      source.expectIdentifier('__intrinsic');
+      isIntrinsic = true;
+    }
+    source.expectPunctuation(ttSemicolon);
+    return ForwardClassDeclaration(className, constructorParameterTypes, isVarArgs, superclassName, isIntrinsic, location);
+  }
+  if (source.isNextIdentifier('fwdclassprop')) {
+    source.expectIdentifier('fwdclassprop');
+    TypeIdentifier propertyType = TypeIdentifier(source.readIdentifier(), source.lastLocation());
+    TypeIdentifier hostClass = TypeIdentifier(source.readIdentifier(), source.lastLocation());
+    source.expectPunctuation(ttPeriod);
+    String propertyName = source.readIdentifier();
+    SourceLocation location = source.lastLocation();
+    source.expectPunctuation(ttSemicolon);
+    return ForwardClassPropertyDeclaration(hostClass, propertyType, propertyName, location);
+  }
+  return parseStatement(source);
+}
+
 Library parseTokens(TokenList tokens, String name, Boolean isProgram) {
   stderr('parsing...');
   TokenConsumer source = TokenConsumer(tokens);
   StatementList statements = []:Statement;
   while (!source.isNext(ttEof)) {
-    append(statements, parseStatement(source));
+    append(statements, parseTopLevelStatement(source));
   }
   if (isProgram) {
     return Program(statements, name, SourceLocation(0, 0, name));

@@ -1,25 +1,62 @@
 @ECHO OFF
 SETLOCAL EnableDelayedExpansion
+
 IF NOT "%WindowsSdkDir%"=="" GOTO RUN
-ECHO CONFIGURING ENVIRONMENT
-CALL "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
+ECHO CONFIGURING ENVIRONMENT...
+CALL "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" > NUL
 :RUN
-DEL syd.exe
-ECHO RUNNING INTERPRETED COMPILER TO GENERATE COMPILER
+ECHO COMPILING...
 CD ..
-CALL "C:\dev\flutter\bin\dart.bat" main.dart > compiler\syd.asm
-CD compiler
-ECHO ASSEMBLING AND LINKING COMPILER
-ML64 /Zd /Zi syd.asm
-IF EXIST "syd.exe" (
-    ECHO RUNNING COMPILED COMPILER
-    syd.exe
-    ECHO exit code: !ERRORLEVEL!
-    IF !ERRORLEVEL! == -1073741571 ECHO 0xC00000FD: Stack overflow
-    IF !ERRORLEVEL! == -1073741819 ECHO 0xC0000005: Access Violation
-    IF !ERRORLEVEL! == -2147467259 ECHO 0x80004005: Unspecified failure
-    IF !ERRORLEVEL! == -2147483645 ECHO 0x80000003: STATUS_BREAKPOINT
-    ECHO DONE
-) ELSE (
+
+SET TEMPFILE=%TEMP%\%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%%TIME:~9,2%.$$$
+SET TEMPFILE=%TEMPFILE: =0%
+REM add --observe to profile
+CALL "C:\dev\flutter\bin\dart.bat" run main.dart ./compiler syd.syd temp.syd > %TEMPFILE%
+IF NOT !ERRORLEVEL! == 0 (
+    ECHO Compilation failed with exit code %ERRORLEVEL%
+    IF !ERRORLEVEL! == -1073741510 ECHO "0xC000013A: STATUS_CONTROL_C_EXIT"
     ECHO == FAILED ==
+    ECHO compiler exit code: %ERRORLEVEL%
+    EXIT /B 0
+) ELSE (
+    MOVE /Y %TEMPFILE% compiler\syd.asm > NUL
+    IF NOT !ERRORLEVEL! == 0 (
+        ECHO Could not update syd.asm, error %ERRORLEVEL%
+        ECHO == FAILED ==
+        EXIT /B %ERRORLEVEL%
+    )
+    CD compiler
+    ECHO ASSEMBLING AND LINKING...
+    IF EXIST "syd.exe" (
+        DEL syd.exe
+        IF NOT !ERRORLEVEL! == 0 (
+            ECHO Could not delete syd.exe, error %ERRORLEVEL%
+            ECHO == FAILED ==
+            EXIT /B %ERRORLEVEL%
+        )
+    )
+    ML64 /Zd /Zi syd.asm
+    IF NOT !ERRORLEVEL! == 0 (
+        ECHO Could not assemble syd.asm, error %ERRORLEVEL%
+        ECHO == FAILED ==
+        EXIT /B %ERRORLEVEL%
+    )
+    IF EXIST "syd.exe" (
+        ECHO EXECUTING...
+        ECHO = START STDOUT =================
+        ECHO = START STDERR =================1>&2
+        syd.exe
+        ECHO = END STDOUT ===================
+        ECHO = END STDERR ===================1>&2
+        ECHO test exit code: !ERRORLEVEL!
+        IF !ERRORLEVEL! == -1073741571 ECHO "0xC00000FD: Stack overflow"
+        IF !ERRORLEVEL! == -1073741819 ECHO "0xC0000005: Access Violation"
+        IF !ERRORLEVEL! == -2147467259 ECHO "0x80004005: Unspecified failure (debugger exit?)"
+        IF !ERRORLEVEL! == -2147483645 ECHO "0x80000003: STATUS_BREAKPOINT"
+        ECHO DONE
+        EXIT /B 0
+    ) ELSE (
+        ECHO == FAILED ==
+        EXIT /B 1
+    )
 )

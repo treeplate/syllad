@@ -1,21 +1,48 @@
+// TODO: turn RTL privates into foo# syntax
+
+// CONSTANTS
+
+Integer _blockEntrySize = 8; // stride size in block entry list
+Integer _gcBlockHeaderRefCount = 0 * 8;
+Integer _gcBlockHeaderLength = 1 * 8;
+Integer _gcBlockHeaderScratchSpace = 2 * 8;
+Integer _gcBlockHeaderEntryPointer = 3 * 8;
+Integer _gcBlockData = 4 * 8;
+
+Integer _vmtTypeCode = 0x00;
+Integer _vmtFieldCount = 0x08;
+Integer _vmtClassName = 0x10;
+Integer _vmtParent = 0x18;
+Integer _vmtDynamicDispatchTable = 0x20;
+Integer _vmtMethods = 0x28;
+
+Integer _subroutineReceiverType = _gcBlockData + 0 * 16;
+Integer _subroutineReceiverPointer = _gcBlockData + 0 * 16 + 8;
+Integer _subroutineCodeType = _gcBlockData + 1 * 16;
+Integer _subroutineCodePointer = _gcBlockData + 1 * 16 + 8;
+
+fwdclass __Object __intrinsic;
+
+
 // ERROR MANAGEMENT
 
-NullFunction println;
+Integer exit(Integer exitCode) __intrinsic __extern 'kernel32.lib' 'ExitProcess';
+Integer __getLastError() __extern 'kernel32.lib' 'GetLastError';
+
+NullFunction stderr;
 
 // TODO: this should be a compiler intrinsic so that the message evaluation can be lazy and so it can be skipped in release builds
 Null assert(Boolean condition, String message) {
   if (!condition) {
-    println(message);
+    stderr(message);
     exit(1);
   }
 }
 
 Null throw(String message) {
-  println(message);
+  stderr(message);
   exit(1);
 }
-
-Integer __getLastError() __extern 'kernel32.lib' 'GetLastError';
 
 
 // HEAP MANAGEMENT
@@ -45,7 +72,7 @@ Integer _alloc(Integer size) {
     _blockCount += 1;
     return pointer;
   }
-  println('Out of memory.');
+  stderr('Out of memory.');
   exit(1);
 }
 
@@ -56,7 +83,7 @@ Integer __heapFree(Integer hHeap, Integer dwFlags, Integer lpMem) __extern 'kern
 Null _free(Integer pointer) __intrinsic {
   _blockCount -= 1;
   if (__heapFree(_heapHandle, 0x00, pointer) == 0) {
-    println('failed to free pointer, error code: ', __getLastError());
+    stderr('failed to free pointer, error code: ', __getLastError());
     exit(1);
   }
 }
@@ -91,6 +118,7 @@ Null _moveBytes(Integer from, Integer to, Integer length) {
   }
 }
 
+// length is in bytes
 Null _fillQuadWords(Integer destination, Integer length, Integer value) {
   // TODO: is there an x64 intrinsic that does this faster?
   assert(length > 0, '_fillQuadWords expects positive number of bytes to fill');
@@ -101,6 +129,110 @@ Null _fillQuadWords(Integer destination, Integer length, Integer value) {
     __writeToAddress(cursor, value);
     cursor += 8;
   }
+}
+
+
+// STRINGS
+
+StringFunction concat;
+
+Integer _stringByteLength(String data) {
+  Integer pointer = data __as__ Integer;
+  return __readFromAddress(pointer + 8);
+}
+
+String digitToStr(Integer digit) {
+  if (digit == 0) {
+    return '0';
+  }
+  if (digit == 1) {
+    return '1';
+  }
+  if (digit == 2) {
+    return '2';
+  }
+  if (digit == 3) {
+    return '3';
+  }
+  if (digit == 4) {
+    return '4';
+  }
+  if (digit == 5) {
+    return '5';
+  }
+  if (digit == 6) {
+    return '6';
+  }
+  if (digit == 7) {
+    return '7';
+  }
+  if (digit == 8) {
+    return '8';
+  }
+  if (digit == 9) {
+    return '9';
+  }
+  stderr('Invalid digit passed to digitToStr (digit as exit code)\n');
+  exit(digit);
+}
+
+String intToStr(Integer value) {
+  if (value == 0) {
+    return '0';
+  }
+  if (value < 0) {
+    return concat('-', intToStr(-value));
+  }
+  String buffer = ''; 
+  Integer newValue = value; // parameters are final
+  while (newValue > 0) {
+    Integer digit = newValue % 10;
+    newValue = newValue / 10;
+    buffer = concat(digitToStr(digit), buffer); // TODO: optimize this, it's O(N^2)
+  }
+  return buffer;
+}
+
+String join(StringList items, String joiner) {
+  if (len(items) == 0) {
+    return '';
+  }
+  Integer length = 0;
+  Integer index = 0;
+  while (index < len(items)) {
+    length += _stringByteLength(items[index]);
+    index += 1;
+  }
+  Integer joinerLength = _stringByteLength(joiner);
+  length += joinerLength * (len(items) - 1);
+  assert(length >= 0, 'negative length detected');
+  if (length >= 2147483648) {
+    stderr('absurd length detected (as exit code)\n');
+    exit(length);
+  }
+  Integer resultPointer = _alloc(16 + length);
+  __writeToAddress(resultPointer, 0); // ref count
+  __writeToAddress(resultPointer + 8, length);
+  Integer cursor = resultPointer + 16;
+  index = 0;
+  while (index < len(items)) {
+    String segment = items[index];
+    Integer segmentLength = _stringByteLength(segment);
+    if (segmentLength > 0) {
+      Integer segmentPointer = segment __as__ Integer;
+      _moveBytes(segmentPointer + 16, cursor, segmentLength);
+      cursor += segmentLength;
+    }
+    if (index < len(items) - 1) {
+      if (joinerLength > 0) {
+        Integer joinerPointer = joiner __as__ Integer;
+        _moveBytes(joinerPointer + 16, cursor, joinerLength);
+        cursor += joinerLength;
+      }
+    }
+    index += 1;
+  }
+  return resultPointer __as__ String;
 }
 
 
@@ -115,21 +247,14 @@ Null _fillQuadWords(Integer destination, Integer length, Integer value) {
 //   scratch space (used by GC, can otherwise be ignored)
 //   block entry (pointer into block list, minus _blockListStart)
 //
-// After this there are N type/value pairs (64 bit type codes, 64 bit values) which the garbage
-// collector can walk to find all references.
+// After this there are N fields, which are type/value pairs (64 bit type codes, 64 bit values)
+// which the garbage collector can walk to find all references.
 
 Integer _gcLocked = 0; // when non-zero, GC cannot happen
 Integer _blockListStart; // start of allocation list
 Integer _blockListEnd; // end of allocation list
 Integer _blockListNext; // next allocation entry
 Integer _debugLiveBlocks = 0;
-
-Integer _blockEntrySize = 8;
-Integer _gcBlockHeaderRefCount = 0 * 8;
-Integer _gcBlockHeaderLength = 1 * 8;
-Integer _gcBlockHeaderScratchSpace = 2 * 8;
-Integer _gcBlockHeaderEntryPointer = 3 * 8;
-Integer _gcBlockData = 4 * 8;
 
 Null _blockListInit(Integer initialCount) {
   _gcLocked += 1;
@@ -188,7 +313,7 @@ GarbageCollectable _constructor(Integer typeCode, Integer length, Integer size) 
   __writeToAddress(_blockListNext, resultPointer);
   _advanceToNextBlock();
   _debugLiveBlocks += 1;
-  return resultPointer __dynamic_as__ typeCode;
+  return (resultPointer __dynamic_as__ typeCode) as GarbageCollectable;
 }
 
 Null _mark(Integer pointer, Integer tag) {
@@ -378,214 +503,119 @@ Whatever single(WhateverIterable iterable) {
   next(i);
   Whatever result = current(i);
   if (next(i)) {
-    __print('single() called with Iterable with more than one element\n');
+    stderr('single() called with Iterable with more than one element\n');
     exit(1);
   }
   return result;
 }
 
 
-// FUNCTION POINTERS, METHOD POINTERS, CLOSURES
+// CLASSES
+
+// VMT structure
+//
+// integer giving type code for this class (-1 if the class is never constructed or type checked)
+// integer giving number of fields to allocate (for construction)
+// pointer to class name (to implement .className)
+// pointer to parent vmt (to implement super.bar)
+// pointer to member lookup table for dynamic dispatch (to implement (foo as Whatever).bar)
+// for each member, we have these methods:
+//   0. a setter implementation that takes one argument and return nothing
+//      for properties, it just sets the right entry of the object
+//      for methods, it throws
+//   1. a getter implementation that takes no arguments and returns the member
+//      for properties, it just fetches the right entry from the object
+//      for methods, it creates and returns a method pointer
+//   2. a function call implementation
+//      for properties, it calls the getter, does type checks, and then invokes it with the arguments
+//      for methods, it is the actual code for the method
+//   they are stored in the vmt as follows:
+//      <type code of member>
+//      <code address to setter function>
+//      <code address to getter function>
+//      <code address to call function>
+
+// member lookup table for dynamic dispatch list
+// 32 bit zero
+// 32 bit length number of entries
+// for each entry (in increasing member name number order):
+//   32 bit (high bits) offset into vmt that gives code address to getter function (i.e. address of pointer to code address - address of vmt)
+//   32 bit (low bits) member name number
+
+// Instances are GarbageCollectable blocks whose fields are the class fields in declaration order.
+
+__Object _classAllocator(Integer vmt) __intrinsic {
+  _gcLocked += 1;
+  Integer typeCode = __readFromAddress(vmt + _vmtTypeCode);
+  assert(typeCode >= 0, 'tried to construct class without a type code');
+  Integer fieldCount = __readFromAddress(vmt + _vmtFieldCount);
+  assert(fieldCount >= 2, 'unexpectedly small field count');
+  __Object instance = _constructor(typeCode, fieldCount, fieldCount) as __Object;
+  __writeToAddress(instance __as__ Integer + _gcBlockData + 0, __typeToCode Integer);
+  __writeToAddress(instance __as__ Integer + _gcBlockData + 8, vmt);
+  __writeToAddress(instance __as__ Integer + _gcBlockData + 16, __typeToCode String);
+  __writeToAddress(instance __as__ Integer + _gcBlockData + 24, __readFromAddress(vmt + _vmtClassName));
+  if (fieldCount > 2) {
+    _fillQuadWords(instance __as__ Integer + _gcBlockData + 32, (fieldCount - 2) * 8, 0);
+  }
+  _gcLocked -= 1;
+  return instance;
+}
+
+class __Object __intrinsic {
+  Integer vmt#; // must be field 0 for _classAllocator below
+  String className; // must be field 1 for _classAllocator below
+  String toString() {
+    return concat('<', className, '>');
+  }
+  Null constructor() {}
+}
 
 // Code pointers are blocks with the following values:
 //  1: pointer to object or closure; null for global scope function pointers
 //  2: pointer to code (with annotation at -8 bytes) as an Integer
 
-WhateverFunction _createMethodPointer(Anything receiver, Integer codePointer, Integer functionTypeCode) __intrinsic {
+WhateverFunction _createMethodPointer(__Object receiver, __CodeAddress codePointer, Integer functionTypeCode) __intrinsic {
   _gcLocked += 1;
   WhateverFunction result = _constructor(functionTypeCode, 2, 2) as WhateverFunction;
-  __writeToAddress(result __as__ Integer + _gcBlockData + 0, __typeOf receiver);
-  __writeToAddress(result __as__ Integer + _gcBlockData + 8, receiver __as__ Integer);
-  __writeToAddress(result __as__ Integer + _gcBlockData + 16, __typeToCode Integer);
-  __writeToAddress(result __as__ Integer + _gcBlockData + 24, codePointer);
+  __writeToAddress(result __as__ Integer + _subroutineReceiverType, __typeOf receiver);
+  __writeToAddress(result __as__ Integer + _subroutineReceiverPointer, receiver __as__ Integer);
+  __writeToAddress(result __as__ Integer + _subroutineCodeType, __typeToCode Integer);
+  __writeToAddress(result __as__ Integer + _subroutineCodePointer, codePointer __as__ Integer);
   _gcLocked -= 1;
   return result;
 }
 
-
-
-
-
-// STRINGS AND PRINTING
-
-Integer _stringByteLength(String data) {
-  Integer pointer = data __as__ Integer;
-  return __readFromAddress(pointer + 8);
+Whatever _dummy1() {
+  throw('dummy function called');
 }
 
-String concat(String... arguments) {
-  Integer length = 0;
-  Integer index = 0;
-  while (index < len(arguments)) {
-    length += _stringByteLength(arguments[index]);
-    index += 1;
+// This function returns a getter, which you then need to call to get the actual value.
+WhateverFunction _dynamicLookup(Anything receiver, Integer methodId) __intrinsic {
+  if (!receiver is __Object) {
+    throw(concat('Cannot dynamic dispatch on ', receiver, ' which is not an object.'));
   }
-  assert(length >= 0, 'negative length detected');
-  if (length >= 2147483648) {
-    __print('absurd length detected (as exit code)\n');
-    exit(length);
-  }
-  Integer resultPointer = _alloc(16 + length);
-  __writeToAddress(resultPointer, 0); // ref count
-  __writeToAddress(resultPointer + 8, length);
-  Integer cursor = resultPointer + 16;
-  index = 0;
-  while (index < len(arguments)) {
-    String segment = arguments[index];
-    Integer segmentLength = _stringByteLength(segment);
-    if (segmentLength > 0) {
-      Integer segmentPointer = segment __as__ Integer;
-      _moveBytes(segmentPointer + 16, cursor, segmentLength);
-      cursor += segmentLength;
+  Integer vmt = (receiver as __Object).vmt#;
+  Integer ddt = __readFromAddress(vmt + _vmtDynamicDispatchTable);
+  // TODO: make this a binary search
+  Integer cursor = ddt + 8;
+  Integer end = ddt + 8 + __readFromAddress(ddt) * 8;
+  while (cursor < end) {
+    Integer entry = __readFromAddress(cursor);
+    if ((entry & 0x00000000FFFFFFFF) == methodId) {
+      return _createMethodPointer(receiver as __Object, __readFromAddress(vmt + (entry >> 32)) __as__ __CodeAddress, __typeOf _dummy1);
     }
-    index += 1;
+    cursor += 8;
   }
-  return resultPointer __as__ String;
+  throw(concat('No member with specified name found on "', (receiver as __Object).className, '".'));
 }
-
-String digitToStr(Integer digit) {
-  if (digit == 0) {
-    return '0';
-  }
-  if (digit == 1) {
-    return '1';
-  }
-  if (digit == 2) {
-    return '2';
-  }
-  if (digit == 3) {
-    return '3';
-  }
-  if (digit == 4) {
-    return '4';
-  }
-  if (digit == 5) {
-    return '5';
-  }
-  if (digit == 6) {
-    return '6';
-  }
-  if (digit == 7) {
-    return '7';
-  }
-  if (digit == 8) {
-    return '8';
-  }
-  if (digit == 9) {
-    return '9';
-  }
-  __print('Invalid digit passed to digitToStr (digit as exit code)\n');
-  exit(digit);
-}
-
-String intToStr(Integer value) {
-  if (value == 0) {
-    return '0';
-  }
-  if (value < 0) {
-    return concat('-', intToStr(-value));
-  }
-  String buffer = ''; 
-  Integer newValue = value; // parameters are final
-  while (newValue > 0) {
-    Integer digit = newValue % 10;
-    newValue = newValue / 10;
-    buffer = concat(digitToStr(digit), buffer);
-  }
-  return buffer;
-}
-
-String _joinOffset(StringList items, String joiner, Integer offset) {
-  if (len(items) - offset == 1) {
-    return items[offset];
-  }
-  return concat(items[offset], joiner, _joinOffset(items, joiner, offset + 1));
-}
-
-String join(StringList items, String joiner) {
-  if (len(items) == 0) {
-    return '';
-  }
-  // TODO: this should allocate the string ahead of time and just write each string in turn into the buffer
-  return _joinOffset(items, joiner, 0);
-}
-
-String _stringify(Anything arg) {
-  if (arg is String) {
-    return arg;
-  }
-  if (arg is Boolean) {
-    if (arg) {
-      return 'true';
-    }
-    return 'false';
-  }
-  if (arg is Null) {
-    return 'null';
-  }
-  if (arg is Integer) {
-    return intToStr(arg as Integer);
-  }
-  if (arg is AnythingFunction) {
-    Integer func = arg __as__ Integer;
-    Integer annotation = __readFromAddress(func - 8);
-    return concat('<function (', annotation __as__ String, ')>');
-  }
-  if (arg is StringList) {
-    return concat('[', join(arg as StringList, ', '), ']');
-  }
-  if (arg is WhateverList) {
-    StringList new = []:String;
-    WhateverList old = arg as WhateverList;
-    Integer i = 0;
-    while (i < len(old)) {
-      // TODO: beware infinite loops from cyclic references
-      append(new, _stringify(old[i]));
-      i += 1;
-    }
-    return concat('[', join(new, ', '), ']');
-  }
-  if (arg is __ListData) {
-    return '<__ListData>';
-  }
-  __print('value cannot be stringified\n');
-  exit(1);
-}
-
-Null print(Anything... parts) { 
-  Boolean first = true;
-  Integer index = 0;
-  while (index < len(parts)) {
-    if (first == false) {
-      __print(' ');
-    }
-    __print(_stringify(parts[index]));
-    first = false;
-    index += 1;
-  }
-}
-
-Null _println(Anything... parts) {
-  Boolean first = true;
-  Integer index = 0;
-  while (index < len(parts)) {
-    if (first == false) {
-      __print(' ');
-    }
-    __print(_stringify(parts[index]));
-    first = false;
-    index += 1;
-  }
-  __print('\n');
-}
-println = _println;
 
 
 // STANDARD LIBRARY
 
 String chr(Integer character) {
   // TODO: implement this
-  __print('chr is not implemented\n');
+  stderr('chr is not implemented\n');
   exit(1);
 }
 
@@ -606,39 +636,34 @@ String joinList(StringList args) {
 
 String stringTimes(String str, Integer count) {
   // TODO: implement this
-  __print('stringTimes is not implemented\n');
+  stderr('stringTimes is not implemented\n');
   exit(1);
 }
 
 StringList charsOf(String str) {
   // TODO: implement this
-  __print('charsOf is not implemented\n');
+  stderr('charsOf is not implemented\n');
   exit(1);
 }
 
 StringList scalarValues(String str) {
   // TODO: implement this
-  __print('scalarValues is not implemented\n');
+  stderr('scalarValues is not implemented\n');
   exit(1);
 }
 
 String hex(Integer num) {
   // TODO: implement this
-  __print('hex is not implemented\n');
+  stderr('hex is not implemented\n');
   exit(1);
 }
 
 String readFile(String file) {
   // TODO: implement this
-  __print('readFile is not implemented\n');
+  stderr('readFile is not implemented\n');
   exit(1);
 }
 
-Null stderr(String str) {
-  // TODO: implement this
-  __print('stderr is not implemented\n');
-  exit(1);
-}
 
 /* TODO: depends on charsOf, stringTimes, lists...
 String padLeft(String line, Integer length, String padding) {
@@ -646,43 +671,156 @@ String padLeft(String line, Integer length, String padding) {
 }
 */
 
-Null _debugDescribeBlock(Integer pointer, String indent) {
-  Integer blockLength = __readFromAddress(pointer + _gcBlockHeaderLength);
-  Integer cursor = pointer + _gcBlockData;
-  Integer end = cursor + blockLength * 16;
-  Integer index = 0;
-  while (cursor < end) {
-    Whatever value = __readFromAddress(cursor + 8) __dynamic_as__ __readFromAddress(cursor + 0);
-    if (value is GarbageCollectable) {
-      Integer fieldPointer = value __as__ Integer;
-      Integer refcount = __readFromAddress(fieldPointer + _gcBlockHeaderRefCount);
-      Integer length = __readFromAddress(fieldPointer + _gcBlockHeaderLength);
-      Integer entry = __readFromAddress((fieldPointer + _gcBlockHeaderEntryPointer)) / 8;
-      println(concat(indent, _stringify(index), '. type ', _stringify(__typeOf value), ': block #', _stringify(entry), ' (', _stringify(length), ' fields, referenced from ', _stringify(refcount), ' roots)'));
-      _debugDescribeBlock(fieldPointer, concat(indent, '  '));
-    } else {
-      println(concat(indent, _stringify(index), '. type ', _stringify(__typeOf value), ': ', _stringify(value)));
+
+// I/O
+
+Integer __getStdHandle(Integer handle) __extern 'kernel32.lib' 'GetStdHandle';
+Integer __writeFile(Integer hFile, Integer lpBuffer, Integer nNumberOfBytesToWrite, Integer lpNumberOfBytesWritten, Integer lpOverlapped) __extern 'kernel32.lib' 'WriteFile';
+Integer __STD_OUTPUT_HANDLE = -11;
+Integer __STD_ERROR_HANDLE = -12;
+Integer _scratch = _alloc(8); // used for lpNumberOfBytesWritten
+
+Null __writeToHandle(Integer handle, String message) {
+  __writeFile(__getStdHandle(handle), (message __as__ Integer) + 16, _stringByteLength(message), _scratch, 0);
+}
+
+String _stringify(Anything arg) {
+  if (arg is String) {
+    return arg as String;
+  }
+  if (arg is Boolean) {
+    if (arg as Boolean) {
+      return 'true';
     }
-    cursor += 16;
+    return 'false';
+  }
+  if (arg is Null) {
+    return 'null';
+  }
+  if (arg is Integer) {
+    return intToStr(arg as Integer);
+  }
+  if (arg is __Object) {
+    return (arg as __Object).toString();
+  }
+  if (arg is AnythingFunction) {
+    Integer func = arg __as__ Integer;
+    if (__readFromAddress(func + _subroutineReceiverPointer) != 0) {
+      Integer annotation = __readFromAddress(__readFromAddress(func + _subroutineCodePointer) - 8);
+      __Object class = (__readFromAddress(func + _subroutineReceiverPointer) __dynamic_as__ __readFromAddress(func + _subroutineReceiverType)) as __Object;
+      return concat('<function (method ', class.className, '.', annotation __as__ String, ')>');
+    }
+    Integer annotation = __readFromAddress(__readFromAddress(func + _subroutineCodePointer) - 8);
+    return concat('<function (', annotation __as__ String, ')>');
+  }
+  if (arg is StringList) {
+    return concat('[', join(arg as StringList, ', '), ']');
+  }
+  if (arg is WhateverList) {
+    StringList new = []:String;
+    WhateverList old = arg as WhateverList;
+    Integer i = 0;
+    while (i < len(old)) {
+      // TODO: beware infinite loops from cyclic references
+      append(new, _stringify(old[i]));
+      i += 1;
+    }
+    return concat('[', join(new, ', '), ']');
+  }
+  if (arg is __ListData) {
+    return '<__ListData>';
+  }
+  stderr('value cannot be stringified\n');
+  exit(1);
+}
+
+String _concat(Anything... arguments) {
+  if (len(arguments) == 0) {
+    return '';
+  }
+  if (len(arguments) == 1) {
+    return _stringify(arguments[0]);
+  }
+  StringList strings = []:String;
+  Integer index = 0;
+  while (index < len(arguments)) {
+    append(strings, _stringify(arguments[index]));
+    index += 1;
+  }
+  Integer length = 0;
+  index = 0;
+  while (index < len(strings)) {
+    length += _stringByteLength(strings[index]);
+    index += 1;
+  }
+  assert(length >= 0, 'negative length detected');
+  if (length >= 2147483648) {
+    stderr('absurd length detected (as exit code)\n');
+    exit(length);
+  }
+  Integer resultPointer = _alloc(16 + length);
+  __writeToAddress(resultPointer, 0); // ref count
+  __writeToAddress(resultPointer + 8, length);
+  Integer cursor = resultPointer + 16;
+  index = 0;
+  while (index < len(strings)) {
+    String segment = strings[index];
+    Integer segmentLength = _stringByteLength(segment);
+    if (segmentLength > 0) {
+      Integer segmentPointer = segment __as__ Integer;
+      _moveBytes(segmentPointer + 16, cursor, segmentLength);
+      cursor += segmentLength;
+    }
+    index += 1;
+  }
+  return resultPointer __as__ String;
+}
+concat = _concat;
+
+Null print(Anything... parts) { 
+  Boolean first = true;
+  Integer index = 0;
+  while (index < len(parts)) {
+    if (first == false) {
+      __writeToHandle(__STD_OUTPUT_HANDLE, ' ');
+    }
+    __writeToHandle(__STD_OUTPUT_HANDLE, _stringify(parts[index]));
+    first = false;
     index += 1;
   }
 }
 
-Null _debugDumpBlockList() {
-  _gcLocked += 1;
-  println(concat('Block list (', _stringify(_debugLiveBlocks), ' out of ', _stringify((_blockListEnd - _blockListStart) / 8), ' live blocks):'));
+Null println(Anything... parts) {
+  Boolean first = true;
   Integer index = 0;
-  Integer cursor = _blockListStart;
-  while (cursor < _blockListEnd) {
-    Integer pointer = __readFromAddress(cursor);
-    if (pointer != 0) {
-      Integer refcount = __readFromAddress(pointer + _gcBlockHeaderRefCount);
-      Integer length = __readFromAddress(pointer + _gcBlockHeaderLength);
-      println(concat('  #', _stringify(index), ': ', _stringify(length), ' fields, referenced from ', _stringify(refcount), ' roots'));
-      _debugDescribeBlock(pointer, '    ');
+  while (index < len(parts)) {
+    if (first == false) {
+      __writeToHandle(__STD_OUTPUT_HANDLE, ' ');
     }
-    cursor += _blockEntrySize;
+    __writeToHandle(__STD_OUTPUT_HANDLE, _stringify(parts[index]));
+    first = false;
     index += 1;
   }
-  _gcLocked -= 1;
+  __writeToHandle(__STD_OUTPUT_HANDLE, '\n');
+}
+
+Null _stderr(Anything... parts) {
+  Boolean first = true;
+  Integer index = 0;
+  while (index < len(parts)) {
+    if (first == false) {
+      __writeToHandle(__STD_ERROR_HANDLE, ' ');
+    }
+    __writeToHandle(__STD_ERROR_HANDLE, _stringify(parts[index]));
+    first = false;
+    index += 1;
+  }
+  __writeToHandle(__STD_ERROR_HANDLE, '\n');
+}
+stderr = _stderr;
+
+Null _error(Anything... arguments) __intrinsic {
+  assert(len(arguments) >= 1, 'insufficient arguments to __error');
+  stderr(arguments[0]);
+  exit(1);
 }

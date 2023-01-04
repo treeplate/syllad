@@ -1,0 +1,44 @@
+// expected exit code is 0
+
+// do not add calls to concat to this test as that will wildly change the allocation count
+// similarly do not add calls to println or stderr that would result in any stringification
+
+_gcLocked += 1;
+if (true) {
+  if (true) {
+    // by this point we've allocated two things: the block entry list, and some scratch space
+    Integer count = _blockCount;
+    assert(count == 2, 'unexpected allocation count A');
+  }
+  AnythingList foo = []; // allocates a list header and a list data with unused space for one item
+  if (true) {
+    Integer count = _blockCount;
+    assert(count == 4, 'unexpected allocation count B');
+  }
+  if (true) {
+    append(foo, []); // allocates a new list and list data for the literal, but the append should use the room in the original list data
+  }
+  if (true) {
+    Integer count = _blockCount;
+    assert(count == 6, 'unexpected allocation count C');
+  }
+  if (true) {
+    foo[0] = null; // disconnects the new list, but since gc is locked it will definitely not be freed
+  }
+  if (true) {
+    Integer count = _blockCount;
+    assert(count == 6, 'unexpected allocation count D');
+  }
+  _gcLocked -= 1;
+  _garbageCollector(); // frees the second list and its list data
+  _gcLocked += 1;
+  Integer count = _blockCount;
+  assert(count == 4, 'unexpected allocation count E');
+  // at this point the first list goes out of scope and is disconnected
+}
+_gcLocked -= 1;
+_garbageCollector(); // frees the first list and its list data
+_gcLocked += 1;
+Integer count = _blockCount;
+// here we're back to the original set of allocations
+assert(count == 2, 'unexpected allocation count F');

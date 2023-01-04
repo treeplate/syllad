@@ -1,0 +1,8 @@
+// expected output: Line 1
+
+// (this file does not use import, but is imported by import_1)
+
+Null func(String arg) {
+  println(arg);
+}
+func("Line 1");

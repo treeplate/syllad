@@ -1,4 +1,5 @@
 {
     "editor.wordWrap": "on",
-    "debug.console.collapseIdenticalLines": false
+    "debug.console.collapseIdenticalLines": false,
+    "dart.lineLength": 160
 }

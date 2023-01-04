@@ -11,3 +11,6 @@ test.syd
 *.pdb
 mllink$.lnk
 syd.obj
+.packages
+.dart_tool
+profile.txt

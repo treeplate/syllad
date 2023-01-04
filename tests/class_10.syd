@@ -1,0 +1,9 @@
+// expected output: SUCCESS
+
+class Foo {
+  Null constructor() {
+    println('SUCCESS');
+  }
+}
+
+Foo();

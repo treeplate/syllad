@@ -1,0 +1,8 @@
+// expected exit code is 0
+
+Null foo() {}
+Integer i = 0;
+while(i < 1000000) {
+    i++;
+    foo();
+}

@@ -1,0 +1,7 @@
+// expected output: PASS
+
+class Test {
+  String foo = 'PASS';
+}
+
+println(Test().foo);

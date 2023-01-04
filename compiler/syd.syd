@@ -1,3 +1,129 @@
+/*
+// expected output: <function B.foo>
+// expected output: 2
+// expected output: should throw
+
+class A {
+  IntegerFunction foo;
+
+  Integer original() {
+    return 1;
+  }
+
+  Null test() {
+    println(foo);
+    println(foo());
+    foo = original; // should throw
+    println(foo);
+    println(foo());
+  }
+}
+
+class B {
+  Integer foo() { return 2; }
+}
+
+B().test();
+*/
+
+/* ADD TO A TEST: 
+fwdclass A;
+class B extends A { } // should be an error
+class A { }
+*/
+
+
+
+/* ADD TO A TEST:
+
+class A {
+  Null foo() {
+    println(b); // THIS SHOULD FAIL BECAUSE "b" IS NOT YET DEFINED
+  }
+
+  Integer b = 1;
+}
+
+A().foo();
+*/
+
+/*
+
+Null foo(Whatever w) { println('foo'); }
+Null bar(Whatever w) { println('bar'); }
+NullFunction x = foo;
+
+Null changeX() {
+  x = bar;
+}
+
+x(changeX());
+
+*/
+
+/*
+class A {
+  Whatever foo = 1;
+  Null bar() { println(concat('A::foo: ', foo)); }
+}
+
+class B extends A {
+  Null foo() { }
+  Null bar() {
+    println(concat('B::foo: ', foo)); 
+    //println(concat('B::super.foo: ', super.foo)); 
+    super.bar();
+  }
+}
+
+class C extends B {
+  Whatever foo = 2;
+  Null bar() {
+    println(concat('C::foo: ', foo)); 
+    println(concat('C::super.foo: ', super.foo)); 
+    super.bar();
+  }
+}
+*/
+/*
+Null zap() { }
+
+class A {
+  Whatever foo = zap;
+}
+
+class B extends A {
+  Null foo() { return super.foo(); }
+}
+
+class C extends B {
+  Whatever foo = zap;
+}
+
+C().foo();
+*/
+
+/*
+
+println('runtime:');
+
+Integer func1() { return 666; } // a
+
+class A {
+  Integer field1 = func1(); // refers to a, hopefully 
+  Integer func1() { println('func1'); return 1; } // b
+}
+
+class B extends A {
+  Integer field2 = func1(); // refers to b, hopefully
+}
+
+B b = B();
+println(b.field1, b.field2);
+
+
+/*/
+
 import 'syd-tokenizer.syd';
 import 'syd-ast.syd';
 import 'syd-parser.syd';
@@ -6,7 +132,7 @@ import 'syd-assembler.syd';
 
 stderr('syllad self-hosting compiler');
 // syllad spec:
-// intrinsics.txt + rtl.syd = built-in functions
+// some built-in functions
 // while loop
 // for-in loops
 // classical if-else
@@ -77,7 +203,7 @@ stderr('syllad self-hosting compiler');
 
 CompiledLibrary processFile(String filename, CompilationEnvironment compilationEnvironment, Boolean isProgram) {
   assert(compilationEnvironment.getLibraryState(filename) == lsUnknown, 'processFile has already processed this file');
-  Library ast = parseTokens(tokenize(scalarValues(readFile(filename)), filename), filename, isProgram);
+  Library ast = parseTokens(tokenize(scalarValues(readFile(filename)), filename, false), filename, isProgram);
   compilationEnvironment.declareLibrary(filename);
   for (child in ast.children) {
     if (child is ImportStatement) {
@@ -96,10 +222,11 @@ CompiledLibrary processFile(String filename, CompilationEnvironment compilationE
   return ast.generateScopes(compilationEnvironment);
 }
 
-String mainProgramFileName = 'temp.syd';
+assert(len(args) > 0, 'no input file specified');
+String mainProgramFileName = args[0];
 CompilationEnvironment compilationEnvironment = CompilationEnvironment();
 compilationEnvironment.setRuntimeLibrary(
-  parseTokens(tokenize(scalarValues(readFile('syd-rtl.syd')), 'runtime library'), 'runtime library', false).generateScopes(compilationEnvironment)
+  parseTokens(tokenize(scalarValues(readFile('syd-rtl.syd')), 'runtime library', true), 'runtime library', false).generateScopes(compilationEnvironment)
 );
 CompiledLibrary program = processFile(mainProgramFileName, compilationEnvironment, true);
 compilationEnvironment.defineLibrary(mainProgramFileName, program);
