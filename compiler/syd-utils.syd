@@ -160,10 +160,6 @@ class AstNode extends Object {
     return toStringIndent(0);
   }
 
-  Null walk(NullFunction callback, Anything context) {
-    // no children
-  }
-
   Null constructor(SourceLocation sourceLocationArg) {
     super.constructor();
     sourceLocation = sourceLocationArg;

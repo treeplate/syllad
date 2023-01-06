@@ -4,8 +4,6 @@ import 'syd-utils.syd';
 import 'syd-compiler.syd';
 import 'syd-loop-scopes.syd';
 
-// TODO: remove "walk"
-
 class TypeIdentifier extends AstNode {
   String name;
   
@@ -45,18 +43,11 @@ class StatementBlock extends AstNode {
     return joinList(buffer);
   }
 
-  Null walk(NullFunction callback, Anything context) {
-    for (child in children) {
-      callback(child, context);
-    }
-  }
-
   Null generateInstructions(CompiledScope scope) {
-    Null compileChild(Statement child, CompiledScope scope) {
+    for (child in children) {
       scope.markSourceLocation(child);
       child.generateInstructions(scope);
     }
-    walk(compileChild, scope);
   }
 
   Null constructor(StatementList statementsArg, SourceLocation sourceLocationArg) {
@@ -128,12 +119,6 @@ class ListLiteralExpression extends Expression {
       elementTypeString = concat(':', elementType!.toStringIndent(indent));
     }
     return concat('[', join(map(values, indenter) as StringList, ','), ']', elementTypeString);
-  }
-
-  Null walk(NullFunction callback, Anything context) {
-    for (child in values) {
-      callback(child, context);
-    }
   }
 
   Slot generateInstructions(CompiledScope scope) {
@@ -348,11 +333,6 @@ class SubscriptExpression extends LValueExpression {
     return SubscriptLValue(_evaluatedElementType, scope.emitSubscriptEvaluation(_evaluatedList, _evaluatedArgument));
   }
 
-  Null walk(NullFunction callback, Anything context) {
-    callback(list, context);
-    callback(argument, context);
-  }
-
   Null constructor(Expression listArg, Expression argumentArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     list = listArg;
@@ -366,10 +346,6 @@ class MemberAccessExpression extends LValueExpression {
   
   String toStringIndent(Integer indent) {
     return concat(object.toStringIndent(indent), '.', member);
-  }
-
-  Null walk(NullFunction callback, Anything context) {
-    callback(object, context);
   }
 
   Slot generateInstructions(CompiledScope scope) {
@@ -523,13 +499,6 @@ class SubroutineCallExpression extends Expression {
     return concat(subroutineReference.toStringIndent(indent), '(', joinList(argumentsList), ')');
   }
 
-  Null walk(NullFunction callback, Anything context) {
-    callback(subroutineReference, context);
-    for (child in arguments) {
-      callback(child, context);
-    }
-  }
-
   Slot generateInstructions(CompiledScope scope) {
     return generateInstructionsForSubroutineCallExpression(scope, subroutineReference.generateInstructions(scope), arguments, subroutineReference, sourceLocation);
   }
@@ -544,12 +513,6 @@ class SubroutineCallExpression extends Expression {
 class VariableSubroutineCallExpression extends Expression {
   String name;
   ExpressionList arguments;
-
-  Null walk(NullFunction callback, Anything context) {
-    for (child in arguments) {
-      callback(child, context);
-    }
-  }
 
   String toStringIndent(Integer indent) {
     StringList argumentsList = []:String;
@@ -628,13 +591,6 @@ class MemberAccessSubroutineCallExpression extends Expression {
     return concat(object.toStringIndent(indent), '.', member, '(', joinList(argumentsList), ')');
   }
 
-  Null walk(NullFunction callback, Anything context) {
-    callback(object, context);
-    for (child in arguments) {
-      callback(child, context);
-    }
-  }
-
   Slot generateInstructions(CompiledScope scope) {
     Slot subroutine;
     Slot lSlot = object.generateInstructions(scope);
@@ -682,12 +638,6 @@ class SuperSubroutineCallExpression extends Expression {
     return concat('super.', method, '(', joinList(argumentsList), ')');
   }
 
-  Null walk(NullFunction callback, Anything context) {
-    for (child in arguments) {
-      callback(child, context);
-    }
-  }
-
   Slot generateInstructions(CompiledScope scope) {
     CompiledSubroutine targetMethod = evaluateSuper(scope, method, sourceLocation);
     CompiledSubroutine thisMethod = scope.stackFrame() as CompiledSubroutine;
@@ -709,10 +659,6 @@ class UnwrapExpression extends Expression {
     return concat(lhs.toStringIndent(indent), '!');
   }
 
-  Null walk(NullFunction callback, Anything context) {
-    callback(lhs, context);
-  }
-
   Slot generateInstructions(CompiledScope scope) {
     // TODO: implement unwrap
     throw('unwrap not implemented');
@@ -730,10 +676,6 @@ class IsOperatorExpression extends Expression {
   
   String toStringIndent(Integer indent) {
     return concat(expression.toStringIndent(indent), ' is ', type);
-  }
-
-  Null walk(NullFunction callback, Anything context) {
-    callback(expression, context);
   }
 
   Slot generateInstructions(CompiledScope scope) {
@@ -757,10 +699,6 @@ class AsOperatorExpression extends Expression {
   
   String toStringIndent(Integer indent) {
     return concat(expression.toStringIndent(indent), ' as ', type);
-  }
-
-  Null walk(NullFunction callback, Anything context) {
-    callback(expression, context);
   }
 
   Slot generateInstructions(CompiledScope scope) {
@@ -793,10 +731,6 @@ class ReinterpretAsOperatorExpression extends Expression {
     return concat(expression.toStringIndent(indent), ' __as__ ', type);
   }
 
-  Null walk(NullFunction callback, Anything context) {
-    callback(expression, context);
-  }
-
   Slot generateInstructions(CompiledScope scope) {
     Slot exprSlot = expression.generateInstructions(scope);
     Type rhs = type.generateInstructions(scope);
@@ -819,10 +753,6 @@ class ReinterpretDynamicAsOperatorExpression extends Expression {
   
   String toStringIndent(Integer indent) {
     return concat(expression.toStringIndent(indent), ' __dynamic_as__ ', type);
-  }
-
-  Null walk(NullFunction callback, Anything context) {
-    callback(expression, context);
   }
 
   Slot generateInstructions(CompiledScope scope) {
@@ -869,10 +799,6 @@ class UnaryExpression extends Expression {
       describeOperator(),
       rhs.toStringIndent(indent),
     );
-  }
-
-  Null walk(NullFunction callback, Anything context) {
-    callback(rhs, context);
   }
 
   Slot generateInstructions(CompiledScope scope) {
@@ -1054,10 +980,6 @@ class TypeToCodeExpression extends Expression {
   String describeOperator() {
     return '__typeToCode';
   }
-
-  Null walk(NullFunction callback, Anything context) {
-    callback(rhs, context);
-  }
   
   String toStringIndent(Integer indent) {
     return concat(
@@ -1116,11 +1038,6 @@ class OperatorExpression extends Expression {
       ' ',
       rhs.toStringIndent(indent),
     );
-  }
-
-  Null walk(NullFunction callback, Anything context) {
-    callback(lhs, context);
-    callback(rhs, context);
   }
 
   Slot generateInstructions(CompiledScope scope) {
@@ -1536,10 +1453,6 @@ class AbstractSubroutineDeclarationStatement extends DeclarationStatement {
   AnythingListList parameters; // pairs of type (TypeIdentifier) and identifier (String)
   Boolean isVarArgs;
   StatementBlock body;
-
-  Null walk(NullFunction callback, Anything context) {
-    callback(body, context);
-  }
 
   ClassTypeNullable receiverType() {
     abstract();
@@ -2070,10 +1983,6 @@ class ExpressionStatement extends Statement {
     return concat(expression.toStringIndent(indent), ';\n');
   }
 
-  Null walk(NullFunction callback, Anything context) {
-    callback(expression, context);
-  }
-
   Null generateInstructions(CompiledScope scope) {
     expression.generateInstructions(scope); // return value is discarded
   }
@@ -2092,10 +2001,6 @@ class ReturnStatement extends Statement {
       return 'return;';
     }
     return concat('return ', expression!.toStringIndent(indent), ';\n');
-  }
-
-  Null walk(NullFunction callback, Anything context) {
-    callback(expression, context);
   }
 
   Null generateInstructions(CompiledScope scope) {
@@ -2194,11 +2099,6 @@ class StraightAssignmentStatement extends Statement {
     lValue.generateLValue(scope).assign(scope, rSlot, sourceLocation);
   }
 
-  Null walk(NullFunction callback, Anything context) {
-    callback(lValue, context);
-    callback(rValue, context);
-  }
-
   Null constructor(LValueExpression lValueArg, Expression rValueArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     lValue = lValueArg;
@@ -2231,11 +2131,6 @@ class AssignmentStatement extends Statement {
     Slot rSlot = rValue.generateInstructions(scope);
     Slot result = computeResult(scope, lSlot, rSlot);
     lValue.generateLValue(scope).assign(scope, result, sourceLocation);
-  }
-
-  Null walk(NullFunction callback, Anything context) {
-    callback(lValue, context);
-    callback(rValue, context);
   }
 
   Null constructor(LValueExpression lValueArg, Expression rValueArg, SourceLocation sourceLocationArg) {
@@ -2387,14 +2282,6 @@ class IfStatement extends Statement {
     scope.emitConditionalBlock(blockScope, elseBlockScope, expressionHandle, (scope.environment().intrinsicsLibrary.coreFalse as Slot), 'if', concat(expression));
   }
 
-  Null walk(NullFunction callback, Anything context) {
-    callback(expression, context);
-    callback(block, context);
-    if (elseClause != null) {
-      callback(elseClause, context);
-    }
-  }
-
   Null constructor(Expression expressionArg, StatementBlock blockArg, ElseClauseNullable elseClauseArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     expression = expressionArg;
@@ -2414,10 +2301,6 @@ class DefaultElseClause extends ElseClause {
     );
   }
 
-  Null walk(NullFunction callback, Anything context) {
-    callback(block, context);
-  }
-
   Null generateInstructions(CompiledScope scope) {
     block.generateInstructions(scope);
   }
@@ -2433,10 +2316,6 @@ class ElseIfClause extends ElseClause {
   
   String toStringIndent(Integer indent) {
     return concat(' else ', ifClause.toStringIndent(indent));
-  }
-
-  Null walk(NullFunction callback, Anything context) {
-    callback(ifClause, context);
   }
 
   Null generateInstructions(CompiledScope scope) {
@@ -2459,11 +2338,6 @@ class WhileStatement extends Statement {
       block.toStringIndent(indent + 2),
       stringTimes(' ', indent), '}\n',
     );
-  }
-
-  Null walk(NullFunction callback, Anything context) {
-    callback(expression, context);
-    callback(block, context);
   }
 
   Null generateInstructions(CompiledScope scope) {
@@ -2503,11 +2377,6 @@ class ForStatement extends Statement {
       block.toStringIndent(indent + 2),
       stringTimes(' ', indent), '}\n',
     );
-  }
-
-  Null walk(NullFunction callback, Anything context) {
-    callback(iterable, context);
-    callback(block, context);
   }
 
   Null generateInstructions(CompiledScope scope) {
