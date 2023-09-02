@@ -1,0 +1,14 @@
+// expected error: extraneous override annotation
+// expected output: START
+
+println('START');
+
+class A { }
+
+class B extends A {
+  //#override
+  Null foo() {
+  }
+}
+
+B;

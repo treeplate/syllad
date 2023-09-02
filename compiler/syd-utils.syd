@@ -1,5 +1,8 @@
 import 'core.syd';
 
+// This escapes a string for the purposes of display to the user.
+// This function does not preserve all data. Control characters
+// and non-ASCII characters are replaced by a dot.
 String escapeString(String value) {
   StringList buffer = []:String;
   for (char in scalarValues(value)) {
@@ -69,67 +72,49 @@ String hexH(Integer value) {
   return hex64(value);
 }
 
-String stringLiteral(String value) {
-  assert(value != '', 'empty strings are not representable in assembler');
-  StringList buffer = []:String;
-  Boolean quoted = false;
-  for (char in scalarValues(value)) {
-    if (char == 0x22 && quoted) {
-      append(buffer, '""');
-    } else if (char < 0x20 || char > 0x7e || char == 0x22) {
-      if (quoted) {
-        append(buffer, '"');
-        quoted = false;
-      }
-      if (len(buffer) > 0) {
-        append(buffer, ', ');
-      }
-      append(buffer, concat(padLeft(hex(char), 2, '0'), 'h'));
-    } else {
-      if (!quoted) {
-        if (len(buffer) > 0) {
-          append(buffer, ', ');
-        }
-        append(buffer, '"');
-        quoted = true;
-      }
-      append(buffer, chr(char));
-    }
-  }
-  if (quoted) {
-    append(buffer, '"');
-  }
-  return joinList(buffer);
-}
-
 String camelCase(String value) {
   StringList buffer = []:String;
   Boolean needUpper = false;
   for (char in scalarValues(value)) {
-    if (char >= 0x41 && char <= 0x5A) { // A-Z
-      if (needUpper) {
-        append(buffer, chr(char));
-      } else {
-        append(buffer, chr(char + 0x20));
-      }
-    } else if (char >= 0x61 && char <= 0x7A) {
+    if (char >= 0x41 && char <= 0x5A) { // capital A-Z
+      append(buffer, chr(char));
+    } else if (char >= 0x61 && char <= 0x7A) { // lowercase a-z
       if (needUpper) {
         append(buffer, chr(char - 0x20));
         needUpper = false;
       } else {
         append(buffer, chr(char));
       }
-    } else if (char == 0x24) {
+    } else if (char == 0x24 || char == 0x5f) { // $, _
       append(buffer, chr(char));
       needUpper = false;
     } else {
-      if (char >= 0x30 && char <= 0x39) {
+      if (char >= 0x30 && char <= 0x39) { // 0-9
         append(buffer, chr(char));
       }
       needUpper = true;
     }
   }
   return joinList(buffer);
+}
+
+String commentNameForString(String value) {
+  StringList buffer = []:String;
+  // TODO: this should iterate over the UTF-8 encoded bytes, not the Unicode Scalar Values
+  append(buffer, '"');
+  for (char in scalarValues(value)) {
+    if (len(buffer) > 20) {
+      append(buffer, '...');
+      break;
+    }
+    if (char >= 0x20 && char <= 0x7e && char != 0x22) {
+      append(buffer, chr(char));
+    } else {
+      append(buffer, concat('\\x', padLeft(hex(char), 2, '0')));
+    }
+  }
+  append(buffer, '"');
+  return join(buffer, '');
 }
 
 class SourceLocation extends Object {
@@ -143,7 +128,8 @@ class SourceLocation extends Object {
     colNo = colNoArg;
     filename = filenameArg;
   }
-
+  
+  //#override
   String toString() {
     return concat('line ', lineNo, ' column ', colNo, ' in file ', filename);
   }
@@ -156,6 +142,7 @@ class AstNode extends Object {
     abstract();
   }
 
+  //#override
   String toString() {
     return toStringIndent(0);
   }
@@ -163,5 +150,32 @@ class AstNode extends Object {
   Null constructor(SourceLocation sourceLocationArg) {
     super.constructor();
     sourceLocation = sourceLocationArg;
+  }
+}
+
+fwdclass AssemblerLabel(AssemblerLabelNullable, String) extends Object;
+class AssemblerLabel extends Object {
+  AssemblerLabelNullable parent;
+  String name;
+
+  //#override
+  String toString() {
+    StringList bits = []:String;
+    AssemblerLabelNullable current = this;
+    while (current != null) {
+      append(bits, current!.name);
+      current = current!.parent;
+    }
+    return join(reverse(bits) as StringList, '::');
+  }
+
+  AssemblerLabel deriveWith(String next) {
+    return AssemblerLabel(this, next);
+  }
+
+  Null constructor(AssemblerLabelNullable parentArg, String nameArg) {
+    super.constructor();
+    parent = parentArg;
+    name = nameArg;
   }
 }

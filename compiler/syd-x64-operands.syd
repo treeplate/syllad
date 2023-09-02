@@ -1,0 +1,1081 @@
+import 'core.syd';
+import 'syd-utils.syd';
+import 'syd-datum.syd';
+
+fwdclass StackMetrics extends Object;
+fwdclass Operand(String) extends Object;
+fwdclass ImmediateOperand(String) extends Operand;
+fwdclass RegisterOperand extends Operand;
+fwdclass Register64Operand(String, String, String, String, Integer) extends RegisterOperand;
+fwdclassprop Integer Register64Operand.bit;
+fwdclass MemoryOperand(String) extends Operand;
+fwdclass RawAddressComputationOperand(RegisterOperandNullable, RegisterOperandNullable, Integer, Integer, ow, String) extends MemoryOperand;
+fwdclass DereferenceLabelOperand(AssemblerLabel, ow, String) extends MemoryOperand;
+fwdclass SnapshotStackOperand(StackMetrics, Integer, Integer, ow, String) extends MemoryOperand;
+fwdclass StackOperand(Integer, String) extends MemoryOperand;
+
+// operand kinds (more below where we define registers)
+Integer stack = 0x00000001;
+Integer global = 0x00000002;
+Integer heap = 0x00000004; // dubious...
+Integer rcxShadow = 0x00000010;
+Integer rdxShadow = 0x00000020;
+Integer r8Shadow = 0x00000040;
+Integer r9Shadow = 0x00000080;
+Integer shadow = rcxShadow | rdxShadow | r8Shadow | r9Shadow;
+Integer memory = stack | shadow | global | heap;
+Integer immediate8 = 0x0000100;
+Integer immediate16 = 0x0000200;
+Integer immediate32 = 0x0000400;
+Integer immediate64 = 0x0000800;
+Integer immediate = immediate8 | immediate16 | immediate32 | immediate64;
+
+// includes a space suffix
+String prefixFor(ow size) {
+  if (size == ow.Byte) {
+    return 'byte ';
+  } else if (size == ow.Word) {
+    return 'word ';
+  } else if (size == ow.DWord) {
+    return 'dword ';
+  } else if (size == ow.QWord) {
+    return 'qword ';
+  } else {
+    assert(false, 'contract violation');
+  }
+}
+
+// includes a space suffix
+String dataPrefixFor(ow size) {
+  if (size == ow.Byte) {
+    return 'db ';
+  } else if (size == ow.Word) {
+    return 'dw ';
+  } else if (size == ow.DWord) {
+    return 'dd ';
+  } else if (size == ow.QWord) {
+    return 'dq ';
+  } else {
+    assert(false, 'contract violation');
+  }
+}
+
+class StackMetrics extends Object {
+  Integer stackSize = 0;
+
+  Null growStackTo(Integer newSize) {
+    if (stackSize < newSize) {
+      stackSize = newSize;
+    }
+  }
+
+  //#override
+  String toString() {
+    return concat('StackMetrics(size: ', stackSize, ')');
+  }
+
+  String generateOperand(Integer index, Integer pushLevel, ow width) {
+    Integer frameSize = stackSize * 0x08 + pushLevel * 0x08;
+    return concat(prefixFor(width), 'ptr [rsp + ', hex8(frameSize - (index + 1) * 0x08), ']');
+  }
+}
+
+class Operand extends Object {
+  String commentName;
+
+  Boolean isOperandKind(Integer kind) {
+    abstract();
+  }
+
+  Integer operandVariety() {
+    abstract();
+  }
+
+  Boolean isAssigned() {
+    abstract();
+  }
+
+  Boolean pinned = false; // whether the actual register(s) assigned matter(s) to the processor or the calling convention
+
+  Null pinOperand() {
+    assert(isAssigned(), 'contract violation: cannot pin unassigned operands');
+    pinned = true;
+  }
+
+  Null assignOperand(Operand newOperand) {
+    assert(isAssigned(), concat(className, ' does not implement assignOperand() but can report being unassigned'));
+    assert(false, 'cannot call assignOperand() on already-assigned operands');
+  }
+
+  Boolean wantsStackOperand() {
+    assert(isAssigned(), concat(className, ' does not implement wantsStackOperand() but can report being unassigned'));
+    assert(false, 'cannot call wantsStackOperand() on already-assigned operands');
+    return false;
+  }
+
+  String serialize(StringFunction labelSerializer) {
+    abstract();
+  }
+
+  // only to be called after registers are assigned, when generating actual assembler code
+  Operand asWidth(ow width) {
+    abstract();
+  }
+
+  Boolean canBeDereferencedWithOffset(Integer offset) {
+    if (offset == 0) {
+      return true;
+    }
+    return false;
+  }
+
+  // only to be called after registers are assigned, when generating actual assembler code
+  MemoryOperand dereference(ow size, Integer offset) {
+    abstract();
+  }
+
+  // returns null if the result is unknown
+  IntegerNullable toInteger() {
+    return null;
+  }
+
+  Integer usedRegisters() {
+    return 0;
+  }
+
+  StackOperandNullable asStackOperand() {
+    assert(!isOperandKind(stack), concat(className, '.asStackOperand() not implemented, but isOperandKind(stack) is true (', this, ')'));
+    return null;
+  }
+
+  Operand snapshot(StackMetrics stackMetrics, Integer pushLevel) {
+    return this;
+  }
+
+  Null updateStackMetrics(StackMetrics stackMetrics) { }
+
+  Operand unwrap() {
+    return this;
+  }
+
+  Boolean equals(Operand other) {
+    assert(unwrap() == this, 'always call unwrap before checking equality');
+    assert(other.unwrap() == other, 'always call unwrap before checking equality');
+    return this == other;
+  }
+
+  Null constructor(String commentNameArg) {
+    super.constructor();
+    commentName = commentNameArg;
+  }
+}
+
+class ImmediateOperand extends Operand {
+  ow minWidth() {
+    abstract();
+  }
+
+  //#override
+  Integer operandVariety() {
+    if (minWidth() == ow.QWord) {
+      return 0x1; // imm64
+    }
+    return 0x2; // imm32
+  }
+
+  //#override
+  Boolean isAssigned() {
+    return true;
+  }
+
+  //#override
+  Boolean isOperandKind(Integer kind) {
+    ow width = minWidth();
+    if (width == ow.Byte) { // imm8
+      return (kind & immediate8) == immediate8;
+    }
+    if (width == ow.Word) { // imm16
+      return (kind & immediate16) == immediate16;
+    }
+    if (width == ow.DWord) { // imm32
+      return (kind & immediate32) == immediate32;
+    }
+    // imm64
+    return (kind & immediate64) == immediate64;
+  }
+}
+
+fwdclass ImmediateIntegerOperand(Integer, String) extends ImmediateOperand;
+class ImmediateIntegerOperand extends ImmediateOperand {
+  Integer value;
+
+  //#override
+  ow minWidth() {
+    if (value < 0) {
+      return ow.QWord;
+    }
+    if (value <= 0xFF) {
+      return ow.Byte;
+    }
+    if (value <= 0x7FFF) {
+      return ow.Word;
+    }
+    if (value <= 0x7FFFFFFF) {
+      return ow.DWord;
+    }
+    return ow.QWord;
+  }
+
+  //#override
+  String serialize(StringFunction labelSerializer) {
+    return hexH(value);
+  }
+
+  //#override
+  IntegerNullable toInteger() {
+    return value;
+  }
+
+  //#override
+  Operand asWidth(ow width) {
+    if (width == ow.Byte) {
+      return ImmediateIntegerOperand(value & 0xFF, commentName);
+    }
+    if (width == ow.Word) {
+      return ImmediateIntegerOperand(value & 0xFFFF, commentName);
+    }
+    if (width == ow.DWord) {
+      return ImmediateIntegerOperand(value & 0xFFFFFFFF, commentName);
+    }
+    assert(width == ow.QWord, 'unknown width');
+    return this;
+  }
+
+  //#override
+  Boolean canBeDereferencedWithOffset(Integer offset) {
+    return true;
+  }
+
+  //#override
+  MemoryOperand dereference(ow size, Integer offset) {
+    assert(minWidth() != ow.QWord, 'can\'t dereference 64-bit immediate');
+    return RawAddressComputationOperand(null, null, 1, value + offset, size, concat(commentName, ' dereferenced'));
+  }
+
+  //#override
+  String toString() {
+    return hexH(value);
+  }
+
+  //#override
+  Boolean equals(Operand other) {
+    return (other is ImmediateIntegerOperand) && ((other as ImmediateIntegerOperand).value == value);
+  }
+
+  Null constructor(Integer valueArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    value = valueArg;
+  }
+}
+
+// Operand that represents the address of a given label.
+// This is an assemble-time constant.
+class DataAddressOperand extends ImmediateOperand {
+  AssemblerLabel value;
+
+  //#override
+  ow minWidth() {
+    return ow.QWord;
+  }
+
+  //#override
+  String serialize(StringFunction labelSerializer) {
+    return concat('offset ', labelSerializer(value));
+  }
+
+  //#override
+  Operand asWidth(ow width) {
+    assert(width == ow.QWord, 'addresses are always qwords in x64');
+    return this;
+  }
+
+  //#override
+  Boolean canBeDereferencedWithOffset(Integer offset) {
+    return offset == 0;
+  }
+
+  //#override
+  MemoryOperand dereference(ow size, Integer offset) {
+    assert(offset == 0, concat('only call dereference with offsets that return true from canBeDereferencedWithOffset() - DataAddressOperand can\'t be called with offset ', offset, ', even for label ', value));
+    return DereferenceLabelOperand(value, size, concat(commentName, ' dereferenced'));
+  }
+
+  //#override
+  String toString() {
+    return concat('<offset ', value, '>');
+  }
+
+  //#override
+  Boolean equals(Operand other) {
+    return (other is DataAddressOperand) && ((other as DataAddressOperand).value == value);
+  }
+
+  Null constructor(AssemblerLabel valueArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    value = valueArg;
+  }
+}
+
+// Operand that represents code with a given label.
+// This is an assemble-time constant.
+class CodeAddressOperand extends ImmediateOperand {
+  AssemblerLabel value;
+
+  //#override
+  ow minWidth() {
+    return ow.QWord;
+  }
+
+  //#override
+  String serialize(StringFunction labelSerializer) {
+    return labelSerializer(value);
+  }
+
+  //#override
+  Operand asWidth(ow width) {
+    assert(width == ow.QWord, 'code addresses are always rel32s in x64');
+    return this;
+  }
+
+  //#override
+  Boolean canBeDereferencedWithOffset(Integer offset) {
+    return false;
+  }
+
+  //#override
+  MemoryOperand dereference(ow size, Integer offset) {
+    assert(false, 'canBeDereferencedWithOffset ignored');
+    unimplemented();
+  }
+
+  //#override
+  String toString() {
+    return concat('<', value, '>');
+  }
+
+  //#override
+  Boolean equals(Operand other) {
+    return (other is CodeAddressOperand) && ((other as CodeAddressOperand).value == value);
+  }
+
+  Null constructor(AssemblerLabel valueArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    value = valueArg;
+  }
+}
+
+class RegisterOperand extends Operand {
+  //#override
+  Integer operandVariety() {
+    return 0x8; // register
+  }
+
+  //#override
+  Boolean isAssigned() {
+    return true;
+  }
+  
+  //#override
+  String toString() {
+    String serializer() {
+      throw('shouldn\'t call the serializer');
+    }
+    return serialize(serializer);
+  }
+
+  //#override
+  Boolean canBeDereferencedWithOffset(Integer offset) {
+    return true;
+  }
+
+  //#override
+  MemoryOperand dereference(ow size, Integer offset) {
+    return RawAddressComputationOperand(this, null, 1, offset, size, concat(commentName, ' dereferenced'));
+  }
+
+  Null constructor() {
+    String serializer() {
+      throw('shouldn\'t call the serializer');
+    }
+    super.constructor(serialize(serializer));
+  }
+}
+
+fwdclassprop String Register64Operand.r8;
+fwdclassprop String Register64Operand.r16;
+fwdclassprop String Register64Operand.r32;
+fwdclassprop Integer Register64Operand.bit;
+
+class Register8Operand extends RegisterOperand {
+  Register64Operand register;
+
+  //#override
+  Boolean isOperandKind(Integer kind) {
+    return (kind & register.bit) > 0;
+  }
+
+  //#override
+  String serialize(StringFunction labelSerializer) {
+    return register.r8;
+  }
+
+  //#override
+  Operand asWidth(ow width) {
+    return this;
+  }
+  
+  //#override
+  Integer usedRegisters() {
+    return register.bit;
+  }
+
+  Null constructor(Register64Operand registerArg) {
+    register = registerArg;
+    super.constructor();
+  }
+}
+
+class Register16Operand extends RegisterOperand {
+  Register64Operand register;
+
+  //#override
+  Boolean isOperandKind(Integer kind) {
+    return (kind & register.bit) > 0;
+  }
+
+  //#override
+  String serialize(StringFunction labelSerializer) {
+    return register.r16;
+  }
+
+  //#override
+  Operand asWidth(ow width) {
+    if (width == ow.Byte) {
+      return Register8Operand(register);
+    }
+    return this;
+  }
+
+  //#override
+  Integer usedRegisters() {
+    return register.bit;
+  }
+
+  Null constructor(Register64Operand registerArg) {
+    super.constructor();
+    register = registerArg;
+  }
+}
+
+class Register32Operand extends RegisterOperand {
+  Register64Operand register;
+
+  //#override
+  Boolean isOperandKind(Integer kind) {
+    return (kind & register.bit) > 0;
+  }
+
+  //#override
+  String serialize(StringFunction labelSerializer) {
+    return register.r32;
+  }
+
+  //#override
+  Operand asWidth(ow width) {
+    if (width == ow.Byte) {
+      return Register8Operand(register);
+    }
+    if (width == ow.Word) {
+      return Register16Operand(register);
+    }
+    return this;
+  }
+
+  //#override
+  Integer usedRegisters() {
+    return register.bit;
+  }
+
+  Null constructor(Register64Operand registerArg) {
+    register = registerArg;
+    super.constructor();
+  }
+}
+
+class Register64Operand extends RegisterOperand {
+  String r64;
+  String r32;
+  String r16;
+  String r8;
+  Integer bit;
+
+  //#override
+  Boolean isOperandKind(Integer kind) {
+    return (kind & bit) > 0;
+  }
+
+  //#override
+  String serialize(StringFunction labelSerializer) {
+    return r64;
+  }
+
+  //#override
+  Operand asWidth(ow width) {
+    if (width == ow.Byte) {
+      return Register8Operand(this);
+    }
+    if (width == ow.Word) {
+      return Register16Operand(this);
+    }
+    if (width == ow.DWord) {
+      return Register32Operand(this);
+    }
+    return this;
+  }
+
+  //#override
+  Integer usedRegisters() {
+    return bit;
+  }
+
+  Null constructor(String r64Arg, String r32Arg, String r16Arg, String r8Arg, Integer bitArg) {
+    r64 = r64Arg;
+    r32 = r32Arg;
+    r16 = r16Arg;
+    r8 = r8Arg;
+    bit = bitArg;
+    super.constructor();
+  }
+}
+
+// 64 BIT INTEGER REGISTERS
+// non-volatile registers must be saved by CompiledStackFrameScope
+// these are operand kinds  ---------------------------------------------vvvvvvvvvv
+Register64Operand rax = Register64Operand('rax', 'eax',  'ax',   'al',   0x00001000); // redundant return value in calling convention (volatile)
+Register64Operand rbx = Register64Operand('rbx', 'ebx',  'bx',   'bl',   0x00002000); // (nonvolatile)
+Register64Operand rcx = Register64Operand('rcx', 'ecx',  'cx',   'cl',   0x00004000); // used in function calling convention for number of arguments (volatile)
+Register64Operand rdx = Register64Operand('rdx', 'edx',  'dx',   'dl',   0x00008000); // used in function calling convention for closure pointer (volatile)
+Register64Operand rsi = Register64Operand('rsi', 'esi',  'si',   'sil',  0x00010000); // (nonvolatile)
+Register64Operand rdi = Register64Operand('rdi', 'edi',  'di',   'dil',  0x00020000); // (nonvolatile)
+Register64Operand rbp = Register64Operand('rbp', 'ebp',  'bp',   'bpl',  0x00040000); rbp.pinOperand(); // stack frame pointer (nonvolatile)
+Register64Operand rsp = Register64Operand('rsp', 'esp',  'sp',   'spl',  0x00080000); rsp.pinOperand(); // stack pointer (nonvolatile)
+Register64Operand r8  = Register64Operand('r8',  'r8d',  'r8w',  'r8b',  0x00100000); // used in function calling convention for type of "this" object (volatile)
+Register64Operand r9  = Register64Operand('r9',  'r9d',  'r9w',  'r9b',  0x00200000); // used in function calling convention for pointer to "this" object (volatile)
+Register64Operand r10 = Register64Operand('r10', 'r10d', 'r10w', 'r10b', 0x00400000); // (volatile)
+Register64Operand r11 = Register64Operand('r11', 'r11d', 'r11w', 'r11b', 0x00800000); // (volatile)
+Register64Operand r12 = Register64Operand('r12', 'r12d', 'r12w', 'r12b', 0x01000000); // (nonvolatile)
+Register64Operand r13 = Register64Operand('r13', 'r13d', 'r13w', 'r13b', 0x02000000); // (nonvolatile)
+Register64Operand r14 = Register64Operand('r14', 'r14d', 'r14w', 'r14b', 0x04000000); // (nonvolatile)
+Register64Operand r15 = Register64Operand('r15', 'r15d', 'r15w', 'r15b', 0x08000000); // (nonvolatile)
+
+Register64OperandList allRegisters = [
+  rax,
+  rbx,
+  rcx,
+  rdx,
+  rsi,
+  rdi,
+  rbp,
+  rsp,
+  r8,
+  r9,
+  r10,
+  r11,
+  r12,
+  r13,
+  r14,
+  r15,
+];
+
+// the list of register operands we prefer to use for regular integer datums, in order of best to worst
+Register64OperandList preferredRegistersList = [
+  r10, // volatile
+  r11, // volatile
+  r12, // non-volatile
+  r13, // non-volatile
+  // r14, // non-volatile (used for last-minute unspilling)
+  // r15, // non-volatile (used for last-minute unspilling)
+  rbx, // non-volatile
+  rsi, // non-volatile
+  rdi, // non-volatile
+  // the following are assigned to specific placeholders because of x64 so to try to avoid stomping on them
+  // unnecessarily we consider them low-priority even though they are volatile
+  rax, // volatile
+  rcx, // volatile (and part of calling convention)
+  rdx, // volatile (and part of calling convention)
+  r8, // volatile (and part of calling convention)
+  r9, // volatile (and part of calling convention)
+  // rbp, // frame pointer
+  // rsp, // stack pointer
+];
+  
+Integer preferredRegisters = 0;
+for (register in preferredRegistersList) {
+  preferredRegisters |= register.bit;
+}
+
+// more operand kind constants
+Integer register = rax.bit | rbx.bit | rcx.bit | rdx.bit | rsi.bit | rdi.bit | rbp.bit | rsp.bit | r8.bit | r9.bit | r10.bit | r11.bit | r12.bit | r13.bit | r14.bit | r15.bit;
+Integer volatileRegister = rax.bit | rcx.bit | rdx.bit | r8.bit | r9.bit | r10.bit | r11.bit;
+Integer nonvolatileRegister = register & ~volatileRegister;
+Integer stackRegisters = rbp.bit | rsp.bit;
+
+class MemoryOperand extends Operand {
+  //#override
+  Integer operandVariety() {
+    return 0x4; // memory
+  }
+
+  //#override
+  Boolean isAssigned() {
+    return true;
+  }
+
+  //#override
+  Boolean canBeDereferencedWithOffset(Integer offset) {
+    return false;
+  }
+
+  //#override
+  MemoryOperand dereference(ow size, Integer offset) {
+    assert(false, 'cannot dereference memory operand');
+    unimplemented();
+  }
+}
+
+// operands like [rax+rbx*2+010h]
+//
+// should only be used with rsp and rbp when created before register allocation
+// (after register allocation, can be used with any registers)
+class RawAddressComputationOperand extends MemoryOperand {
+  RegisterOperandNullable base;
+  RegisterOperandNullable index;
+  Integer scale; // 1, 2, 4, 8
+  Integer displacement; // 32 bit value
+  ow size;
+
+  //#override
+  Boolean isOperandKind(Integer kind) {
+    return (kind & heap) > 0;
+  }
+
+  //#override
+  String serialize(StringFunction labelSerializer) {
+    StringList parts = []:String;
+    if (base != null) {
+      append(parts, concat(base));
+    }
+    if (index != null) {
+      String scalePart = '';
+      if (scale != 1) {
+        scalePart = concat(' * ', scale);
+      }
+      if (len(parts) > 0) {
+        append(parts, ' + ');
+      }
+      append(parts, concat(index, scalePart));
+    }
+    if (displacement < 0) {
+      if (len(parts) > 0) {
+        append(parts, ' - ');
+      }
+      append(parts, concat(hexH(-displacement)));
+    } else if (displacement > 0) {
+      if (len(parts) > 0) {
+        append(parts, ' + ');
+      }
+      append(parts, concat(hexH(displacement)));
+    } else if (len(parts) == 0) {
+      // really we should never dereference 0, but we'll do it anyways
+      append(parts, '0h');
+    }
+    return concat(prefixFor(size), 'ptr [', joinList(parts), ']');
+  }
+
+  //#override
+  Operand asWidth(ow width) {
+    return RawAddressComputationOperand(base, index, scale, displacement, width, commentName);
+  }
+
+  //#override
+  Integer usedRegisters() {
+    Integer result = 0;
+    if (base != null) {
+      result |= base!.usedRegisters();
+    }
+    if (index != null) {
+      result |= index!.usedRegisters();
+    }
+    return result;
+  }
+
+  //#override
+  Boolean equals(Operand other) {
+    if (other is RawAddressComputationOperand) {
+      RawAddressComputationOperand b = other as RawAddressComputationOperand;
+      return base == b.base && index == b.index && scale == b.scale && displacement == b.displacement && size == b.size;
+    }
+    return false;
+  }
+
+  Null constructor(RegisterOperandNullable baseArg, RegisterOperandNullable indexArg, Integer scaleArg, Integer displacementArg, ow sizeArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    base = baseArg;
+    index = indexArg;
+    scale = scaleArg;
+    displacement = displacementArg;
+    size = sizeArg;
+  }
+}
+
+class ParameterOperand extends RawAddressComputationOperand {
+  Integer _index;
+
+  //#override
+  String toString() {
+    return concat('<parameter ', _index, '>');
+  }
+
+  Null constructor(Integer indexArg, String commentNameArg) {
+    assert(indexArg > 3, 'parameters 0..3 should use Register64Operands');
+    super.constructor(rbp, null, 1, 0x30 + 8 * (indexArg - 4), ow.QWord, commentNameArg);
+    _index = indexArg;
+  }
+}
+
+// Operand that represents memory contents at a given label.
+class DereferenceLabelOperand extends MemoryOperand {
+  AssemblerLabel value;
+  ow size;
+
+  //#override
+  Boolean isOperandKind(Integer kind) {
+    return (kind & global) > 0;
+  }
+
+  //#override
+  String serialize(StringFunction labelSerializer) {
+    return concat(prefixFor(size), 'ptr ', labelSerializer(value));
+  }
+
+  //#override
+  String toString() {
+    return concat('*', value);
+  }
+
+  //#override
+  Operand asWidth(ow width) {
+    assert(width == ow.QWord, 'addresses are always qwords in x64');
+    return this;
+  }
+
+  //#override
+  Boolean equals(Operand other) {
+    if (other is DereferenceLabelOperand) {
+      DereferenceLabelOperand b = other as DereferenceLabelOperand;
+      return value == b.value && size == b.size;
+    }
+    return false;
+  }
+
+  Null constructor(AssemblerLabel valueArg, ow sizeArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    value = valueArg;
+    size = sizeArg;
+  }
+}
+
+class SnapshotStackOperand extends MemoryOperand {
+  Integer index;
+  Integer pushLevel;
+  StackMetrics stackMetrics;
+  ow width;
+
+  //#override
+  Boolean isOperandKind(Integer kind) {
+    return (kind & stack) > 0;
+  }
+
+  //#override
+  String serialize(StringFunction labelSerializer) {
+    return stackMetrics.generateOperand(index, pushLevel, width);
+  }
+
+  //#override
+  Operand asWidth(ow width) {
+    if (width != this.width) {
+      return SnapshotStackOperand(stackMetrics, pushLevel, index, width, commentName);
+    }
+    return this;
+  }
+
+  //#override
+  StackOperandNullable asStackOperand() {
+    throw('contract violation - cannot obtain original StackOperand after snapshotting.');
+  }
+
+  //#override
+  Null updateStackMetrics(StackMetrics stackMetrics) {
+    throw('contract violation - too late to update stack metrics');
+  }
+
+  //#override
+  Integer usedRegisters() {
+    return rsp.bit;
+  }
+
+  //#override
+  Boolean equals(Operand other) {
+    if (other is SnapshotStackOperand) {
+      SnapshotStackOperand b = other as SnapshotStackOperand;
+      return index == b.index && pushLevel == b.pushLevel && stackMetrics == b.stackMetrics && width == b.width;
+    }
+    return false;
+  }
+
+  Null constructor(StackMetrics stackMetricsArg, Integer pushLevelArg, Integer indexArg, ow widthArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    assert(indexArg < stackMetricsArg.stackSize, concat('index (', indexArg, ') out of range (', stackMetricsArg.stackSize, ') in ', this, ' (', commentName, ')'));
+    stackMetrics = stackMetricsArg;
+    pushLevel = pushLevelArg;
+    index = indexArg;
+    width = widthArg;
+  }
+}
+
+// operands like [rsp + 010h]
+class StackOperand extends MemoryOperand {
+  Integer index;
+
+  //#override
+  Boolean isOperandKind(Integer kind) {
+    return (kind & stack) > 0;
+  }
+
+  //#override
+  String serialize(StringFunction labelSerializer) {
+    assert(false, concat('cannot serialize stack operand ', this, ' (', commentName, '); call snapshot() first'));
+  }
+
+  //#override
+  Operand asWidth(ow width) {
+    if (width != ow.QWord) {
+      unimplemented();
+    }
+    return this;
+  }
+
+  //#override
+  SnapshotStackOperand snapshot(StackMetrics stackMetrics, Integer pushLevel) {
+    return SnapshotStackOperand(stackMetrics, pushLevel, index, ow.QWord, commentName);
+  }
+
+  //#override
+  Null updateStackMetrics(StackMetrics stackMetrics) {
+    stackMetrics.growStackTo(index + 1);
+  }
+
+  //#override
+  StackOperandNullable asStackOperand() {
+    return this;
+  }
+
+  //#override
+  Integer usedRegisters() {
+    return rsp.bit;
+  }
+
+  //#override
+  Boolean equals(Operand other) {
+    if (other is StackOperand) {
+      StackOperand b = other as StackOperand;
+      return index == b.index;
+    }
+    return false;
+  }
+
+  //#override
+  String toString() {
+    return concat('<stack operand #', index, '>');
+  }
+
+  Null constructor(Integer indexArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    index = indexArg;
+  }
+}
+
+// operands like [rbp + 010h]
+class ShadowOperand extends MemoryOperand {
+  Integer index; // 0..3
+
+  //#override
+  Boolean isOperandKind(Integer kind) {
+    Integer actualKind = 0x10 << index;
+    return (kind & actualKind) > 0;
+  }
+
+  //#override
+  String serialize(StringFunction labelSerializer) {
+    return concat('qword ptr [rbp + ', hex8(0x10 + index * 0x08), ']');
+  }
+
+  //#override
+  Operand asWidth(ow width) {
+    assert(width == ow.QWord, 'addresses are always qwords in x64');
+    return this;
+  }
+
+  //#override
+  Integer usedRegisters() {
+    return rbp.bit;
+  }
+
+  //#override
+  Boolean equals(Operand other) {
+    if (other is ShadowOperand) {
+      ShadowOperand b = other as ShadowOperand;
+      return index == b.index;
+    }
+    return false;
+  }
+
+  Null constructor(Integer indexArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    assert(indexArg >= 0 && indexArg < 4, 'out of range');
+    index = indexArg;
+  }
+}
+
+class StringOperand extends Operand {
+  String value;
+
+  //#override
+  Integer operandVariety() {
+    unimplemented(); // this is a very special operand only used in constants and should never call this
+  }
+
+  //#override
+  Boolean isOperandKind(Integer kind) {
+    unimplemented(); // this is a very special operand only used in constants and should never call this
+  }
+
+  //#override
+  Boolean isAssigned() {
+    return true;
+  }
+
+  //#override
+  String serialize(StringFunction labelSerializer) {
+    assert(value != '', 'empty strings are not representable in assembler');
+    StringList buffer = []:String;
+    Boolean quoted = false;
+    for (char in scalarValues(value)) {
+      if (char == 0x22 && quoted) { // 0x22 is "
+        append(buffer, '""');
+      } else if (char < 0x20 || char == 0x22 || char > 0x7e) { // 0x22 is "
+        if (quoted) {
+          append(buffer, '"');
+          quoted = false;
+        }
+        if (len(buffer) > 0) {
+          append(buffer, ', ');
+        }
+        append(buffer, concat(padLeft(hex(char), 2, '0'), 'h'));
+      } else {
+        if (!quoted) {
+          if (len(buffer) > 0) {
+            append(buffer, ', ');
+          }
+          append(buffer, '"');
+          quoted = true;
+        }
+        append(buffer, chr(char));
+      }
+    }
+    if (quoted) {
+      append(buffer, '"');
+    }
+    return joinList(buffer);
+  }
+
+  //#override
+  Operand asWidth(ow width) {
+    unimplemented();
+  }
+
+  //#override
+  Boolean canBeDereferencedWithOffset(Integer offset) {
+    assert(false, 'StringOperand should never end up being dereferenced');
+    return false;
+  }
+
+  //#override
+  MemoryOperand dereference(ow size, Integer offset) {
+    assert(false, 'canBeDereferencedWithOffset ignored');
+    unimplemented();
+  }
+
+  //#override
+  Boolean equals(Operand other) {
+    unimplemented();
+  }
+
+  Null constructor(String valueArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    value = valueArg;
+  }
+}
+
+//#ignore_unused
+String describeOperandKinds(Integer kinds) {
+  StringList names = []:String;
+  Boolean consider(Integer kind, String name) {
+    if ((kinds & kind) == kind) {
+      append(names, name);
+      return true;
+    }
+    return false;
+  }
+  if (!consider(memory, 'memory')) {
+    consider(stack, 'stack');
+    consider(global, 'global');
+    consider(heap, 'heap');
+    if (!consider(shadow, 'shadow')) {
+      consider(rcxShadow, 'rcx shadow');
+      consider(rdxShadow, 'rdx shadow');
+      consider(r8Shadow, 'r8 shadow');
+      consider(r9Shadow, 'r9 shadow');
+    }
+  }
+  if (!consider(immediate, 'immediate')) {
+    consider(immediate8, 'immediate8');
+    consider(immediate32, 'immediate32');
+    consider(immediate64, 'immediate64');
+  }
+  if (!consider(register, 'register')) {
+    for (operand in allRegisters) {
+      consider(operand.bit, operand.r64);
+    }
+  }
+  if (len(names) == 0) {
+    return 'none';
+  }
+  if (len(names) == 1) {
+    return names[0];
+  }
+  if (len(names) == 2) {
+    return concat(names[0], ' and ', names[1]);
+  }
+  return join(names, ', ');
+}

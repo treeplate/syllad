@@ -1,4 +1,7 @@
 // expected error: error: type mismatch for function test parameter 2, expected Integer, got String
+// expected output: PASS
+
+println('PASS');
 
 Null test(Integer... args) {}
 

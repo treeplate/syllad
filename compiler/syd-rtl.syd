@@ -1,6 +1,7 @@
 // TODO: turn RTL privates into foo# syntax
+// TODO: complain if a function is __intrinsic and we don't know about it
 
-// CONSTANTS
+// CONSTANTS // TODO: don't declare these here - just import syd-constants.syd
 
 Integer _blockEntrySize = 8; // stride size in block entry list
 Integer _gcBlockHeaderRefCount = 0 * 8;
@@ -16,13 +17,18 @@ Integer _vmtParent = 0x18;
 Integer _vmtDynamicDispatchTable = 0x20;
 Integer _vmtMethods = 0x28;
 
+Integer _fieldVmt = _gcBlockData + 0x00;
+Integer _fieldClassName = _gcBlockData + 0x10;
+Integer _fieldsRemainder = _gcBlockData + 0x20;
+
 Integer _subroutineReceiverType = _gcBlockData + 0 * 16;
 Integer _subroutineReceiverPointer = _gcBlockData + 0 * 16 + 8;
-Integer _subroutineCodeType = _gcBlockData + 1 * 16;
-Integer _subroutineCodePointer = _gcBlockData + 1 * 16 + 8;
+Integer _subroutineClosureType = _gcBlockData + 1 * 16; // either sentinel or internal closure type
+Integer _subroutineClosurePointer = _gcBlockData + 1 * 16 + 8;
+Integer _subroutineCodeType = _gcBlockData + 2 * 16; // for completeness, always code address type
+Integer _subroutineCodePointer = _gcBlockData + 2 * 16 + 8;
 
 fwdclass __Object __intrinsic;
-
 
 // ERROR MANAGEMENT
 
@@ -53,6 +59,7 @@ Integer _heapHandle = __getProcessHeap();
 
 Integer __heapAlloc(Integer hHeap, Integer dwFlags, Integer dwBytes) __extern 'kernel32.lib' 'HeapAlloc';
 
+// Number of calls to alloc minus number of calls to free.
 Integer _blockCount = 0;
 
 NullFunction _garbageCollector;
@@ -76,7 +83,7 @@ Integer _alloc(Integer size) {
   exit(1);
 }
 
-// returns positive for success, zero for failure
+/// returns positive for success, zero for failure
 Integer __heapFree(Integer hHeap, Integer dwFlags, Integer lpMem) __extern 'kernel32.lib' 'HeapFree';
 
 /// Frees a heap allocation obtained from [_alloc].
@@ -95,9 +102,8 @@ Null _moveBytes(Integer from, Integer to, Integer length) {
   Integer fromCursor = from;
   Integer toCursor = to;
   Integer end = from + (length / 8) * 8;
-  // TODO: implement || (then uncomment these asserts)
-  // assert(fromCursor != end || length < 8, 'inconsistency');
-  // assert(fromCursor != end || length > 0, 'inconsistency');
+  assert(fromCursor != end || length < 8, 'inconsistency');
+  assert(fromCursor != end || length > 0, 'inconsistency');
   while (fromCursor < end) {
     Integer value = __readFromAddress(fromCursor);
     __writeToAddress(toCursor, value);
@@ -105,7 +111,7 @@ Null _moveBytes(Integer from, Integer to, Integer length) {
     toCursor += 8;
   }
   end = from + length;
-  // assert((fromCursor < end) || (from < fromCursor), 'no moves on either side');
+  assert((fromCursor < end) || (from < fromCursor), 'no moves on either side');
   if (fromCursor < end) {
     Integer newValue = __readFromAddress(fromCursor);
     Integer oldValue = __readFromAddress(toCursor);
@@ -172,7 +178,7 @@ String digitToStr(Integer digit) {
   if (digit == 9) {
     return '9';
   }
-  stderr('Invalid digit passed to digitToStr (digit as exit code)\n');
+  stderr('Invalid digit passed to digitToStr (digit as exit code)');
   exit(digit);
 }
 
@@ -182,6 +188,9 @@ String intToStr(Integer value) {
   }
   if (value < 0) {
     return concat('-', intToStr(-value));
+  }
+  if (value < 10) {
+    return digitToStr(value);
   }
   String buffer = ''; 
   Integer newValue = value; // parameters are final
@@ -207,7 +216,7 @@ String join(StringList items, String joiner) {
   length += joinerLength * (len(items) - 1);
   assert(length >= 0, 'negative length detected');
   if (length >= 2147483648) {
-    stderr('absurd length detected (as exit code)\n');
+    stderr('absurd length detected (as exit code)');
     exit(length);
   }
   Integer resultPointer = _alloc(16 + length);
@@ -285,6 +294,11 @@ Null _advanceToNextBlock() {
   assert(_gcLocked > 0, '_advanceToNextBlock called without _gcLocked set');
   Integer last = _blockListNext;
   while (true) {
+    Integer pointer = __readFromAddress(_blockListNext);
+    if (pointer == 0) {
+      // found a free slot
+      return;
+    }
     _blockListNext += _blockEntrySize;
     if (_blockListNext == last) {
       // looped all the way around, need to grow the list
@@ -293,11 +307,6 @@ Null _advanceToNextBlock() {
     }
     if (_blockListNext == _blockListEnd) {
       _blockListNext = _blockListStart;
-    }
-    Integer pointer = __readFromAddress(_blockListNext);
-    if (pointer == 0) {
-      // found a free slot
-      return;
     }
   }
 }
@@ -420,7 +429,12 @@ Null append(WhateverList list, Anything element) __intrinsic {
   __writeToAddress(dataAddress + _gcBlockData + length * 16, __typeOf element);
   __writeToAddress(dataAddress + _gcBlockData + length * 16 + 8, element __as__ Integer);
   __writeToAddress(dataAddress + _gcBlockHeaderLength, length + 1);
-  __incref(element);
+  if (element is String) {
+    Integer refcount = __readFromAddress(element __as__ Integer + _gcBlockHeaderRefCount);
+    if (refcount >= 0) {
+      __writeToAddress(element __as__ Integer + _gcBlockHeaderRefCount, refcount + 1);
+    }
+  }
   _gcLocked -= 1;
 }
 
@@ -458,7 +472,7 @@ Boolean next(WhateverIterator iteratorArg) __intrinsic {
 WhateverIterator iterator(WhateverIterable iterable) __intrinsic {
   assert(iterable is WhateverList, 'iterables are only implemented for lists');
   _gcLocked += 1;
-  WhateverIterator result = _constructor(__iteratorTypeOf __typeOf iterable, 2, 2) as WhateverIterator;
+  WhateverIterator result = _constructor(__iteratorTypeFrom __typeOf iterable, 2, 2) as WhateverIterator;
   __writeToAddress(result __as__ Integer + _gcBlockData + 0, __typeOf iterable);
   __writeToAddress(result __as__ Integer + _gcBlockData + 8, iterable __as__ Integer);
   __writeToAddress(result __as__ Integer + _gcBlockData + 16, __typeToCode Integer);
@@ -474,7 +488,7 @@ WhateverList copy(WhateverIterable iterable) {
   } else {
     length = 1;
   }
-  WhateverList list = _listConstructor(__listTypeOf __typeOf iterable, length);
+  WhateverList list = _listConstructor(__listTypeFrom __typeOf iterable, length);
   for (value in iterable) {
     append(list, value);
   }
@@ -503,7 +517,7 @@ Whatever single(WhateverIterable iterable) {
   next(i);
   Whatever result = current(i);
   if (next(i)) {
-    stderr('single() called with Iterable with more than one element\n');
+    stderr('single() called with Iterable with more than one element');
     exit(1);
   }
   return result;
@@ -551,20 +565,20 @@ __Object _classAllocator(Integer vmt) __intrinsic {
   Integer fieldCount = __readFromAddress(vmt + _vmtFieldCount);
   assert(fieldCount >= 2, 'unexpectedly small field count');
   __Object instance = _constructor(typeCode, fieldCount, fieldCount) as __Object;
-  __writeToAddress(instance __as__ Integer + _gcBlockData + 0, __typeToCode Integer);
-  __writeToAddress(instance __as__ Integer + _gcBlockData + 8, vmt);
-  __writeToAddress(instance __as__ Integer + _gcBlockData + 16, __typeToCode String);
-  __writeToAddress(instance __as__ Integer + _gcBlockData + 24, __readFromAddress(vmt + _vmtClassName));
+  __writeToAddress(instance __as__ Integer + _fieldVmt, __typeToCode Integer);
+  __writeToAddress(instance __as__ Integer + _fieldVmt + 8, vmt);
+  __writeToAddress(instance __as__ Integer + _fieldClassName, __typeToCode String);
+  __writeToAddress(instance __as__ Integer + _fieldClassName + 8, __readFromAddress(vmt + _vmtClassName));
   if (fieldCount > 2) {
-    _fillQuadWords(instance __as__ Integer + _gcBlockData + 32, (fieldCount - 2) * 8, 0);
+    _fillQuadWords(instance __as__ Integer + _fieldsRemainder, (fieldCount - 2) * 16, 0);
   }
   _gcLocked -= 1;
   return instance;
 }
 
 class __Object __intrinsic {
-  Integer vmt#; // must be field 0 for _classAllocator below
-  String className; // must be field 1 for _classAllocator below
+  Integer vmt#; // must be field 0 to match constants above
+  String className; // must be field 1 to match constants above
   String toString() {
     return concat('<', className, '>');
   }
@@ -580,6 +594,8 @@ WhateverFunction _createMethodPointer(__Object receiver, __CodeAddress codePoint
   WhateverFunction result = _constructor(functionTypeCode, 2, 2) as WhateverFunction;
   __writeToAddress(result __as__ Integer + _subroutineReceiverType, __typeOf receiver);
   __writeToAddress(result __as__ Integer + _subroutineReceiverPointer, receiver __as__ Integer);
+  __writeToAddress(result __as__ Integer + _subroutineClosurePointer, 0);
+  __writeToAddress(result __as__ Integer + _subroutineClosureType, 0);
   __writeToAddress(result __as__ Integer + _subroutineCodeType, __typeToCode Integer);
   __writeToAddress(result __as__ Integer + _subroutineCodePointer, codePointer __as__ Integer);
   _gcLocked -= 1;
@@ -615,7 +631,7 @@ WhateverFunction _dynamicLookup(Anything receiver, Integer methodId) __intrinsic
 
 String chr(Integer character) {
   // TODO: implement this
-  stderr('chr is not implemented\n');
+  stderr('chr is not implemented');
   exit(1);
 }
 
@@ -624,52 +640,51 @@ String _joinListOffset(StringList args, Integer offset) {
     return '';
   }
   if (len(args) - offset == 1) {
-    return args[offset];
+    return concat(args[offset]);
   }
-  return concat(args[offset], _joinListOffset(args, offset+1));
+  return concat(args[offset], _joinListOffset(args, offset + 1));
 }
 
-String joinList(StringList args) {
+String joinList(WhateverList args) {
   // TODO: this should allocate the buffer ahead of time and copy each list into the buffer
   return _joinListOffset(args, 0);
 }
 
 String stringTimes(String str, Integer count) {
   // TODO: implement this
-  stderr('stringTimes is not implemented\n');
+  stderr('stringTimes is not implemented');
   exit(1);
 }
 
 StringList charsOf(String str) {
   // TODO: implement this
-  stderr('charsOf is not implemented\n');
+  stderr('charsOf is not implemented');
   exit(1);
 }
 
 StringList scalarValues(String str) {
   // TODO: implement this
-  stderr('scalarValues is not implemented\n');
+  stderr('scalarValues is not implemented');
   exit(1);
 }
 
 String hex(Integer num) {
   // TODO: implement this
-  stderr('hex is not implemented\n');
+  stderr('hex is not implemented');
   exit(1);
 }
 
 String readFile(String file) {
   // TODO: implement this
-  stderr('readFile is not implemented\n');
+  stderr('readFile is not implemented');
   exit(1);
 }
 
 
-/* TODO: depends on charsOf, stringTimes, lists...
-String padLeft(String line, Integer length, String padding) {
-  return concat(stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))), line);
-}
-*/
+// // TODO: depends on charsOf, stringTimes, lists...
+// String padLeft(String line, Integer length, String padding) {
+//   return concat(stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))), line);
+// }
 
 
 // I/O
@@ -730,7 +745,7 @@ String _stringify(Anything arg) {
   if (arg is __ListData) {
     return '<__ListData>';
   }
-  stderr('value cannot be stringified\n');
+  stderr('value cannot be stringified');
   exit(1);
 }
 
@@ -742,15 +757,12 @@ String _concat(Anything... arguments) {
     return _stringify(arguments[0]);
   }
   StringList strings = []:String;
+  Integer length = 0;
   Integer index = 0;
   while (index < len(arguments)) {
-    append(strings, _stringify(arguments[index]));
-    index += 1;
-  }
-  Integer length = 0;
-  index = 0;
-  while (index < len(strings)) {
-    length += _stringByteLength(strings[index]);
+    String segment = _stringify(arguments[index]);
+    append(strings, segment);
+    length += _stringByteLength(segment);
     index += 1;
   }
   assert(length >= 0, 'negative length detected');
@@ -820,7 +832,7 @@ Null _stderr(Anything... parts) {
 stderr = _stderr;
 
 Null _error(Anything... arguments) __intrinsic {
-  assert(len(arguments) >= 1, 'insufficient arguments to __error');
+  assert(len(arguments) >= 1, 'insufficient arguments to _error');
   stderr(arguments[0]);
   exit(1);
 }

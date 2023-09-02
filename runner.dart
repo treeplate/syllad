@@ -1,34 +1,42 @@
 import 'dart:io';
 
+//import 'lexer.dart';
 import 'parser-core.dart';
 import 'statements.dart';
 import 'package:characters/characters.dart';
-import 'lexer.dart';
 
-Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? intrinsics, TypeValidator tv,
+Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? intrinsics, TypeValidator tv, bool profileMode, bool debugMode,
     [List<String>? args, List<LazyString>? stack, Scope? parent]) {
   if (intrinsics == null) {
     assert(parent == null);
     assert(stack == null);
-    intrinsics = Scope(false, debugName: NotLazyString('intrinsics'), stack: [NotLazyString('intrinsics')])
+    intrinsics = Scope(false, false,
+        debugName: NotLazyString('intrinsics'),
+        stack: [NotLazyString('intrinsics')],
+        profileMode: profileMode,
+        debugMode: debugMode,
+        intrinsics: null /* we ARE the intrinsics*/)
       ..values.addAll({
         "true": true,
         "false": false,
         "null": null,
         "args": args!.map((e) => ValueWrapper(stringType, e, 'argument of program')).toList(),
         "print": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          stdout.write(l.join(' '));
+          stdout.write(l.map((e) => e.toStringWithStack(s, -2, 0, workspace, 'interr', true)).join(' '));
           return ValueWrapper(integerType, 0, 'print rtv');
         },
+        "debug": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          return ValueWrapper(stringType, l.single.valueC<Scope>(null, s, 0, 0, workspace, filename).dump(), 'debug rtv');
+        },
         "stderr": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          stderr.writeln(l.join(' '));
+          stderr.writeln(l.map((e) => e.toStringWithStack(s, -2, 0, workspace, 'interr', true)).join(' '));
           return ValueWrapper(integerType, 0, 'stderr rtv');
         },
         "concat": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          return ValueWrapper(stringType, l.map((x) => x.toStringWithStack(s, -2, 0, 'interr', 'todo')).join(''), 'concat rtv');
+          return ValueWrapper(stringType, l.map((x) => x.toStringWithStack(s, -2, 0, 'interr', 'todo', true)).join(''), 'concat rtv');
         },
         "addLists": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          return ValueWrapper(ListValueType(sharedSupertype, 'intrinsics'),
+          return ValueWrapper(ListValueType(anythingType, 'intrinsics'),
               l.expand<ValueWrapper>((element) => element.valueC(null, s, -2, 0, 'interr', 'interr')).toList(), 'addLists rtv');
         },
         "parseInt": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
@@ -65,9 +73,21 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
             'scalarValues rtv',
           );
         },
+        "filledList": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          return ValueWrapper<Object?>(
+            ListValueType(anythingType, 'intrinsics'),
+            List<ValueWrapper<Object?>>.filled(
+              l.first.valueC(null, s, -2, 0, 'interr', 'interr'),
+              l.last,
+              growable: true,
+            ),
+            'filledList rtv',
+          );
+        },
         "len": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           if (l.single.typeC(null, s, -2, 0, 'interr', 'interr') is! IterableValueType) {
-            throw BSCException('len() takes a list as its argument, not a ${l.single.typeC(null, s, -2, 0, 'interr', 'interr')} ${s.reversed.join('\n')}');
+            throw BSCException(
+                'len() takes a list as its argument, not a ${l.single.typeC(null, s, -2, 0, 'interr', 'interr')} ${s.reversed.join('\n')}', NoDataVG());
           }
           return ValueWrapper(integerType, l.single.valueC<Iterable<ValueWrapper>>(null, s, -2, 0, 'interr', 'interr').length, 'len rtv');
         },
@@ -79,7 +99,8 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
               .typeC(null, s, -2, 0, 'interr', 'interr')
               .isSubtypeOf((l.first.typeC(null, s, -2, 0, 'interr', 'interr') as ListValueType).genericParameter)) {
             throw BSCException(
-                "You cannot append a ${l.last.typeC(null, s, -2, 0, 'interr', 'interr')} to a ${l.first.typeC(null, s, -2, 0, 'interr', 'interr')}!\n${s.reversed.join('\n')}");
+                "You cannot append a ${l.last.typeC(null, s, -2, 0, 'interr', 'interr')} to a ${l.first.typeC(null, s, -2, 0, 'interr', 'interr')}!\n${s.reversed.join('\n')}",
+                NoDataVG());
           }
           l.first.valueC<List>(null, s, -2, 0, 'interr', 'interr').add(l.last);
           return l.last;
@@ -87,13 +108,13 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
         "pop": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           List<ValueWrapper> list = l.first.valueC(null, s, -2, 0, 'interr', 'interr');
           if (list.isEmpty) {
-            throw BSCException("Cannot pop from an empty list!\n${s.reversed.join('\n')}");
+            throw BSCException("Cannot pop from an empty list!\n${s.reversed.join('\n')}", NoDataVG());
           }
           return list.removeLast();
         },
         "iterator": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           return ValueWrapper(
-              IteratorValueType(sharedSupertype, 'intrinsics'), l.single.valueC<Iterable>(null, s, -2, 0, 'interr', 'interr').iterator, 'iterator rtv');
+              IteratorValueType(anythingType, 'intrinsics'), l.single.valueC<Iterable>(null, s, -2, 0, 'interr', 'interr').iterator, 'iterator rtv');
         },
         "next": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           return ValueWrapper(booleanType, l.single.valueC<Iterator>(null, s, -2, 0, 'interr', 'interr').moveNext(), 'next rtv');
@@ -110,7 +131,7 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
         },
         "copy": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           return ValueWrapper(
-            ListValueType(sharedSupertype, 'intrinsics'),
+            ListValueType(anythingType, 'intrinsics'),
             l.single.valueC<Iterable<ValueWrapper>>(null, s, -2, 0, 'interr', 'interr').toList(),
             'copy rtv',
           );
@@ -119,10 +140,18 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
           return l.single.valueC<Iterable<ValueWrapper>>(null, s, -2, 0, 'interr', 'interr').first;
         },
         "last": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          return l.single.valueC<Iterable<ValueWrapper>>(null, s, -2, 0, 'interr', 'interr').last;
+          Iterable<ValueWrapper> v = l.single.valueC<Iterable<ValueWrapper>>(null, s, -2, 0, 'interr', 'interr');
+          if (v.isEmpty) {
+            throw BSCException("Cannot get the last element of an empty list!\n${s.reversed.join('\n')}", NoDataVG());
+          }
+          return v.last;
         },
         "single": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           return l.single.valueC<Iterable<ValueWrapper>>(null, s, -2, 0, 'interr', 'interr').single;
+        },
+        "clear": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          l.single.valueC<List<ValueWrapper>>(null, s, -2, 0, 'interr', 'interr').clear();
+          return ValueWrapper(integerType, 0, 'clear rtv');
         },
         "hex": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           return ValueWrapper(stringType, l.single.valueC<int>(null, s, -2, 0, 'interr', 'interr').toRadixString(16), 'hex rtv');
@@ -134,37 +163,53 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
           exit(l.single.valueC(null, s, -2, 0, 'interr', 'interr'));
         },
         "readFile": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          return ValueWrapper(stringType, File('$workspace/${l.single.valueC(null, s, -2, 0, 'interr', 'interr')}').readAsStringSync(), 'readFile rtv');
+          try {
+            File file =  File('$workspace/${l.single.valueC(null, s, -2, 0, 'interr', 'interr')}');
+            if(!file.existsSync()) {
+              throw BSCException("${l.single.toStringWithStack(s, -2, 0, 'interr', 'interr', false)} is not a existing file\n${s.reversed.join('\n')}", NoDataVG());
+            }
+            return ValueWrapper(stringType, file.readAsStringSync(), 'readFile rtv');
+          } on PathNotFoundException catch (e) {
+            throw BSCException(e.message + ' when reading file ${l.single.valueC(null, s, -2, 0, 'interr', 'interr')}\n${s.reversed.join('\n')}', NoDataVG());
+          }
         },
         "readFileBytes": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          if (l.length == 0) throw BSCException("readFileBytes called with no args");
+          if (l.length == 0) throw BSCException("readFileBytes called with no args", NoDataVG());
           File file = File('$workspace/${l.single.valueC(null, s, -2, 0, 'interr', 'interr')}');
           return file.existsSync()
               ? ValueWrapper(stringType, file.readAsBytesSync(), 'readFileBytes rtv')
-              : throw BSCException("${l.single} is not a existing file");
+              : throw BSCException("${l.single} is not a existing file\n${s.reversed.join('\n')}", NoDataVG());
         },
         "println": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          stdout.writeln(l.map(((e) => e.toStringWithStack(s + [NotLazyString('println calling toString()')], -2, 0, 'interr', 'interr'))).join(' '));
+          stdout.writeln(l.map(((e) => e.toStringWithStack(s + [NotLazyString('println calling toString()')], -2, 0, 'interr', 'interr', true))).join(' '));
           return ValueWrapper(integerType, 0, 'println rtv');
         },
         "throw": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          throw ThrowException(l.single.valueC<String>(null, s, -2, 0, 'interr', 'interr') + "\nstack:\n" + s.reversed.join('\n'));
+          if (l.length > 1) {
+            throw SydException(l.first.valueC<String>(null, s, -2, 0, 'interr', 'interr') + "\nstack:\n" + s.reversed.join('\n'),
+                l.last.valueC(null, s, -2, 0, 'interr', 'interr'), NoDataVG());
+          }
+          throw ThrowException(l.single.valueC<String>(null, s, -2, 0, 'interr', 'interr') + "\nstack:\n" + s.reversed.join('\n'), NoDataVG());
         },
         "joinList": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          return ValueWrapper(stringType, l.single.valueC<List>(null, s, -2, 0, 'interr', 'interr').join(''), 'joinList rtv');
+          return ValueWrapper(
+              stringType,
+              l.single.valueC<List>(null, s, -2, 0, 'interr', 'interr').map((x) => x.toStringWithStack(s, -2, 0, 'interr', 'todo', true)).join(''),
+              'joinList rtv');
         },
         "cast": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           return l.single;
         },
         "substring": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           if (l[1].valueC(null, s, -2, 0, 'interr', 'interr') as int > (l[2].valueC(null, s, -2, 0, 'interr', 'interr') as int)) {
-            throw BSCException("Cannot substring when the start (${l[1]}) is more than the end (${l[2]})!\n${s.reversed.join('\n')}");
+            throw BSCException("Cannot substring when the start (${l[1]}) is more than the end (${l[2]})!\n${s.reversed.join('\n')}", NoDataVG());
           }
           if (l[1].valueC(null, s, -2, 0, 'interr', 'interr') as int < 0) {
-            throw BSCException("Cannot substring when the start (${l[1]}) is less than 0!\n${s.reversed.join('\n')}");
+            throw BSCException("Cannot substring when the start (${l[1]}) is less than 0!\n${s.reversed.join('\n')}", NoDataVG());
           }
           if (l[2].valueC(null, s, -2, 0, 'interr', 'interr') as int > l[0].valueC<String>(null, s, -2, 0, 'interr', 'interr').length) {
-            throw BSCException("Cannot substring when the end (${l[2]}) is more than the length of the string (${l[1]})!\n${s.reversed.join('\n')}");
+            throw BSCException(
+                "Cannot substring when the end (${l[2]}) is more than the length of the string (${l[1]})!\n${s.reversed.join('\n')}", NoDataVG());
           }
           return ValueWrapper(
               stringType,
@@ -174,7 +219,7 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
         },
         "sublist": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           if (l[2].valueC<int>(null, s, -2, 0, 'interr', 'interr') < l[1].valueC(null, s, -2, 0, 'interr', 'interr')) {
-            throw BSCException("sublist called with ${l[2]} (end arg) < ${l[1]} (start arg) ${s.reversed.join('\n')}");
+            throw BSCException("sublist called with ${l[2]} (end arg) < ${l[1]} (start arg) ${s.reversed.join('\n')}", NoDataVG());
           }
           return ValueWrapper(
               l.first.typeC(null, s, -2, 0, 'interr', 'interr'),
@@ -191,9 +236,13 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
               l.first.valueC<String>(null, s, -2, 0, workspace, filename).contains(l.last.valueC<String>(null, s, -2, 0, workspace, filename)),
               'stringContains rtv');
         },
-      }.map((key, value) => MapEntry(variables[key] ??= Variable(key), ValueWrapper(tv.igv(variables[key]!, false), value, '$key from intrinsics'))));
+        "debugName": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          return ValueWrapper(stringType, (l.single.valueC(null, s, -2, 0, workspace, filename) as Scope).debugName, 'debugName rtv');
+        }
+      }.map((key, value) => MapEntry(
+          variables[key] ??= Variable(key), MaybeConstantValueWrapper(ValueWrapper(tv.igv(variables[key]!, false), value, '$key from intrinsics'), true))));
   }
-  Scope scope = Scope(false,
+  Scope scope = Scope(false, false,
       intrinsics: intrinsics,
       parent: parent ?? intrinsics,
       stack: (stack ?? []) + [NotLazyString('$filename')],
@@ -204,11 +253,11 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
       case StatementResultType.nothing:
         break;
       case StatementResultType.breakWhile:
-        throw BSCException("Break outside while");
+        throw BSCException("Break outside while", scope);
       case StatementResultType.continueWhile:
-        throw BSCException("Continue outside while");
+        throw BSCException("Continue outside while", scope);
       case StatementResultType.returnFunction:
-        throw BSCException("Returned ${sr.value} outside function");
+        throw BSCException("Returned ${sr.value} outside function", scope);
       case StatementResultType.unwindAndThrow:
         stderr.writeln(sr.value);
         exit(1);

@@ -1,0 +1,10 @@
+// expected stderr: test
+// expected error: throw
+
+class A {
+  String toString() {
+    throw('test');
+  }
+}
+
+println(A());

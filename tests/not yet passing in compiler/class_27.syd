@@ -1,0 +1,21 @@
+// expected output: truetruetruefoofoofoo
+
+class A {
+  Null foo() { print('foo'); }
+  Whatever memory1;
+  Whatever memory2 = foo;
+
+  Null constructor() {
+    memory1 = foo;
+  }
+}
+
+A a = A();
+print(a.foo == a.memory1);
+print(a.foo == a.memory2);
+print(a.memory1 == a.memory2);
+
+a.foo();
+a.memory1();
+a.memory2();
+println('');

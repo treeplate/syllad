@@ -1,0 +1,8 @@
+// expected output: true
+
+Null foo(String... args) {
+    StringList a = args;
+    print(a == args);
+}
+
+foo('a', 'b', 'c');

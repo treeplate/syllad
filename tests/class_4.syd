@@ -1,4 +1,7 @@
 // expected error: unknown identifier 'foo'
+// unexpected output: FAIL
+
+println('FAIL');
 
 class A {
   Integer foo = foo + 1;

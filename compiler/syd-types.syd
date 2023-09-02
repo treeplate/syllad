@@ -1,12 +1,10 @@
 import 'core.syd';
-import 'syd-assembler.syd';
-import 'syd-operands.syd';
 
 fwdclass TypeRegistry extends Object;
 fwdclass Type(TypeRegistry, String) extends Object;
 fwdclass NullableType(TypeRegistry, Type) extends Type;
 fwdclass NumericType extends Type;
-fwdclass EnumType(TypeRegistry, String, StringList) extends NumericType;
+fwdclass EnumType(TypeRegistry, String) extends NumericType;
 fwdclass AbstractSubroutineType(TypeRegistry, Type) extends Type;
 fwdclass SubroutineTypeWithAnyArguments extends AbstractSubroutineType;
 fwdclass AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineType;
@@ -17,7 +15,6 @@ fwdclass IterableType(TypeRegistry, Type) extends Type;
 fwdclass IteratorType(TypeRegistry, Type) extends Type;
 
 fwdclassprop Type NullableType.subtype;
-fwdclassprop TypeList AbstractSubroutineTypeWithSpecificParameters.parameterTypes;
 fwdclassprop Type IterableType.elementType;
 fwdclassprop NullFunction TypeRegistry.registerType;
 fwdclassprop TypeNullableFunction TypeRegistry.parseType;
@@ -29,6 +26,7 @@ fwdclassprop ReadOnlyListTypeList TypeRegistry.typesOfReadOnlyLists;
 fwdclassprop ListTypeList TypeRegistry.typesOfLists;
 fwdclassprop IterableTypeList TypeRegistry.typesOfIterables;
 fwdclassprop IteratorTypeList TypeRegistry.typesOfIterators;
+
 class Type extends Object {
   IntegerNullable code = null;
   String name;
@@ -41,9 +39,11 @@ class Type extends Object {
     abstract();
   }
 
-  ImmediateOperand asOperand() {
-    assert(code != null, concat('cannot read type operand (', name, ') before codes are assigned (did you forget to call markConstructed?)'));
-    return ImmediateIntegerOperand(code!);
+  // This returns the opposite of isSubtypeOf, except for Whatever, where it always returns true.
+  // If this returns false, then you know that this.isSubtypeOf(other) is true.
+  // If this returns true, you cannot assume the types are not statically known to be disjoint.
+  Boolean needDynamicTypeCheckFor(Type other) {
+    return !isSubtypeOf(other);
   }
 
   Boolean isConstructed = false;
@@ -77,6 +77,7 @@ class Type extends Object {
     typeRegistryArg.registerType(this);
   }
 
+  //#override
   String toString() {
     if (code != null) {
       return concat(name, '\'', hex(code!));
@@ -86,14 +87,22 @@ class Type extends Object {
 }
 
 class WhateverType extends Type {
+  //#override
   Boolean isSubtypeOf(Type other) {
     return true;
   }
 
+  //#override
+  Boolean needDynamicTypeCheckFor(Type other) {
+    return true;
+  }
+
+  //#override
   Boolean neverReferenceCounted() {
     return false;
   }
 
+  //#override
   Null markConstructed() {
     assert(false, 'Whatever type cannot be constructed.');
   }
@@ -104,16 +113,19 @@ class WhateverType extends Type {
 }
 
 class AnythingType extends Type {
+  //#override
   Boolean isSubtypeOf(Type other) {
     return other is AnythingType
         || other is WhateverType
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
+  //#override
   Boolean neverReferenceCounted() {
     return false;
   }
 
+  //#override
   Null markConstructed() {
     assert(false, 'Anything type cannot be constructed.');
   }
@@ -124,32 +136,42 @@ class AnythingType extends Type {
 }
 
 class SentinelType extends Type {
+  //#override
+  Null markUsedInTypeCheck() {
+    assert(false, concat(name, ' type cannot be used in a type check (it cannot be referenced from code at all!).'));
+  }
+
+  //#override
   Boolean isSubtypeOf(Type other) {
     return false;
   }
 
+  //#override
   Boolean neverReferenceCounted() {
     return true;
   }
 
   Null constructor(TypeRegistry typeRegistryArg) {
-    super.constructor(typeRegistryArg, '<sentinel>');
+    super.constructor(typeRegistryArg, '<sentinel type>');
   }
 }
 
 class NullableType extends Type {
   Type subtype;
 
+  //#override
   Boolean isSubtypeOf(Type other) {
     return other is AnythingType
         || other is WhateverType
         || (other is NullableType && subtype.isSubtypeOf((other as NullableType).subtype));
   }
 
+  //#override
   Boolean neverReferenceCounted() {
     return false;
   }
 
+  //#override
   Null markConstructed() {
     assert(false, 'Nullable types cannot be constructed.');
   }
@@ -171,6 +193,7 @@ NullableType createOrFindNullableType(TypeRegistry typeRegistry, Type subtype) {
 }
 
 class NumericType extends Type {
+  //#override
   Boolean neverReferenceCounted() {
     return true;
   }
@@ -181,6 +204,7 @@ class NumericType extends Type {
 }
 
 class NullType extends NumericType {
+  //#override
   Boolean isSubtypeOf(Type other) {
     return other is AnythingType
         || other is WhateverType
@@ -194,6 +218,7 @@ class NullType extends NumericType {
 }
 
 class BooleanType extends NumericType {
+  //#override
   Boolean isSubtypeOf(Type other) {
     return other is BooleanType
         || other is AnythingType
@@ -207,6 +232,7 @@ class BooleanType extends NumericType {
 }
 
 class IntegerType extends NumericType {
+  //#override
   Boolean isSubtypeOf(Type other) {
     return other is IntegerType
         || other is AnythingType
@@ -219,9 +245,34 @@ class IntegerType extends NumericType {
   }
 }
 
+class EnumType extends NumericType {
+  //#override
+  Boolean isSubtypeOf(Type other) {
+    return other == this
+        || other is AnythingType
+        || other is WhateverType
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
+  }
+}
+
+class ReferenceCountedType extends Type {
+  //#override
+  Boolean isSubtypeOf(Type other) {
+    return other is ReferenceCountedType
+        || other is AnythingType
+        || other is WhateverType
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg) {
+    super.constructor(typeRegistryArg, 'ReferenceCounted');
+  }
+}
+
 class StringType extends Type {
   // pointer to heap-allocated structure (or structure in data segment)
 
+  //#override
   Boolean isSubtypeOf(Type other) {
     // Despite strings having a reference count just like GarbageCollectables,
     // a String is _not_ a GarbageCollectable and has a different memory model.
@@ -229,11 +280,13 @@ class StringType extends Type {
     // GarbageCollectable might still be referenced even when its count is zero
     // and we have to sweep the list of roots to determine if it should be freed.
     return other is StringType
+        || other is ReferenceCountedType
         || other is AnythingType
         || other is WhateverType
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
+  //#override
   Boolean neverReferenceCounted() {
     return false;
   }
@@ -243,24 +296,17 @@ class StringType extends Type {
   }
 }
 
-class EnumType extends NumericType {
-
-  Boolean isSubtypeOf(Type other) {
-    return other == this
-        || other is AnythingType
-        || other is WhateverType
-        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
-  }
-}
-
 class GarbageCollectableType extends Type {
+  //#override
   Boolean isSubtypeOf(Type other) {
     return other is GarbageCollectableType
+        || other is ReferenceCountedType
         || other is AnythingType
         || other is WhateverType
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
+  //#override
   Boolean neverReferenceCounted() {
     return false;
   }
@@ -277,6 +323,7 @@ class AbstractSubroutineType extends Type {
     return concat(returnType.name, 'Function');
   }
 
+  //#override
   Boolean isSubtypeOf(Type other) {
     return (other is AbstractSubroutineType && returnType.isSubtypeOf((other as AbstractSubroutineType).returnType))
         || other is AnythingType
@@ -285,6 +332,7 @@ class AbstractSubroutineType extends Type {
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
+  //#override
   Boolean neverReferenceCounted() {
     return true;
   }
@@ -296,6 +344,7 @@ class AbstractSubroutineType extends Type {
 }
 
 class SubroutineTypeWithAnyArguments extends AbstractSubroutineType {
+  //#override
   Null markConstructed() {
     assert(false, concat(name, ' type cannot be constructed.'));
   } 
@@ -315,11 +364,12 @@ class AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineTyp
     abstract();
   }
 
+  //#override
   Null markUsedInTypeCheck() {
     assert(false, concat(name, ' type cannot be used in a type check.'));
   }
 
-  Null verifyArguments(TypeList argumentTypes, SourceLocationList sourceLocations) {
+  Null verifyArguments(TypeList argumentTypes, SourceLocation callLocation, SourceLocationList sourceLocations) {
     abstract();
   }
 
@@ -332,15 +382,18 @@ class AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineTyp
 class SubroutineTypeWithVarArgs extends AbstractSubroutineTypeWithSpecificParameters {
   Type parameterType;
 
+  //#override
   String createName() {
     return concat(super.createName(), '(', parameterType.name, '...)');
   }
 
+  //#override
   Boolean equals(Type returnTypeArg, TypeList parameterTypesArg, Boolean isVarArgsArg) {
     return isVarArgsArg && returnTypeArg == returnType && len(parameterTypesArg) == 1 && parameterTypesArg[0] == parameterType;
   }
 
-  Null verifyArguments(TypeList argumentTypes, SourceLocationList sourceLocations) {
+  //#override
+  Null verifyArguments(TypeList argumentTypes, SourceLocation callLocation, SourceLocationList sourceLocations) {
     Integer index = 0;
     for (type in argumentTypes) {
       if (!type.isSubtypeOf(parameterType)) {
@@ -359,6 +412,7 @@ class SubroutineTypeWithVarArgs extends AbstractSubroutineTypeWithSpecificParame
 class SubroutineTypeWithSpecificParameters extends AbstractSubroutineTypeWithSpecificParameters {
   TypeList parameterTypes;
 
+  //#override
   String createName() {
     String stringify(Type type) {
       return type.name;
@@ -366,6 +420,7 @@ class SubroutineTypeWithSpecificParameters extends AbstractSubroutineTypeWithSpe
     return concat(super.createName(), '(', join(map(parameterTypes, stringify) as StringList, ', '), ')');
   }
 
+  //#override
   Boolean equals(Type returnTypeArg, TypeList parameterTypesArg, Boolean isVarArgsArg) {
     if (isVarArgsArg || returnTypeArg != returnType || len(parameterTypesArg) != len(parameterTypes)) {
       return false;
@@ -380,7 +435,12 @@ class SubroutineTypeWithSpecificParameters extends AbstractSubroutineTypeWithSpe
     return true;
   }
 
-  Null verifyArguments(TypeList argumentTypes, SourceLocationList sourceLocations) {
+  //#override
+  Null verifyArguments(TypeList argumentTypes, SourceLocation callLocation, SourceLocationList sourceLocations) {
+    assert(len(argumentTypes) == len(sourceLocations), 'contract violation');
+    if (len(argumentTypes) != len(parameterTypes)) {
+      throw(concat('wrong number of arguments for subroutine call at ', callLocation, ' (expected ', len(parameterTypes), ', got ', len(argumentTypes), ')'));
+    }
     Integer index = 0;
     for (type in argumentTypes) {
       if (!type.isSubtypeOf(parameterTypes[index])) {
@@ -440,6 +500,7 @@ SubroutineTypeWithSpecificParameters createOrFindSubroutineTypeWithSpecificParam
 }
 
 class ListDataType extends Type {
+  //#override
   Boolean isSubtypeOf(Type other) {
     return other is ListDataType
         || other is AnythingType
@@ -448,6 +509,7 @@ class ListDataType extends Type {
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
+  //#override
   Boolean neverReferenceCounted() {
     return false;
   }
@@ -460,6 +522,7 @@ class ListDataType extends Type {
 class AbstractListType extends Type {
   Type elementType;
 
+  //#override
   Boolean neverReferenceCounted() {
     return false;
   }
@@ -473,6 +536,7 @@ class AbstractListType extends Type {
 class ListType extends AbstractListType {
   // pointer to heap-allocated structure
 
+  //#override
   Boolean isSubtypeOf(Type other) {
     return (other is AbstractListType &&
             elementType.isSubtypeOf((other as AbstractListType).elementType) &&
@@ -504,6 +568,7 @@ ListType createOrFindListType(TypeRegistry typeRegistry, Type elementType) {
 class ReadOnlyListType extends AbstractListType {
   // used by varargs and by copies of varargs
 
+  //#override
   Boolean isSubtypeOf(Type other) {
     return (other is ReadOnlyListType && elementType.isSubtypeOf((other as ReadOnlyListType).elementType))
         || (other is IterableType &&
@@ -535,6 +600,7 @@ class IterableType extends Type {
 
   Type elementType;
 
+  //#override
   Boolean isSubtypeOf(Type other) {
     return (other is IterableType && elementType.isSubtypeOf(cast(cast(other).elementType)))
         || other is AnythingType
@@ -543,6 +609,7 @@ class IterableType extends Type {
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
+  //#override
   Boolean neverReferenceCounted() {
     return false;
   }
@@ -568,6 +635,7 @@ class IteratorType extends Type {
 
   Type elementType;
 
+  //#override
   Boolean isSubtypeOf(Type other) {
     return (other is IteratorType && elementType.isSubtypeOf(cast(cast(other).elementType)))
         || other is AnythingType
@@ -576,6 +644,7 @@ class IteratorType extends Type {
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
+  //#override
   Boolean neverReferenceCounted() {
     return false;
   }
@@ -597,11 +666,13 @@ IteratorType createOrFindIteratorType(TypeRegistry typeRegistry, Type elementTyp
 }
 
 class ClosureType extends Type {
+  //#override
   Boolean isSubtypeOf(Type other) {
     return other is ClosureType
         || other is GarbageCollectableType;
   }
 
+  //#override
   Boolean neverReferenceCounted() {
     return false;
   }
@@ -612,10 +683,12 @@ class ClosureType extends Type {
 }
 
 class SystemType extends Type {
+  //#override
   Boolean isSubtypeOf(Type other) {
     return other is SystemType;
   }
 
+  //#override
   Boolean neverReferenceCounted() {
     return true;
   }
@@ -626,10 +699,12 @@ class SystemType extends Type {
 }
 
 class SubroutineCodeAddressType extends Type {
+  //#override
   Boolean isSubtypeOf(Type other) {
     return other is SubroutineCodeAddressType;
   }
 
+  //#override
   Boolean neverReferenceCounted() {
     return true;
   }
@@ -644,6 +719,42 @@ class TypeRegistry extends Object {
 
   Null registerType(Type type) {
     append(types, type);
+  }
+
+  SentinelType coreSentinelType;
+  SystemType coreSystemType;
+  AnythingType coreAnythingType;
+  WhateverType coreWhateverType;
+  NullType coreNullType;
+  BooleanType coreBooleanType;
+  IntegerType coreIntegerType;
+  StringType coreStringType;
+  GarbageCollectableType coreGarbageCollectableType;
+  ReferenceCountedType coreReferenceCountedType;
+  SubroutineCodeAddressType coreSubroutineCodeAddressType;
+  ListDataType coreListDataType;
+  ClosureType coreClosureType; // will be used eventually, so #ignore_unused
+  AbstractSubroutineType coreSubroutineType;
+  AbstractListType coreSubscriptableType;
+  IterableType coreIterableType;
+
+  Null constructor() {
+    coreSystemType = SystemType(this);
+    coreSentinelType = SentinelType(this);
+    coreAnythingType = AnythingType(this);
+    coreWhateverType = WhateverType(this);
+    coreNullType = NullType(this);
+    coreBooleanType = BooleanType(this);
+    coreIntegerType = IntegerType(this);
+    coreStringType = StringType(this);
+    coreGarbageCollectableType = GarbageCollectableType(this);
+    coreReferenceCountedType = ReferenceCountedType(this);
+    coreSubroutineCodeAddressType = SubroutineCodeAddressType(this);
+    coreListDataType = ListDataType(this);
+    coreClosureType = ClosureType(this);
+    coreSubroutineType = createOrFindSubroutineTypeWithAnyArgs(this, coreAnythingType);
+    coreSubscriptableType = createOrFindReadOnlyListType(this, coreWhateverType);
+    coreIterableType = createOrFindIterableType(this, coreWhateverType);
   }
 
   // These are used by createOrFindSubroutineType(), createOrFindReadOnlyListType(), et al.
@@ -680,20 +791,14 @@ class TypeRegistry extends Object {
       }
     }
     sortedTypes = addLists(constructedNotTypeChecked, constructedAndTypeChecked, typeCheckedNotConstructed) as TypeList;
+    assert(first(sortedTypes) is SentinelType, 'type zero must be the sentinel type');
     Integer code = 0;
     for (type in sortedTypes) {
       type.assignCode(code);
       code += 1;
     }
-    assert(code < 2**32, 'too many types (type code exceeded 32 bits)'); // we use imm32s for type codes in some places
+    assert(code < 2**32 - 1, 'too many types (type code exceeded 32 bits)'); // we use imm32s for type codes in some places, we use 0xffffffff as an "invalid" marker
     return len(constructedNotTypeChecked);
-  }
-
-  String withConstantTypeParenthetical(String comment, Operand operand) {
-    if (operand is ImmediateIntegerOperand) {
-      return concat(comment, ' (', sortedTypes[(operand as ImmediateIntegerOperand).value], ')');
-    }
-    return comment;
   }
 
   Boolean hasSuffix(String name, String suffix) {

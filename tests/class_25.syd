@@ -1,0 +1,45 @@
+// expected output: Bar: x (argument) =  argument
+// expected output: Bar: this.x (member) =  member
+// expected output: Foo: y (argument) =  argument
+// expected output: Foo: x (member) =  member
+// expected output: Foo: this.x (member) =  member
+// expected output: Bar: x (argument) =  argument
+// expected output: Bar: this.x (member) =  member
+
+class Identity {
+  String name;
+  Null constructor(String nameArg) {
+    name = nameArg;
+  }
+
+  String toString() {
+    return name;
+  }
+}
+
+class Foo {
+  Identity x;
+
+  Null test(Identity y) {
+    println('Foo: y (argument) = ', y);
+    println('Foo: x (member) = ', x);
+    println('Foo: this.x (member) = ', this.x);
+  }
+
+  Null constructor(Identity xArg) {
+    x = xArg;
+  }
+}
+
+class Bar extends Foo {
+  //#override
+  Null test(Identity x) {
+    println('Bar: x (argument) = ', x);
+    println('Bar: this.x (member) = ', this.x);
+    super.test(x);
+    println('Bar: x (argument) = ', x);
+    println('Bar: this.x (member) = ', this.x);
+  }
+}
+
+Bar(Identity('member')).test(Identity('argument'));

@@ -2,11 +2,13 @@ import 'core.syd';
 import 'syd-tokenizer.syd';
 import 'syd-utils.syd';
 import 'syd-compiler.syd';
-import 'syd-loop-scopes.syd';
+
+String kConstructor = 'constructor';
 
 class TypeIdentifier extends AstNode {
   String name;
   
+  //#override
   String toStringIndent(Integer indent) {
     return name;
   }
@@ -34,6 +36,7 @@ class Statement extends AstNode {
 class StatementBlock extends AstNode {
   StatementList children;
   
+  //#override
   String toStringIndent(Integer indent) {
     StringList buffer = []:String;
     for (statement in children) {
@@ -56,23 +59,17 @@ class StatementBlock extends AstNode {
   }
 }
 
-class Expression extends AstNode {
-  // Expressions are expected to declare (or identify) a Slot, and return it.
-  Slot generateInstructions(CompiledScope scope) {
-    abstract();
-  }
-}
-
 class StringLiteralExpression extends Expression {
   String value;
 
-  Slot generateInstructions(CompiledScope scope) {
-    scope.environment().intrinsicsLibrary.coreStringType.markConstructed();
-    Slot result = scope.environment().registerStringConstant('string', value, sourceLocation.lineNo, sourceLocation.colNo, sourceLocation.filename);
-    scope.references.add(result); // TODO: ideally we would be able to tree shake references from dead code too, not just unreferenced functions
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    scope.environment().coreStringType.markConstructed();
+    Bucket result = scope.environment().registerStringConstant(scope.label.deriveWith('string'), value, concat(sourceLocation), commentNameForString(value));
     return result;
   }
 
+  //#override
   String toStringIndent(Integer indent) {
     return concat('\'', escapeString(value), '\'');
   }
@@ -86,10 +83,13 @@ class StringLiteralExpression extends Expression {
 class IntegerLiteralExpression extends Expression {
   Integer value;
 
-  Slot generateInstructions(CompiledScope scope) {
-    return ImmediateIntegerSlot(scope.environment().intrinsicsLibrary.coreIntegerType, value, concat(this));
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    scope.environment().coreIntegerType.markConstructed();
+    return scope.environment().integer(value);
   }
   
+  //#override
   String toStringIndent(Integer indent) {
     if (value > -10 && value < 10) {
       return intToStr(value);
@@ -110,6 +110,7 @@ class ListLiteralExpression extends Expression {
   ExpressionList values;
   TypeIdentifierNullable elementType;
 
+  //#override
   String toStringIndent(Integer indent) {
     String indenter(AstNode node) {
       return node.toStringIndent(indent + 2);
@@ -121,12 +122,13 @@ class ListLiteralExpression extends Expression {
     return concat('[', join(map(values, indenter) as StringList, ','), ']', elementTypeString);
   }
 
-  Slot generateInstructions(CompiledScope scope) {
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
     CompilationEnvironment environment = scope.environment();
-    SlotList elements = []:Slot;
+    BucketList elements = []:Bucket;
     for (value in values) {
       append(elements, value.generateInstructions(scope));
-      // xxxx static type checks
+      // TODO: static type checks
     }
     Integer initialLength = 1;
     if (len(elements) > initialLength) {
@@ -137,21 +139,15 @@ class ListLiteralExpression extends Expression {
       evaluatedElementType = elementType!.generateInstructions(scope);
     } else {
       // TODO: infer the type based on the elements of the list
-      evaluatedElementType = environment.intrinsicsLibrary.coreAnythingType;
+      evaluatedElementType = environment.coreAnythingType;
     }
     Type type = createOrFindListType(environment, evaluatedElementType);
     type.markConstructed();
     createOrFindIteratorType(environment, evaluatedElementType).markConstructed();
-    Slot listContructor = scope.lookupIntrinsic(environment.listConstructorIntrinsicName);
     assert(initialLength > 0, 'List must not be constructed with zero elements.');
-    Slot subroutineResult = scope.emitSubroutineCall(listContructor, [ TypeCodeSlot(environment, type), environment.integer(initialLength) ]:Slot, null);
-    Slot list = scope.registerDynamicValue(type, rcNever, 'list literal');
-    // TODO: avoid the redundant code below (which is just here to make the static type right)
-    scope.emitInstruction(MoveInstruction(list, subroutineResult, 'copy list literal\'s value over to slot with better static type'));
-    scope.emitInstruction(MoveTypeToTypeInstruction(list, subroutineResult, scope.environment(), 'copy list literal\'s dynamic type over to slot with better static type'));
-    Slot appendIntrinsic = scope.lookupIntrinsic(environment.appendIntrinsicName);
+    Bucket list = scope.emitIntrinsicCall(environment.listConstructorIntrinsicName, [ TypeCodeBucket(type, scope.environment().coreIntegerType), environment.integer(initialLength) ]:Bucket).asType(type);
     for (element in elements) {
-      scope.emitSubroutineCall(appendIntrinsic, [ list, element ]:Slot, null);
+      scope.emitIntrinsicCall(environment.appendIntrinsicName, [ list, element ]:Bucket);
     }
     return list;
   }
@@ -164,7 +160,7 @@ class ListLiteralExpression extends Expression {
 }
 
 class LValue extends Object {
-  Null assign(CompiledScope scope, Slot rValue, SourceLocation sourceLocation) {
+  Null assign(CompiledScope scope, Bucket rValue, SourceLocation sourceLocation) {
     abstract();
   }
 }
@@ -178,12 +174,21 @@ class LValueExpression extends Expression {
 class VariableLValue extends LValue {
   IdentifierEntity variable;
 
-  Null assign(CompiledScope scope, Slot rValue, SourceLocation sourceLocation) {
+  //#override
+  Null assign(CompiledScope scope, Bucket rValue, SourceLocation sourceLocation) {
+    if (!variable.writeable()) {
+      throw(concat('Cannot assign to immutable value at ', sourceLocation));
+    }
     if (!rValue.staticType.isSubtypeOf(variable.staticType())) {
       throw(concat('Cannot assign ', rValue.staticType.name, ' to variable of type ', variable.staticType().name, ' at ', sourceLocation));
     }
-    scope.references.add(scope.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage);
-    scope.emitTypeCheck(rValue, variable.staticType(), scope.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage, rValue.debugName, true); // TODO: replace debugName ("what" argument) with real explanation
+    scope.emit(TypeCheckInstruction(
+      rValue, 
+      variable.staticType(), 
+      'tried to assign to variable of wrong type compared to rvalue', 
+      true, 
+      LazyComment('check assignment is type-safe'),
+    ));
     variable.write(scope, rValue);
   }
 
@@ -196,6 +201,7 @@ class VariableLValue extends LValue {
 class VariableExpression extends LValueExpression {
   String name;
   
+  //#override
   String toStringIndent(Integer indent) {
     return name;
   }
@@ -207,32 +213,17 @@ class VariableExpression extends LValueExpression {
     }
     if (!result!.isDefined()) {
       // for compatibility with the interpreter
-      throw(concat('Class "', name, '" has not yet been defined at ', sourceLocation));
+      throw(concat('Identifier "', name, '" has not yet been defined at ', sourceLocation));
     }
     return result!;
   }
 
-  Slot generateInstructions(CompiledScope scope) {
-    Slot originalSlot = lookupCurrentIdentifier(scope).forRead(scope);
-    if (originalSlot.isMutable()) {
-      rc referenceCountStyle;
-      if (originalSlot.staticType.neverReferenceCounted()) {
-        referenceCountStyle = rcNever;
-      } else {
-        referenceCountStyle = rcOnStack;
-      }
-      DynamicSlot copy = scope.registerDynamicValue(originalSlot.staticType, referenceCountStyle, concat('copy of ', name));
-      // TODO: optimizer should elide the copy if not needed
-      scope.emitInstruction(MoveInstruction(copy, originalSlot, concat('make a copy of ', name, '\'s value in case it changes before we use it')));
-      scope.emitInstruction(MoveTypeToTypeInstruction(copy, originalSlot, scope.environment(), concat('make a copy of ', name, '\'s type in case it changes before we use it')));
-      if (!copy.staticType.neverReferenceCounted()) {
-        scope.emitIncref(copy, true /* isGCRoot */);
-      }
-      return copy;
-    }
-    return originalSlot;
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    return lookupCurrentIdentifier(scope).forRead(scope);
   }
 
+  //#override
   LValue generateLValue(CompiledScope scope) {
     return VariableLValue(lookupCurrentIdentifier(scope));
   }
@@ -245,23 +236,24 @@ class VariableExpression extends LValueExpression {
 
 class SubscriptLValue extends LValue {
   Type elementType;
-  Slot pointer;
+  Bucket pointer;
 
-  Null assign(CompiledScope scope, Slot rValue, SourceLocation sourceLocation) {
+  //#override
+  Null assign(CompiledScope scope, Bucket rValue, SourceLocation sourceLocation) {
     if (!rValue.staticType.isSubtypeOf(elementType)) {
       throw(concat('Cannot assign ', rValue.staticType.name, ', to list element of type ', elementType.name, ' at ', sourceLocation));
     }
-    scope.references.add(scope.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage);
-    scope.emitTypeCheck(rValue, elementType, scope.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage as Slot, rValue.debugName, true); // TODO: replace debugName ("what" argument) with real explanation
-    DynamicSlot oldValue = scope.registerDynamicValue(elementType, rcOnHeap, concat('old value in list'));
-    scope.emitInstruction(MoveDerefInstruction(oldValue, pointer, 0x08, 'read old value'));
-    scope.emitInstruction(MoveDerefToTypeInstruction(oldValue, pointer, 0x00, 'read old type'));
-    scope.emitInstruction(MoveToDerefInstruction(pointer, rValue, 0x08, 'write new value'));
-    scope.emitInstruction(MoveTypeToDerefInstruction(pointer, rValue, 0x00, scope.environment(), 'write new type'));
-    scope.emitIncref(rValue, false /* isGCRoot */);
+    scope.emit(TypeCheckInstruction(
+      rValue, 
+      elementType, 
+      'tried to assign to subscript lvalue of type that does not match rvalue', 
+      true, 
+      LazyComment('check subscript assignment is type-safe'),
+    ));
+    scope.emit(HeapUpdateInstruction(pointer, rValue, elementType));
   }
 
-  Null constructor(Type elementTypeArg, Slot pointerArg) {
+  Null constructor(Type elementTypeArg, Bucket pointerArg) {
     super.constructor();
     elementType = elementTypeArg;
     pointer = pointerArg;
@@ -272,13 +264,14 @@ class SubscriptExpression extends LValueExpression {
   Expression list;
   Expression argument;
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat(list.toStringIndent(indent), '[', argument.toStringIndent(indent), ']');
   }
 
   Boolean _prepared = false;
-  Slot _evaluatedList;
-  Slot _evaluatedArgument;
+  Bucket _evaluatedList;
+  Bucket _evaluatedArgument;
   Type _evaluatedElementType;
 
   Null _prepare(CompiledScope scope) {
@@ -288,46 +281,45 @@ class SubscriptExpression extends LValueExpression {
     _evaluatedList = list.generateInstructions(scope);
     if (_evaluatedList.staticType is AbstractListType) {
       _evaluatedElementType = (_evaluatedList.staticType as AbstractListType).elementType;
-    } else if (_evaluatedList.staticType.isSubtypeOf(scope.environment().subscriptableType)) {
-      _evaluatedElementType = scope.environment().intrinsicsLibrary.coreAnythingType;
+    } else if (_evaluatedList.staticType.isSubtypeOf(scope.environment().coreSubscriptableType)) {
+      _evaluatedElementType = scope.environment().coreAnythingType;
     } else {
       throw(concat('"', list, '", a ', _evaluatedList.staticType.name, ', is not a list (and therefore cannot be subscripted) at ', sourceLocation));
     }
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(_evaluatedList, scope.environment().subscriptableType, scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage, concat(list), true); // TODO: replace toString ("what" argument) with real explanation
+    scope.emit(TypeCheckInstruction(
+      _evaluatedList,
+      scope.environment().coreSubscriptableType, 
+      'tried to subscript non-list', 
+      true, 
+      LazyComment('check subscript receiver is a list'),
+    ));
     _evaluatedArgument = argument.generateInstructions(scope);
-    if (!_evaluatedArgument.staticType.isSubtypeOf(scope.environment().intrinsicsLibrary.coreIntegerType)) {
+    if (!_evaluatedArgument.staticType.isSubtypeOf(scope.environment().coreIntegerType)) {
       throw(concat('Subscript index is not an Integer at ', sourceLocation, ' (is ', _evaluatedArgument.staticType.name, ')'));
     }
-    scope.references.add(scope.environment().intrinsicsLibrary.subscriptTypeCheckFailureMessage);
-    scope.emitTypeCheck(
+    scope.emit(TypeCheckInstruction(
       _evaluatedArgument,
-      scope.environment().intrinsicsLibrary.coreIntegerType,
-      scope.environment().intrinsicsLibrary.subscriptTypeCheckFailureMessage as Slot,
-      _evaluatedArgument.debugName,
+      scope.environment().coreIntegerType,
+      'tried to subscript with non-integer index',
       true,
-    ); // TODO: replace debugName ("what" argument) with real explanation
+      LazyComment('check subscript index is an integer'),
+    ));
   }
 
-  Slot generateInstructions(CompiledScope scope) {
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
     _prepare(scope);
-    Slot pointer = scope.emitSubscriptEvaluation(_evaluatedList, _evaluatedArgument);
-    // TODO: optimizer should elide the copy if not needed
-    rc referenceCountStyle;
-    if (_evaluatedElementType.neverReferenceCounted()) {
-      referenceCountStyle = rcNever;
-    } else {
-      referenceCountStyle = rcOnStack;
-    }
-    DynamicSlot result = scope.registerDynamicValue(_evaluatedElementType, referenceCountStyle, concat('copy of ', _evaluatedList.debugName, '[', _evaluatedArgument.debugName, ']'));
-    scope.emitInstruction(MoveDerefInstruction(result, pointer, 0x08, concat('value of ', _evaluatedList.debugName, '[', _evaluatedArgument.debugName, ']')));
-    scope.emitInstruction(MoveDerefToTypeInstruction(result, pointer, 0, concat('type of ', _evaluatedList.debugName, '[', _evaluatedArgument.debugName, ']')));
-    if (!_evaluatedElementType.neverReferenceCounted()) {
-      scope.emitIncref(result, true /* isGCRoot */);
-    }
-    return result;
+    return DereferenceWithOffsetsBucket(
+      scope.emitSubscriptEvaluation(_evaluatedList, _evaluatedArgument), 
+      scope.environment().integer(0x08), 
+      scope.environment().integer(0x00), 
+      ow.QWord, 
+      _evaluatedElementType,
+      LazyComment('subscript result'),
+    );
   }
 
+  //#override
   LValue generateLValue(CompiledScope scope) {
     _prepare(scope);
     return SubscriptLValue(_evaluatedElementType, scope.emitSubscriptEvaluation(_evaluatedList, _evaluatedArgument));
@@ -344,25 +336,25 @@ class MemberAccessExpression extends LValueExpression {
   Expression object;
   String member;
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat(object.toStringIndent(indent), '.', member);
   }
 
-  Slot generateInstructions(CompiledScope scope) {
-    Slot lSlot = object.generateInstructions(scope);
-    if (lSlot.staticType is ClassType) {
-      assert(lSlot is DynamicSlot, 'How could an expression with static type that is a class not return a DynamicSlot when compiled?');
-      ClassType class = lSlot.staticType as ClassType;
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    Bucket lBucket = object.generateInstructions(scope);
+    if (lBucket.staticType is ClassType) {
+      ClassType class = lBucket.staticType as ClassType;
       MemberDescriptionNullable memberDescription = class.getMember(member);
       if (memberDescription != null && memberDescription!.isDefined()) {
-        return class.createIdentifierEntity(scope, lSlot as DynamicSlot, member).forRead(scope);
+        return class.createIdentifierEntity(scope, lBucket, member).forRead(scope);
       }
       throw(concat('nonexistent member ', member, ' at ', sourceLocation));
     }
     Integer memberId = scope.environment().atomizeForDynamicDispatch(member);
-    Slot dynamicLookup = scope.lookupIntrinsic(scope.environment().dynamicLookupIntrinsicName);
-    Slot getter = scope.emitSubroutineCall(dynamicLookup, [ lSlot, scope.environment().integer(memberId) ]:Slot, null);
-    Slot result = scope.emitSubroutineCall(getter, [ ]:Slot, null);
+    Bucket getter = scope.emitIntrinsicCall(scope.environment().dynamicLookupIntrinsicName, [ lBucket, scope.environment().integer(memberId) ]:Bucket);
+    Bucket result = scope.emitSubroutinePointerCall(getter, [ ]:Bucket, null, null);
     return result;
   }
 
@@ -383,10 +375,10 @@ CompiledSubroutine evaluateSuper(CompiledScope scope, String method, SourceLocat
     throw(concat('super expression used in function instead of method at ', sourceLocation));
   }
   if (hostClass!.supertype == hostClass) {
-    assert(hostClass!.supertype == scope.lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName), 'unexpected root class');
-    throw(concat('super expression used in base class at ', sourceLocation));
+    assert(hostClass!.supertype == scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName), 'unexpected other root class');
+    throw(concat('super expression used in internal base class at ', sourceLocation));
   }
-  if (hostClass!.supertype == scope.lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName)) {
+  if (hostClass!.supertype == scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName)) {
     throw(concat('super expression used in base class at ', sourceLocation));
   }
   ClassType superclass = hostClass!.supertype;
@@ -395,9 +387,6 @@ CompiledSubroutine evaluateSuper(CompiledScope scope, String method, SourceLocat
     throw(concat('Superclass does not have a method "', method, '" as referenced at ', sourceLocation));
   }
   assert(memberDescription!.isDefined(), 'superclass methods not all defined');
-  if (memberDescription == null) {
-    throw(concat('Superclass does not have a method "', method, '" as referenced at ', sourceLocation));
-  }
   while (memberDescription!.isField) {
     if (superclass.supertype == superclass) {
       throw(concat('Superclass member "', method, '" is a field, not a method, but was referenced in super expression at ', sourceLocation));
@@ -414,22 +403,23 @@ CompiledSubroutine evaluateSuper(CompiledScope scope, String method, SourceLocat
 class SuperExpression extends Expression {
   String method;
 
+  //#override
   String toStringIndent(Integer indent) {
     return concat('super.', method);
   }
 
-  Slot generateInstructions(CompiledScope scope) {
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
     CompiledSubroutine targetMethod = evaluateSuper(scope, method, sourceLocation);
     CompiledSubroutine thisMethod = scope.stackFrame() as CompiledSubroutine;
     targetMethod.type.markConstructed();
-    return scope.emitSubroutineCall(
-      scope.lookupIntrinsic(scope.environment().createMethodPointerIntrinsicName),
+    return scope.emitIntrinsicCall(
+      scope.environment().createMethodPointerIntrinsicName,
       [
         thisMethod.thisPointer,
-        CompiledSubroutineSlot(targetMethod, thisMethod.thisPointer /* not used */),
-        TypeCodeSlot(scope.environment(), targetMethod.type),
-      ]:Slot,
-      null /* sourceLocations */,
+        targetMethod.codePointer,
+        TypeCodeBucket(targetMethod.type, scope.environment().coreIntegerType),
+      ]:Bucket,
     );
   }
 
@@ -439,53 +429,22 @@ class SuperExpression extends Expression {
   }
 }
 
-Slot generateInstructionsForSubroutineCallExpression(CompiledScope scope, Slot subroutine, ExpressionList arguments, Expression subroutineReference, SourceLocation sourceLocation) {
-  CompilationEnvironment environment = scope.environment();
-  SlotList argumentValues = []:Slot;
-  SourceLocationList sourceLocations = []:SourceLocation;
-  Type subroutineType;
-  if (subroutine is MethodSlot) {
-    subroutineType = (subroutine as MethodSlot).subroutineType;
-  } else if (subroutine is CompiledSubroutineSlot) {
-    subroutineType = (subroutine as CompiledSubroutineSlot).subroutine.type;
-  } else {
-    subroutineType = subroutine.staticType;
-  }
-  if (subroutineType.isSubtypeOf(environment.subroutineType)) {
+Null generateInstructionsForArguments(CompilationEnvironment environment, CompiledScope scope, Expression subroutineReference, SourceLocation sourceLocation, Type subroutineType, ExpressionList arguments, BucketList argumentValues, SourceLocationList sourceLocations) {
+  if (subroutineType.isSubtypeOf(environment.coreSubroutineType)) {
     for (argument in arguments) {
-      // xxxx static type checks
       append(sourceLocations, argument.sourceLocation);
       append(argumentValues, argument.generateInstructions(scope));
     }
   } else {
-    throw(concat('"', subroutineReference.toStringIndent(0), '" is not a subroutine at ', sourceLocation, ' (is ', subroutineType.name, ')'));
+    throw(concat('"', subroutineReference.toStringIndent(0), '" is not a function pointer at ', sourceLocation, ' (is ', subroutineType.name, ')'));
   }
-  if (subroutineType is SubroutineTypeWithSpecificParameters) {
-    if (len(argumentValues) != len((subroutineType as SubroutineTypeWithSpecificParameters).parameterTypes)) {
-      throw(concat('wrong number of arguments to subroutine at ', sourceLocation, ' (expected ', len((subroutineType as SubroutineTypeWithSpecificParameters).parameterTypes), ', got ', len(argumentValues), ')'));
-    }
-  }
-  Type expectedType;
-  if (subroutine is MethodSlot || subroutine is CompiledSubroutineSlot) {
-    expectedType = environment.intrinsicsLibrary.coreSubroutineCodeAddressType;
-  } else {
-    expectedType = environment.subroutineType;
-  }
-  scope.references.add(scope.environment().intrinsicsLibrary.subroutineCallTypeCheckFailureMessage);
-  scope.emitTypeCheck(
-    subroutine,
-    expectedType,
-    environment.intrinsicsLibrary.subroutineCallTypeCheckFailureMessage as Slot,
-    subroutine.debugName,
-    true,
-  ); // TODO: replace debugName ("what" argument) with real explanation
-  return scope.emitSubroutineCall(subroutine, argumentValues, sourceLocations);
 }
 
 class SubroutineCallExpression extends Expression {
   Expression subroutineReference;
   ExpressionList arguments;
 
+  //#override
   String toStringIndent(Integer indent) {
     StringList argumentsList = []:String;
     Integer index = 0;
@@ -499,8 +458,9 @@ class SubroutineCallExpression extends Expression {
     return concat(subroutineReference.toStringIndent(indent), '(', joinList(argumentsList), ')');
   }
 
-  Slot generateInstructions(CompiledScope scope) {
-    return generateInstructionsForSubroutineCallExpression(scope, subroutineReference.generateInstructions(scope), arguments, subroutineReference, sourceLocation);
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    return generateInstructionsForSubroutinePointerCallExpression(scope, subroutineReference.generateInstructions(scope), arguments, subroutineReference, sourceLocation);
   }
 
   Null constructor(Expression subroutineReferenceArg, ExpressionList argumentsArg, SourceLocation sourceLocationArg) {
@@ -514,6 +474,7 @@ class VariableSubroutineCallExpression extends Expression {
   String name;
   ExpressionList arguments;
 
+  //#override
   String toStringIndent(Integer indent) {
     StringList argumentsList = []:String;
     Integer index = 0;
@@ -527,43 +488,21 @@ class VariableSubroutineCallExpression extends Expression {
     return concat(name, '(', joinList(argumentsList), ')');
   }
   
-  Slot lookupCurrentIdentifier(CompiledScope scope) {
+  IdentifierEntity lookupCurrentIdentifier(CompiledScope scope) {
     IdentifierEntityNullable entity = scope.lookupIdentifier(name);
     if (entity == null) {
       throw(concat('Identifier "', name, '" not known at ', sourceLocation));
     }
-    Slot result = entity!.forCall(scope);
-    if (!result.isDefined()) {
+    if (!entity!.isDefined()) {
       // for compatibility with the interpreter
       throw(concat('Identifier "', name, '" has not yet been defined at ', sourceLocation));
     }
-    return result;
+    return entity;
   }
 
-  Slot generateVariable(CompiledScope scope) {
-    Slot originalSlot = lookupCurrentIdentifier(scope);
-    if (originalSlot.isMutable()) {
-      rc referenceCountStyle;
-      if (originalSlot.staticType.neverReferenceCounted()) {
-        referenceCountStyle = rcNever;
-      } else {
-        referenceCountStyle = rcOnStack;
-      }
-      DynamicSlot copy = scope.registerDynamicValue(originalSlot.staticType, referenceCountStyle, concat('copy of ', name));
-      // TODO: optimizer should elide the copy if not needed
-      scope.emitInstruction(MoveInstruction(copy, originalSlot, concat('make a copy of ', name, '\'s value in case it changes before we use it')));
-      scope.emitInstruction(MoveTypeToTypeInstruction(copy, originalSlot, scope.environment(), concat('make a copy of ', name, '\'s type in case it changes before we use it')));
-      if (!copy.staticType.neverReferenceCounted()) {
-        scope.emitIncref(copy, true /* isGCRoot */);
-      }
-      copy.freeze();
-      return copy;
-    }
-    return originalSlot;
-  }
-
-  Slot generateInstructions(CompiledScope scope) {
-    return generateInstructionsForSubroutineCallExpression(scope, generateVariable(scope), arguments, this, sourceLocation);
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    return lookupCurrentIdentifier(scope).emitCall(scope, arguments, this, sourceLocation);
   }
 
   Null constructor(String nameArg, ExpressionList argumentsArg, SourceLocation sourceLocationArg) {
@@ -578,6 +517,7 @@ class MemberAccessSubroutineCallExpression extends Expression {
   String member;
   ExpressionList arguments;
 
+  //#override
   String toStringIndent(Integer indent) {
     StringList argumentsList = []:String;
     Integer index = 0;
@@ -591,26 +531,19 @@ class MemberAccessSubroutineCallExpression extends Expression {
     return concat(object.toStringIndent(indent), '.', member, '(', joinList(argumentsList), ')');
   }
 
-  Slot generateInstructions(CompiledScope scope) {
-    Slot subroutine;
-    Slot lSlot = object.generateInstructions(scope);
-    if (lSlot.staticType is ClassType) {
-      assert(lSlot is DynamicSlot, 'How could an expression with static type that is a class not return a DynamicSlot when compiled?');
-      ClassType class = lSlot.staticType as ClassType;
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    Bucket lBucket = object.generateInstructions(scope);
+    if (lBucket.staticType is ClassType) {
+      ClassType class = lBucket.staticType as ClassType;
       MemberDescriptionNullable memberDescription = class.getMember(member);
       if (memberDescription != null && memberDescription!.isDefined()) {
-        subroutine = class.createIdentifierEntity(scope, lSlot as DynamicSlot, member).forCall(scope);
-      } else {
-        throw(concat('nonexistent member ', member, ' at ', sourceLocation));
+        return class.createIdentifierEntity(scope, lBucket, member).emitCall(scope, arguments, this, sourceLocation);
       }
+      throw(concat('nonexistent member ', member, ' at ', sourceLocation));
     } else {
       throw(concat('cannot call member whose static type is not known at compile time; consider casting to AnythingFunction at ', sourceLocation));
-      // Integer memberId = scope.environment().atomizeForDynamicDispatch(member);
-      // Slot dynamicLookup = scope.lookupIntrinsic(scope.environment().dynamicLookupIntrinsicName);
-      // Slot getter = scope.emitSubroutineCall(dynamicLookup, [ lSlot, scope.environment().integer(memberId) ]:Slot, null);
-      // subroutine = scope.emitSubroutineCall(getter, [ ]:Slot, null);
     }
-    return generateInstructionsForSubroutineCallExpression(scope, subroutine, arguments, this, sourceLocation);
   }
 
   Null constructor(Expression objectArg, String memberArg, ExpressionList argumentsArg, SourceLocation sourceLocationArg) {
@@ -625,6 +558,7 @@ class SuperSubroutineCallExpression extends Expression {
   String method;
   ExpressionList arguments;
 
+  //#override
   String toStringIndent(Integer indent) {
     StringList argumentsList = []:String;
     Integer index = 0;
@@ -638,11 +572,18 @@ class SuperSubroutineCallExpression extends Expression {
     return concat('super.', method, '(', joinList(argumentsList), ')');
   }
 
-  Slot generateInstructions(CompiledScope scope) {
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
     CompiledSubroutine targetMethod = evaluateSuper(scope, method, sourceLocation);
     CompiledSubroutine thisMethod = scope.stackFrame() as CompiledSubroutine;
-    Slot subroutine = CompiledSubroutineSlot(targetMethod, thisMethod.thisPointer);
-    return generateInstructionsForSubroutineCallExpression(scope, subroutine, arguments, this, sourceLocation);
+    return generateInstructionsForSubroutineCallExpression(
+      scope,
+      ForCallResult(targetMethod.codePointer, targetMethod.type, thisMethod.thisPointer),
+      null,
+      arguments,
+      this,
+      sourceLocation,
+    );
   }
 
   Null constructor(String methodArg, ExpressionList argumentsArg, SourceLocation sourceLocationArg) {
@@ -655,13 +596,24 @@ class SuperSubroutineCallExpression extends Expression {
 class UnwrapExpression extends Expression {
   Expression lhs;
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat(lhs.toStringIndent(indent), '!');
   }
 
-  Slot generateInstructions(CompiledScope scope) {
-    // TODO: implement unwrap
-    throw('unwrap not implemented');
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    // check that it's not nullable
+    // return a static cast
+    Bucket value = lhs.generateInstructions(scope);
+    if (!(value.staticType is NullableType)) {
+      throw(concat('Type of expression (', value.staticType.name, ') is not a nullable type at ', sourceLocation));
+    }
+    Type unwrappedType = (value.staticType as NullableType).subtype;
+    assert(value.staticType.needDynamicTypeCheckFor(unwrappedType), 'internal error');
+    assert(unwrappedType.isSubtypeOf(value.staticType), 'internal error');
+    scope.emit(TypeCheckInstruction(value, unwrappedType, 'value is null', true, LazyComment('check type of ', value, ' is ', unwrappedType, ' and not null')));
+    return StaticCastBucket(value, unwrappedType);
   }
 
   Null constructor(Expression lhsArg, SourceLocation sourceLocationArg) {
@@ -674,16 +626,24 @@ class IsOperatorExpression extends Expression {
   Expression expression;
   TypeIdentifier type;
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat(expression.toStringIndent(indent), ' is ', type);
   }
 
-  Slot generateInstructions(CompiledScope scope) {
-    Slot lhs = expression.generateInstructions(scope);
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    Bucket lhs = expression.generateInstructions(scope);
     Type rhs = type.generateInstructions(scope);
-    Slot slot = scope.registerDynamicValue(scope.environment().intrinsicsLibrary.coreBooleanType, rcNever, 'is expression result');
-    scope.emitStoreTypeCheck(rhs, lhs, slot, concat(expression));
-    return slot;
+    if (!lhs.staticType.needDynamicTypeCheckFor(rhs)) {
+      // always true
+      return scope.environment().coreTrue;
+    }
+    if (!rhs.isSubtypeOf(lhs.staticType)) {
+      // always false
+      return scope.environment().coreFalse;
+    }
+    return scope.compute(StoreTypeCheckInstruction(rhs, lhs, scope.environment().coreBooleanType, 'evaluate is operator', LazyComment('result of "is" operator')));
   }
 
   Null constructor(Expression expressionArg, TypeIdentifier typeArg, SourceLocation sourceLocationArg) {
@@ -697,23 +657,26 @@ class AsOperatorExpression extends Expression {
   Expression expression;
   TypeIdentifier type;
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat(expression.toStringIndent(indent), ' as ', type);
   }
 
-  Slot generateInstructions(CompiledScope scope) {
-    Slot exprSlot = expression.generateInstructions(scope);
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    Bucket exprBucket = expression.generateInstructions(scope);
     Type rhs = type.generateInstructions(scope);
-    if (!rhs.isSubtypeOf(exprSlot.staticType)) {
-      throw(concat('Cannot cast ', exprSlot.staticType.name, ' to ', rhs.name, ' at ', sourceLocation));
+    if (!rhs.isSubtypeOf(exprBucket.staticType)) {
+      throw(concat('Cannot cast ', exprBucket.staticType.name, ' to ', rhs.name, ' at ', sourceLocation));
     }
-    scope.references.add(scope.environment().intrinsicsLibrary.asOperatorFailureMessage);
-    scope.emitTypeCheck(exprSlot, rhs, scope.environment().intrinsicsLibrary.asOperatorFailureMessage, concat(this), true); // xxx mention the fact that it's a type check in the [what] argument
-    // TODO: this new slot should be identical to the source except for the static type, but right now the slot manager can't handle that
-    DynamicSlot result = scope.registerDynamicValue(rhs, rcNever, concat('cast of ', exprSlot.debugName, ' to ', rhs.name));
-    scope.emitInstruction(MoveInstruction(result, exprSlot, concat('copy value of ', exprSlot.debugName, ' for cast to ', rhs.name)));
-    scope.emitInstruction(MoveTypeToTypeInstruction(result, exprSlot, scope.environment(), concat('copy type of ', exprSlot.debugName, ' for cast to ', rhs.name)));
-    return result;
+    scope.emit(TypeCheckInstruction(
+      exprBucket, 
+      rhs, 
+      'tried to cast but type mismatch (x as y)', 
+      true, 
+      LazyComment('check as operator cast is valid'),
+    ));
+    return exprBucket.asType(rhs);
   }
 
   Null constructor(Expression expressionArg, TypeIdentifier typeArg, SourceLocation sourceLocationArg) {
@@ -727,17 +690,17 @@ class ReinterpretAsOperatorExpression extends Expression {
   Expression expression;
   TypeIdentifier type;
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat(expression.toStringIndent(indent), ' __as__ ', type);
   }
 
-  Slot generateInstructions(CompiledScope scope) {
-    Slot exprSlot = expression.generateInstructions(scope);
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    Bucket exprBucket = expression.generateInstructions(scope);
     Type rhs = type.generateInstructions(scope);
-    DynamicSlot result = scope.registerDynamicValue(rhs, rcNever, concat('force cast of ', exprSlot.debugName, ' to ', rhs.name));
-    scope.emitInstruction(MoveInstruction(result, exprSlot, result.debugName));
-    scope.emitInstruction(SetTypeInstruction(result, rhs));
-    return result;
+    rhs.markConstructed();
+    return StaticReinterpretCastBucket(exprBucket, rhs);
   }
 
   Null constructor(Expression expressionArg, TypeIdentifier typeArg, SourceLocation sourceLocationArg) {
@@ -751,17 +714,16 @@ class ReinterpretDynamicAsOperatorExpression extends Expression {
   Expression expression;
   Expression type;
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat(expression.toStringIndent(indent), ' __dynamic_as__ ', type);
   }
 
-  Slot generateInstructions(CompiledScope scope) {
-    Slot lhs = expression.generateInstructions(scope);
-    Slot rhs = type.generateInstructions(scope);
-    DynamicSlot result = scope.registerDynamicValue(scope.environment().intrinsicsLibrary.coreAnythingType, rcNever, concat('force cast of ', lhs.debugName, ' to the type with code ', rhs.debugName));
-    scope.emitInstruction(MoveInstruction(result, lhs, result.debugName));
-    scope.emitInstruction(MoveValueToTypeInstruction(result, rhs));
-    return result;
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    Bucket lhs = expression.generateInstructions(scope);
+    Bucket rhs = type.generateInstructions(scope);
+    return DynamicCastBucket(lhs, rhs, scope.environment().coreAnythingType);
   }
 
   Null constructor(Expression expressionArg, Expression typeArg, SourceLocation sourceLocationArg) {
@@ -776,24 +738,25 @@ class UnaryExpression extends Expression {
 
   String describeOperator() { abstract(); }
 
-  Null generateTypeCheckInstructions(Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+  Type rhsType(CompilationEnvironment environment) {
     abstract();
     // e.g.:
-    // scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true);
+    // return environment.coreIntegerType;
   }
 
-  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
+  Type returnType(CompilationEnvironment environment) {
     abstract();
     // e.g.:
-    // return intrinsics.coreIntegerType;
+    // return environment.coreIntegerType;
   }
 
-  Null generateExpressionInstructions(Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+  Bucket generateExpressionInstructions(Bucket rhsValue, CompiledScope scope) {
     abstract();
     // e.g.:
-    // scope.emitInstruction(AdditionInstruction(rhsValue, result, concat(describeOperator(), ' operator')));
+    // return scope.compute(AdditionInstruction(rhsValue, concat(describeOperator(), ' operator')));
   }
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat(
       describeOperator(),
@@ -801,15 +764,22 @@ class UnaryExpression extends Expression {
     );
   }
 
-  Slot generateInstructions(CompiledScope scope) {
-    CompiledIntrinsicsLibrary intrinsics = scope.environment().intrinsicsLibrary as CompiledIntrinsicsLibrary;
-    Slot rhsValue = rhs.generateInstructions(scope);
-    generateTypeCheckInstructions(rhsValue, scope, intrinsics);
-    assert(returnType(intrinsics).neverReferenceCounted(), concat(className, '\'s returnType is potentially reference countable?!'));
-    Slot result = scope.registerDynamicValue(returnType(intrinsics), rcNever, concat(describeOperator(), ' unary operator result'));
-    generateExpressionInstructions(rhsValue, result, scope, intrinsics);
-    scope.emitInstruction(SetTypeInstruction(result, returnType(intrinsics)));
-    return result;
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    Bucket rhsValue = rhs.generateInstructions(scope);
+    Type rhsType = rhsType(scope.environment());
+    if (!rhsValue.staticType.isSubtypeOf(rhsType)) {
+      throw(concat('Expected ', rhsType.name, ', but found ', rhsValue.staticType.name, ', as operand of unary ', describeOperator(), ' operator at ', sourceLocation));
+    }
+    scope.emit(TypeCheckInstruction(
+      rhsValue, 
+      rhsType, 
+      'expected %s but got %s (in unary %s expression)', 
+      true, 
+      LazyComment('check ', describeOperator(), ' operator\'s operand is valid type'),
+    ));
+    assert(returnType(scope.environment()).neverReferenceCounted(), concat(className, '\'s returnType is potentially reference countable?!'));
+    return generateExpressionInstructions(rhsValue, scope);
   }
 
   Null constructor(Expression rhsArg, SourceLocation sourceLocationArg) {
@@ -819,157 +789,176 @@ class UnaryExpression extends Expression {
 }
 
 class IntegerNegationExpression extends UnaryExpression {
+  //#override
   String describeOperator() {
     return '-';
   }
 
-  Null generateTypeCheckInstructions(Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
-      throw(concat('Expected Integer, but found ', rhsValue.staticType.name, ', as operand of unary ', describeOperator(), ' operator at ', sourceLocation));
-    }
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
+  //#override
+  Type rhsType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
   }
 
-  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
-    return intrinsics.coreIntegerType;
+  //#override
+  Type returnType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
   }
 
-  Null generateExpressionInstructions(Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(MonoOperandInstruction('neg', rhsValue, result, concat(describeOperator(), ' unary operator')));
+  //#override
+  Bucket generateExpressionInstructions(Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(NegateInstruction(rhsValue, scope.environment().coreIntegerType, LazyComment('result of unary -')));
   }
 }
 
 class PlusExpression extends UnaryExpression {
+  //#override
   String describeOperator() {
     return '+';
   }
 
-  Null generateTypeCheckInstructions(Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
-      throw(concat('Expected Integer, but found ', rhsValue.staticType.name, ', as operand of unary ', describeOperator(), ' operator at ', sourceLocation));
-    }
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
+  //#override
+  Type rhsType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
   }
 
-  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
-    return intrinsics.coreIntegerType;
+  //#override
+  Type returnType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
   }
 
-  Null generateExpressionInstructions(Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    // TODO: hmm
-    abstract();
+  //#override
+  Bucket generateExpressionInstructions(Bucket rhsValue, CompiledScope scope) {
+    return rhsValue;
   }
 }
 
 class BooleanNotExpression extends UnaryExpression {
+  //#override
   String describeOperator() {
     return '!';
   }
 
-  Null generateTypeCheckInstructions(Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreBooleanType)) {
-      throw(concat('Expected Boolean, but found ', rhsValue.staticType.name, ', as operand of unary ', describeOperator(), ' operator at ', sourceLocation));
-    }
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(rhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
+  //#override
+  Type rhsType(CompilationEnvironment environment) {
+    return environment.coreBooleanType;
   }
 
-  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
-    return intrinsics.coreBooleanType;
+  //#override
+  Type returnType(CompilationEnvironment environment) {
+    return environment.coreBooleanType;
   }
 
-  Null generateExpressionInstructions(Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(SetSlotIfEqualInstruction(rhsValue, scope.environment().integer(0), result, intrinsics.coreBooleanType, concat(describeOperator(), ' unary operator')));
+  //#override
+  Bucket generateExpressionInstructions(Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(BooleanNotInstruction(rhsValue, scope.environment().coreBooleanType, LazyComment('result of unary ! operator')));
   }
 }
 
 class BitwiseNotExpression extends UnaryExpression {
+  //#override
   String describeOperator() {
     return '~';
   }
 
-  Null generateTypeCheckInstructions(Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
-      throw(concat('Expected Integer, but found ', rhsValue.staticType.name, ', as operand of unary ', describeOperator(), ' operator at ', sourceLocation));
-    }
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
+  //#override
+  Type rhsType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
   }
 
-  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
-    return intrinsics.coreIntegerType;
+  //#override
+  Type returnType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
   }
 
-  Null generateExpressionInstructions(Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(MonoOperandInstruction('not', rhsValue, result, concat(describeOperator(), ' unary operator')));
+  //#override
+  Bucket generateExpressionInstructions(Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(BitwiseNotInstruction(rhsValue, scope.environment().coreIntegerType, LazyComment('result of unary ~ operator')));
   }
 }
 
 class TypeOfExpression extends UnaryExpression {
+  //#override
   String describeOperator() {
     return '__typeOf';
   }
 
-  Null generateTypeCheckInstructions(Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    // no type check at all, we can be called with anything even an internal type
+  //#override
+  Type rhsType(CompilationEnvironment environment) {
+    return environment.coreWhateverType;
   }
 
-  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
-    return intrinsics.coreIntegerType;
+  //#override
+  Type returnType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
   }
 
-  Null generateExpressionInstructions(Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(MoveTypeToValueInstruction(result, rhsValue));
-  }
-}
-
-class IteratorTypeOfExpression extends UnaryExpression {
-  String describeOperator() {
-    return '__iteratorTypeOf';
-  }
-
-  Null generateTypeCheckInstructions(Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
-      throw(concat('Expected Integer, but found ', rhsValue.staticType.name, ', as operand of unary ', describeOperator(), ' operator at ', sourceLocation));
-    }
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
-  }
-
-  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
-    return intrinsics.coreIntegerType;
-  }
-
-  Null generateExpressionInstructions(Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(ShiftInstruction('shl', rhsValue, scope.environment().integer(2), result, 'multiply type code by 4'));
-    scope.emitInstruction(AddInstruction(result, ImmediateDataLabelSlot(scope.environment().intrinsicsLibrary.coreIntegerType, scope.environment().iteratorTypeTableLabel, 'iterator type table pointer'), result, 'offset by the start of the iterator type table'));
-    scope.emitInstruction(MoveDwordDerefInstruction(result, result, scope.registerDynamicValue(scope.environment().intrinsicsLibrary.coreIntegerType, rcNever, 'scratch'), 0, 'dereference to get iterator type'));
+  //#override
+  Bucket generateExpressionInstructions(Bucket rhsValue, CompiledScope scope) {
+    return TypeOfBucket(rhsValue, scope.environment().coreIntegerType);
   }
 }
 
-class ListTypeOfExpression extends UnaryExpression {
+class IteratorTypeFromExpression extends UnaryExpression {
+  //#override
   String describeOperator() {
-    return '__listTypeOf';
+    return '__iteratorTypeFrom';
   }
 
-  Null generateTypeCheckInstructions(Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
-      throw(concat('Expected Integer, but found ', rhsValue.staticType.name, ', as operand of unary ', describeOperator(), ' operator at ', sourceLocation));
-    }
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
+  //#override
+  Type rhsType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
   }
 
-  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
-    return intrinsics.coreIntegerType;
+  //#override
+  Type returnType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
   }
 
-  Null generateExpressionInstructions(Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(ShiftInstruction('shl', rhsValue, scope.environment().integer(2), result, 'multiply type code by 4'));
-    scope.emitInstruction(AddInstruction(result, ImmediateDataLabelSlot(scope.environment().intrinsicsLibrary.coreIntegerType, scope.environment().listTypeTableLabel, 'list type table pointer'), result, 'offset by the start of the list type table'));
-    scope.emitInstruction(MoveDwordDerefInstruction(result, result, scope.registerDynamicValue(scope.environment().intrinsicsLibrary.coreIntegerType, rcNever, 'scratch'), 0, 'dereference to get list type'));
+  //#override
+  Bucket generateExpressionInstructions(Bucket rhsValue, CompiledScope scope) {
+    // input: type code of iterable
+    // output: type code of iterator version of input
+    // the iteratorTypeTableLabel is a table of 32 bit wide codes (4 bytes wide)
+    // first, multiply the type code by 4 to get the offset into the table in bytes
+    Bucket index = scope.compute(ShiftLeftInstruction(rhsValue, scope.environment().integer(2), scope.environment().coreIntegerType, LazyComment('offset into iterator type table')));
+    // add the offset of the table to the index to find the memory location of our entry
+    return DereferenceWithStaticTypeBucket(
+      scope.environment().iteratorTypeTablePointer, 
+      index, 
+      ow.DWord, 
+      scope.environment().coreIntegerType, 
+      LazyComment('iterator type version of ', rhsValue),
+    );
+  }
+}
+
+class ListTypeFromExpression extends UnaryExpression {
+  //#override
+  String describeOperator() {
+    return '__listTypeFrom';
+  }
+
+  //#override
+  Type rhsType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
+  }
+
+  //#override
+  Type returnType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
+  }
+
+  //#override
+  Bucket generateExpressionInstructions(Bucket rhsValue, CompiledScope scope) {
+    Bucket index = scope.compute(ShiftLeftInstruction(rhsValue, scope.environment().integer(2), scope.environment().coreIntegerType, LazyComment('offset into list type table')));
+    // add the offset of the table to the index to find the memory location of our entry
+    return DereferenceWithStaticTypeBucket(
+      scope.environment().listTypeTablePointer, 
+      index, 
+      ow.DWord, 
+      scope.environment().coreIntegerType, 
+      LazyComment('list type version of ', rhsValue),
+    );
   }
 }
 
@@ -981,6 +970,7 @@ class TypeToCodeExpression extends Expression {
     return '__typeToCode';
   }
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat(
       describeOperator(),
@@ -989,10 +979,11 @@ class TypeToCodeExpression extends Expression {
     );
   }
 
-  Slot generateInstructions(CompiledScope scope) {
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
     Type rhsValue = rhs.generateInstructions(scope);
     rhsValue.markConstructed();
-    return TypeCodeSlot(scope.environment(), rhsValue);
+    return TypeCodeBucket(rhsValue, scope.environment().coreIntegerType);
   }
 
   Null constructor(TypeIdentifier rhsArg, SourceLocation sourceLocationArg) {
@@ -1011,25 +1002,31 @@ class OperatorExpression extends Expression {
     // return '+';
   }
 
-  Null generateTypeCheckInstructions(Slot lhsValue, Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+  Type lhsType(CompilationEnvironment environment) {
     abstract();
     // e.g.:
-    // scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(lhs), true);
-    // scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true);
+    // return environment.coreIntegerType;
   }
 
-  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
+  Type rhsType(CompilationEnvironment environment) {
     abstract();
     // e.g.:
-    // return intrinsics.coreIntegerType;
+    // return environment.coreIntegerType;
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+  Type returnType(CompilationEnvironment environment) {
     abstract();
     // e.g.:
-    // scope.emitInstruction(AdditionInstruction(scope, lhsValue, rhsValue, result, concat(describeOperator(), ' operator')));
+    // return environment.coreIntegerType;
+  }
+
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    abstract();
+    // e.g.:
+    // return scope.compute(AdditionInstruction(rhsValue, concat(describeOperator(), ' operator')));
   }
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat(
       lhs.toStringIndent(indent),
@@ -1040,15 +1037,39 @@ class OperatorExpression extends Expression {
     );
   }
 
-  Slot generateInstructions(CompiledScope scope) {
-    CompiledIntrinsicsLibrary intrinsics = scope.environment().intrinsicsLibrary as CompiledIntrinsicsLibrary;
-    Slot lhsValue = lhs.generateInstructions(scope);
-    Slot rhsValue = rhs.generateInstructions(scope);
-    generateTypeCheckInstructions(lhsValue, rhsValue, scope, intrinsics);
-    assert(returnType(intrinsics).neverReferenceCounted(), concat(className, '\'s returnType is potentially reference countable?!'));
-    Slot result = scope.registerDynamicValue(returnType(intrinsics), rcNever, concat(describeOperator(), ' operator result'));
-    generateExpressionInstructions(lhsValue, rhsValue, result, scope, intrinsics);
-    scope.emitInstruction(SetTypeInstruction(result, returnType(intrinsics)));
+  Null generateTypeCheckInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    Type lhsType = lhsType(scope.environment());
+    if (!lhsValue.staticType.isSubtypeOf(lhsType)) {
+      throw(concat('expected ', lhsType.name, ', but found ', lhsValue.staticType.name, ', as lhs of binary ', describeOperator(), ' operator at ', sourceLocation));
+    }
+    scope.emit(TypeCheckInstruction(
+      lhsValue, 
+      lhsType, 
+      'expected %s but got %s (in lhs of binary %s expression)', 
+      true, 
+      LazyComment('check left hand side operand of ', describeOperator(), ' operator is valid type'),
+    ));
+    Type rhsType = rhsType(scope.environment());
+    if (!rhsValue.staticType.isSubtypeOf(rhsType)) {
+      throw(concat('Expected ', rhsType.name, ', but found ', rhsValue.staticType.name, ', as rhs of binary ', describeOperator(), ' operator at ', sourceLocation));
+    }
+    scope.emit(TypeCheckInstruction(
+      rhsValue, 
+      rhsType, 
+      'expected %s but got %s (in rhs of binary %s expression)', 
+      true, 
+      LazyComment('check right hand side operand of ', describeOperator(), ' operator is valid type'),
+    ));
+  }
+
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    Bucket lhsValue = lhs.generateInstructions(scope);
+    Bucket rhsValue = rhs.generateInstructions(scope);
+    generateTypeCheckInstructions(lhsValue, rhsValue, scope);
+    assert(returnType(scope.environment()).neverReferenceCounted(), concat(className, '\'s returnType is potentially reference countable?!'));
+    Bucket result = generateExpressionInstructions(lhsValue, rhsValue, scope);
+    assert(result.staticType == returnType(scope.environment()), concat(className, '\'s returnType is not respected by its generateExpressionInstructions method'));
     return result;
   }
 
@@ -1060,288 +1081,415 @@ class OperatorExpression extends Expression {
 }
 
 class NumericOperatorExpression extends OperatorExpression {
-  Null generateTypeCheckInstructions(Slot lhsValue, Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    if (!lhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
-      throw(concat('Expected Integer, but found ', lhsValue.staticType.name, ', as left hand operand of ', describeOperator(), ' operator at ', sourceLocation));
-    }
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(lhs), true); // TODO: replace toString ("what" argument) with real explanation
-    if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
-      throw(concat('Expected Integer, but found ', rhsValue.staticType.name, ', as right hand operand of ', describeOperator(), ' operator at ', sourceLocation));
-    }
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
+  //#override
+  Type lhsType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
   }
 
-  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
-    return intrinsics.coreIntegerType;
+  //#override
+  Type rhsType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
+  }
+
+  //#override
+  Type returnType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
   }
 }
 
 class OperatorAdditionExpression extends NumericOperatorExpression {
+  //#override
   String describeOperator() {
     return '+';
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(AddInstruction(lhsValue, rhsValue, result, concat('compute (', lhsValue.debugName, ') ', describeOperator(), ' (', rhsValue.debugName, ')')));
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(SignedAddInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, LazyComment('result of binary + operator')));
   }
 }
 
 class OperatorSubtractionExpression extends NumericOperatorExpression {
+  //#override
   String describeOperator() {
     return '-';
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(SubInstruction(lhsValue, rhsValue, result, concat('compute (', lhsValue.debugName, ') ', describeOperator(), ' (', rhsValue.debugName, ')')));
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(SignedSubtractInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, LazyComment('result of binary - operator')));
   }
 }
 
 class OperatorMultiplicationExpression extends NumericOperatorExpression {
+  //#override
   String describeOperator() {
     return '*';
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(SignedMultiplyInstruction(lhsValue, rhsValue, result, concat('compute (', lhsValue.debugName, ') ', describeOperator(), ' (', rhsValue.debugName, ')')));
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(SignedMultiplyInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, LazyComment('result of binary * operator')));
   }
 }
 
 class OperatorDivisionExpression extends NumericOperatorExpression {
+  //#override
   String describeOperator() {
     return '/';
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(IntegerDivisionInstruction(lhsValue, rhsValue, result, concat('compute (', lhsValue.debugName, ') ', describeOperator(), ' (', rhsValue.debugName, ')')));
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(SignedDivideInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, LazyComment('result of binary / operator')));
   }
 }
 
 class OperatorModulusExpression extends NumericOperatorExpression {
+  //#override
   String describeOperator() {
     return '%';
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(IntegerRemainderInstruction(lhsValue, rhsValue, result, concat('compute (', lhsValue.debugName, ') ', describeOperator(), ' (', rhsValue.debugName, ')')));
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(SignedModulusInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, LazyComment('result of binary % operator')));
   }
 }
 
 class OperatorBitwiseAndExpression extends NumericOperatorExpression {
+  //#override
   String describeOperator() {
     return '&';
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(BiOperandInstruction('and', lhsValue, rhsValue, result,   concat('compute (', lhsValue.debugName, ') ', describeOperator(), ' (', rhsValue.debugName, ')')));
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(AndInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, LazyComment('result of binary & operator')));
   }
 }
 
 class OperatorBitwiseOrExpression extends NumericOperatorExpression {
+  //#override
   String describeOperator() {
     return '|';
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(BiOperandInstruction('or', lhsValue, rhsValue, result, concat('compute (', lhsValue.debugName, ') ', describeOperator(), ' (', rhsValue.debugName, ')')));
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(OrInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, LazyComment('result of binary | operator')));
   }
 }
 
 class OperatorBitwiseXorExpression extends NumericOperatorExpression {
+  //#override
   String describeOperator() {
     return '^';
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(BiOperandInstruction('xor', lhsValue, rhsValue, result, concat('compute (', lhsValue.debugName, ') ', describeOperator(), ' (', rhsValue.debugName, ')')));
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(XOrInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, LazyComment('result of binary ^ operator')));
   }
 }
 
 class OperatorLeftShiftExpression extends NumericOperatorExpression {
+  //#override
   String describeOperator() {
     return '<<';
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    // TODO: this needs to check if the count operand is more than 6 bits
-    scope.emitInstruction(ShiftInstruction('shl', lhsValue, rhsValue, result, concat('compute (', lhsValue.debugName, ') ', describeOperator(), ' (', rhsValue.debugName, ')')));
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(ShiftLeftInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, LazyComment('result of binary << operator')));
   }
 }
 
 class OperatorRightShiftExpression extends NumericOperatorExpression {
+  //#override
   String describeOperator() {
     return '>>';
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    // TODO: this needs to check if the count operand is more than 6 bits
-    scope.emitInstruction(ShiftInstruction('shr', lhsValue, rhsValue, result, concat('compute (', lhsValue.debugName, ') ', describeOperator(), ' (', rhsValue.debugName, ')')));
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(ShiftRightInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, LazyComment('result of binary >> operator')));
   }
 }
 
 class OperatorEqualsEqualsExpression extends OperatorExpression {
+  //#override
   String describeOperator() {
     return '==';
   }
 
-  Null generateTypeCheckInstructions(Slot lhsValue, Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+  //#override
+  Null generateTypeCheckInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
     // accepts any type if it's plausibly useful to compare them
     if (!(lhsValue.staticType.isSubtypeOf(rhsValue.staticType) || rhsValue.staticType.isSubtypeOf(lhsValue.staticType))) {
       throw(concat('Expected compatible types for ', describeOperator(), ' operator at ', sourceLocation, ' but found ', lhsValue.staticType.name, ' and ', rhsValue.staticType.name));
     }
   }
 
-  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
-    return intrinsics.coreBooleanType;
+  //#override
+  Type lhsType(CompilationEnvironment environment) {
+    assert(false, 'unreachable');
+    return environment.coreWhateverType;
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.storeEquality(lhsValue, rhsValue, result, false);
+  //#override
+  Type rhsType(CompilationEnvironment environment) {
+    assert(false, 'unreachable');
+    return environment.coreWhateverType;
+  }
+
+  //#override
+  Type returnType(CompilationEnvironment environment) {
+    return environment.coreBooleanType;
+  }
+
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(EqualityInstruction(lhsValue, rhsValue, scope.environment().coreBooleanType, false, LazyComment('result of binary == operator')));
   }
 }
 
 class OperatorBangEqualsExpression extends OperatorExpression {
+  //#override
   String describeOperator() {
     return '!=';
   }
 
-  Null generateTypeCheckInstructions(Slot lhsValue, Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+  //#override
+  Null generateTypeCheckInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
     // accepts any type if it's plausibly useful to compare them
     if (!(lhsValue.staticType.isSubtypeOf(rhsValue.staticType) || rhsValue.staticType.isSubtypeOf(lhsValue.staticType))) {
       throw(concat('Expected compatible types for ', describeOperator(), ' operator at ', sourceLocation, ' but found ', lhsValue.staticType, ' and ', rhsValue.staticType));
     }
   }
 
-  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
-    return intrinsics.coreBooleanType;
+  //#override
+  Type lhsType(CompilationEnvironment environment) {
+    assert(false, 'unreachable');
+    return environment.coreWhateverType;
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.storeEquality(lhsValue, rhsValue, result, true);
+  //#override
+  Type rhsType(CompilationEnvironment environment) {
+    assert(false, 'unreachable');
+    return environment.coreWhateverType;
+  }
+
+  //#override
+  Type returnType(CompilationEnvironment environment) {
+    return environment.coreBooleanType;
+  }
+
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(EqualityInstruction(lhsValue, rhsValue, scope.environment().coreBooleanType, true, LazyComment('result of binary != operator')));
   }
 }
 
 class OperatorNumericCmpExpression extends OperatorExpression {
-  cc flag() {
+  Comparison flag() {
     abstract();
   }
-
-  Null generateTypeCheckInstructions(Slot lhsValue, Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    if (!lhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
-      throw(concat('Expected Integer, but found ', lhsValue.staticType.name, ', as left hand operand of ', describeOperator(), ' operator at ', sourceLocation));
-    }
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(lhs), true); // TODO: replace toString ("what" argument) with real explanation
-    if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreIntegerType)) {
-      throw(concat('Expected Integer, but found ', rhsValue.staticType.name, ', as right hand operand of ', describeOperator(), ' operator at ', sourceLocation));
-    }
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
+  
+  //#override
+  Type lhsType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
   }
 
-  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
-    return intrinsics.coreBooleanType;
+  //#override
+  Type rhsType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(StoreCmpInstruction(lhsValue, rhsValue, result, flag()));
+  //#override
+  Type returnType(CompilationEnvironment environment) {
+    return environment.coreBooleanType;
+  }
+
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(InequalityInstruction(flag(), lhsValue, rhsValue, scope.environment().coreBooleanType, LazyComment('result of binary ', describeOperator(), ' operator')));
   }
 }
 
 class OperatorLessThanExpression extends OperatorNumericCmpExpression {
+  //#override
   String describeOperator() {
     return '<';
   }
 
-  cc flag() {
-    return ccLessThan;
+  //#override
+  Comparison flag() {
+    return Comparison.LessThan;
   }
 }
 
 class OperatorLessThanOrEqualsExpression extends OperatorNumericCmpExpression {
+  //#override
   String describeOperator() {
     return '<=';
   }
 
-  cc flag() {
-    return ccLessThanOrEqual;
+  //#override
+  Comparison flag() {
+    return Comparison.LessThanOrEqual;
   }
 }
 
 class OperatorGreaterThanExpression extends OperatorNumericCmpExpression {
+  //#override
   String describeOperator() {
     return '>';
   }
 
-  cc flag() {
-    return ccGreaterThan;
+  //#override
+  Comparison flag() {
+    return Comparison.GreaterThan;
   }
 }
 
 class OperatorGreaterThanOrEqualsExpression extends OperatorNumericCmpExpression {
+  //#override
   String describeOperator() {
     return '>=';
   }
 
-  cc flag() {
-    return ccGreaterThanOrEqual;
+  //#override
+  Comparison flag() {
+    return Comparison.GreaterThanOrEqual;
   }
 }
 
-class OperatorLogicalAndExpression extends OperatorExpression {
+class OperatorLogicalAndExpression extends Expression {
+  Expression lhs;
+  Expression rhs;
+
   String describeOperator() {
     return '&&';
   }
 
-  Null generateTypeCheckInstructions(Slot lhsValue, Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    if (!lhsValue.staticType.isSubtypeOf(intrinsics.coreBooleanType)) {
-      throw(concat('Expected Boolean, but found ', lhsValue.staticType.name, ', as left hand operand of ', describeOperator(), ' operator at ', sourceLocation));
-    }
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(lhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(lhs), true); // TODO: replace toString ("what" argument) with real explanation
-    if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreBooleanType)) {
-      throw(concat('Expected Boolean, but found ', rhsValue.staticType.name, ', as right hand operand of ', describeOperator(), ' operator at ', sourceLocation));
-    }
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(rhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
+  //#override
+  String toStringIndent(Integer indent) {
+    return concat(
+      lhs.toStringIndent(indent),
+      ' ',
+      describeOperator(),
+      ' ',
+      rhs.toStringIndent(indent),
+    );
   }
 
-  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
-    return intrinsics.coreBooleanType;
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    // evaluate lhs
+    LocalVariable result = LocalVariable(scope.environment().coreBooleanType, scope.environment().coreSentinel, '$result$');
+    scope.emit(VariableDeclarationInstruction(result));
+    Bucket lhsValue = lhs.generateInstructions(scope);
+    if (!lhsValue.staticType.isSubtypeOf(scope.environment().coreBooleanType)) {
+      throw(concat('Expected Boolean, but found ', lhsValue.staticType.name, ', as lhs of binary ', describeOperator(), ' operator at ', sourceLocation));
+    }
+    scope.emit(TypeCheckInstruction(
+      lhsValue, 
+      scope.environment().coreBooleanType, 
+      'expected %s but got %s (in lhs of binary %s expression)', 
+      true, 
+      LazyComment('check left hand side operand of ', describeOperator(), ' operator is valid type'),
+    ));
+    // create a scope for when lhs is not false, that returns rhs
+    CompiledScope rhsScope = CompiledScope(scope, '&&');
+    Bucket rhsValue = rhs.generateInstructions(rhsScope);
+    if (!rhsValue.staticType.isSubtypeOf(scope.environment().coreBooleanType)) {
+      throw(concat('Expected Boolean, but found ', rhsValue.staticType.name, ', as rhs of binary ', describeOperator(), ' operator at ', sourceLocation));
+    }
+    rhsScope.emit(TypeCheckInstruction(
+      rhsValue, 
+      scope.environment().coreBooleanType, 
+      'expected %s but got %s (in rhs of binary %s expression)', 
+      true, 
+      LazyComment('check right hand side operand of ', describeOperator(), ' operator is valid type'),
+    ));
+    rhsScope.emit(UpdateVariableInstruction(result, rhsValue));
+    // create a scope for when lhs is false, that returns false
+    CompiledScope falseScope = CompiledScope(scope, '&&');
+    falseScope.emit(UpdateVariableInstruction(result, scope.environment().coreFalse)); // 'short-circuited &&'
+    // put it all together
+    scope.emit(IfScopeInstruction(lhsValue, rhsScope, falseScope));
+    return result;
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    // TODO: implement logical and 
-    throw('&& not implemented');
+  Null constructor(Expression lhsArg, Expression rhsArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
+    lhs = lhsArg;
+    rhs = rhsArg;
   }
 }
 
-class OperatorLogicalOrExpression extends OperatorExpression {
+class OperatorLogicalOrExpression extends Expression {
+  Expression lhs;
+  Expression rhs;
+
   String describeOperator() {
     return '||';
   }
 
-  Null generateTypeCheckInstructions(Slot lhsValue, Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    if (!lhsValue.staticType.isSubtypeOf(intrinsics.coreBooleanType)) {
-      throw(concat('Expected Boolean, but found ', lhsValue.staticType.name, ', as left hand operand of ', describeOperator(), ' operator at ', sourceLocation));
-    }
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(lhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(lhs), true); // TODO: replace toString ("what" argument) with real explanation
-    if (!rhsValue.staticType.isSubtypeOf(intrinsics.coreBooleanType)) {
-      throw(concat('Expected Boolean, but found ', rhsValue.staticType.name, ', as right hand operand of ', describeOperator(), ' operator at ', sourceLocation));
-    }
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(rhsValue, intrinsics.coreBooleanType, intrinsics.operandTypeCheckFailureMessage, concat(rhs), true); // TODO: replace toString ("what" argument) with real explanation
+  //#override
+  String toStringIndent(Integer indent) {
+    return concat(
+      lhs.toStringIndent(indent),
+      ' ',
+      describeOperator(),
+      ' ',
+      rhs.toStringIndent(indent),
+    );
   }
 
-  Type returnType(CompiledIntrinsicsLibrary intrinsics) {
-    return intrinsics.coreBooleanType;
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    // evaluate lhs
+    LocalVariable result = LocalVariable(scope.environment().coreBooleanType, scope.environment().coreSentinel, '$result$');
+    scope.emit(VariableDeclarationInstruction(result));
+    Bucket lhsValue = lhs.generateInstructions(scope);
+    if (!lhsValue.staticType.isSubtypeOf(scope.environment().coreBooleanType)) {
+      throw(concat('Expected Boolean, but found ', lhsValue.staticType.name, ', as lhs of binary ', describeOperator(), ' operator at ', sourceLocation));
+    }
+    scope.emit(TypeCheckInstruction(
+      lhsValue, 
+      scope.environment().coreBooleanType, 
+      'expected %s but got %s (in lhs of binary %s expression)', 
+      true, 
+      LazyComment('check left hand side operand of ', describeOperator(), ' operator is valid type'),
+    ));
+    // create scope for when lhs is not false, that returns true
+    CompiledScope trueScope = CompiledScope(scope, '||');
+    trueScope.emit(UpdateVariableInstruction(result, scope.environment().coreTrue)); // 'short-circuited ||'
+    // create scope for when lhs is false, that returns rhs
+    CompiledScope rhsScope = CompiledScope(scope, '||');
+    Bucket rhsValue = rhs.generateInstructions(rhsScope);
+    if (!rhsValue.staticType.isSubtypeOf(scope.environment().coreBooleanType)) {
+      throw(concat('Expected Boolean, but found ', rhsValue.staticType.name, ', as rhs of binary ', describeOperator(), ' operator at ', sourceLocation));
+    }
+    rhsScope.emit(TypeCheckInstruction(
+      rhsValue, 
+      scope.environment().coreBooleanType, 
+      'expected %s but got %s (in rhs of binary %s expression)', 
+      true, 
+      LazyComment('check right hand side operand of ', describeOperator(), ' operator is valid type'),
+    ));
+    rhsScope.emit(UpdateVariableInstruction(result, rhsValue));
+    // put it all together
+    scope.emit(IfScopeInstruction(lhsValue, trueScope, rhsScope));
+    return result;
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    // TODO: implement logical or
-    throw('|| not implemented');
+  Null constructor(Expression lhsArg, Expression rhsArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
+    lhs = lhsArg;
+    rhs = rhsArg;
   }
 }
 
@@ -1361,6 +1509,7 @@ class FieldDeclarationStatement extends DeclarationStatement {
   TypeIdentifier type;
   ExpressionNullable rValue;
   
+  //#override
   String toStringIndent(Integer indent) {
     if (rValue == null) {
       return concat(type.toStringIndent(indent), ' ', identifier, ';\n');
@@ -1370,13 +1519,25 @@ class FieldDeclarationStatement extends DeclarationStatement {
 
   Null generateInitializerInstructions(CompiledScope constructor) {
     if (rValue != null) {
-      Slot rSlot = rValue!.generateInstructions(constructor);
-      if (!rSlot.staticType.isSubtypeOf(staticType)) {
-        throw(concat('Cannot assign ', rSlot.staticType.name, ' to field of type ', staticType.name, ' at ', sourceLocation));
+      Bucket rBucket = rValue!.generateInstructions(constructor);
+      if (!rBucket.staticType.isSubtypeOf(staticType)) {
+        throw(concat('Cannot assign ', rBucket.staticType.name, ' to field of type ', staticType.name, ' at ', sourceLocation));
       }
-      constructor.references.add(constructor.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage);
-      constructor.emitTypeCheck(rSlot, staticType, constructor.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage as Slot, rSlot.debugName, true); // TODO: replace debugName ("what" argument) with real explanation
-      (constructor as CompiledSubroutine).parentClass!.createIdentifierEntity(constructor as CompiledSubroutine, (constructor as CompiledSubroutine).thisPointer, identifier).write(constructor, rSlot);
+      constructor.emit(TypeCheckInstruction(
+        rBucket, 
+        staticType, 
+        'tried to assign %s to field of type %s at %s', 
+        true, 
+        LazyComment('check type of field initializer is valid'), // TODO: better error message
+      ));
+      IdentifierEntity entity = (constructor as CompiledSubroutine).parentClass!.createIdentifierEntity(
+        constructor as CompiledSubroutine,
+        (constructor as CompiledSubroutine).thisPointer,
+        identifier,
+      );
+      if (entity.writeable()) {
+        entity.write(constructor, rBucket);
+      }
     }
   }
 
@@ -1396,9 +1557,13 @@ class FieldDeclarationStatement extends DeclarationStatement {
     classType.registerMember(identifier, staticType, true, generateInitializerInstructions);
   }
   
+  //#override
   Null generateInstructions(CompiledScope scope) {
     assert(scope is CompiledSubroutine, 'FieldDeclarationStatement compiled outside of class constructor');
     assert((scope as CompiledSubroutine).parentClass != null, 'FieldDeclarationStatement compiled outside of class');
+    if (identifier == kConstructor) {
+      throw(concat('Identifier "', identifier, '" is an invalid name for a field at ', sourceLocation));
+    }
     generateInitializerInstructions(scope);
     (scope as CompiledSubroutine).parentClass!.getMember(identifier)!.define();
   }
@@ -1414,6 +1579,7 @@ class VariableDeclarationStatement extends DeclarationStatement {
   TypeIdentifier type;
   ExpressionNullable rValue;
   
+  //#override
   String toStringIndent(Integer indent) {
     if (rValue == null) {
       return concat(type.toStringIndent(indent), ' ', identifier, ';\n');
@@ -1421,22 +1587,28 @@ class VariableDeclarationStatement extends DeclarationStatement {
     return concat(type.toStringIndent(indent), ' ', identifier, ' = ', rValue!.toStringIndent(indent), ';\n');
   }
   
+  //#override
   Null generateInstructions(CompiledScope scope) {
     staticType = type.generateInstructions(scope);
     if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
       throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
     }
-    DynamicSlot lSlot = scope.registerVariable(identifier, staticType);
+    IdentifierEntity lhs = scope.registerVariable(identifier, staticType);
+    assert(lhs.writeable(), 'variable is not writeable');
     if (rValue != null) {
-      Slot rSlot = rValue!.generateInstructions(scope);
-      if (!rSlot.staticType.isSubtypeOf(lSlot.staticType)) {
-        throw(concat('Cannot assign ', rSlot.staticType.name, ' to variable of type ', lSlot.staticType.name, ' at ', sourceLocation));
+      // TODO: for globals, instead of doing it this way, we should put them in the .data section
+      Bucket rhs = rValue!.generateInstructions(scope);
+      if (!rhs.staticType.isSubtypeOf(lhs.staticType())) {
+        throw(concat('Cannot assign ', rhs.staticType.name, ' to variable of type ', lhs.staticType().name, ' at ', sourceLocation));
       }
-      scope.references.add(scope.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage);
-      scope.emitTypeCheck(rSlot, staticType, scope.environment().intrinsicsLibrary.assignmentTypeCheckFailureMessage as Slot, rSlot.debugName, true); // TODO: replace debugName ("what" argument) with real explanation
-      scope.emitInstruction(MoveInstruction(lSlot, rSlot, concat('value initialization of variable declaration for ', lSlot.debugName, ' (', rSlot.debugName, ')')));
-      scope.emitInstruction(MoveTypeToTypeInstruction(lSlot, rSlot, scope.environment(), concat('type initialization of variable declaration for ', lSlot.debugName)));
-      scope.emitIncref(lSlot, true);
+      scope.emit(TypeCheckInstruction(
+        rhs, 
+        staticType, 
+        'type mismatch in assignment.', 
+        true, 
+        LazyComment('check type of variable initializer (', rhs, ')'), // TODO: more detailed error message
+      ));
+      lhs.write(scope, rhs);
     }
   }
 
@@ -1486,31 +1658,34 @@ class AbstractSubroutineDeclarationStatement extends DeclarationStatement {
         compiledParameterTypes,
       );
     }
+    staticType.markConstructed();
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
     assert(staticType != null, 'call generateStaticType before generateInstructions');
     if (isVarArgs) {
       subroutine = CompiledVarArgsSubroutine(scope, staticType as SubroutineTypeWithVarArgs, identifier, receiverType());
       String name = parameters[0][1] as String;
       Type type = (staticType as SubroutineTypeWithVarArgs).parameterType;
-      (subroutine as CompiledVarArgsSubroutine).emitVarArgsParameterChecks(type, (subroutine as CompiledVarArgsSubroutine).registerVarArgsParameter(name, type) as VarArgsParameterSlot);
+      (subroutine as CompiledVarArgsSubroutine).emitVarArgsParameterChecks(type, (subroutine as CompiledVarArgsSubroutine).registerVarArgsParameter(name, type) as VarArgsParameterBucket);
     } else {
       subroutine = CompiledSubroutineWithSpecificParameters(scope, staticType as SubroutineTypeWithSpecificParameters, identifier, receiverType());
-      SlotList parameterSlots = []:Slot;
+      ParameterBucketList parameterBuckets = []:ParameterBucket;
       Integer index = 0;
       for (parameter in parameters) {
         String name = parameter[1] as String;
         Type type = (staticType as SubroutineTypeWithSpecificParameters).parameterTypes[index];
-        append(parameterSlots, (subroutine as CompiledSubroutineWithSpecificParameters).registerParameter(name, type, index));
+        append(parameterBuckets, (subroutine as CompiledSubroutineWithSpecificParameters).registerParameter(name, type, index));
         index += 1;
       }
-      (subroutine as CompiledSubroutineWithSpecificParameters).emitParameterChecks(parameterSlots);
+      (subroutine as CompiledSubroutineWithSpecificParameters).emitParameterChecks(parameterBuckets);
     }
     registerSubroutine(scope, subroutine);
     body.generateInstructions(subroutine);
   }
 
+  //#override
   String toStringIndent(Integer indent) {
     StringList parametersList = []:String;
     for (parameter in parameters) {
@@ -1554,35 +1729,39 @@ class MethodDeclarationStatement extends AbstractSubroutineDeclarationStatement 
     classType.registerMember(identifier, staticType, false, null);
     parentClass = classType;
   }
-  
+
+  //#override
   ClassTypeNullable receiverType() {
     return parentClass;
   }
 
+  //#override
   Null registerSubroutine(CompiledScope scope, CompiledSubroutine subroutine) {
     scope.registerNestedScope(subroutine);
     MemberDescription member = parentClass.getMember(identifier)!;
     member.define();
     member.setMethodImplementation(subroutine);
     scope.environment().addSubroutine(subroutine);
-    scope.references.add(SubroutineSlot(subroutine, false));
   }
 }
 
 class SubroutineDeclarationStatement extends AbstractSubroutineDeclarationStatement {
   Boolean isIntrinsic;
 
+  //#override
   ClassTypeNullable receiverType() {
     return null;
   }
 
+  //#override
   Null registerSubroutine(CompiledScope scope, CompiledSubroutine subroutine) {
-    SubroutineSlot slot = scope.registerSubroutine(subroutine, false);
+    scope.registerSubroutine(subroutine, false);
     if (isIntrinsic) {
-      scope.environment().registerIntrinsic(slot);
+      scope.environment().registerIntrinsic(subroutine);
     }
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
     if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
       throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
@@ -1605,6 +1784,7 @@ class GenericSystemSubroutineDeclarationStatement extends DeclarationStatement {
   String externalName;
   Boolean isIntrinsic;
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
     if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
       throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
@@ -1620,18 +1800,19 @@ class GenericSystemSubroutineDeclarationStatement extends DeclarationStatement {
       scope,
       compiledReturnType,
       compiledParameterTypes,
-      compiledParameterNames,
       library,
       externalName,
       identifier,
+      compiledParameterNames,
     );
     staticType = subroutine.type;
-    SubroutineSlot slot = scope.registerSubroutine(subroutine, false);
+    scope.registerSubroutine(subroutine, false);
     if (isIntrinsic) {
-      scope.environment().registerIntrinsic(slot);
+      scope.environment().registerIntrinsic(subroutine);
     }
   }
 
+  //#override
   String toStringIndent(Integer indent) {
     StringList parametersList = []:String;
     for (parameter in parameters) {
@@ -1659,6 +1840,7 @@ class EnumDeclaration extends DeclarationStatement {
   String identifier;
   StringList values;
   
+  //#override
   String toStringIndent(Integer indent) {
     StringList buffer = ['enum ', identifier, ' { '];
     Integer index = 0;
@@ -1673,21 +1855,23 @@ class EnumDeclaration extends DeclarationStatement {
     return joinList(buffer);
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
     assert(scope is CompiledLibrary, 'found enum in non-global scope');
     CompiledLibrary globalScope = scope as CompiledLibrary;
     if (scope.environment().isCompoundType(identifier)) {
       throw(concat('"', identifier, '" is not a valid enum type name at ', sourceLocation));
     }
-    staticType = EnumType(scope.environment(), identifier);
-    globalScope.declareType(staticType);
+    NumericType enumType = EnumType(scope.environment(), identifier);
+    staticType = enumType;
+    globalScope.declareType(enumType);
     Integer index = 0;
     for (value in values) {
       String name = concat(identifier, value);
       if (scope.isIdentifierDeclaredInLocalScope(name)) {
         throw(concat('Cannot redeclare identifier "', name, '" at ', sourceLocation));
       }
-      scope.registerNumericConstant(name, index, staticType);
+      scope.registerConstant(name, IntegerBucket(index, enumType));
       index += 1;
     }
   }
@@ -1710,11 +1894,11 @@ class AbstractClassDeclaration extends DeclarationStatement {
       }
       superclass = null;
     } else if (superclassName == null) {
-      superclass = scope.lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName);
+      superclass = scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName);
     } else {
       superclass = superclassName!.generateInstructions(scope);
     }
-    staticType = ClassType(scope.environment(), identifier, superclass);
+    staticType = ClassType(scope, identifier, superclass);
     scope.globalScope().declareType(staticType);
     if (isIntrinsic) {
       scope.environment().registerClassIntrinsic(staticType as ClassType);
@@ -1739,6 +1923,7 @@ class AbstractClassDeclaration extends DeclarationStatement {
         parameters,
       );
     }
+    subroutineType.markConstructed();
     CompiledGeneratedConstructorSubroutine constructor = CompiledGeneratedConstructorSubroutine(scope, subroutineType, identifier, staticType as ClassType);
     (staticType as ClassType).setConstructorSubroutine(scope.registerSubroutine(constructor, true));
   }
@@ -1754,6 +1939,7 @@ class ForwardClassDeclaration extends AbstractClassDeclaration {
   TypeIdentifierListNullable constructorParameterTypes;
   Boolean isVarArgs;
   
+  //#override
   String toStringIndent(Integer indent) {
     StringList buffer = ['fwdclass ', identifier, ' '];
     if (superclassName != null) {
@@ -1764,6 +1950,7 @@ class ForwardClassDeclaration extends AbstractClassDeclaration {
     return joinList(buffer);
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
     declareType(scope);
     if (constructorParameterTypes != null) {
@@ -1774,7 +1961,7 @@ class ForwardClassDeclaration extends AbstractClassDeclaration {
       assert(!isVarArgs || len(parameterTypes) == 1, 'varargs must have one parameter in their list');
       declareConstructor(scope, parameterTypes, isVarArgs);
     } else {
-      assert((staticType as ClassType).supertype != scope.lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName), 'parser failed to give empty list of arguments');
+      assert((staticType as ClassType).supertype != scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName), 'parser failed to give empty list of arguments');
       // If no parameters are given on the fwdclass declaration, but the declaration
       // has a superclass, then the arguments from the superclass constructor are implied.
       declareConstructor(
@@ -1795,6 +1982,7 @@ class ForwardClassDeclaration extends AbstractClassDeclaration {
 class ClassDeclaration extends AbstractClassDeclaration {
   DeclarationStatementList members;
   
+  //#override
   String toStringIndent(Integer indent) {
     StringList buffer = ['class ', identifier, ' '];
     if (superclassName != null) {
@@ -1811,8 +1999,7 @@ class ClassDeclaration extends AbstractClassDeclaration {
     return joinList(buffer);
   }
 
-  String kConstructor = 'constructor';
-
+  //#override
   Null generateInstructions(CompiledScope scope) {
     TypeNullable existingStaticType = scope.globalScope().lookupType(identifier);
     if (existingStaticType == null) {
@@ -1826,7 +2013,7 @@ class ClassDeclaration extends AbstractClassDeclaration {
       } else if ((staticType as ClassType).members.length != 0) {
         throw(concat('Class ', identifier, ' redeclared at ', sourceLocation));
       } else if (superclassName == null) {
-        if ((staticType as ClassType).supertype != staticType) {
+        if ((staticType as ClassType).supertype.supertype != (staticType as ClassType).supertype) {
           throw(concat('Forward class declaration for ', identifier, ' used supertype ', (staticType as ClassType).supertype.name, ', but class declaration had no supertype at ', sourceLocation));
         }
       } else {
@@ -1864,7 +2051,7 @@ class ClassDeclaration extends AbstractClassDeclaration {
     Boolean constructorIsVarArgs;
     if (constructorMember != null) {
       // we have an explicit constructor
-      if (!constructorMember!.staticType.isSubtypeOf(createOrFindSubroutineTypeWithAnyArgs(scope.environment(), scope.environment().intrinsicsLibrary.coreNullType))) {
+      if (!constructorMember!.staticType.isSubtypeOf(createOrFindSubroutineTypeWithAnyArgs(scope.environment(), scope.environment().coreNullType))) {
         throw(concat('Constructor must be a NullFunction, but is declared as a ', constructorMember!.staticType.name, ' at ', constructorMember!.sourceLocation));
       }
       if (constructorMember is AbstractSubroutineDeclarationStatement) {
@@ -1883,7 +2070,7 @@ class ClassDeclaration extends AbstractClassDeclaration {
       } else {
         // constructor was probably declared as a property on this class (grr!)
         assert(constructorMember!.staticType is SubroutineTypeWithAnyArguments, 'unexpected subroutine type');
-        constructorParameters = [scope.environment().intrinsicsLibrary.coreAnythingType]:Type;
+        constructorParameters = [scope.environment().coreAnythingType]:Type;
         constructorIsVarArgs = true;
       }
     } else if ((staticType as ClassType).supertype == staticType) {
@@ -1917,13 +2104,11 @@ class ClassDeclaration extends AbstractClassDeclaration {
     } else {
       declareConstructor(scope, constructorParameters, constructorIsVarArgs);
     }
-    SubroutineSlot constructorScopeSlot = (staticType as ClassType).constructorSubroutine;
-    constructorScopeSlot.markAsDefined();
-    CompiledGeneratedConstructorSubroutine constructorScope = constructorScopeSlot.subroutine as CompiledGeneratedConstructorSubroutine;
-    Slot classAllocator = constructorScope.lookupIntrinsic(scope.environment().classAllocatorIntrinsicName);
-    Slot thisSlot = constructorScope.emitSubroutineCall(classAllocator, [ VmtSlot(scope.environment(), staticType as ClassType) ]:Slot, null);
-    assert(thisSlot is DynamicSlot, 'Tried to inline class allocator?');
-    constructorScope.setThisPointer(thisSlot as DynamicSlot);
+    SubroutinePointerBucket generatedConstructorBucket = (staticType as ClassType).constructorSubroutine;
+    generatedConstructorBucket.markAsDefined();
+    CompiledGeneratedConstructorSubroutine generatedConstructorScope = generatedConstructorBucket.subroutine as CompiledGeneratedConstructorSubroutine;
+    Bucket thisPointer = generatedConstructorScope.emitIntrinsicCall(scope.environment().classAllocatorIntrinsicName, [ VmtPointerBucket(scope.environment(), staticType as ClassType) ]:Bucket);
+    generatedConstructorScope.setThisPointer(thisPointer);
     // call initializers
     ClassTypeList classHierarchy = []:ClassType;
     ClassType classType = staticType as ClassType;
@@ -1934,20 +2119,23 @@ class ClassDeclaration extends AbstractClassDeclaration {
     Integer index = len(classHierarchy) - 1;
     while (index >= 0) {
       for (initializer in classHierarchy[index].initializers) {
-        initializer(constructorScope);
+        initializer(generatedConstructorScope);
       }
       index -= 1;
     }
     for (member in members) {
-      member.generateInstructions(constructorScope);
+      member.generateInstructions(generatedConstructorScope);
     }
-    if ((staticType as ClassType).supertype != staticType) {
-      (staticType as ClassType).constructorSubroutine.subroutine.references.add((staticType as ClassType).supertype.constructorSubroutine);
-    }
-    Slot lookup = constructorScope.localLookupIdentifier('constructor')!.forCall(constructorScope);
-    constructorScope.setActualConstructor(TailRecursionCodePointerSlot(scope.environment().intrinsicsLibrary.coreSubroutineCodeAddressType, 'class constructor code address'));
-    constructorScope.emitInstruction(MoveInstruction(constructorScope.actualConstructor, lookup, concat('copy address of \'', constructorScope.parentClass!.name, '.constructor\' method for use with "jmp" below' /* in generateFinalReturn */)));
-    constructorScope.emitReturnFrom(constructorScope, thisSlot);
+    // userConstructor should never be null, because the base class must have a constructor
+    // userConstructor should never be a field, because we prevent properties from being declared with the name kConstructor
+    CompiledSubroutine userConstructor = (staticType as ClassType).getMember(kConstructor)!.methodImplementation!;
+    generatedConstructorScope.setActualConstructor(userConstructor);
+    // Finally, we set the generated constructor's return type and value to the
+    // newly allocated thisPointer. The CompiledGeneratedConstructorSubroutine logic
+    // will invoke the actualConstructor (the user's "constructor" method) using a
+    // "jmp" and will ensure that the return value is not overridden by the
+    // actualConstructor; that constructor will do the final "ret".
+    generatedConstructorScope.emitReturnFrom(generatedConstructorScope, thisPointer, false);
   }
 
   Null constructor(String classNameArg, TypeIdentifierNullable superclassNameArg, DeclarationStatementList membersArg, Boolean isIntrinsicArg, SourceLocation sourceLocationArg) {
@@ -1960,13 +2148,16 @@ class ForwardClassPropertyDeclaration extends DeclarationStatement {
   TypeIdentifier propertyType;
   TypeIdentifier hostClass;
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat('fwdclassprop ', propertyType.toStringIndent(indent), ' ', hostClass.toStringIndent(indent), '.', identifier, ';\n');
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
     // TODO: declare the property on the class
     // TODO: must set this.staticType (from DeclarationStatement)
+    // TODO: add tests for forward property declarations
   }
 
   Null constructor(TypeIdentifier hostClassArg, TypeIdentifier propertyTypeArg, String identifierArg, SourceLocation sourceLocationArg) {
@@ -1979,10 +2170,12 @@ class ForwardClassPropertyDeclaration extends DeclarationStatement {
 class ExpressionStatement extends Statement {
   Expression expression;
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat(expression.toStringIndent(indent), ';\n');
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
     expression.generateInstructions(scope); // return value is discarded
   }
@@ -1996,6 +2189,7 @@ class ExpressionStatement extends Statement {
 class ReturnStatement extends Statement {
   ExpressionNullable expression;
 
+  //#override
   String toStringIndent(Integer indent) {
     if (expression == null) {
       return 'return;';
@@ -2003,22 +2197,23 @@ class ReturnStatement extends Statement {
     return concat('return ', expression!.toStringIndent(indent), ';\n');
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
     if (!(scope.stackFrame() is CompiledSubroutine)) {
       throw(concat('Invalid return; not in a function at ', sourceLocation));
     }
     CompiledSubroutine subroutine = scope.stackFrame() as CompiledSubroutine;
     if (expression != null) {
-      Slot returnValue = expression!.generateInstructions(scope);
+      Bucket returnValue = expression!.generateInstructions(scope);
       if (!returnValue.staticType.isSubtypeOf(subroutine.type.returnType)) {
         throw(concat('Type of return statement (', returnValue.staticType.name, ') does not match expected return type (', subroutine.type.returnType.name, ') at ', sourceLocation));
       }
-      subroutine.emitReturnFrom(scope, returnValue);
+      subroutine.emitReturnFrom(scope, returnValue, false);
     } else {
-      if (!scope.environment().intrinsicsLibrary.coreNullType.isSubtypeOf(subroutine.type.returnType)) {
+      if (!scope.environment().coreNullType.isSubtypeOf(subroutine.type.returnType)) {
         throw(concat('Tried to return null from a function whose expected return type is ', subroutine.type.returnType.name, ' at ', sourceLocation));
       }
-      subroutine.emitReturnFrom(scope, scope.environment().intrinsicsLibrary.coreNull);
+      subroutine.emitReturnFrom(scope, scope.environment().coreNull, false);
     }
   }
 
@@ -2029,10 +2224,12 @@ class ReturnStatement extends Statement {
 }
 
 class BreakStatement extends Statement {
+  //#override
   String toStringIndent(Integer indent) {
     return concat(stringTimes(' ', indent), 'break;\n');
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
     CompiledScopeNullable loopScope = scope;
     while (loopScope != null && !(loopScope is CompiledLoopScope)) {
@@ -2041,15 +2238,17 @@ class BreakStatement extends Statement {
     if (loopScope == null) {
       throw(concat('Invalid break; not in a loop at ', this));
     }
-    (loopScope as CompiledLoopScope).emitBreakInstructionFrom(scope);
+    scope.emit(BreakInstruction());
   }
 }
 
 class ContinueStatement extends Statement {
+  //#override
   String toStringIndent(Integer indent) {
     return concat(stringTimes(' ', indent), 'continue;\n');
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
     CompiledScopeNullable loopScope = scope;
     while (loopScope != null && !(loopScope is CompiledLoopScope)) {
@@ -2058,19 +2257,21 @@ class ContinueStatement extends Statement {
     if (loopScope == null) {
       throw(concat('Invalid continue; not in a loop at ', this));
     }
-    (loopScope as CompiledLoopScope).emitContinueInstructionFrom(scope);
+    scope.emit(ContinueInstruction());
   }
 }
 
 class ImportStatement extends Statement {
   String path;
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat('import "', path, '";\n');
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
-    assert(scope.environment().getLibraryState(path) == lsDefined, concat('tried to import library "', path, '" before it was compiled'));
+    assert(scope.environment().getLibraryState(path) == ls.Defined, concat('tried to import library "', path, '" before it was compiled'));
     assert(scope is CompiledLibrary, 'found import outside global scope');
     (scope as CompiledLibrary).importLibrary(scope.environment().getLibrary(path) as CompiledLibrary);
   }
@@ -2085,6 +2286,7 @@ class StraightAssignmentStatement extends Statement {
   LValueExpression lValue;
   Expression rValue;
 
+  //#override
   String toStringIndent(Integer indent) {
     return concat(
       lValue.toStringIndent(indent),
@@ -2094,9 +2296,10 @@ class StraightAssignmentStatement extends Statement {
     );
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
-    Slot rSlot = rValue.generateInstructions(scope);
-    lValue.generateLValue(scope).assign(scope, rSlot, sourceLocation);
+    Bucket rBucket = rValue.generateInstructions(scope);
+    lValue.generateLValue(scope).assign(scope, rBucket, sourceLocation);
   }
 
   Null constructor(LValueExpression lValueArg, Expression rValueArg, SourceLocation sourceLocationArg) {
@@ -2111,8 +2314,13 @@ class AssignmentStatement extends Statement {
   Expression rValue;
 
   String describeOperator() { abstract(); }
-  Slot computeResult(CompiledScope scope, Slot lSlot, Slot rSlot) { abstract(); }
+  Bucket computeResult(CompiledScope scope, Bucket lBucket, Bucket rBucket) { abstract(); }
 
+  LazyComment comment() {
+    return LazyComment('result of ', describeOperator(), ' operator');
+  }
+
+  //#override
   String toStringIndent(Integer indent) {
     return concat(
       lValue.toStringIndent(indent),
@@ -2124,12 +2332,13 @@ class AssignmentStatement extends Statement {
     );
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
-    Slot lSlot = lValue.generateInstructions(scope);
-    // TODO: verify that lSlot is assignable
+    Bucket lBucket = lValue.generateInstructions(scope);
+    // TODO: verify that lBucket is assignable
     // In particular, parameters (including dereferenced varargs) and constants are not assignable.
-    Slot rSlot = rValue.generateInstructions(scope);
-    Slot result = computeResult(scope, lSlot, rSlot);
+    Bucket rBucket = rValue.generateInstructions(scope);
+    Bucket result = computeResult(scope, lBucket, rBucket);
     lValue.generateLValue(scope).assign(scope, result, sourceLocation);
   }
 
@@ -2141,102 +2350,182 @@ class AssignmentStatement extends Statement {
 }
 
 class OperatorAssignmentStatement extends AssignmentStatement {
-  Null generateTypeCheckInstructions(Slot lhsValue, Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+  Null generateTypeCheckInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
     abstract();
-    // e.g.:
-    // scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(lhsValue.source), true);
-    // scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, concat(rhsValue.source), true);
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
     abstract();
     // e.g.:
     // scope.emitInstruction(AdditionInstruction(scope, lhsValue, rhsValue, result, concat(describeOperator(), ' operator')));
   }
 
-  Slot computeResult(CompiledScope scope, Slot lSlot, Slot rSlot) {
-    CompiledIntrinsicsLibrary intrinsics = scope.environment().intrinsicsLibrary as CompiledIntrinsicsLibrary;
-    Slot lhsValue = lSlot;
-    Slot rhsValue = rSlot;
-    rc referenceCountStyle;
-    if (lSlot.staticType.neverReferenceCounted()) {
-      referenceCountStyle = rcNever;
-    } else {
-      referenceCountStyle = rcOnStack;
-    }
-    Slot result = scope.registerDynamicValue(lSlot.staticType, referenceCountStyle, concat(describeOperator(), ' operator result'));
-    generateTypeCheckInstructions(lhsValue, rhsValue, scope, intrinsics);
-    generateExpressionInstructions(lhsValue, rhsValue, result, scope, intrinsics);
-    if (!lSlot.staticType.neverReferenceCounted()) {
-      scope.emitIncref(result, true /* isGCRoot */); // should never actually do anything but since we can't prove it...
-    }
-    return result;
+  //#override
+  Bucket computeResult(CompiledScope scope, Bucket lBucket, Bucket rBucket) {
+    Bucket lhsValue = lBucket;
+    Bucket rhsValue = rBucket;
+    generateTypeCheckInstructions(lhsValue, rhsValue, scope);
+    return generateExpressionInstructions(lhsValue, rhsValue, scope);
   }
 }
 
 class NumericOperatorAssignmentStatement extends OperatorAssignmentStatement {
-  Null generateTypeCheckInstructions(Slot lhsValue, Slot rhsValue, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(lhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, lhsValue.debugName, true); // TODO: replace debugName ("what" argument) with real explanation
-    scope.emitTypeCheck(rhsValue, intrinsics.coreIntegerType, intrinsics.operandTypeCheckFailureMessage, rhsValue.debugName, true); // TODO: replace debugName ("what" argument) with real explanation
+  //#override
+  Null generateTypeCheckInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    scope.emit(TypeCheckInstruction(
+      lhsValue, 
+      scope.environment().coreIntegerType, 
+      'type error', 
+      true, 
+      LazyComment('verify type of left hand side operand of ', describeOperator(), ' operator is valid'), // TODO: elaborate on error message
+    ));
+    scope.emit(TypeCheckInstruction(
+      rhsValue, 
+      scope.environment().coreIntegerType, 
+      'type error', 
+      true, 
+      LazyComment('verify type of right hand side operand of ', describeOperator(), ' operator is valid'), // TODO: elaborate on error message
+    ));
   }
 }
 
 class PlusAssignmentStatement extends NumericOperatorAssignmentStatement {
+  //#override
   String describeOperator() {
     return '+=';
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(BiOperandInstruction('add', lhsValue, rhsValue, result, concat(describeOperator(), ' operator')));
-    scope.emitInstruction(SetTypeInstruction(result, intrinsics.coreIntegerType));
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(SignedAddInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, comment()));
   }
 }
 
 class MinusAssignmentStatement extends NumericOperatorAssignmentStatement {
+  //#override
   String describeOperator() {
     return '-=';
   }
 
-  Null generateExpressionInstructions(Slot lhsValue, Slot rhsValue, Slot result, CompiledScope scope, CompiledIntrinsicsLibrary intrinsics) {
-    scope.emitInstruction(BiOperandInstruction('sub', lhsValue, rhsValue, result, concat(describeOperator(), ' operator')));
-    scope.emitInstruction(SetTypeInstruction(result, intrinsics.coreIntegerType));
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(SignedSubtractInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, comment()));
   }
 }
 
-class AsteriskAssignmentStatement extends AssignmentStatement {
+class AsteriskAssignmentStatement extends NumericOperatorAssignmentStatement {
+  //#override
   String describeOperator() {
     return '*=';
   }
+
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(SignedMultiplyInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, comment()));
+  }
 }
 
-class SlashAssignmentStatement extends AssignmentStatement {
+class SlashAssignmentStatement extends NumericOperatorAssignmentStatement {
+  //#override
   String describeOperator() {
     return '/=';
   }
+
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(SignedDivideInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, comment()));
+  }
 }
 
-class ModulusAssignmentStatement extends AssignmentStatement {
+class ModulusAssignmentStatement extends NumericOperatorAssignmentStatement {
+  //#override
   String describeOperator() {
     return '%=';
   }
+
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(SignedModulusInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, comment()));
+  }
 }
 
-class BitwiseAndAssignmentStatement extends AssignmentStatement {
+class BitwiseAndAssignmentStatement extends NumericOperatorAssignmentStatement {
+  //#override
   String describeOperator() {
     return '&=';
   }
-}
 
-class BitwiseXorAssignmentStatement extends AssignmentStatement {
-  String describeOperator() {
-    return '^=';
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(AndInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, comment()));
   }
 }
 
-class BitwiseOrAssignmentStatement extends AssignmentStatement {
+class BitwiseXorAssignmentStatement extends NumericOperatorAssignmentStatement {
+  //#override
+  String describeOperator() {
+    return '^=';
+  }
+
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(XOrInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, comment()));
+  }
+}
+
+class BitwiseOrAssignmentStatement extends NumericOperatorAssignmentStatement {
+  //#override
   String describeOperator() {
     return '|=';
+  }
+
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(OrInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, comment()));
+  }
+}
+
+class BooleanOperatorAssignmentStatement extends OperatorAssignmentStatement {
+  //#override
+  Null generateTypeCheckInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    scope.emit(TypeCheckInstruction(
+      lhsValue, 
+      scope.environment().coreBooleanType, 
+      'type error', 
+      true, 
+      LazyComment('verify type of left hand side operand of ', describeOperator(), ' operator is valid'), // TODO: elaborate on error message
+    ));
+    scope.emit(TypeCheckInstruction(
+      rhsValue, 
+      scope.environment().coreBooleanType, 
+      'type error', 
+      true, 
+      LazyComment('verify type of right hand side operand of ', describeOperator(), ' operator is valid'), // TODO: elaborate on error message
+    ));
+  }
+}
+
+class LogicalAndAssignmentStatement extends BooleanOperatorAssignmentStatement {
+  //#override
+  String describeOperator() {
+    return '&&=';
+  }
+
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(AndInstruction(lhsValue, rhsValue, scope.environment().coreBooleanType, comment()));
+  }
+}
+
+class LogicalOrAssignmentStatement extends BooleanOperatorAssignmentStatement {
+  //#override
+  String describeOperator() {
+    return '||=';
+  }
+
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(OrInstruction(lhsValue, rhsValue, scope.environment().coreBooleanType, comment()));
   }
 }
 
@@ -2251,6 +2540,7 @@ class IfStatement extends Statement {
   StatementBlock block;
   ElseClauseNullable elseClause;
   
+  //#override
   String toStringIndent(Integer indent) {
     String elseString;
     if (elseClause != null) {
@@ -2265,21 +2555,27 @@ class IfStatement extends Statement {
     );
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
-    Slot expressionHandle = expression.generateInstructions(scope);
-    if (!expressionHandle.staticType.isSubtypeOf(scope.environment().intrinsicsLibrary.coreBooleanType)) {
+    Bucket expressionHandle = expression.generateInstructions(scope);
+    if (!expressionHandle.staticType.isSubtypeOf(scope.environment().coreBooleanType)) {
       throw(concat('If expression must be a boolean, not a ', expressionHandle.staticType.name, ', at ', sourceLocation));
     }
-    CompiledNestedScope blockScope = CompiledNestedScope(scope, scope.environment().generateLabel(concat(camelCase(scope.name), '$if')));
+    scope.emit(TypeCheckInstruction(
+      expressionHandle, 
+      scope.environment().coreBooleanType, 
+      'if expression must be boolean', 
+      true, 
+      LazyComment('verify type of if condition'), // TODO: better error messages
+    ));
+    CompiledScope blockScope = CompiledScope(scope, 'if');
     block.generateInstructions(blockScope);
-    CompiledNestedScopeNullable elseBlockScope = null;
+    CompiledScopeNullable elseBlockScope = null;
     if (elseClause != null) {
-      elseBlockScope = CompiledNestedScope(scope, scope.environment().generateLabel(concat(camelCase(scope.name), '$else')));
+      elseBlockScope = CompiledScope(scope, 'else');
       elseClause!.generateInstructions(elseBlockScope!);
     }
-    scope.references.add(scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage);
-    scope.emitTypeCheck(expressionHandle, scope.environment().intrinsicsLibrary.coreBooleanType, scope.environment().intrinsicsLibrary.operandTypeCheckFailureMessage, 'if condition', true); // xxx mention the fact that it's a type check in the [what] argument
-    scope.emitConditionalBlock(blockScope, elseBlockScope, expressionHandle, (scope.environment().intrinsicsLibrary.coreFalse as Slot), 'if', concat(expression));
+    scope.emit(IfScopeInstruction(expressionHandle, blockScope, elseBlockScope));
   }
 
   Null constructor(Expression expressionArg, StatementBlock blockArg, ElseClauseNullable elseClauseArg, SourceLocation sourceLocationArg) {
@@ -2293,6 +2589,7 @@ class IfStatement extends Statement {
 class DefaultElseClause extends ElseClause {
   StatementBlock block;
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat(
       ' else {\n',
@@ -2301,6 +2598,7 @@ class DefaultElseClause extends ElseClause {
     );
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
     block.generateInstructions(scope);
   }
@@ -2314,10 +2612,12 @@ class DefaultElseClause extends ElseClause {
 class ElseIfClause extends ElseClause {
   IfStatement ifClause;
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat(' else ', ifClause.toStringIndent(indent));
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
     ifClause.generateInstructions(scope);
   }
@@ -2332,6 +2632,7 @@ class WhileStatement extends Statement {
   Expression expression;
   StatementBlock block;
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat(
       'while (', expression.toStringIndent(indent), ') {\n',
@@ -2340,19 +2641,26 @@ class WhileStatement extends Statement {
     );
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
     CompiledLoopScope loopScope = CompiledLoopScope(scope, 'while');
-    String loopBodyLabel = loopScope.environment().generateLabel(concat(scope.labelPrefix(), '$', loopScope.name, '$body'));
-    loopScope.emitInstruction(JumpIfNotEqualInstruction(
-      expression.generateInstructions(loopScope),
-      scope.environment().intrinsicsLibrary.coreFalse,
-      loopBodyLabel,
-      'while condition',
+    CompiledScope emptyScope = CompiledScope(loopScope, 'while condition is true');
+    CompiledScope breakScope = CompiledScope(loopScope, 'while condition is false');
+    breakScope.emit(BreakInstruction());
+    Bucket expressionHandle = expression.generateInstructions(loopScope);
+    if (!expressionHandle.staticType.isSubtypeOf(loopScope.environment().coreBooleanType)) {
+      throw(concat('While expression must be a boolean, not a ', expressionHandle.staticType.name, ', at ', sourceLocation));
+    }
+    loopScope.emit(TypeCheckInstruction(
+      expressionHandle, 
+      loopScope.environment().coreBooleanType, 
+      'while expression must be boolean', 
+      true, 
+      LazyComment('verify type of while condition'), // TODO: better error messages
     ));
-    loopScope.emitBreakInstructionFrom(loopScope);
-    loopScope.emitInstruction(LabelInstruction(loopBodyLabel, concat('start of ', loopScope.name)));
+    loopScope.emit(IfScopeInstruction(expressionHandle, emptyScope, breakScope));
     block.generateInstructions(loopScope);
-    scope.emitBlock(loopScope);
+    scope.emit(LoopScopeInstruction(loopScope));
   }
 
   Null constructor(Expression expressionArg, StatementBlock blockArg, SourceLocation sourceLocationArg) {
@@ -2367,6 +2675,7 @@ class ForStatement extends Statement {
   Expression iterable;
   StatementBlock block;
   
+  //#override
   String toStringIndent(Integer indent) {
     return concat(
       'for (',
@@ -2379,51 +2688,52 @@ class ForStatement extends Statement {
     );
   }
 
+  //#override
   Null generateInstructions(CompiledScope scope) {
     CompilationEnvironment environment = scope.environment();
-    Slot iterableSlot = iterable.generateInstructions(scope);
-    if (!iterableSlot.staticType.isSubtypeOf(environment.iterableType)) {
-      throw(concat('Expected an iterable type in "for" statement, but ', iterable.toStringIndent(0), ' is of type ', iterableSlot.staticType.name, ' at ', iterable.sourceLocation));
+    Bucket iterableBucket = iterable.generateInstructions(scope);
+    if (!iterableBucket.staticType.isSubtypeOf(environment.coreIterableType)) {
+      throw(concat('Expected an iterable type in "for" statement, but ', iterable.toStringIndent(0), ' is of type ', iterableBucket.staticType.name, ' at ', iterable.sourceLocation));
     }
-    scope.references.add(scope.environment().intrinsicsLibrary.forLoopIterableTypeCheckFailureMessage);
-    scope.emitTypeCheck(iterableSlot, environment.iterableType, environment.intrinsicsLibrary.forLoopIterableTypeCheckFailureMessage, concat(iterable), true); // TODO: replace toString ("what" argument) with real explanation
-    Slot iteratorSlot = scope.emitSubroutineCall(
-      scope.lookupIntrinsic(environment.iteratorIntrinsicName),
-      [ iterableSlot ]:Slot,
-      null,
-    );
-    CompiledLoopScope loopScope = CompiledLoopScope(scope, 'for');
-    String loopBodyLabel = environment.generateLabel(concat(scope.labelPrefix(), '$', loopScope.name, '$body'));
-    loopScope.emitInstruction(JumpIfNotEqualInstruction(
-      loopScope.emitSubroutineCall(
-        loopScope.lookupIntrinsic(environment.nextIntrinsicName),
-        [ iteratorSlot ]:Slot,
-        null,
-      ),
-      environment.intrinsicsLibrary.coreFalse,
-      loopBodyLabel,
-      'for loop condition',
+    scope.emit(TypeCheckInstruction(
+      iterableBucket, 
+      environment.coreIterableType, 
+      'non-iterable in for', 
+      true, 
+      LazyComment('verify type of for loop iterable'), // TODO: better error messages
     ));
-    Type variableType;
-    if (iterableSlot.staticType is IterableType) {
-      variableType = (iterableSlot.staticType as IterableType).elementType;
-    } else {
-      variableType = environment.intrinsicsLibrary.coreWhateverType;
-    }
-    loopScope.emitBreakInstructionFrom(loopScope);
-    loopScope.emitInstruction(LabelInstruction(loopBodyLabel, concat('start of ', loopScope.name)));
-    assert(loopScope.identifiers.length == 0, 'newly created scope has identifiers in scope');
-    DynamicSlot variableSlot = loopScope.registerVariable(variable, variableType);
-    Slot currentValue = loopScope.emitSubroutineCall(
-      loopScope.lookupIntrinsic(environment.currentIntrinsicName),
-      [ iteratorSlot ]:Slot,
-      null,
+    Bucket iteratorBucket = scope.emitIntrinsicCall(
+      environment.iteratorIntrinsicName,
+      [ iterableBucket ]:Bucket,
     );
-    loopScope.emitInstruction(MoveInstruction(variableSlot, currentValue, concat('value initialization of for loop variable ', variable)));
-    loopScope.emitInstruction(MoveTypeToTypeInstruction(variableSlot, currentValue, environment, concat('type initialization of for loop variable ', variable)));
-    loopScope.emitIncref(variableSlot, true);
+    CompiledLoopScope loopScope = CompiledLoopScope(scope, 'for loop');
+    CompiledScope emptyScope = CompiledScope(loopScope, 'iterator continues');
+    CompiledScope breakScope = CompiledScope(loopScope, 'iterator finished');
+    breakScope.emit(BreakInstruction());
+    loopScope.emit(
+      IfScopeInstruction(
+        loopScope.emitIntrinsicCall(
+          environment.nextIntrinsicName,
+          [ iteratorBucket ]:Bucket,
+        ),
+        emptyScope,
+        breakScope,
+      ),
+    );
+    Type variableType;
+    if (iterableBucket.staticType is IterableType) {
+      variableType = (iterableBucket.staticType as IterableType).elementType;
+    } else {
+      variableType = environment.coreWhateverType;
+    }
+    assert(loopScope.identifiers.length == 0, 'newly created scope has identifiers in scope');
+    Bucket currentValue = loopScope.emitIntrinsicCall(
+      environment.currentIntrinsicName,
+      [ iteratorBucket ]:Bucket,
+    );
+    loopScope.registerImmutableValue(variable, currentValue);
     block.generateInstructions(loopScope);
-    scope.emitBlock(loopScope);
+    scope.emit(LoopScopeInstruction(loopScope));
   }
 
   Null constructor(String variableArg, Expression iterableArg, StatementBlock blockArg, SourceLocation sourceLocationArg) {
@@ -2442,6 +2752,10 @@ class Library extends StatementBlock {
     name = nameArg;
   }
 
+  // TODO: this should be split into "declaration" and "definition" phases
+  //       the "declaration" phase does declareType-type stuff, setIsAmbiguous-type stuff, etc.
+  //       the "definition" phase actually generates scopes and instructions, sets isDefined, calls forRead, etc.
+  //       this would fix class_16.syd
   CompiledLibrary generateScopes(CompilationEnvironment compilationEnvironmentArg) { 
     CompiledLibrary result = CompiledLibrary(compilationEnvironmentArg, name);
     generateInstructions(result);
@@ -2450,10 +2764,12 @@ class Library extends StatementBlock {
 }
 
 class Program extends Library {
+  //#override
   Null generateInstructions(CompiledScope scope) {
+    (scope as CompiledLibrary).setAsProgram();
     super.generateInstructions(scope);
-    scope.emitInstruction(CommentInstruction('Terminate application - call exit(0)'));
-    Slot exitCode = scope.environment().integer(0);
-    scope.emitSubroutineCall(scope.lookupIntrinsic(scope.environment().exitIntrinsicName), [exitCode]:Slot, null /* sourceLocations */);
+    scope.emit(CommentInstruction(LazyComment('Terminate application - call exit(0)')));
+    Bucket exitCode = scope.environment().integer(0);
+    scope.emitIntrinsicCall(scope.environment().exitIntrinsicName, [exitCode]:Bucket);
   }
 }

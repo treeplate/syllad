@@ -1,0 +1,21 @@
+// expected error: super.foo does not exist
+// unexpected output: FAIL
+
+println('FAIL');
+
+Null zap() { println('zap'); }
+
+class A {
+  Whatever foo = zap;
+}
+
+class B extends A {
+  //#override
+  Null foo() { return super.foo(); }
+}
+
+class C extends B {
+  Whatever foo = zap;
+}
+
+C().foo();

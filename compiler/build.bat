@@ -11,7 +11,7 @@ CD ..
 SET TEMPFILE=%TEMP%\%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%%TIME:~9,2%.$$$
 SET TEMPFILE=%TEMPFILE: =0%
 REM add --observe to profile
-CALL "C:\dev\flutter\bin\dart.bat" run main.dart ./compiler syd.syd temp.syd > %TEMPFILE%
+CALL "C:\dev\flutter\bin\dart.bat" run main.dart --debug ./compiler syd.syd %1 > %TEMPFILE%
 IF NOT !ERRORLEVEL! == 0 (
     ECHO Compilation failed with exit code %ERRORLEVEL%
     IF !ERRORLEVEL! == -1073741510 ECHO "0xC000013A: STATUS_CONTROL_C_EXIT"
@@ -49,10 +49,11 @@ IF NOT !ERRORLEVEL! == 0 (
         ECHO = END STDOUT ===================
         ECHO = END STDERR ===================1>&2
         ECHO test exit code: !ERRORLEVEL!
-        IF !ERRORLEVEL! == -1073741571 ECHO "0xC00000FD: Stack overflow"
-        IF !ERRORLEVEL! == -1073741819 ECHO "0xC0000005: Access Violation"
-        IF !ERRORLEVEL! == -2147467259 ECHO "0x80004005: Unspecified failure (debugger exit?)"
         IF !ERRORLEVEL! == -2147483645 ECHO "0x80000003: STATUS_BREAKPOINT"
+        IF !ERRORLEVEL! == -2147467259 ECHO "0x80004005: Unspecified failure (debugger exit?)"
+        IF !ERRORLEVEL! == -1073741819 ECHO "0xC0000005: Access Violation"
+        IF !ERRORLEVEL! == -1073741571 ECHO "0xC00000FD: Stack overflow"
+        IF !ERRORLEVEL! == -1073740972 ECHO "0xC0000354: STATUS_DEBUGGER_INACTIVE"
         ECHO DONE
         EXIT /B 0
     ) ELSE (

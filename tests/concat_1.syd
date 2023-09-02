@@ -1,0 +1,19 @@
+// expected output: 3
+// expected output: 33
+// expected output: 333
+// expected output: 3333
+// expected output: -3
+// expected output: -33
+// expected output: -333
+// expected output: -3333
+// expected output: 0
+
+println(concat(3));
+println(concat(33));
+println(concat(333));
+println(concat(3333));
+println(concat(-3));
+println(concat(-33));
+println(concat(-333));
+println(concat(-3333));
+println(concat(0));

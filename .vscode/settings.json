@@ -1,5 +1,6 @@
 {
     "editor.wordWrap": "on",
+    "editor.bracketPairColorization.enabled": true,
     "debug.console.collapseIdenticalLines": false,
     "dart.lineLength": 160
 }

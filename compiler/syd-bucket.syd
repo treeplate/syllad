@@ -1,0 +1,1006 @@
+import 'syd-utils.syd';
+import 'syd-types.syd';
+import 'syd-datum.syd';
+import 'syd-assembler.syd';
+
+fwdclass Bucket(Type) extends Object;
+fwdclass DynamicBucket(Type) extends Bucket;
+fwdclass StaticCastBucket(Bucket, Type) extends Bucket;
+fwdclass VarArgsParameterBucket extends Bucket;
+fwdclass SentinelBucket(SentinelType) extends DynamicBucket;
+
+fwdclassprop StringFunction Bucket.commentName;
+
+fwdclass TypeInference() extends Object;
+class TypeInference extends Object {
+  Boolean definitelyNotSentinel = false;
+
+  Null setDefinitelyNotSentinel() {
+    definitelyNotSentinel = true;
+  }
+
+  Null resetFrom(TypeInference other) {
+    definitelyNotSentinel = other.definitelyNotSentinel;
+  }
+
+  // This inference is what we can assume given that it is either a or b.
+  // Used for variables coming out of an if/else pair.
+  Null setFromIntersectionOf(TypeInference a, TypeInference b) {
+    definitelyNotSentinel = a.definitelyNotSentinel && b.definitelyNotSentinel;
+  }
+
+  TypeInference copy() {
+    TypeInference result = TypeInference();
+    if (definitelyNotSentinel) {
+      result.setDefinitelyNotSentinel();
+    }
+    return result;
+  }
+}
+
+class LazyComment extends Object {
+  AnythingList parts;
+
+  String flatten() {
+    StringList result = []:String;
+    for ( part in parts) {
+      if (part is String) {
+        append(result, part);
+      } else if (part is Integer) {
+        append(result, concat(part));
+      } else if (part is Bucket) {
+        append(result, (part as Bucket).commentName());
+      } else if (part is Type) {
+        append(result, (part as Type).name);
+      } else {
+        assert(false, 'contract violation');
+      }
+    }
+    return join(result, '');
+  }
+
+  Null constructor(Anything... partsArg) {
+    super.constructor();
+    parts = partsArg;
+  }
+}
+
+// CONTRACT
+// users must not check the type identity of buckets
+// users must always use the Bucket API unless they created the bucket and thus know it is a subclass
+// users must not compare the identity of buckets, but must instead use currentValueDatum and currentTypeDatum
+
+class Bucket extends Object {
+  Type staticType;
+  TypeInference typeInference = TypeInference();
+
+  String commentName() {
+    abstract();
+  }
+
+  Datum currentValueDatum() {
+    abstract();
+  }
+
+  Datum currentTypeDatum() {
+    abstract();
+  }
+
+  DatumList datumsUsed() {
+    return [currentValueDatum(), currentTypeDatum()];
+  }
+
+  // this casts the bucket to the given type (it doesn't turn it into a type!)
+  Bucket asType(Type newStaticType) {
+    return StaticCastBucket(this, newStaticType);
+  }
+
+  Boolean isConstant() {
+    return currentValueDatum().isConstant();
+  }
+
+  // whether it's a varargs parameter
+  VarArgsParameterBucketNullable asVarArgs() {
+    return null;
+  }
+
+  // Null means this bucket should not be auto-decreffed.
+  // Otherwise, the last time a bucket with a particular decref representative
+  // is seen, it will be decreffed.
+  BucketNullable autoDecrefRepresentative() {
+    abstract();
+  }
+
+  Boolean isGCRoot() {
+    abstract();
+  }
+
+  Null constructor(Type staticTypeArg) {
+    super.constructor();
+    staticType = staticTypeArg;
+  }
+}
+
+class ConstantBucket extends Bucket {
+  //#override
+  Datum currentTypeDatum() {
+    return TypeCodeDatum(staticType);
+  }
+
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return null;
+  }
+  
+  //#override
+  Boolean isGCRoot() {
+    return false;
+  }
+}
+
+class IntegerBucket extends ConstantBucket {
+  Integer value;
+
+  //#override
+  String commentName() {
+    if (staticType is IntegerType) {
+      if (value >= -9 && value <= 9) {
+        return concat(value);
+      } 
+      return hexH(value);
+    }
+    return concat(staticType, ' ', value, ' (', hexH(value), ')');
+  }
+
+  //#override
+  String toString() {
+    return concat('<', staticType, ' ', value, '>');
+  }
+
+  //#override
+  Datum currentValueDatum() {
+    return IntegerDatum(value, commentName());
+  }
+
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return null;
+  }
+
+  Null constructor(Integer valueArg, NumericType staticTypeArg) {
+    super.constructor(staticTypeArg);
+    value = valueArg;
+  }
+}
+
+class StringBucket extends ConstantBucket {
+  Constant value;
+
+  //#override
+  String commentName() {
+    return value.commentName;
+  }
+
+  //#override
+  Datum currentValueDatum() {
+    return ConstantDatum(value, commentName());
+  }
+
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return null;
+  }
+
+  Null constructor(Constant valueArg, StringType staticTypeArg) {
+    super.constructor(staticTypeArg);
+    value = valueArg;
+  }
+}
+
+class TypeCodeBucket extends ConstantBucket {
+  Type value;
+
+  //#override
+  String commentName() {
+    return value.name;
+  }
+
+  //#override
+  Datum currentValueDatum() {
+    return TypeCodeDatum(value);
+  }
+
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return null;
+  }
+
+  Null constructor(Type valueArg, IntegerType staticTypeArg) {
+    super.constructor(staticTypeArg);
+    value = valueArg;
+  }
+}
+
+class DataLabelBucket extends ConstantBucket {
+  AssemblerLabel value;
+
+  //#override
+  String commentName() {
+    return value.name; // this isn't the actual label (it's much shorter) but the actual label is in the code already so it shouldn't be ambiguous
+  }
+
+  //#override
+  Datum currentValueDatum() {
+    return DataLabelDatum(value, commentName());
+  }
+
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return null;
+  }
+
+  Null constructor(AssemblerLabel valueArg, Type staticTypeArg) {
+    super.constructor(staticTypeArg);
+    value = valueArg;
+  }
+}
+
+class DynamicBucket extends Bucket {
+  DatumNullable _currentValueDatum = null;
+  //#override
+  Datum currentValueDatum() {
+    return _currentValueDatum!;
+  }
+
+  DatumNullable _currentTypeDatum = null;
+  //#override
+  Datum currentTypeDatum() {
+    return _currentTypeDatum!;
+  }
+}
+
+class DatumBucket extends DynamicBucket {
+  Boolean _isGCRoot;
+
+  //#override
+  String commentName() {
+    return currentValueDatum().commentName;
+  }
+
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return this;
+  }
+
+  //#override
+  Boolean isGCRoot() {
+    return _isGCRoot;
+  }
+
+  Null constructor(Datum value, Datum type, Type staticTypeArg, Boolean isGCRootArg) {
+    super.constructor(staticTypeArg);
+    _currentValueDatum = value;
+    _currentTypeDatum = type;
+    _isGCRoot = isGCRootArg;
+  }
+}
+
+// A Bucket whose value and type datums are guaranteed to be LocalDatums.
+// Always a GC root.
+class LocalBucket extends DynamicBucket {
+  String _commentName;
+
+  //#override
+  String commentName() {
+    return _commentName;
+  }
+
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return this;
+  }
+
+  //#override
+  Boolean isGCRoot() {
+    return true;
+  }
+
+  //#override
+  LocalDatum currentValueDatum() {
+    return _currentValueDatum as LocalDatum;
+  }
+
+  //#override
+  LocalDatum currentTypeDatum() {
+    return _currentTypeDatum as LocalDatum;
+  }
+
+  Null constructor(Type staticTypeArg, String commentNameArg) {
+    super.constructor(staticTypeArg);
+    _commentName = commentNameArg;
+    _currentValueDatum = LocalDatum(_commentName);
+    _currentTypeDatum = LocalDatum(concat('type of ', _commentName));
+  }
+}
+
+class VariableKey extends Object {
+  String debugName;
+
+  //#override
+  String toString() {
+    return concat('<', className, '#', internalObjectId, ':', debugName, '>');
+  }
+
+  Null constructor(String debugNameArg) {
+    super.constructor();
+    debugName = debugNameArg;
+  }
+}
+
+class LocalVariable extends DynamicBucket {
+  Object valueKey;
+  Object typeKey;
+  String name;
+
+  //#override
+  String commentName() {
+    return concat(name, ' (', currentValueDatum().commentName, ')');
+  }
+
+  //#override
+  String toString() {
+    return concat('<', className, ':', name, '>');
+  }
+
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return this;
+  }
+  
+  //#override
+  Boolean isGCRoot() {
+    return true;
+  }
+
+  Null setCurrentValueDatum(Datum datum) {
+    _currentValueDatum = datum;
+  }
+
+  Null setCurrentTypeDatum(Datum datum) {
+    _currentTypeDatum = datum;
+    typeInference = TypeInference();
+    TypeNullable newType = datum.asType();
+    if (newType != null && !(newType is SentinelType)) {
+      typeInference.setDefinitelyNotSentinel();
+    }
+  }
+
+  Null constructor(Type staticTypeArg, SentinelBucket sentinelBucketArg, String nameArg) {
+    super.constructor(staticTypeArg);
+    name = nameArg;
+    valueKey = VariableKey(concat(name, ' value'));
+    _currentValueDatum = sentinelBucketArg.currentValueDatum();
+    typeKey = VariableKey(concat(name, ' type'));
+    _currentTypeDatum = sentinelBucketArg.currentTypeDatum();
+  }
+}
+
+class NamedLocalVariable extends LocalVariable {
+  Boolean isDefined() {
+    // TODO: remove this entire class if this method really always returns a constant
+    return true;
+  }
+
+  Null constructor(String nameArg, Type staticTypeArg, SentinelBucket sentinelBucketArg) {
+    super.constructor(staticTypeArg, sentinelBucketArg, nameArg);
+  }
+}
+
+class GlobalVariable extends DynamicBucket {
+  String name;
+
+  //#override
+  String commentName() {
+    return name;
+  }
+
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return null;
+  }
+
+  //#override
+  Boolean isGCRoot() {
+    return true;
+  }
+
+  //#override
+  GlobalVariableDatum currentValueDatum() {
+    return _currentValueDatum as GlobalVariableDatum;
+  }
+
+  //#override
+  GlobalVariableDatum currentTypeDatum() {
+    return _currentTypeDatum as GlobalVariableDatum;
+  }
+
+  Null constructor(Type staticTypeArg, AssemblerLabel parentLabel, String nameArg) {
+    super.constructor(staticTypeArg);
+    name = nameArg;
+    AssemblerLabel label = parentLabel.deriveWith(name);
+    _currentValueDatum = GlobalVariableDatum(label.deriveWith('value'), name);
+    _currentTypeDatum = GlobalVariableDatum(label.deriveWith('type'), concat('type of ', name));
+  }
+}
+
+// Write once per code flow (i.e. at runtime) (modulo loops).
+class ValueBucket extends DynamicBucket {  
+  LazyComment _commentName;
+  Boolean initialized = false;
+
+  //#override
+  String commentName() {
+    return _commentName.flatten();
+  }
+
+  //#override
+  String toString() {
+    return concat('<', _commentName, '>');
+  }
+
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return this;
+  }
+
+  //#override
+  Boolean isGCRoot() {
+    return true;
+  }
+
+  Null assignDatums(Datum value, Datum type) {
+    assert(!initialized, 'contract violation');
+    _currentValueDatum = value;
+    _currentTypeDatum = type;
+    initialized = true;
+  }
+
+  Null constructor(Type staticTypeArg, LazyComment commentNameArg) {
+    super.constructor(staticTypeArg);
+    _commentName = commentNameArg;
+  }
+}
+
+// copied once per code flow (i.e. at runtime) (modulo loops), using .copy() (not mov)
+class CopyBucket extends DynamicBucket {
+  Boolean _copied = false;
+  Boolean _isGCRoot;
+  String _commentName;
+
+  //#override
+  String commentName() {
+    assert(_copied, 'invariant and contract violation');
+    return _commentName;
+  }
+
+  //#override
+  String toString() {
+    return concat('<CopyBucket:', _commentName, '>');
+  }
+
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return this;
+  }
+
+  //#override
+  Boolean isGCRoot() {
+    assert(_copied, 'contract violation');
+    return _isGCRoot;
+  }
+
+  // Caller is responsible for incrementing the reference count of the source bucket.
+  Null copy(Bucket source, PseudoInstructionList output) {
+    assert(!_copied, 'contract violation');
+    _copied = true;
+    _commentName = concat(source.commentName(), '\'');
+    if (source.currentValueDatum().canChange()) {
+      LocalDatum valueDatum = LocalDatum(concat(_commentName, ' value'));
+      append(output, Mov(valueDatum, source.currentValueDatum(), concat('copy ', source.currentValueDatum().commentName)));
+      _currentValueDatum = valueDatum;
+    } else {
+      _currentValueDatum = source.currentValueDatum();
+    }
+    if (source.currentTypeDatum().canChange()) {
+      LocalDatum typeDatum = LocalDatum(concat(_commentName, ' type'));
+      append(output, Mov(typeDatum, source.currentTypeDatum(), concat('copy ', source.currentTypeDatum().commentName)));
+      _currentTypeDatum = typeDatum;
+    } else {
+      _currentTypeDatum = source.currentTypeDatum();
+    }
+    typeInference = source.typeInference;
+    _isGCRoot = source.isGCRoot();
+  }
+}
+
+// defers to another bucket except for the static type
+class StaticCastBucket extends Bucket {
+  Bucket target;
+
+  //#override
+  String commentName() {
+    return concat(target.commentName());
+  }
+  
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return target.autoDecrefRepresentative();
+  }
+
+  //#override
+  Boolean isGCRoot() {
+    return target.isGCRoot();
+  }
+
+  //#override
+  Datum currentValueDatum() {
+    return target.currentValueDatum();
+  }
+
+  //#override
+  Datum currentTypeDatum() {
+    return target.currentTypeDatum();
+  }
+
+  Null constructor(Bucket targetArg, Type staticTypeArg) {
+    assert(staticTypeArg.isSubtypeOf(targetArg.staticType), concat('Type mismatch: ', staticTypeArg, ' is not a subtype of ', targetArg.staticType));
+    super.constructor(staticTypeArg);
+    target = targetArg;
+    typeInference = target.typeInference;
+  }
+}
+
+// defers to another bucket except for the static type (which is the same as the dynamic type)
+class StaticReinterpretCastBucket extends Bucket {
+  Bucket target;
+
+  //#override
+  String commentName() {
+    return concat(target.commentName(), ' __as__ ', staticType.name);
+  }
+  
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return target.autoDecrefRepresentative();
+  }
+
+  //#override
+  Boolean isGCRoot() {
+    return target.isGCRoot();
+  }
+
+  //#override
+  Datum currentValueDatum() {
+    return target.currentValueDatum();
+  }
+
+  //#override
+  Datum currentTypeDatum() {
+    return TypeCodeDatum(staticType);
+  }
+
+  Null constructor(Bucket targetArg, Type staticTypeArg) {
+    super.constructor(staticTypeArg);
+    target = targetArg;
+    typeInference = target.typeInference.copy();
+    if (!(staticTypeArg is SentinelType)) {
+      typeInference.setDefinitelyNotSentinel();
+    }
+  }
+}
+
+// defers to another bucket's type for the value and the static type for the dynamic type
+class TypeOfBucket extends Bucket {
+  Bucket target;
+
+  //#override
+  String commentName() {
+    return concat('__typeOf ', target.commentName());
+  }
+  
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return target.autoDecrefRepresentative();
+  }
+
+  //#override
+  Boolean isGCRoot() {
+    assert(false, 'might be worth thinking about why we\'re calling this');
+    return false;
+  }
+
+  //#override
+  Datum currentValueDatum() {
+    return target.currentTypeDatum();
+  }
+
+  //#override
+  Datum currentTypeDatum() {
+    return TypeCodeDatum(staticType);
+  }
+
+  Null constructor(Bucket targetArg, Type staticTypeArg) {
+    super.constructor(staticTypeArg);
+    target = targetArg;
+  }
+}
+
+// defers to one bucket for value and another's value for dynamic type
+class DynamicCastBucket extends Bucket {
+  Bucket value;
+  Bucket type;
+
+  //#override
+  String commentName() {
+    return value.commentName();
+  }
+  
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return value.autoDecrefRepresentative();
+  }
+  
+  //#override
+  Boolean isGCRoot() {
+    assert(false, 'might be worth thinking about why we\'re calling this');
+    return false;
+  }
+
+  //#override
+  Datum currentValueDatum() {
+    return value.currentValueDatum();
+  }
+
+  //#override
+  Datum currentTypeDatum() {
+    return type.currentValueDatum();
+  }
+
+  Null constructor(Bucket valueArg, Bucket typeArg, Type staticTypeArg) {
+    super.constructor(staticTypeArg);
+    value = valueArg;
+    type = typeArg;
+  }
+}
+
+class DereferenceWithStaticTypeBucket extends Bucket {
+  Bucket target;
+  Bucket offset;
+  ow width;
+  LazyComment _commentName;
+
+  //#override
+  String commentName() {
+    return _commentName.flatten();
+  }
+  
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return target.autoDecrefRepresentative();
+  }
+  
+  //#override
+  Boolean isGCRoot() {
+    assert(false, 'might be worth thinking about why we\'re calling this');
+    return false;
+  }
+
+  //#override
+  Datum currentValueDatum() {
+    return DereferenceDatum(target.currentValueDatum(), offset.currentValueDatum(), width, commentName());
+  }
+
+  //#override
+  Datum currentTypeDatum() {
+    return TypeCodeDatum(staticType);
+  }
+
+  Null constructor(Bucket targetArg, Bucket offsetArg, ow widthArg, Type staticTypeArg, LazyComment commentNameArg) {
+    super.constructor(staticTypeArg);
+    target = targetArg;
+    offset = offsetArg;
+    width = widthArg;
+    _commentName = commentNameArg;
+  }
+}
+
+class DereferenceWithOffsetsBucket extends Bucket {
+  Bucket target;
+  Bucket valueOffset;
+  Bucket typeOffset;
+  ow width;
+  LazyComment _commentName;
+
+  //#override
+  String commentName() {
+    return _commentName.flatten();
+  }
+  
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return target.autoDecrefRepresentative();
+  }
+  
+  //#override
+  Boolean isGCRoot() {
+    assert(false, 'might be worth thinking about why we\'re calling this');
+    return false;
+  }
+
+  //#override
+  Datum currentValueDatum() {
+    return DereferenceDatum(target.currentValueDatum(), valueOffset.currentValueDatum(), width, commentName());
+  }
+
+  //#override
+  Datum currentTypeDatum() {
+    return DereferenceDatum(target.currentValueDatum(), typeOffset.currentValueDatum(), width, concat('type of ', commentName()));
+  }
+
+  Null constructor(Bucket targetArg, Bucket valueOffsetArg, Bucket typeOffsetArg, ow widthArg, Type staticTypeArg, LazyComment commentNameArg) {
+    super.constructor(staticTypeArg);
+    target = targetArg;
+    valueOffset = valueOffsetArg;
+    typeOffset = typeOffsetArg;
+    width = widthArg;
+    _commentName = commentNameArg;
+  }
+}
+
+class DereferenceTwoBucketsBucket extends Bucket {
+  Bucket valueTarget;
+  Bucket typeTarget;
+  ow width;
+  Boolean _isGCRoot = false;
+  LazyComment _commentName;
+
+  //#override
+  String commentName() {
+    return _commentName.flatten();
+  }
+  
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return valueTarget.autoDecrefRepresentative();
+  }
+
+  //#override
+  Boolean isGCRoot() {
+    return _isGCRoot;
+  }
+
+  //#override
+  Datum currentValueDatum() {
+    return DereferenceDatum(valueTarget.currentValueDatum(), IntegerDatum(0, 'zero offset'), width, commentName());
+  }
+
+  //#override
+  Datum currentTypeDatum() {
+    return DereferenceDatum(typeTarget.currentValueDatum(), IntegerDatum(0, 'zero offset'), width, concat('type of ', commentName()));
+  }
+
+  Null constructor(Bucket valueTargetArg, Bucket typeTargetArg, ow widthArg, Type staticTypeArg, Boolean isGCRootArg, LazyComment commentNameArg) {
+    super.constructor(staticTypeArg);
+    valueTarget = valueTargetArg;
+    typeTarget = typeTargetArg;
+    width = widthArg;
+    _isGCRoot = isGCRootArg;
+    _commentName = commentNameArg;
+  }
+}
+
+
+// PARAMETER BUCKETS
+
+class AbstractParameterBucket extends DynamicBucket { 
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return null;
+  }
+
+  //#override
+  Boolean isGCRoot() {
+    return false;
+  }
+
+  //#override
+  ParameterDatum currentValueDatum() {
+    return super.currentValueDatum() as ParameterDatum;
+  }
+}
+
+class ParameterCountBucket extends AbstractParameterBucket {
+  //#override
+  String commentName() {
+    return 'parameter count';
+  }
+
+  //#override
+  String toString() {
+    return "<parameter count>";
+  }
+
+  Null constructor(Type staticTypeArg) {
+    super.constructor(staticTypeArg);
+    _currentValueDatum = ParameterDatum(0, commentName());
+    _currentTypeDatum = TypeCodeDatum(staticTypeArg);
+  }
+}
+
+class ClosurePointerParameterBucket extends AbstractParameterBucket {
+  //#override
+  String commentName() {
+    return 'closure pointer';
+  }
+
+  Null constructor(Type staticTypeArg) {
+    super.constructor(staticTypeArg);
+    _currentValueDatum = ParameterDatum(1, commentName());
+    _currentTypeDatum = TypeCodeDatum(staticTypeArg);
+  }
+}
+
+class ThisPointerParameterBucket extends AbstractParameterBucket {
+  //#override
+  String commentName() {
+    return 'this pointer';
+  }
+
+  Null constructor(Type staticTypeArg) {
+    super.constructor(staticTypeArg);
+    _currentValueDatum = ParameterDatum(3, commentName());
+    _currentTypeDatum = ParameterDatum(2, concat('type of ', commentName()));
+  }
+}
+
+class ReturnTypePointerParameterBucket extends AbstractParameterBucket {
+  //#override
+  String commentName() {
+    return 'return type pointer';
+  }
+
+  Null constructor(Type staticTypeArg) {
+    super.constructor(staticTypeArg);
+    _currentValueDatum = ParameterDatum(4, commentName());
+    _currentTypeDatum = TypeCodeDatum(staticTypeArg);
+  }
+}
+
+class ReturnValuePointerParameterBucket extends AbstractParameterBucket {
+  //#override
+  String commentName() {
+    return 'return value pointer';
+  }
+
+  Null constructor(Type staticTypeArg) {
+    super.constructor(staticTypeArg);
+    _currentValueDatum = ParameterDatum(5, commentName());
+    _currentTypeDatum = TypeCodeDatum(staticTypeArg);
+  }
+}
+
+// a particular parameter should only ever be represented by one ParameterBucket
+class ParameterBucket extends AbstractParameterBucket {
+  String _commentName;
+
+  //#override
+  String commentName() {
+    return _commentName;
+  }
+
+  Null constructor(Type staticTypeArg, Integer parameterIndex, String commentNameArg) {
+    super.constructor(staticTypeArg);
+    _commentName = commentNameArg;
+    _currentTypeDatum = ParameterDatum((parameterIndex * 2) + 6, concat('type of ', commentName()));
+    _currentValueDatum = ParameterDatum((parameterIndex * 2) + 7, commentName());
+  }
+}
+
+// This represents something whose address can be taken, which will be valid right
+// up to the point the current stack frame returns (so, not something on the stack).
+class ScratchBucket extends DynamicBucket {
+  String _commentName;
+
+  //#override
+  String commentName() {
+    return concat('scratch space for ', _commentName);
+  }
+
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return null;
+  }
+
+  //#override
+  Boolean isGCRoot() {
+    assert(false, 'might be worth thinking about why we\'re calling this');
+    return true;
+  }
+
+  Null constructor(ScratchIdentifier scratchIdentifierArg, Type staticTypeArg, String commentNameArg) {
+    super.constructor(staticTypeArg);
+    _commentName = commentNameArg;
+    _currentValueDatum = ScratchDatum(scratchIdentifierArg, commentName());
+    _currentTypeDatum = TypeCodeDatum(staticTypeArg);
+  }
+}
+
+class VarArgsParameterBucket extends Bucket {
+  Bucket parameterCount;
+
+  //#override
+  String commentName() {
+    return 'varargs parameter';
+  }
+ 
+  Datum baseAddress;
+
+  //#override
+  VarArgsParameterBucket asVarArgs() {
+    return this;
+  }
+
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return null;
+  }
+
+  //#override
+  Boolean isGCRoot() {
+    return false;
+  }
+
+  //#override
+  Datum currentValueDatum() {
+    assert(false, 'it should not be possible to obtain the value of a varargs parameter');
+  }
+
+  //#override
+  Datum currentTypeDatum() {
+    return TypeCodeDatum(staticType);
+  }
+
+  //#override
+  DatumList datumsUsed() {
+    return [baseAddress];
+  }
+
+  Null constructor(Type staticTypeArg, Bucket parameterCountArg) {
+    super.constructor(staticTypeArg);
+    parameterCount = parameterCountArg;
+    baseAddress = VarArgsBaseAddressDatum(commentName());
+  }
+}
+
+class SentinelBucket extends DynamicBucket {
+  //#override
+  String commentName() {
+    return 'sentinel';
+  }
+
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return null;
+  }
+
+  //#override
+  Boolean isGCRoot() {
+    return false;
+  }
+
+  Null constructor(SentinelType staticTypeArg) {
+    super.constructor(staticTypeArg);
+    _currentValueDatum = SentinelDatum(commentName());
+    _currentTypeDatum = TypeCodeDatum(staticTypeArg);
+  }
+}

@@ -1,0 +1,8 @@
+// expected error: cannot extend a class that has not been declared yet
+// unexpected output: FAIL
+
+println('FAIL');
+
+fwdclass A;
+class B extends A { }
+class A { }

@@ -1,6 +1,7 @@
 // Standard Library
 //stderr('Syllad core library 1.0 loaded.');
 
+//#ignore_unused
 Integer min(Integer a, Integer b) {
   if (a > b) {
     return b;
@@ -8,6 +9,7 @@ Integer min(Integer a, Integer b) {
   return a;
 }
 
+//#ignore_unused
 Integer max(Integer a, Integer b) {
   if (a < b) {
     return b;
@@ -15,6 +17,7 @@ Integer max(Integer a, Integer b) {
   return a;
 }
 
+//#ignore_unused
 String intToStr(Integer value) {
   if (value == 0) {
     return '0';
@@ -41,10 +44,12 @@ String intToStr(Integer value) {
   return joinList(flippedBuffer);
 }
 
+//#ignore_unused
 String padRight(String line, Integer length, String padding) {
   return concat(line, stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))));
 }
 
+//#ignore_unused
 AnythingList map(WhateverList items, AnythingFunction callback) {
   AnythingList result = [];
   Integer index = 0;
@@ -55,6 +60,34 @@ AnythingList map(WhateverList items, AnythingFunction callback) {
   return result;
 }
 
+//#ignore_unused
+Null appendAll(WhateverList list, WhateverList other) {
+  for (item in other) {
+    append(list, item);
+  }
+}
+
+//#ignore_unused
+WhateverList reverse(WhateverList list) {
+  Integer length = len(list);
+  if (length < 2) {
+    return copy(list);
+  }
+  WhateverList result = filledList(length, list[0]);
+  Integer index = 0;
+  while (index < length) {
+    result[index] = list[length - index - 1];
+    index += 1;
+  }
+  return result;
+}
+
+//#ignore_unused
+Integer compareInteger(Integer a, Integer b) {
+  return a - b;
+}
+
+//#ignore_unused
 Integer compareString(String a, String b) {
   Integer index = 0;
   IntegerList aChars = copy(scalarValues(a));
@@ -77,42 +110,95 @@ Integer compareString(String a, String b) {
   }
 }
 
-Integer quickSortPartition(WhateverList list, Integer begin, Integer end, IntegerFunction comparator) {
-  Whatever pivotValue = list[end - 1];
-  Integer leftIndex = begin - 1;
-  Integer rightIndex = begin;
-  while (rightIndex < end - 1) {
-    if (comparator(list[rightIndex], pivotValue) < 0) {
-      leftIndex += 1;
-      Whatever temp = list[leftIndex];
-      list[leftIndex] = list[rightIndex];
-      list[rightIndex] = temp;
+// QUICKSORT
+
+// begin is inclusive, end is exclusive
+// return value is the indices of values such that all lower values
+// are before the first index and all higher values are after the second index
+IntegerList _partition(WhateverList list, Integer begin, Integer end, IntegerFunction comparator) {
+  assert(begin + 1 < end, '_partition called with less than two items');
+  // choose a pivot and put it at the end
+  // we choose one in the middle so that a sorted array is not worst-case
+  Integer pivotIndex = begin + (end - 1 - begin) / 2;
+  assert(pivotIndex < end - 1, 'invariant violation');
+  Whatever pivot = list[pivotIndex];
+  list[pivotIndex] = list[end - 1];
+  list[end - 1] = pivot;
+  // now partition the array around pivot
+  Integer candidatePivotIndex = begin;
+  Integer index = begin;
+  while (index < end - 1) {
+    if (comparator(list[index], pivot) < 0) {
+      // swap
+      Whatever temp = list[candidatePivotIndex];
+      list[candidatePivotIndex] = list[index];
+      list[index] = temp;
+      // increment
+      candidatePivotIndex += 1;
     }
-    rightIndex += 1;
+    index += 1;
   }
-  Whatever temp = list[leftIndex + 1];
-  list[leftIndex + 1] = list[rightIndex];
-  list[rightIndex] = temp;
-  return leftIndex + 1;
+  assert(index == end - 1, 'invariant violation');
+  Whatever temp = list[candidatePivotIndex];
+  list[candidatePivotIndex] = list[index];
+  list[index] = temp;
+  index = begin;
+  while (index < candidatePivotIndex) {
+    if (comparator(list[index], list[candidatePivotIndex]) > 0) {
+      throw(concat('partition error (left): at ', index, ' of ', list, ' between ', begin, ' and ', end, ', with pivot at ', candidatePivotIndex, '; comparator says: ', comparator(list[index], list[candidatePivotIndex])));
+    }
+    index += 1;
+  }
+  assert(index == candidatePivotIndex, 'internal error');
+  while (index < end) {
+    if (comparator(list[index], list[candidatePivotIndex]) < 0) {
+      throw(concat('partition error (right): at ', index, ' of ', list, ' between ', begin, ' and ', end, ', with pivot at ', candidatePivotIndex, '; comparator says: ', comparator(list[index], list[candidatePivotIndex])));
+    }
+    index += 1;
+  }
+  Integer fatPivotStart = candidatePivotIndex;
+  while (fatPivotStart > begin && comparator(list[fatPivotStart - 1], list[candidatePivotIndex]) == 0) {
+    fatPivotStart -= 1;
+  }
+  Integer fatPivotEnd = candidatePivotIndex;
+  while (fatPivotEnd < end-1 && comparator(list[fatPivotEnd + 1], list[candidatePivotIndex]) == 0) {
+    fatPivotEnd += 1;
+  }
+  return [fatPivotStart, fatPivotEnd];
 }
 
-Null quickSortRange(WhateverList list, Integer begin, Integer end, IntegerFunction comparator) {
-  assert(begin + 1 < end, 'quickSortRange called with less than two items');
-  Integer pivot = quickSortPartition(list, begin, end, comparator);
-  if (begin + 1 < pivot) {
-    quickSortRange(list, begin, pivot, comparator);
+// begin is inclusive, end is exclusive
+Null _sortRange(WhateverList list, Integer begin, Integer end, IntegerFunction comparator) {
+  assert(begin + 1 < end, '_sortRange called with less than two items');
+  if (end - begin == 2) {
+    if (comparator(list[begin], list[end - 1]) > 0) {
+      Whatever temp = list[begin];
+      list[begin] = list[end - 1];
+      list[end - 1] = temp;
+    }
+    return;
   }
-  if (pivot + 2 < end) {
-    quickSortRange(list, pivot + 1, end, comparator);
+  IntegerList pivotIndices = _partition(list, begin, end, comparator);
+  if (begin + 1 < pivotIndices[0]) {
+    _sortRange(list, begin, pivotIndices[0], comparator);
+  }
+  if (pivotIndices[1] + 2 < end) {
+    _sortRange(list, pivotIndices[1] + 1, end, comparator);
   }
 }
 
+// in-place sort.
+// comparator takes two values and returns a positive number if the first is first,
+// a negative number if the second is first, and zero if they are equal.
+//#ignore_unused
 Null sortWithComparator(WhateverList list, IntegerFunction comparator) {
   if (len(list) > 1) {
-    quickSortRange(list, 0, len(list), comparator);
+    _sortRange(list, 0, len(list), comparator);
   }
 }
 
+// O(N)
+//#ignore_unused
 Boolean contains(WhateverList list, Anything item) {
   for (entry in list) {
     if (entry == item) {
@@ -127,12 +213,19 @@ Boolean contains(WhateverList list, Anything item) {
 Integer lastObjectId = 0;
 
 class Object {
+  //#ignore_unused
   Null abstract() {
     throw(concat('called abstract method on ', className));
   }
 
+  //#ignore_unused
+  Null unimplemented() {
+    throw(concat('not implemented on ', className));
+  }
+
   Integer internalObjectId;
 
+  //#ignore_unused
   Null constructor() {
     internalObjectId = lastObjectId;
     lastObjectId += 1;
@@ -148,6 +241,7 @@ class Object {
 // This is a port of the xor variant of djb2, from http://www.cse.yorku.ca/~oz/hash.html
 // The original assumed 8-bit characters; this version uses scalar values which are 21 bits,
 // whether this makes any sense or not is unclear.
+//#ignore_unused
 Integer hashString(String data) {
   Integer result = 5381;
   for (c in scalarValues(data)) {
@@ -156,12 +250,15 @@ Integer hashString(String data) {
   return result;
 }
 
+//#ignore_unused
 Integer hashAnything(Anything data) {
   if (data is Object) {
     return (data as Object).internalObjectId;
   }
   return hashString(concat(data));
 }
+
+fwdclass Map extends Object;
 
 // Map has set, get, remove, keys, values
 // an implementation of .containsKey would be identical to get(n) != null, so just use that
@@ -172,8 +269,6 @@ class Map extends Object {
   // each thing in that list is a key/value pair
   AnythingListListNullableList table = []:AnythingListListNullable;
   Integer length = 0;
-
-  Null constructor() { }
 
   // protected
   Null nonGrowingSet(Anything key, Anything value) {
@@ -196,8 +291,9 @@ class Map extends Object {
     append(entry!, [key, value]);
     length += 1;
   }
-
-  Null remove(Anything key) { // included for completeness #ignore_unused
+  
+  //#ignore_unused
+  Null remove(Anything key) {
     assert(len(table) > 0, 'Cannot remove from an empty Map.');
     Integer hashCode = hashAnything(key);
     Integer entryIndex = hashCode % len(table);
@@ -220,7 +316,7 @@ class Map extends Object {
         return;
       }
     }
-    assert(false, 'Cannot remove something not in the set.');
+    assert(false, 'Cannot remove something not in the map.');
   }
 
   // protected
@@ -245,6 +341,7 @@ class Map extends Object {
     }
   }
 
+  //#ignore_unused
   Null set(Anything key, Anything value) {
     if (len(table) <= length /* *1.3 */) {
       grow();
@@ -252,7 +349,8 @@ class Map extends Object {
     nonGrowingSet(key, value);
   }
 
-  AnythingNullable get(Anything key) {
+  //#ignore_unused
+  Anything get(Anything key) {
     if (len(table) == 0) {
       return null;
     }
@@ -269,6 +367,7 @@ class Map extends Object {
     return null;
   }
 
+  //#ignore_unused
   AnythingList keys() {
     AnythingList result = [];
     for (entry in table) {
@@ -281,6 +380,7 @@ class Map extends Object {
     return result;
   }
 
+  //#ignore_unused
   AnythingList values() {
     AnythingList result = [];
     for (entry in table) {
@@ -292,7 +392,21 @@ class Map extends Object {
     }
     return result;
   }
-
+  
+  //#ignore_unused
+  Map copy() {
+    Map result = Map();
+    for (entry in table) {
+      if (entry != null) {
+        for (record in entry!) {
+          result.set(record[0], record[1]);
+        }
+      }
+    }
+    return result;
+  }
+  
+  //#override
   String toString() {
     StringList items = []:String;
     for (entry in table) {
@@ -313,6 +427,7 @@ class Map extends Object {
   }
 }
 
+fwdclass Set() extends Object;
 class Set extends Object {
   AnythingListNullableList table = []:AnythingListNullable;
   Integer length = 0;
@@ -337,6 +452,25 @@ class Set extends Object {
     length += 1;
   }
 
+  //#ignore_unused
+  Boolean has(Anything key) {
+    if (len(table) == 0) {
+      return false;
+    }
+    Integer hashCode = hashAnything(key);
+    AnythingListNullable entry = table[hashCode % len(table)];
+    if (entry == null) {
+      return false;
+    }
+    for (record in entry!) {
+      if (record == key) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  //#ignore_unused
   Null remove(Anything key) {
     assert(len(table) > 0, 'Cannot remove from an empty Set.');
     Integer hashCode = hashAnything(key);
@@ -363,6 +497,15 @@ class Set extends Object {
     assert(false, 'Cannot remove something not in the set.');
   }
 
+  //#ignore_unused
+  Null removeAll(WhateverList keys) {
+    for (key in keys) {
+      if (has(key)) {
+        remove(key);
+      }
+    }
+  }
+
   // protected
   Null grow() {
     AnythingListNullableList oldTable = table;
@@ -385,23 +528,7 @@ class Set extends Object {
     }
   }
 
-  Boolean has(Anything key) {
-    if (len(table) == 0) {
-      return false;
-    }
-    Integer hashCode = hashAnything(key);
-    AnythingListNullable entry = table[hashCode % len(table)];
-    if (entry == null) {
-      return false;
-    }
-    for (record in entry!) {
-      if (record == key) {
-        return true;
-      }
-    }
-    return false;
-  }
-
+  //#ignore_unused
   Null add(Anything key) {
     if (has(key)) {
       return;
@@ -413,6 +540,14 @@ class Set extends Object {
     assert(has(key), 'add did not add');
   }
 
+  //#ignore_unused
+  Null addAll(AnythingList keys) {
+    for (key in keys) {
+      add(key);
+    }
+  }
+
+  //#ignore_unused
   AnythingList values() {
     AnythingList result = [];
     for (entry in table) {
@@ -425,6 +560,7 @@ class Set extends Object {
     return result;
   }
 
+  //#override
   String toString() {
     StringList items = []:String;
     for (entry in table) {
@@ -443,8 +579,34 @@ class Set extends Object {
       '}',
     );
   }
+
+  Null _setTable(AnythingListNullableList tableArg) {
+    table = tableArg;
+  }
+  
+  //#ignore_unused
+  Set clone() {
+    AnythingListNullableList tableResult = []:AnythingListNullable;
+    for (entry in table) {
+      if (entry == null) {
+        append(tableResult, null);
+      } else {
+        append(tableResult, copy(entry!));
+      }
+    }
+    Set result = Set();
+    result._setTable(tableResult);
+    return result;
+  }
+
+  //#ignore_unused
+  Null clear() {
+    table = []:AnythingListNullable;
+    length = 0;
+  }
 }
 
+//#ignore_unused
 Boolean listEquals(WhateverList list1, WhateverList list2) {
   if (len(list1) != len(list2)) {
     return false;
@@ -455,6 +617,25 @@ Boolean listEquals(WhateverList list1, WhateverList list2) {
       return false;
     }
     index += 1;
+  }
+  return true;
+}
+
+//#ignore_unused
+Boolean unorderedListEquals(WhateverList list1, WhateverList list2) {
+  if (len(list1) != len(list2)) {
+    return false;
+  }
+  Set set2 = Set();
+  for (item in list2) {
+    assert(!set2.has(item), 'list2 has duplicates');
+    set2.add(item);
+  }
+  assert(len(list1) == set2.length, 'list1 has duplicates');
+  for (item in list1) {
+    if (!set2.has(item)) {
+      return false;
+    }
   }
   return true;
 }

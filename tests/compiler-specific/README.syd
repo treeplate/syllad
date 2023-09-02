@@ -1,3 +1,0 @@
-// expected output: These tests are for compiler intrinsics, not language features.
-
-println("These tests are for compiler intrinsics, not language features.");

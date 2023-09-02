@@ -1,0 +1,112 @@
+import 'core.syd';
+import 'syd-datum.syd';
+
+class ConstantPart extends Object {
+  ow width;
+  ImmediateDatumList data;
+  StringNullable comment;
+
+  Null constructor(ow widthArg, ImmediateDatumList dataArg, StringNullable commentArg) {
+    assert(len(dataArg) > 0, 'empty data');
+    assert(commentArg == null || !containsString('\n', commentArg!), 'comment must not contain newlines');
+    super.constructor();
+    width = widthArg;
+    data = dataArg;
+    comment = commentArg;
+  }
+}
+
+class Constant extends Object {
+  AssemblerLabel label;
+  ConstantPartList data;
+  StringNullable suffixComment; // description in the definition of the constant in the assembler
+  String commentName; // string used to represent this string in the assembler when it is referenced
+
+  Null constructor(AssemblerLabel labelArg, ConstantPartList dataArg, StringNullable suffixCommentArg, String commentNameArg) {
+    assert(len(dataArg) > 0, 'empty data');
+    super.constructor();
+    label = labelArg;
+    data = dataArg;
+    suffixComment = suffixCommentArg;
+    commentName = commentNameArg;
+  }
+}
+
+class UninitializedGlobal extends Object {
+  AssemblerLabel label;
+  Integer bytes;
+  StringNullable comment;
+
+  Null constructor(AssemblerLabel labelArg, Integer bytesArg, StringNullable commentArg) {
+    super.constructor();
+    label = labelArg;
+    bytes = bytesArg;
+    comment = commentArg;
+  }
+}
+
+class GlobalVariableDatum extends Datum {
+  AssemblerLabel label;
+
+  //#override
+  Boolean canChange() {
+    return true;
+  }
+
+  //#override
+  String toString() {
+    return concat('@', label);
+  }
+
+  Null constructor(AssemblerLabel labelArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    label = labelArg;
+  }
+}
+
+class DataLabelDatum extends ImmediateDatum {
+  AssemblerLabel label;
+
+  //#override
+  String toString() {
+    return label.toString();
+  }
+
+  Null constructor(AssemblerLabel labelArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    label = labelArg;
+  }
+}
+
+class CodeLabelDatum extends ImmediateDatum {
+  AssemblerLabel label;
+
+  //#override
+  String toString() {
+    return concat(label);
+  }
+
+  Null constructor(AssemblerLabel labelArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    label = labelArg;
+  }
+}
+
+class ConstantDatum extends ImmediateDatum {
+  Constant constant;
+
+  Null constructor(Constant constantArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    constant = constantArg;
+  }
+}
+
+// This is useful only for data blocks, not operands for instructions.
+class StringDatum extends ImmediateDatum {
+  String value;
+
+  Null constructor(String valueArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    value = valueArg;
+  }
+}

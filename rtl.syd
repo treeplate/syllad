@@ -1,8 +1,10 @@
-String padLeft(String line, Integer length, String padding) { // #ignore_unused
+// #ignore_unused
+String padLeft(String line, Integer length, String padding) {
   return concat(stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))), line);
 }
 
-String join(StringList items, String joiner) { // #ignore_unused
+// #ignore_unused
+String join(StringList items, String joiner) {
   StringList result = []:String;
   Integer index = 0;
   while (index < len(items)) {

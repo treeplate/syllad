@@ -1,0 +1,61 @@
+// Data structures:
+//
+// GarbageCollectables:
+//   8 bytes reference count
+//   8 bytes number of fields
+//   8 bytes scratch space for garbage collector
+//   8 bytes pointer into block list (relative to block start)
+//   fields, 16 bytes each:
+//      8 bytes type
+//      8 bytes value
+//   
+// Strings (first 16 bytes intentionally match GarbageCollectables):
+//   8 bytes reference count
+//   8 bytes number of bytes
+//   String data (right-padded to 8 byte boundary with 0x00)
+//
+// Function pointers (kind of GarbageCollectable):
+//   GarbageCollectable header
+//   8 bytes type of object (this pointer type)
+//   8 bytes pointer to object (this pointer value)
+//   8 bytes either internal closure type or sentinel type
+//   8 bytes pointer to closure
+//   8 bytes internal code address type
+//   8 bytes pointer to code (with annotation at -8 bytes) as an Integer
+
+Integer _gcBlockHeaderRefCount = 0 * 8;
+Integer _gcBlockHeaderLength = 1 * 8;
+Integer _gcBlockStringData = 2 * 8;
+//#ignore_unused
+Integer _gcBlockHeaderScratchSpace = 2 * 8; // for completeness
+//#ignore_unused
+Integer _gcBlockHeaderEntryPointer = 3 * 8; // for completeness
+Integer _gcBlockData = 4 * 8;
+//#ignore_unused
+Integer _listBlockSize = _gcBlockData + 0 * 16 + 8; // for completeness
+Integer _listBlockData = _gcBlockData + 1 * 16 + 8;
+Integer _subroutineReceiverType = _gcBlockData + 0 * 16;
+Integer _subroutineReceiverPointer = _gcBlockData + 0 * 16 + 8;
+//#ignore_unused
+Integer _subroutineClosureType = _gcBlockData + 1 * 16; // either sentinel or internal closure type
+Integer _subroutineClosurePointer = _gcBlockData + 1 * 16 + 8;
+Integer _subroutineCodeType = _gcBlockData + 2 * 16; // for completeness, always code address type
+Integer _subroutineCodePointer = _gcBlockData + 2 * 16 + 8;
+
+//#ignore_unused
+Integer vmtTypeCode = 0; // class type code (may be -1 if never constructed or type checked)
+//#ignore_unused
+Integer vmtFieldCount = 1; // amount of storage space to allocate for class
+//#ignore_unused
+Integer vmtClassNamePointer = 2; // pointer to a String data structure with the class name, used to initialize className field
+//#ignore_unused
+Integer vmtParentVmtPointer = 3; // pointer to the VMT structure for the parent class, points to this VMT for __Object
+//#ignore_unused
+Integer vmtDynamicDispatchTable = 4; // DDT in VMT
+Integer vmtHeaderFieldCount = 5; // number of 64 bit header fields before the actual virtual method table
+
+Integer _fieldVmt = _gcBlockData + 0x00;
+//#ignore_unused
+Integer _fieldClassName = _gcBlockData + 0x10;
+//#ignore_unused
+Integer _fieldsRemainder = _gcBlockData + 0x20;

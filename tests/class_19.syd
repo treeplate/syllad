@@ -1,0 +1,14 @@
+// expected error: no such identifier 'b'
+// unexpected output: FAIL
+
+println('FAIL');
+
+class A {
+  Null foo() {
+    println(b);
+  }
+
+  Integer b = 1;
+}
+
+A().foo();

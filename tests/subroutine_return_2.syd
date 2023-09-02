@@ -1,4 +1,7 @@
 // expected error: error: type mismatch for function return value, expected String, got Integer
+// unexpected output: FAIL
+
+println('FAIL');
 
 String foo() {
   return 5;

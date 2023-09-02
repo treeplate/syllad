@@ -1,0 +1,11 @@
+// expected output: foo
+
+Null foo(Whatever w) { println('foo'); }
+Null bar(Whatever w) { println('bar'); }
+NullFunction x = foo;
+
+Null changeX() {
+  x = bar;
+}
+
+x(changeX());

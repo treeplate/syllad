@@ -1,305 +1,65 @@
 import 'core.syd';
-import 'syd-operands.syd';
-
-class LowLevelInstruction extends Object {
-  StringNullable opcode;
-  AnythingList operands;
-  StringNullable comment;
-  Integer indent;
-
-  Boolean skipped = false;
-  Null assignSkipped(Boolean value) {
-    skipped = value;
-  }
-
-  StringNullable label = null;
-  Null assignLabel(String value) {
-    label = value;
-  }
-
-  String eval(Integer lineLength) {
-    if (opcode == null) {
-      assert(len(operands) == 0, 'no opcode, but at least one operand');
-      if (comment == null) {
-        return '';
-      }
-      return concat(stringTimes(' ', indent), '  ; ', comment);
-    }
-    String rawCode = concat(opcode, ' ', join(map(operands, concat) as StringList, ', '));
-    String indentedCode = concat('  ', stringTimes(' ', indent), rawCode);
-    if (comment == null) {
-      return indentedCode;
-    }
-    return concat(padRight(indentedCode, lineLength, ' '), ' ; ', comment);
-  }
-  
-  String toString() {
-    // for debug purposes (hence hard-coded line length)
-    return concat(eval(64), ' ; from LowLevelInstruction.toString'); 
-  }
-
-  Null constructor(StringNullable opcodeArg, AnythingList operandsArg, StringNullable commentArg, Integer indentArg) {
-    assert(opcodeArg != '', 'passed empty string to LowLevelInstruction');
-    assert((len(operandsArg) == 0) || (opcodeArg != null), 'operands with no opcode');
-    opcode = opcodeArg;
-    operands = operandsArg;
-    comment = commentArg;
-    indent = indentArg;
-  }
-}
-
-fwdclass Assembler extends Object;
-fwdclass AssemblerBlock(Integer, Assembler) extends Object;
-
-class AssemblerBlock extends Object {
-  Integer lineLength;
-  Assembler assembler;
-
-  Integer currentIndent = 0;
-  StringNullable pendingComment = null;
-  LowLevelInstructionList lines = []:LowLevelInstruction;
-  Boolean deadCode = false;
-
-  Null indent(NullFunction generateAssembler) {
-    currentIndent += 2;
-    generateAssembler(this);
-    currentIndent -= 2;
-  }
-
-  Map labelCount = Map(); // String -> Integer
-  
-  Boolean isJump(String opcode) {
-    return opcode == 'jmp' || opcode == 'je' || opcode == 'jc' || opcode == 'jnc'; // TODO: add the other jumps
-  }
-
-  Null addCode(String opcode, WhateverList operands, StringNullable comment) {
-    assert(!isJump(opcode) || (len(operands) == 1 && operands[0] is String), 'jump opcodes expect exactly one string operand for optimizations to work');
-    assert(!contains(charsOf(opcode), ':'), 'use addLabel to add a label');
-    if (!deadCode) {
-      if (pendingComment != null) {
-        append(lines, LowLevelInstruction(null, [], pendingComment, currentIndent));
-      }
-      AnythingList newList = [];
-      for (op in operands) {
-        if (op is Operand) {
-          append(newList, (op as Operand).snapshot());
-        } else {
-          append(newList, op);
-        }
-      }
-      if (isJump(opcode)) {
-        IntegerNullable count = labelCount.get(operands[0]) as IntegerNullable;
-        if (count == null) {
-          count = 0;
-        }
-        labelCount.set(operands[0], count! + 1);
-      }
-      append(lines, LowLevelInstruction(opcode, newList, comment, currentIndent));
-    }
-    pendingComment = null;
-    if (opcode == 'jmp') {
-      deadCode = true;
-    }
-  }
-
-  Null addLabel(String label, StringNullable comment) {
-    assert(!contains(charsOf(label), ':'), 'addLabel adds the colon, so should not be given a label with a colon');
-    pendingComment = null;
-    LowLevelInstruction instruction = LowLevelInstruction(concat(label, ':'), [], comment, currentIndent);
-    instruction.assignLabel(label);
-    append(lines, instruction);
-    deadCode = false;
-  }
-
-  Null addComment(String message) {
-    if (!deadCode) {
-      if (pendingComment != null) {
-        append(lines, LowLevelInstruction(null, [], pendingComment, currentIndent));
-        pendingComment = null;
-      }
-      append(lines, LowLevelInstruction(null, [], message, currentIndent));
-    }
-  }
-
-  Null addPendingComment(String message) {
-    pendingComment = message;
-  }
-
-  Null addBlankLine() {
-    if (len(lines) > 1) {
-      append(lines, LowLevelInstruction(null, [], null, currentIndent));
-    }
-  }
-
-  Null addBlock(AssemblerBlock block) {
-    for (line in block.lines) {
-      append(lines, line);
-    }
-    for (label in block.labelCount.keys()) {
-      IntegerNullable count = labelCount.get(label) as IntegerNullable;
-      if (count == null) {
-        count = 0;
-      }
-      labelCount.set(label, count! + block.labelCount.get(label) as Integer);
-    }
-  }
-
-  AssemblerBlock createBlock() {
-    return AssemblerBlock(lineLength, assembler);
-  }
-
-  Null optimize() {
-    Boolean changed = true;
-    while (changed) {
-      changed = false;
-      Integer index = len(lines) - 1;
-      LowLevelInstruction next = LowLevelInstruction(null, [], null, currentIndent);
-      while (index >= 0) {
-        LowLevelInstruction line = lines[index];
-        if (!line.skipped) {
-          if (line.label != null && labelCount.get(line.label) == 0) {
-            line.assignSkipped(true);
-            changed = true;
-          } else if (line.opcode == 'jmp') {
-            if (next.label == line.operands[0]) {
-              line.assignSkipped(true);
-              changed = true;
-              IntegerNullable count = labelCount.get(next.label) as IntegerNullable;
-              if (count != null) {
-                labelCount.set(next.label, count! - 1);
-              }
-            }
-          }
-          next = line;
-        }
-        index -= 1;
-      }
-    }
-  }
-
-  Null constructor(Integer lineLengthArg, Assembler assemblerArg) {
-    super.constructor();
-    lineLength = lineLengthArg;
-    assembler = assemblerArg;
-  }
-}
+import 'syd-structured-data.syd';
+import 'syd-utils.syd';
+import 'syd-pseudo-instructions.syd';
 
 class Assembler extends Object {
-  Set includelibs = Set();
-  StringList externs = []:String;
-  StringList const = []:String;
-  StringList data = []:String;
-  StringList bss = []:String;
-  StringList code = []:String;
+  AssemblerLabel rootLabel;
+  Map labelSequenceIds = Map(); // String -> Integer
+  Map labels = Map(); // AssemblerLabel -> String
 
-  Integer lineLength = 64;
-
-  Null addIncludeLib(String filename) {
-    includelibs.add(concat('includelib ', filename));
-  }
-
-  Null addExternProc(String procname) {
-    append(externs, concat('extern ', procname, ' : proc'));
-  }
-
-  Null _addRawBytes(StringList target, String label, StringList lines, StringNullableList comments) {
-    assert(len(lines) > 0, '_addRawBytes got no data');
-    Integer index = 0;
-    String prefix = label;
-    while (index < len(lines)) {
-      String line = concat('  ', padRight(prefix, 12, ' '), ' ', lines[index]);
-      StringNullable comment = comments[index];
-      if (comment != null) {
-        line = concat(padRight(line, lineLength, ' '), ' ; ', comment);
+  String serializeLabel(AssemblerLabel label) {
+    StringNullable result = labels.get(label) as StringNullable;
+    if (result == null) {
+      String candidate;
+      if (label.parent == rootLabel) {
+        candidate = camelCase(label.name);
+      } else {
+        assert(label.parent != null, concat('all labels must derive from the root label; label ', label.name, ' is a strange root'));
+        candidate = concat(serializeLabel(label.parent!), '$', camelCase(label.name));
       }
-      append(target, line);
-      index += 1;
-      prefix = '';
-    }
-  }
-
-  Null addConst(String label, StringList lines, StringNullableList comments) {
-    assert(len(lines) > 0, 'addConst got no data');
-    _addRawBytes(const, label, lines, comments);
-  }
-
-  Null addData(String label, StringList lines, StringNullableList comments) {
-    assert(len(lines) > 0, 'addData got no data');
-    _addRawBytes(data, label, lines, comments);
-  }
-
-  Null addBss(String label, Integer bytes, String comment) {
-    String prefix;
-    Integer count;
-    if (bytes % 4 == 0) {
-      prefix = 'dq';
-      count = bytes / 4;
-    } else {
-      prefix = 'db';
-      count = bytes;
-    }
-    append(bss,
-      concat(
-        padRight(
-          concat('  ', label, ' ', prefix, ' ?', stringTimes(', ?', count - 1)),
-          lineLength, ' ',
-        ),
-        ' ; ', comment,
-      )
-    );
-  }
-
-  Null addLabeledBlock(String label, AssemblerBlock block, StringNullable comment, StringNullable annotation) {
-    if (len(code) > 0) {
-      append(code, '');
-    }
-    if (comment != null && comment != label) {
-      append(code, concat('; ', comment));
-    }
-    if (annotation != null) {
-      append(code, concat('dq ', annotation));
-    }
-    append(code, concat(label, ':'));
-    block.optimize();
-    for (line in block.lines) {
-      if (!line.skipped) {
-        append(code, line.eval(lineLength));
+      IntegerNullable sequenceId = labelSequenceIds.get(candidate) as IntegerNullable;
+      if (sequenceId == null) {
+        sequenceId = 0;
+        result = candidate;
+      } else {
+        sequenceId = sequenceId! + 1;
+        result = concat(candidate, '_', sequenceId);
       }
+      labelSequenceIds.set(candidate, sequenceId);
+      labels.set(label, result!);
     }
+    return result!;
   }
 
-  AssemblerBlock createBlock() {
-    return AssemblerBlock(lineLength, this);
+  ConstantList const = []:Constant;
+
+  Null addConst(Constant section) {
+    append(const, section);
+  }
+
+  ConstantList data = []:Constant;
+
+  Null addData(Constant section) {
+    append(data, section);
+  }
+
+  UninitializedGlobalList uninitializedGlobals = []:UninitializedGlobal;
+
+  Null addUninitializedGlobal(UninitializedGlobal section) {
+    append(uninitializedGlobals, section);
   }
 
   String serialize() {
-    return concat(
-      '_drectve segment info alias(".drectve")\n',
-      '  db \' /ENTRY:main \'\n',
-      '_drectve ends\n',
-      'option casemap:none\n',
-      '\n',
-      '; includes\n',
-      join((includelibs.values() as StringList), '\n'),
-      '\n\n',
-      '; externs\n',
-      join(externs, '\n'),
-      '\n\n',
-      '.const\n',
-      join(const, '\n'),
-      '\n\n',
-      '.data\n',
-      join(data, '\n'),
-      '\n\n',
-      '_BSS segment\n',
-      join(bss, '\n'),
-      '\n\n',
-      '.code\n',
-      '\n',
-      'public main\n',
-      join(code, '\n'),
-      '\n',
-      'end\n',
-    );
+    abstract();
+  }
+
+  Null assemble(PseudoInstructionList pseudoInstructions) {
+    abstract();
+  }
+
+  Null constructor(AssemblerLabel rootLabelArg) {
+    super.constructor();
+    rootLabel = rootLabelArg;
   }
 }

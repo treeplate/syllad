@@ -1,0 +1,29 @@
+// expected output: C::foo: 2
+// expected output: C::super.foo: <function (<implementation dependent>)>
+// expected output: B::foo: 2
+// expected output: A::foo: 2
+
+class A {
+  Whatever foo = 1;
+  Null bar() { println(concat('A::foo: ', foo)); }
+}
+
+class B extends A {
+  Null foo() { }
+  Null bar() {
+    println(concat('B::foo: ', foo)); 
+    //println(concat('B::super.foo: ', super.foo)); 
+    super.bar();
+  }
+}
+
+class C extends B {
+  Whatever foo = 2;
+  Null bar() {
+    println(concat('C::foo: ', foo)); 
+    println(concat('C::super.foo: ', super.foo)); 
+    super.bar();
+  }
+}
+
+C().bar();

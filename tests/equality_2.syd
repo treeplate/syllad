@@ -1,4 +1,7 @@
 // expected error: 0 and false are not compatible types
+// unexpected output: FAIL
+
+println('FAIL');
 
 if (0 == false) {
   println("FAIL");

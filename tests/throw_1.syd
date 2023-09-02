@@ -1,0 +1,4 @@
+// expected stderr: test
+// expected error: throw
+
+throw('test');

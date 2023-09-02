@@ -68,6 +68,7 @@ class BunnyB extends BunnyA {
     return test;
   }
 
+  //#override
   Null test() {
     result = 'BunnyB::test';
   }

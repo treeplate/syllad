@@ -1,4 +1,7 @@
 // expected error: error: integer literal too big
+// unexpected output: FAIL
+
+println('FAIL');
 
 // (currently buggy in compiler -- no compile time error is reported)
 

@@ -5,11 +5,26 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Dart & Flutter",
+            "name": "Debug",
+            "request": "launch",
+            "type": "dart",
+            "program": "main.dart",
+            "args": ["--debug", "./compiler", "syd.syd", "temp.syd"],
+        },
+        {
+            "name": "Profile",
+            "request": "launch",
+            "type": "dart",
+            "program": "main.dart",
+            "args": ["--profile", "./compiler", "syd.syd", "temp.syd"],
+        },
+        {
+            "name": "Fast Run",
             "request": "launch",
             "type": "dart",
             "program": "main.dart",
             "args": ["./compiler", "syd.syd", "temp.syd"],
         }
     ]
+    
 }

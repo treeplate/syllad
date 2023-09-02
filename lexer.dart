@@ -12,6 +12,9 @@ enum TokenType {
   endOfStatement, // ;
   endOfFile, // EOF
 
+  isIdent,
+  asIdent,
+
   openParen, // (
   closeParen, // )
   openSquare, // [
@@ -25,10 +28,18 @@ enum TokenType {
   bang, // !
 
   plus, // +
+  plusEquals, // +=
+  plusPlus, // ++
   minus, // -
+  minusEquals, // -=
+  minusMinus, // --
   divide, // /
+  divideEquals, // /=
   star, // *
+  starEquals, // *=
+  starStar,
   remainder, // %
+  remainderEquals, // %=
 
   equals, // ==
   notEquals, // !=
@@ -38,19 +49,25 @@ enum TokenType {
   less, // <
 
   andand, // &&
+  andandEquals, // &&=
   oror, // ||
+  ororEquals, // ||=
 
   bitAnd, // &
+  bitAndEquals, // &=
   bitOr, // |
+  bitOrEquals, // |=
   bitXor, // ^
+  bitXorEquals, // ^=
   tilde, // ~
+  tildeEquals, // ~=
   leftShift, // <<
+  leftShiftEquals, // <<=
   rightShift, // >>
+  rightShiftEquals, // >>=
 
   set, // =
   colon,
-  starEquals,
-  starStar,
 }
 
 abstract class Token {
@@ -103,6 +120,13 @@ enum _LexerState {
   identifier,
   and,
   or,
+  oror,
+  andand,
+  xor,
+  tilde,
+  remainder,
+  shiftL,
+  shiftR,
   greaterThan,
   lessThan,
   equalTo,
@@ -112,12 +136,14 @@ enum _LexerState {
   comment,
   commentBackslash,
   slash,
+  plus,
+  minus,
+  star,
   stringDqBackslash,
   stringSqBackslash,
   multiLineComment,
   multiLineCommentBackslash,
   multiLineCommentStar,
-  star,
   commentHash,
 }
 
@@ -133,96 +159,96 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
       case 0xa:
         line++;
         col = 1;
-        break;
-      case 0xd:
-      case 0x20:
+
+      case 0xd: // carriage return
+      case 0x20: // space
         break;
       case 0x21:
         state = _LexerState.exclamationPoint;
-        break;
+
       case 0x22:
         state = _LexerState.stringDq;
-        break;
+
       case 0x23:
         state = _LexerState.comment;
-        break;
+
       // 0x24 is $, not a valid character for top-level
       case 0x25:
-        yield CharToken(TokenType.remainder, line, col);
-        break;
+        state = _LexerState.remainder;
+
       case 0x26:
         state = _LexerState.and;
-        break;
+
       case 0x27:
         state = _LexerState.stringSq;
-        break;
+
       case 0x28:
         yield CharToken(TokenType.openParen, line, col);
-        break;
+
       case 0x29:
         yield CharToken(TokenType.closeParen, line, col);
-        break;
+
       case 0x2a:
         state = _LexerState.star;
-        break;
+
       case 0x2b:
-        yield CharToken(TokenType.plus, line, col);
-        break;
+        state = _LexerState.plus;
+
       case 0x2c:
         yield CharToken(TokenType.comma, line, col);
-        break;
+
       case 0x2d:
-        yield CharToken(TokenType.minus, line, col);
-        break;
+        state = _LexerState.minus;
+
       case 0x2e:
         state = _LexerState.period;
-        break;
+
       case 0x2f:
         state = _LexerState.slash;
-        break;
+
       // 0-9 are done later
       case 0x3a:
         yield CharToken(TokenType.colon, line, col);
-        break;
+
       case 0x3b:
         yield CharToken(TokenType.endOfStatement, line, col);
-        break;
+
       case 0x3c:
         state = _LexerState.lessThan;
-        break;
+
       case 0x3d:
         state = _LexerState.equalTo;
-        break;
+
       case 0x3e:
         state = _LexerState.greaterThan;
-        break;
+
       // 0x3f is ?, not a valid character for top-level
       // 0x40 is @, not a valid character for top-level
       // 0x41 - 0x5a, A-Z, are done later
       case 0x5b:
         yield CharToken(TokenType.openSquare, line, col);
-        break;
+
       case 0x5d:
         yield CharToken(TokenType.closeSquare, line, col);
-        break;
+
       case 0x5e:
-        yield CharToken(TokenType.bitXor, line, col);
-        break;
+        state = _LexerState.xor;
+
       // 0x5f is _, done later
       // 0x60 is `, not a valid character for top-level
       // 0x61 - 0x7a, a-z, are done later
       case 0x7b:
         yield CharToken(TokenType.openBrace, line, col);
-        break;
+
       case 0x7c:
         state = _LexerState.or;
-        break;
+
       case 0x7d:
         yield CharToken(TokenType.closeBrace, line, col);
-        break;
+
       case 0x7e:
-        yield CharToken(TokenType.tilde, line, col);
-        break;
+        state = _LexerState.tilde;
+
       default:
         if (rune - 0x30 >= 0 && rune - 0x30 <= 9) {
           buffer.writeCharCode(rune);
@@ -233,9 +259,8 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           state = _LexerState.identifier;
         } else {
           throw BSCException(
-            //print(
             "Unrecognized ${String.fromCharCode(rune)} at ${formatCursorPosition(line, col, workspace, filename)} (U+${rune.toRadixString(16)} in Unicode)",
-            //);
+            NoDataVG(),
           );
         }
     }
@@ -245,7 +270,7 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
     switch (state) {
       case _LexerState.top:
         yield* parseRuneFromTop(rune);
-        break;
+
       case _LexerState.integer:
         if (rune - 0x30 >= 0 && rune - 0x30 <= 9 ||
             rune == 0x78 ||
@@ -264,12 +289,19 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
             rune == 0x46) {
           buffer.writeCharCode(rune);
         } else {
-          yield IntToken(int.tryParse(buffer.toString()) ?? (throw BSCException('bad integer: $buffer')), line, col);
+          yield IntToken(
+              int.tryParse(buffer.toString()) ??
+                  (throw BSCException(
+                    'bad integer: $buffer',
+                    NoDataVG(),
+                  )),
+              line,
+              col);
           buffer = StringBuffer();
           state = _LexerState.top;
           yield* parseRuneFromTop(rune);
         }
-        break;
+
       case _LexerState.stringDq:
         if (rune == 0x22) {
           yield StringToken(buffer.toString(), line, col);
@@ -277,22 +309,39 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           state = _LexerState.top;
         } else if (rune == 0x5c) {
           state = _LexerState.stringDqBackslash;
+        } else if (rune == 0xa) {
+          line++;
+          buffer.writeCharCode(rune);
         } else {
           buffer.writeCharCode(rune);
         }
-        break;
+
       case _LexerState.identifier:
         if ((rune - 0x30 >= 0 && rune - 0x30 <= 9) || (rune >= 0x61 && rune <= 0x7a) || (rune >= 0x41 && rune <= 0x5a) || rune == 0x5f) {
           buffer.writeCharCode(rune);
         } else {
-          yield IdentToken(buffer.toString(), line, col);
-          buffer = StringBuffer();
-          state = _LexerState.top;
+          String str = buffer.toString();
+          if (str == 'is') {
+            yield CharToken(TokenType.isIdent, line, col);
+            state = _LexerState.top;
+            buffer = StringBuffer();
 
-          yield* parseRuneFromTop(rune);
+            yield* parseRuneFromTop(rune);
+          } else if (str == 'as') {
+            yield CharToken(TokenType.asIdent, line, col);
+            state = _LexerState.top;
+            buffer = StringBuffer();
+
+            yield* parseRuneFromTop(rune);
+          } else {
+            yield IdentToken(buffer.toString(), line, col);
+            buffer = StringBuffer();
+            state = _LexerState.top;
+
+            yield* parseRuneFromTop(rune);
+          }
         }
 
-        break;
       case _LexerState.stringSq:
         if (rune == 0x27) {
           yield StringToken(buffer.toString(), line, col);
@@ -300,25 +349,18 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           state = _LexerState.top;
         } else if (rune == 0x5c) {
           state = _LexerState.stringSqBackslash;
+        } else if (rune == 0xa) {
+          line++;
+          buffer.writeCharCode(rune);
         } else {
           buffer.writeCharCode(rune);
         }
-        break;
-      case _LexerState.stringSq:
-        if (rune == 0x27) {
-          yield StringToken(buffer.toString(), line, col);
-          buffer = StringBuffer();
-          state = _LexerState.top;
-        } else if (rune == 0x5c) {
-          state = _LexerState.stringSqBackslash;
-        } else {
-          buffer.writeCharCode(rune);
-        }
-        break;
+
       case _LexerState.and:
         if (rune == 0x26) {
-          // &
-          yield CharToken(TokenType.andand, line, col);
+          state = _LexerState.andand;
+        } else if (rune == 0x3d) {
+          yield CharToken(TokenType.bitAndEquals, line, col);
           state = _LexerState.top;
         } else {
           yield CharToken(TokenType.bitAnd, line, col);
@@ -326,18 +368,19 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
 
           yield* parseRuneFromTop(rune);
         }
-        break;
+
       case _LexerState.or:
         if (rune == 0x7c) {
-          // |
-          yield CharToken(TokenType.oror, line, col);
+          state = _LexerState.oror;
+        } else if (rune == 0x3d) {
+          yield CharToken(TokenType.bitOrEquals, line, col);
           state = _LexerState.top;
         } else {
           yield CharToken(TokenType.bitOr, line, col);
           state = _LexerState.top;
           yield* parseRuneFromTop(rune);
         }
-        break;
+
       case _LexerState.greaterThan:
         if (rune == 0x3d) {
           // =
@@ -352,7 +395,7 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           state = _LexerState.top;
           yield* parseRuneFromTop(rune);
         }
-        break;
+
       case _LexerState.lessThan:
         if (rune == 0x3d) {
           yield CharToken(TokenType.lessEqual, line, col);
@@ -365,7 +408,7 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           state = _LexerState.top;
           yield* parseRuneFromTop(rune);
         }
-        break;
+
       case _LexerState.equalTo:
         if (rune == 0x3d) {
           yield CharToken(TokenType.equals, line, col);
@@ -375,7 +418,7 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           state = _LexerState.top;
           yield* parseRuneFromTop(rune);
         }
-        break;
+
       case _LexerState.exclamationPoint:
         if (rune == 0x3d) {
           yield CharToken(TokenType.notEquals, line, col);
@@ -385,7 +428,7 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           state = _LexerState.top;
           yield* parseRuneFromTop(rune);
         }
-        break;
+
       case _LexerState.comment:
         if (rune == 0xa) {
           line++;
@@ -398,18 +441,21 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
         if (rune == 0x23) {
           state = _LexerState.commentHash;
         }
-        break;
+
       case _LexerState.slash:
         if (rune == 0x2f) {
           state = _LexerState.comment;
         } else if (rune == 0x2a) {
           state = _LexerState.multiLineComment;
+        } else if (rune == 0x3d) {
+          yield CharToken(TokenType.divideEquals, line, col);
+          state = _LexerState.top;
         } else {
           yield CharToken(TokenType.divide, line, col);
           state = _LexerState.top;
           yield* parseRuneFromTop(rune);
         }
-        break;
+
       case _LexerState.stringDqBackslash:
         if (rune == 0x6e) {
           buffer.write("\n");
@@ -421,7 +467,7 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           buffer.writeCharCode(rune);
         }
         state = _LexerState.stringDq;
-        break;
+
       case _LexerState.stringSqBackslash:
         if (rune == 0x6e) {
           buffer.write("\n");
@@ -433,7 +479,7 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           buffer.writeCharCode(rune);
         }
         state = _LexerState.stringSq;
-        break;
+
       case _LexerState.multiLineComment:
         if (rune == 0x2a) {
           state = _LexerState.multiLineCommentStar;
@@ -445,32 +491,32 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           line++;
           col = 0;
         }
-        break;
+
       case _LexerState.multiLineCommentStar:
         if (rune == 0x2f) {
           state = _LexerState.top;
-        } else {
+        } else if (rune != 0x2a) {
           state = _LexerState.multiLineComment;
         }
         if (rune == 0xa) {
           line++;
           col = 0;
         }
-        break;
+
       case _LexerState.commentBackslash:
         if (rune == 0x40) {
           state = _LexerState.top;
         } else {
           state = _LexerState.comment;
         }
-        break;
+
       case _LexerState.multiLineCommentBackslash:
         if (rune == 0x40) {
           state = _LexerState.top;
         } else {
           state = _LexerState.multiLineComment;
         }
-        break;
+
       case _LexerState.period:
         if (rune == 0x2e) {
           state = _LexerState.periodperiod;
@@ -479,7 +525,7 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           state = _LexerState.top;
           yield* parseRuneFromTop(rune);
         }
-        break;
+
       case _LexerState.periodperiod:
         if (rune == 0x2e) {
           yield CharToken(TokenType.ellipsis, line, col);
@@ -491,7 +537,7 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           state = _LexerState.top;
           yield* parseRuneFromTop(rune);
         }
-        break;
+
       case _LexerState.star:
         if (rune == 0x3d) {
           yield CharToken(TokenType.starEquals, line, col);
@@ -506,7 +552,7 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
         yield CharToken(TokenType.star, line, col);
         state = _LexerState.top;
         yield* parseRuneFromTop(rune);
-        break;
+
       case _LexerState.commentHash:
         if ((rune - 0x30 >= 0 && rune - 0x30 <= 9) || (rune >= 0x61 && rune <= 0x7a) || (rune >= 0x41 && rune <= 0x5a) || rune == 0x5f) {
           buffer.writeCharCode(rune);
@@ -523,75 +569,184 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
             state = _LexerState.comment;
           }
         }
-        break;
+
+      case _LexerState.plus:
+        if (rune == 0x3d) {
+          yield CharToken(TokenType.plusEquals, line, col);
+          state = _LexerState.top;
+        } else if (rune == 0x2b) {
+          yield CharToken(TokenType.plusPlus, line, col);
+          state = _LexerState.top;
+        } else {
+          yield CharToken(TokenType.plus, line, col);
+          state = _LexerState.top;
+          yield* parseRuneFromTop(rune);
+        }
+      case _LexerState.minus:
+        if (rune == 0x3d) {
+          yield CharToken(TokenType.minusEquals, line, col);
+          state = _LexerState.top;
+        } else if (rune == 0x2d) {
+          yield CharToken(TokenType.minusMinus, line, col);
+          state = _LexerState.top;
+        } else {
+          yield CharToken(TokenType.minus, line, col);
+          state = _LexerState.top;
+          yield* parseRuneFromTop(rune);
+        }
+      case _LexerState.oror:
+        if (rune == 0x3d) {
+          yield CharToken(TokenType.ororEquals, line, col);
+          state = _LexerState.top;
+        } else {
+          yield CharToken(TokenType.oror, line, col);
+          state = _LexerState.top;
+          yield* parseRuneFromTop(rune);
+        }
+      case _LexerState.andand:
+        if (rune == 0x3d) {
+          yield CharToken(TokenType.andandEquals, line, col);
+          state = _LexerState.top;
+        } else {
+          yield CharToken(TokenType.andand, line, col);
+          state = _LexerState.top;
+          yield* parseRuneFromTop(rune);
+        }
+      case _LexerState.xor:
+        if (rune == 0x3d) {
+          yield CharToken(TokenType.bitXorEquals, line, col);
+          state = _LexerState.top;
+        } else {
+          yield CharToken(TokenType.bitXor, line, col);
+          state = _LexerState.top;
+          yield* parseRuneFromTop(rune);
+        }
+      case _LexerState.tilde:
+        if (rune == 0x3d) {
+          yield CharToken(TokenType.tildeEquals, line, col);
+          state = _LexerState.top;
+        } else {
+          yield CharToken(TokenType.tilde, line, col);
+          state = _LexerState.top;
+          yield* parseRuneFromTop(rune);
+        }
+      case _LexerState.remainder:
+        if (rune == 0x3d) {
+          yield CharToken(TokenType.remainderEquals, line, col);
+          state = _LexerState.top;
+        } else {
+          yield CharToken(TokenType.remainder, line, col);
+          state = _LexerState.top;
+          yield* parseRuneFromTop(rune);
+        }
+      case _LexerState.shiftL:
+        if (rune == 0x3d) {
+          yield CharToken(TokenType.leftShiftEquals, line, col);
+          state = _LexerState.top;
+        } else {
+          yield CharToken(TokenType.leftShift, line, col);
+          state = _LexerState.top;
+          yield* parseRuneFromTop(rune);
+        }
+      case _LexerState.shiftR:
+        if (rune == 0x3d) {
+          yield CharToken(TokenType.rightShiftEquals, line, col);
+          state = _LexerState.top;
+        } else {
+          yield CharToken(TokenType.rightShift, line, col);
+          state = _LexerState.top;
+          yield* parseRuneFromTop(rune);
+        }
     }
     col++;
   }
   switch (state) {
     case _LexerState.stringDq:
-      throw BSCException("Unterminated double-quoted string '${buffer.toString()}'");
+      throw BSCException("Unterminated double-quoted string '${buffer.toString()}'", NoDataVG());
     case _LexerState.stringSq:
-      throw BSCException("Unterminated single-quoted string '${buffer.toString()}'");
+      throw BSCException("Unterminated single-quoted string '${buffer.toString()}'", NoDataVG());
     case _LexerState.comment:
-      break;
     case _LexerState.multiLineComment:
-      break; // multi-line comments can be unterminated
+    // multi-line comments can be unterminated
     case _LexerState.top:
       break;
     case _LexerState.integer:
-      yield IntToken(int.tryParse(buffer.toString()) ?? (throw BSCException('bad integer: $buffer')), line, col);
-      break;
+      yield IntToken(
+        int.tryParse(buffer.toString()) ?? (throw BSCException('bad integer: $buffer', NoDataVG())),
+        line,
+        col,
+      );
+
     case _LexerState.identifier:
       yield IdentToken(buffer.toString(), line, col);
-      break;
+
     case _LexerState.and:
       yield CharToken(TokenType.bitAnd, line, col);
-      break;
+
     case _LexerState.or:
       yield CharToken(TokenType.bitOr, line, col);
-      break;
+
     case _LexerState.greaterThan:
       yield CharToken(TokenType.greater, line, col);
-      break;
+
     case _LexerState.lessThan:
       yield CharToken(TokenType.less, line, col);
-      break;
+
     case _LexerState.equalTo:
       yield CharToken(TokenType.set, line, col);
-      break;
+
     case _LexerState.period:
       yield CharToken(TokenType.period, line, col);
-      break;
+
     case _LexerState.periodperiod:
       print("TWO PERIODS BEFORE EOF $workspace/$filename");
       yield CharToken(TokenType.period, line, col);
       yield CharToken(TokenType.period, line, col);
-      break;
+
     case _LexerState.exclamationPoint:
       yield CharToken(TokenType.bang, line, col);
-      break;
+
     case _LexerState.commentBackslash:
       break;
     case _LexerState.slash:
       yield CharToken(TokenType.divide, line, col);
-      break;
+
     case _LexerState.stringDqBackslash:
-      throw BSCException("Unterminated double-quoted string ending in backslash '${buffer.toString()}'");
+      throw BSCException("Unterminated double-quoted string ending in backslash '${buffer.toString()}'", NoDataVG());
     case _LexerState.stringSqBackslash:
-      throw BSCException("Unterminated single-quoted string ending in backslash '${buffer.toString()}'");
+      throw BSCException("Unterminated single-quoted string ending in backslash '${buffer.toString()}'", NoDataVG());
     case _LexerState.multiLineCommentBackslash:
-      break;
     case _LexerState.multiLineCommentStar:
       break;
     case _LexerState.star:
       yield CharToken(TokenType.star, line, col);
-      break;
+
     case _LexerState.commentHash:
       yield CommentFeatureToken(buffer.toString(), line, col);
-      break;
+
+    case _LexerState.plus:
+      yield CharToken(TokenType.plus, line, col);
+
+    case _LexerState.minus:
+      yield CharToken(TokenType.minus, line, col);
+
+    case _LexerState.oror:
+      yield CharToken(TokenType.oror, line, col);
+    case _LexerState.andand:
+      yield CharToken(TokenType.andand, line, col);
+    case _LexerState.xor:
+      yield CharToken(TokenType.bitXor, line, col);
+    case _LexerState.tilde:
+      yield CharToken(TokenType.tilde, line, col);
+    case _LexerState.remainder:
+      yield CharToken(TokenType.remainder, line, col);
+    case _LexerState.shiftL:
+      yield CharToken(TokenType.leftShift, line, col);
+    case _LexerState.shiftR:
+      yield CharToken(TokenType.rightShift, line, col);
   }
   if (buffer.isNotEmpty) {
-    throw BSCException("Unterminated string '${buffer.toString()}'");
+    throw BSCException("Unterminated string '${buffer.toString()}'", NoDataVG());
   }
   if (buffer.isNotEmpty) {
     yield IdentToken(buffer.toString(), line, col);
@@ -607,33 +762,7 @@ class CommentFeatureToken extends Token {
   String toString() => "CommentFeatureToken($feature)";
 }
 
-abstract class SydException implements Exception {
-  SydException(this.message);
-  final String message;
-  String toString() => message;
-  int get exitCode;
-}
-
-class AssertException extends SydException {
-  AssertException(String message) : super(message);
-
-  int get exitCode => -3;
-}
-
-class ThrowException extends SydException {
-  ThrowException(String message) : super(message);
-
-  int get exitCode => -4;
-}
-
-class BSCException extends SydException {
-  // stands for "Bad Source Code"
-  BSCException(String message) : super(message);
-
-  int get exitCode => -2;
-}
-
-class TokenIterator extends Iterator<Token> {
+class TokenIterator implements Iterator<Token> {
   TokenIterator(this.tokens, this.workspace, this.file);
 
   final Iterator<Token> tokens;
@@ -648,12 +777,12 @@ class TokenIterator extends Iterator<Token> {
     if (current is IdentToken) {
       return variables[(current as IdentToken).ident] ??= Variable((current as IdentToken).ident);
     }
-    throw BSCException("Expected identifier, got $current on ${formatCursorPositionFromTokens(this)}");
+    throw BSCException("Expected identifier, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG());
   }
 
   TokenType get currentChar {
     if (current is! CharToken) {
-      throw BSCException("Expected character, got $current on ${formatCursorPositionFromTokens(this)}");
+      throw BSCException("Expected character, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG());
     }
     return (current as CharToken).type;
   }
@@ -662,21 +791,21 @@ class TokenIterator extends Iterator<Token> {
     if (current is IntToken) {
       return (current as IntToken).integer;
     }
-    throw BSCException("Expected integer, got $current on ${formatCursorPositionFromTokens(this)}");
+    throw BSCException("Expected integer, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG());
   }
 
   String get string {
     if (current is StringToken) {
       return (current as StringToken).str;
     }
-    throw BSCException("Expected string, got $current on ${formatCursorPositionFromTokens(this)}");
+    throw BSCException("Expected string, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG());
   }
 
   String get commentFeature {
     if (current is CommentFeatureToken) {
       return (current as CommentFeatureToken).feature;
     }
-    throw BSCException("Expected comment feature (//#), got $current on ${formatCursorPositionFromTokens(this)}");
+    throw BSCException("Expected comment feature (//#), got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG());
   }
 
   Token? previous = null;
@@ -696,7 +825,7 @@ class TokenIterator extends Iterator<Token> {
 
   void expectChar(TokenType char) {
     if (current is! CharToken || char != currentChar) {
-      throw BSCException("Expected $char, got $current on ${formatCursorPositionFromTokens(this)}");
+      throw BSCException("Expected $char, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG());
     }
     moveNext();
   }

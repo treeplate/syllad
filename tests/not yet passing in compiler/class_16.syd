@@ -1,0 +1,23 @@
+// expected output: 2
+// expected error: cannot reassign foo, a constant
+
+class A {
+  IntegerFunction foo;
+
+  Integer original() {
+    return 1;
+  }
+
+  Null test() {
+    println(foo());
+    foo = original; // should throw
+    println(foo);
+    println(foo());
+  }
+}
+
+class B extends A {
+  Integer foo() { return 2; }
+}
+
+B().test();

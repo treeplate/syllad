@@ -1,0 +1,6 @@
+// expected output: 47
+
+class StaticTest {
+    static Integer i = 47;
+}
+println(StaticTest.i);

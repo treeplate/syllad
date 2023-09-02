@@ -1,0 +1,236 @@
+import 'syd-types.syd';
+
+enum ow { Byte Word DWord QWord }
+
+class Datum extends Object {
+  String commentName;
+  
+  // e.g. GlobalVariableDatum
+  Boolean canChange() {
+    abstract();
+  }
+
+  // for datums that represent types, returns the actual type, if known
+  TypeNullable asType() {
+    return null;
+  }
+
+  // might return null even for compile-time integer constants before type table is built
+  IntegerNullable numericValue() {
+    return null;
+  }
+
+  Boolean isConstant() {
+    return false;
+  }
+
+  Null constructor(String commentNameArg) {
+    super.constructor();
+    commentName = commentNameArg;
+  }
+}
+
+class LocalDatum extends Datum { 
+  //#override
+  Boolean canChange() {
+    return false;
+  }
+}
+
+class StackDatum extends Datum { 
+  //#override
+  Boolean canChange() {
+    return true; // make a pointer of it, pass it to a function, that function writes to the pointer
+  }
+}
+
+class ImmediateDatum extends Datum {
+  //#override
+  Boolean isConstant() {
+    return true;
+  }
+
+  //#override
+  Boolean canChange() {
+    return false;
+  }
+}
+
+// After type table is built, subclasses of CompiledTimeIntegerDatum are guaranteed
+// to have a non-null numericValue().
+class CompileTimeNumericDatum extends ImmediateDatum { }
+
+class IntegerDatum extends CompileTimeNumericDatum {
+  Integer number;
+
+  //#override
+  IntegerNullable numericValue() {
+    return number;
+  }
+
+  //#override
+  String toString() {
+    return concat(className, '#', internalObjectId, ' ', number);
+  }
+
+  Null constructor(Integer numberArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    number = numberArg;
+  }
+}
+
+// useful when passing to map(), since the constructor is somehow not a function
+IntegerDatum buildIntegerDatumNoCommentName(Integer byte) {
+  return IntegerDatum(byte, '');
+}
+
+class SentinelDatum extends IntegerDatum {
+  Null constructor(String commentNameArg) {
+    super.constructor(0, commentNameArg);
+  }
+}
+
+class TypeCodeDatum extends CompileTimeNumericDatum {
+  Type type;
+
+  //#override
+  IntegerNullable numericValue() {
+    return type.code!;
+  }
+
+  //#override
+  TypeNullable asType() {
+    return type;
+  }
+
+  //#override
+  Boolean isConstant() {
+    return true;
+  }
+
+  //#override
+  String toString() {
+    return concat(className, '#', internalObjectId, ' of ', type);
+  }
+
+  Null constructor(Type typeArg) {
+    super.constructor(typeArg.name);
+    type = typeArg;
+  }
+}
+
+
+// The following type-related datums get converted in an early phase of pseudo-instruction handling.
+
+class TypeTableWidthDatum extends ImmediateDatum { }
+
+class TypeTablePointerDatum extends ImmediateDatum { }
+
+class TypeBitDatum extends ImmediateDatum {
+  Type value;
+
+  Null constructor(Type valueArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    value = valueArg;
+  }
+}
+
+class TypeByteDatum extends ImmediateDatum {
+  Type value;
+
+  Null constructor(Type valueArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    value = valueArg;
+  }
+}
+
+
+class VarArgsBaseAddressDatum extends Datum {
+  //#override
+  Boolean canChange() {
+    return false;
+  }
+}
+
+class BaseAndOffsetDatum extends Datum {
+  Datum base;
+  Datum offset;
+  ow width;
+
+  Null constructor(Datum baseArg, Datum offsetArg, ow widthArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    base = baseArg;
+    offset = offsetArg;
+    width = widthArg;
+  }
+}
+
+// adds base and offset, and then dereferences
+// do not write to this datum
+class DereferenceDatum extends BaseAndOffsetDatum {
+  //#override
+  Boolean canChange() {
+    return true;
+  }
+
+  //#override
+  String toString() {
+    return concat('<deref of ', base, ' + ', offset, ' width ', width, '>');
+  }
+}
+
+// adds base and offset for the result, but does not dereference
+// used by FieldPointerBucket
+class ReferenceDatum extends BaseAndOffsetDatum {
+  //#override
+  Boolean canChange() {
+    return base.canChange() || offset.canChange();
+  } 
+}
+
+enum ScratchIdentifier { FakeReturnValue FakeReturnType }
+
+// This represents something whose address can be taken, which will be valid right
+// up to the point the current stack frame returns (so, not something on the stack).
+// (For example, on x86 this might use shadow space or something on the heap.)
+class ScratchDatum extends Datum {
+  ScratchIdentifier scratchIdentifier;
+
+  //#override
+  Boolean canChange() {
+    return true; // same as StackDatum
+  }
+
+  Null constructor(ScratchIdentifier scratchIdentifierArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    scratchIdentifier = scratchIdentifierArg;
+  }
+}
+
+class ParameterDatum extends Datum {
+  Integer index;
+  
+  //#override
+  String toString() {
+    return concat('<os parameter #', index, '>');
+  }
+
+  //#override
+  Boolean canChange() {
+    return false;
+  }
+  
+  // The index is the operating-system parameter index.
+  // The parameter count is the parameter with index 0.
+  // The closure pointer is the parameter with index 1.
+  // The this type is the parameter with index 2.
+  // The this pointer is the parameter with index 3.
+  // The return type pointer is the parameter with index 4.
+  // The return value pointer is the parameter with index 5.
+  // The first syd parameter is 7 (value) and 6 (type), second is 9 and 8, etc.
+
+  Null constructor(Integer indexArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    index = indexArg;
+  }
+}

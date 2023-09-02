@@ -1,134 +1,12 @@
-/*
-// expected output: <function B.foo>
-// expected output: 2
-// expected output: should throw
 
-class A {
-  IntegerFunction foo;
-
-  Integer original() {
-    return 1;
-  }
-
-  Null test() {
-    println(foo);
-    println(foo());
-    foo = original; // should throw
-    println(foo);
-    println(foo());
-  }
-}
-
-class B {
-  Integer foo() { return 2; }
-}
-
-B().test();
-*/
-
-/* ADD TO A TEST: 
-fwdclass A;
-class B extends A { } // should be an error
-class A { }
-*/
-
-
-
-/* ADD TO A TEST:
-
-class A {
-  Null foo() {
-    println(b); // THIS SHOULD FAIL BECAUSE "b" IS NOT YET DEFINED
-  }
-
-  Integer b = 1;
-}
-
-A().foo();
-*/
-
-/*
-
-Null foo(Whatever w) { println('foo'); }
-Null bar(Whatever w) { println('bar'); }
-NullFunction x = foo;
-
-Null changeX() {
-  x = bar;
-}
-
-x(changeX());
-
-*/
-
-/*
-class A {
-  Whatever foo = 1;
-  Null bar() { println(concat('A::foo: ', foo)); }
-}
-
-class B extends A {
-  Null foo() { }
-  Null bar() {
-    println(concat('B::foo: ', foo)); 
-    //println(concat('B::super.foo: ', super.foo)); 
-    super.bar();
-  }
-}
-
-class C extends B {
-  Whatever foo = 2;
-  Null bar() {
-    println(concat('C::foo: ', foo)); 
-    println(concat('C::super.foo: ', super.foo)); 
-    super.bar();
-  }
-}
-*/
-/*
-Null zap() { }
-
-class A {
-  Whatever foo = zap;
-}
-
-class B extends A {
-  Null foo() { return super.foo(); }
-}
-
-class C extends B {
-  Whatever foo = zap;
-}
-
-C().foo();
-*/
-
-/*
-
-println('runtime:');
-
-Integer func1() { return 666; } // a
-
-class A {
-  Integer field1 = func1(); // refers to a, hopefully 
-  Integer func1() { println('func1'); return 1; } // b
-}
-
-class B extends A {
-  Integer field2 = func1(); // refers to b, hopefully
-}
-
-B b = B();
-println(b.field1, b.field2);
-
-
-/*/
+// TODO: add a test for [1]:String
 
 import 'syd-tokenizer.syd';
-import 'syd-ast.syd';
-import 'syd-parser.syd';
-import 'syd-compiler.syd';
 import 'syd-assembler.syd';
+import 'syd-x64-instructions.syd';
+import 'syd-parser.syd';
+import 'syd-ast.syd';
+import 'syd-compiler.syd';
 
 stderr('syllad self-hosting compiler');
 // syllad spec:
@@ -136,7 +14,7 @@ stderr('syllad self-hosting compiler');
 // while loop
 // for-in loops
 // classical if-else
-// classical variables, but with no 'var' or 'final' or 'const'
+// classical variables, but with no 'var' or 'final'
 // enums (enum X {a b c}  ...  X state = Xa; ... state = Xb;   if(state == Xa) { ... })
 // values are functions or true or false or null or int literal or list literal (e.g. [1, 2]) or string literal ('' or "", newlines ok, single-character escapes)
 // types, or <t>, are:
@@ -162,33 +40,14 @@ stderr('syllad self-hosting compiler');
 //     }
 //     Node('a', [Node('b', [])]).walk();
 //   simpler example with probably same cause: class A { Null test() { this.test(); } }
-//   the language requires gc:
-//     - closures can leak out of their stack frame:
-//       AnythingFunction makeLoop() {
-//         AnythingFunction myself;
-//         Anything logic(AnythingFunction what) {
-//           myself = what;
-//           return myself == logic;
-//         }
-//         return logic;
-//       }
-//       AnythingFunction f = makeLoop();
-//       println(f(f));
-//     - objects can reference each other, but there's no way to dispose of an object
-//     - lists are reference types (not copy-on-write value types) and one can form reference loops, but there's no way to dispose of a list
 //   language changes that I think have been announced but not yet implemented:
 //     - type declarations leak out of blocks (e.g. "if (true) { enum X { a } } X a;" does not fail)
-//     - this should be true (but isn't): 2-3+4 == (2-3)+4
-// P2 (making things much harder):
-//   some errors with line numbers are... inaccurate
-//   instance variables can be used to access variables in scope of class: Integer bar = 1; class Foo { Null constructor() { } } println(Foo().bar);
 // P3 (nice-to-haves for which i've found workarounds):
 //   performance
 //   soundness in type system -- a variable being of type X should be a guarantee that it will have a value of type X
 //     - returns are "not really type safe"
 //     - functions without returns aren't statically checked
 //     - toString returning non-string isn't checked for either
-//     - shadow rules are weird: class A { } class B extends A { Null println() { } }
 //   function types with signatures
 //   string interpolation
 //   new features in classes: abstract classes and methods
@@ -202,15 +61,15 @@ stderr('syllad self-hosting compiler');
 //   [] could have its type inferred from context
 
 CompiledLibrary processFile(String filename, CompilationEnvironment compilationEnvironment, Boolean isProgram) {
-  assert(compilationEnvironment.getLibraryState(filename) == lsUnknown, 'processFile has already processed this file');
+  assert(compilationEnvironment.getLibraryState(filename) == ls.Unknown, 'processFile has already processed this file');
   Library ast = parseTokens(tokenize(scalarValues(readFile(filename)), filename, false), filename, isProgram);
   compilationEnvironment.declareLibrary(filename);
   for (child in ast.children) {
     if (child is ImportStatement) {
       ls childLibraryState = compilationEnvironment.getLibraryState(cast(cast(child).path));
-      if (childLibraryState == lsDeclared) {
+      if (childLibraryState == ls.Declared) {
         throw(concat('Import loop at ', child.sourceLocation));
-      } else if (childLibraryState == lsUnknown) {
+      } else if (childLibraryState == ls.Unknown) {
         String libraryPath = cast(cast(child).path); // TODO: handle relative paths correctly
         compilationEnvironment.defineLibrary(libraryPath, processFile(libraryPath, compilationEnvironment, false));
       }
@@ -228,9 +87,9 @@ CompilationEnvironment compilationEnvironment = CompilationEnvironment();
 compilationEnvironment.setRuntimeLibrary(
   parseTokens(tokenize(scalarValues(readFile('syd-rtl.syd')), 'runtime library', true), 'runtime library', false).generateScopes(compilationEnvironment)
 );
-CompiledLibrary program = processFile(mainProgramFileName, compilationEnvironment, true);
+CompiledLibrary program = processFile(mainProgramFileName, compilationEnvironment, true); // this generates the root Program AST node
 compilationEnvironment.defineLibrary(mainProgramFileName, program);
-Assembler assembler = Assembler();
+Assembler assembler = X64Assembler(compilationEnvironment.rootLabel);
 compilationEnvironment.compile(assembler);
 stderr('Compilation finished!');
 stderr('Result:');

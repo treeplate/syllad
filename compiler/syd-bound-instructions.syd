@@ -1,0 +1,2082 @@
+import 'syd-utils.syd';
+import 'syd-types.syd';
+import 'syd-bucket.syd';
+import 'syd-pseudo-instructions.syd';
+import 'syd-constants.syd';
+
+class ConversionContext extends Object {
+  TypeRegistry types() { abstract(); }
+  CodeLabelDatum freeIntrinsic() { abstract(); }
+  CodeLabelDatum errorIntrinsic() { abstract(); }
+  Bucket errorMessage(String value) { abstract(); }
+  Bucket coreSentinel() { abstract(); }
+  //#ignore_unused
+  Bucket coreNull() { abstract(); }
+  //#ignore_unused
+  Bucket coreTrue() { abstract(); }
+  //#ignore_unused
+  Bucket coreFalse() { abstract(); }
+  Set bucketsCreatedSoFar() { abstract(); }
+  Null didCreateBucket(Bucket bucket) { abstract(); }
+}
+
+enum CodeFlow { normal endsLoop endsFunction }
+
+class BoundInstruction extends Object {
+  Boolean bound = false;
+  AssemblerLabel scopeLabel;
+
+  // == API == (override these if you have different implementations)
+
+  // associates the instruction with a scope so that
+  // the instruction can generate labels appropriately.
+  Null bind(AssemblerLabel scopeLabelArg) {
+    assert(!bound, 'cannot bind an instruction twice');
+    scopeLabel = scopeLabelArg;
+    bound = true;
+  }
+
+  // return a bound instruction that is independent of any scopes
+  BoundInstruction extract() {
+    return this;
+  }
+
+  Boolean isLoop() {
+    return false;
+  }
+
+  CodeFlow codeFlowEffect() {
+    return CodeFlow.normal;
+  }
+
+  BoundInstructionListList getSubblocks() {
+    return []:BoundInstructionList;
+  }
+
+  // What variables are created within this instruction. Does not include those created in children.
+  // The bucket itself may not be created by the instruction (e.g. it may be passed in).
+  LocalVariableList getCreatedLocalVariables() {
+    return []:LocalVariable;
+  }
+  
+  // What variables are modified within this instruction and any children.
+  LocalVariableList getModifiedLocalVariables() {
+    return []:LocalVariable;
+  }
+
+  // Must report the buckets that could "leak into" this instruction (inputs), and that
+  // therefore must be maintained across loop iterations.
+  BucketList bucketsUsed() {
+    return []:Bucket;
+  }
+
+  // Must report all the buckets that might need to be decreffed after this instruction.
+  // This is really just the buckets that are introduced by this instruction (and thus net increffed).
+  BucketList decrefCandidates() {
+    return []:Bucket;
+  }
+
+  // return a BoundInstruction with new empty subblocks (for getSubblocks), but otherwise identical.
+  // if there are no subblocks, may return this instance.
+  BoundInstruction freshClone() {
+    return this;
+  }
+  
+  // translates this instruction into a list of pseudo instructions.
+  // must call context.didCreateBuckets() on any buckets that could "leak out" of this instruction,
+  // and that could therefore be later used by an instruction in a loop (in which case we would
+  // have to make sure we maintain its datums across loop iterations).
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    abstract();
+  }
+
+  //#override
+  String toString() {
+    return concat(className, '#', internalObjectId);
+  }
+
+  // == helper functions == (don't override these)
+
+  // call a syd subroutine with no "this" pointer, no closure, and a dummy return value
+  // no type checks are done here
+  Null call(PseudoInstructionList output, Datum subroutine, BucketList arguments) {
+    DatumList argumentValues = [
+      IntegerDatum(len(arguments), 'parameter count'),
+      SentinelDatum('closure (N/A)'),
+      SentinelDatum('this type (N/A)'),
+      SentinelDatum('this pointer (N/A)'),
+      compute(output, LoadAddress(ScratchDatum(ScratchIdentifier.FakeReturnType, 'return type pointer'), 'calculate address for a return type (which will be thrown away)', 'return type pointer')),
+      compute(output, LoadAddress(ScratchDatum(ScratchIdentifier.FakeReturnValue, 'return value pointer'), 'calculate address for a return value (which will be thrown away)', 'return value pointer')),
+    ]:Datum;
+    for (argument in arguments) {
+      append(argumentValues, argument.currentTypeDatum());
+      append(argumentValues, argument.currentValueDatum());
+    }
+    append(output, Call(subroutine, argumentValues, subroutine.commentName, concat('return value of ', subroutine.commentName)));
+  }
+
+  PseudoInstructionList fail(String message, ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    call(output, context.errorIntrinsic(), [context.errorMessage(message)]:Bucket);
+    return output;
+  }
+
+  Datum typeCheck(PseudoInstructionList output, Bucket value, Type type, Boolean trustValueStaticType, Boolean checkForRedundancies, String resultComment) {
+    assert(!checkForRedundancies || !trustValueStaticType || value.staticType.needDynamicTypeCheckFor(type), 'contract violation - redundant, known to not need dynamic type check');
+    assert(!checkForRedundancies || type.isSubtypeOf(value.staticType), concat('contract violation - redundant, ', type, ' is known to not be subtype of ', value.staticType));
+    type.markUsedInTypeCheck();
+
+    Datum typeTableWidth = TypeTableWidthDatum('type table width (in bytes)');
+    Datum typeBit = TypeBitDatum(type, concat('type bit of ', type.name));
+    Datum typeByte = TypeByteDatum(type, concat('type byte of ', type.name));
+    Datum typeTablePointer = TypeTablePointerDatum('type table pointer');
+    Datum valueType = value.currentTypeDatum();
+
+    // compute which byte of value's type's row in the type table contains the bit for staticType
+    // bytePointer = (valueType * typeTableWidth) + typeByte + typeTablePointer
+    Datum timesWidth = compute(output, UnsignedMultiply(valueType, typeTableWidth, concat('multiply ', valueType.commentName, ' by ', typeTableWidth.commentName), '"type * typeTableWidth"'));
+    Datum plusType = compute(output, UnsignedAdd(timesWidth, typeByte, concat('add ', typeByte.commentName), '"(type * typeTableWidth) + typeByte"'));
+    Datum bytePointer = compute(output, UnsignedAdd(plusType, typeTablePointer, concat('add ', typeTablePointer.commentName), ' pointer to byte containing needed bit'));
+
+    Datum byteValue = compute(output, LoadByte(bytePointer, 'obtain byte from type table containing the bit we want to check', 'byte containing needed bit'));
+    return compute(output, BitTest(byteValue, typeBit, concat('check the specific bit from the type table that corresponds to "', value.commentName(), ' is ', type.name, '"'), resultComment));
+  }
+
+  Datum exactTypeCheck(PseudoInstructionList output, Bucket value, Type type) {
+    assert(type is SentinelType || type.isSubtypeOf(value.staticType), concat('contract violation - redundant, ', type.name, ' known to not be subtype of ', value.staticType.name));
+    assert(value.currentTypeDatum().asType() == null, 'contract violation - redundant, exact type is known');
+    assert(type.isConstructed, 'no point checking for a type that is never constructed');
+    // this does not call type.markUsedInTypeCheck() because it does not use the type table
+    return compute(output, Cmp(value.currentTypeDatum(), TypeCodeDatum(type), Comparison.Equal, concat('check whether ', value.commentName(), ' is a ', type.name), 'exact type check result'));
+  }
+
+  PseudoInstructionList doIncref(Datum blockPointer) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    append(output, Comment(concat('increment reference count for ', blockPointer.commentName)));
+    Datum referenceCountPointer = compute(output, UnsignedAdd(blockPointer, IntegerDatum(_gcBlockHeaderRefCount, '_gcBlockHeaderRefCount'), concat('compute reference count pointer from ', blockPointer.commentName), 'pointer to reference count'));
+    Datum referenceCount = compute(output, LoadQuad(referenceCountPointer, IntegerDatum(0, 'zero offset'), 'load current reference count from the pointer', 'reference count'));
+    Datum result = compute(output, Cmp(referenceCount, IntegerDatum(0, 'zero'), Comparison.LessThan, 'negative reference count means it is a constant, non-ref-counted block', '"is refcount < 0?"'));
+    PseudoInstructionList doIncrefBlock = []:PseudoInstruction;
+    Datum newReferenceCount = compute(doIncrefBlock, SignedAdd(referenceCount, IntegerDatum(1, 'one'), 'increment reference count', 'new reference count'));
+    append(doIncrefBlock, StoreQuad(newReferenceCount, referenceCountPointer, IntegerDatum(0, 'zero offset'), 'store new reference count'));
+    append(output, If(result, []:PseudoInstruction, doIncrefBlock, scopeLabel.deriveWith('incref'), Map(), concat('if ', blockPointer.commentName, ' is a constant'), concat('else, ', blockPointer.commentName, ' is not a constant: increment reference count')));
+    return output;
+  }
+
+  Null incref(PseudoInstructionList output, Bucket value, ConversionContext context) {
+    TypeNullable type = value.currentTypeDatum().asType();
+    TypeRegistry registry = context.types();
+    if (value.isConstant() || (type != null && !type!.isSubtypeOf(registry.coreReferenceCountedType))) {
+      return;
+    }
+    Boolean mightBeGc = (registry.coreGarbageCollectableType.isSubtypeOf(value.staticType) ||
+                          value.staticType.isSubtypeOf(registry.coreGarbageCollectableType))
+                         && (value.asVarArgs() == null) && value.isGCRoot();
+    Boolean mightBeString = registry.coreStringType.isSubtypeOf(value.staticType);
+    PseudoInstructionList block = []:PseudoInstruction;
+    DatumNullable condition = null;
+    if (mightBeGc && mightBeString) {
+      if (value.staticType.needDynamicTypeCheckFor(registry.coreReferenceCountedType)) {
+        condition = typeCheck(block, value, registry.coreReferenceCountedType, true, true, 'type check result');
+      }
+    } else if (mightBeGc) {
+      if (value.staticType.needDynamicTypeCheckFor(registry.coreGarbageCollectableType)) {
+        condition = typeCheck(block, value, registry.coreGarbageCollectableType, true, true, 'type check result');
+      }
+    } else if (mightBeString) {
+      if (value.staticType != context.types().coreStringType && type != context.types().coreStringType) {
+        condition = exactTypeCheck(block, value, registry.coreStringType);
+      }
+    } else {
+      assert(!mightBeGc, 'invariant violation');
+      assert(!mightBeString, 'invariant violation');
+      return;
+    }
+    assert(mightBeGc || mightBeString, 'invariant violation');
+    if (condition != null) {
+      append(block, If(
+        condition!,
+        doIncref(value.currentValueDatum()),
+        []:PseudoInstruction,
+        scopeLabel.deriveWith('incref'),
+        Map(),
+        concat(value.commentName(), ' needs its reference count increased'),
+        concat(value.commentName(), ' is not garbage collectable or a string'),
+      ));
+    } else {
+      assert(len(block) == 0, 'invariant violation');
+      block = doIncref(value.currentValueDatum());
+    }
+    append(output, Comment(concat('consider increasing reference count of ', value.commentName())));
+    if (type == null) {
+      append(output, If(exactTypeCheck(output, value, context.types().coreSentinelType), []:PseudoInstruction, block, scopeLabel, Map(), concat(value.commentName(), ' is a sentinel value, do not increase reference count'), concat(value.commentName(), ' may need its reference count to be increased')));
+    } else {
+      assert(!(type is SentinelType), 'invariant violation');
+      for (instruction in block) {
+        append(output, instruction);
+      }
+    }
+    append(output, Comment('end of incref'));
+  }
+
+  PseudoInstructionList doDecref(Bucket blockPointer, Boolean freeIfZero, Boolean checkForStringBeforeFree, ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    append(output, Comment(concat('decrement reference count for ', blockPointer.commentName())));
+    Datum referenceCountPointer = compute(output, UnsignedAdd(blockPointer.currentValueDatum(), IntegerDatum(_gcBlockHeaderRefCount, '_gcBlockHeaderRefCount'), concat('compute reference count pointer from ', blockPointer.commentName()), 'pointer to reference count'));
+    Datum referenceCount = compute(output, LoadQuad(referenceCountPointer, IntegerDatum(0, 'zero offset'), 'load current reference count from the pointer', 'reference count'));
+    PseudoInstructionList doDecrefBlock = []:PseudoInstruction;
+    Datum newReferenceCount = compute(doDecrefBlock, SignedSubtract(referenceCount, IntegerDatum(1, 'one'), concat('decrement reference count of ', blockPointer.commentName()), 'new reference count'));
+    append(doDecrefBlock, StoreQuad(newReferenceCount, referenceCountPointer, IntegerDatum(0, 'zero offset'), concat('store new reference count of ', blockPointer.commentName())));
+    if (freeIfZero) {
+      assert(context.types().coreStringType.isSubtypeOf(blockPointer.staticType), 'contract violation - freeIfZero requires string type');
+      PseudoInstructionList freeBlock = []:PseudoInstruction;
+      PseudoInstructionList callFree = []:PseudoInstruction;
+      call(callFree, context.freeIntrinsic(), [StaticReinterpretCastBucket(blockPointer, context.types().coreIntegerType)]:Bucket);
+      TypeNullable type = blockPointer.currentTypeDatum().asType();
+      if (checkForStringBeforeFree && type == null) {
+        append(freeBlock, If(exactTypeCheck(freeBlock, blockPointer, context.types().coreStringType), callFree, []:PseudoInstruction, scopeLabel.deriveWith('isString'), Map(), concat('reference count of ', blockPointer.commentName(), ', String has reached zero, free it'), concat('else ', blockPointer.commentName(), ' is not a String, it is a garbage collectable block, let the garbage collector free it later')));
+      } else if (!checkForStringBeforeFree || type == context.types().coreStringType) {
+        for (instruction in callFree) {
+          append(freeBlock, instruction);
+        }
+      }
+      Datum condition = compute(doDecrefBlock, Cmp(newReferenceCount, IntegerDatum(0, 'zero'), Comparison.Equal, 'is zero?', '"is new reference count zero?"'));
+      append(doDecrefBlock, If(condition, freeBlock, []:PseudoInstruction, scopeLabel.deriveWith('free'), Map(), concat(blockPointer.commentName(), ' has a reference count that reached zero'), concat('else, ', blockPointer.commentName(), ' still has a positive reference count')));
+    }
+    Datum condition = compute(output, Cmp(referenceCount, IntegerDatum(0, 'zero'), Comparison.LessThan, 'negative reference count means it is a constant, non-ref-counted block', '"is refcount < 0?"'));
+    append(output, If(condition, []:PseudoInstruction, doDecrefBlock, scopeLabel.deriveWith('decref'), Map(), concat('if ', blockPointer.commentName(), ' is not a constant'), concat('else, ', blockPointer.commentName(), ' is a constant')));
+    return output;
+  }
+
+  Null decref(PseudoInstructionList output, Bucket value, ConversionContext context) {
+    TypeNullable type = value.currentTypeDatum().asType();
+    TypeRegistry registry = context.types();
+    if (value.isConstant() || (type != null && !type!.isSubtypeOf(registry.coreReferenceCountedType))) {
+      return;
+    }
+    Boolean mightBeGc = (registry.coreGarbageCollectableType.isSubtypeOf(value.staticType) ||
+                          value.staticType.isSubtypeOf(registry.coreGarbageCollectableType))
+                         && (value.asVarArgs() == null) && value.isGCRoot();
+    Boolean mightBeString = registry.coreStringType.isSubtypeOf(value.staticType) && (type == context.types().coreStringType || type == null);
+    PseudoInstructionList block = []:PseudoInstruction;
+    if (mightBeGc && !mightBeString) {
+      if (value.staticType.needDynamicTypeCheckFor(registry.coreGarbageCollectableType)) {
+        append(block, If(
+          typeCheck(block, value, registry.coreGarbageCollectableType, true, true, 'type check result'),
+          doDecref(value, false, false, context),
+          []:PseudoInstruction,
+          scopeLabel.deriveWith('decref'),
+          Map(),
+          'gc decref',
+          'can\'t be gc or string',
+        ));
+      } else {
+        for (instruction in doDecref(value, false, false, context)) {
+          append(block, instruction);
+        }
+      }
+    } else if (mightBeString && !mightBeGc) {
+      PseudoInstructionList decrefBlock = doDecref(value, true, false, context);
+      if (value.staticType != registry.coreStringType && type != registry.coreStringType) {
+        assert(type == null, 'invariant violation');
+        append(block, If(exactTypeCheck(block, value, registry.coreStringType), decrefBlock, []:PseudoInstruction, scopeLabel.deriveWith('decref'), Map(), 'string decref', 'can\'t be gc or string'));
+      } else {
+        for (instruction in decrefBlock) {
+          append(block, instruction);
+        }
+      }
+    } else if (mightBeString && mightBeGc) {
+      if (value.staticType.needDynamicTypeCheckFor(registry.coreReferenceCountedType)) {
+        append(block, If(
+          typeCheck(block, value, registry.coreReferenceCountedType, true, true, 'type check result'),
+          doDecref(value, true, true, context),
+          []:PseudoInstruction,
+          scopeLabel.deriveWith('decref'),
+          Map(),
+          'general decref',
+          'can\'t be gc or string',
+        ));
+      } else {
+        for (instruction in doDecref(value, true, true, context)) {
+          append(block, instruction);
+        }
+      }
+    } else {
+      assert(!mightBeGc, 'invariant violation');
+      assert(!mightBeString, 'invariant violation');
+      return;
+    }
+    assert(mightBeGc || mightBeString, 'invariant violation');
+    append(output, Comment(concat('consider decreasing reference count of ', value.commentName())));
+    if (type == null) {
+      append(output, If(
+        exactTypeCheck(output, value, context.types().coreSentinelType),
+        []:PseudoInstruction,
+        block,
+        scopeLabel,
+        Map(),
+        concat(value.commentName(), ' is a sentinel value, so do not decrement its reference count'), 
+        concat(value.commentName(), ' may need to have its reference count decremented'),
+      ));
+    } else {
+      assert(!(type is SentinelType), 'invariant violation');
+      for (instruction in block) {
+        append(output, instruction);
+      }
+    }
+    append(output, Comment('end of decref'));
+  }
+}
+
+class PrologInstruction extends BoundInstruction {
+  BucketList bucketsCreated;
+  PrologType type;
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    for (bucket in bucketsCreated) {
+      context.didCreateBucket(bucket);
+    }
+    return [Prolog(type)]:PseudoInstruction;
+  }
+
+  Null constructor(BucketList bucketsCreatedArg, PrologType typeArg) {
+    super.constructor();
+    bucketsCreated = bucketsCreatedArg;
+    type = typeArg;
+  }
+}
+
+class EpilogInstruction extends BoundInstruction {
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    return [Epilog()]:PseudoInstruction;
+  }
+}
+
+class FinalReturnInstruction extends BoundInstruction {
+  //#override
+  CodeFlow codeFlowEffect() {
+    return CodeFlow.endsFunction;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    return [FinalReturn()]:PseudoInstruction;
+  }
+}
+
+class DecrefInstruction extends BoundInstruction {
+  Bucket target;
+  
+  //#override
+  BucketList bucketsUsed() {
+    return [target]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    decref(output, target, context);
+    return output;
+  }
+
+  Null constructor(Bucket targetArg) {
+    super.constructor();
+    target = targetArg;
+  }
+}
+
+class ForCallResult extends Object {
+  Bucket codePointer;
+  Type subroutineType;
+  BucketNullable thisPointer;
+
+  Null constructor(Bucket codePointerArg, Type subroutineTypeArg, BucketNullable thisPointerArg) {
+    super.constructor();
+    codePointer = codePointerArg;
+    subroutineType = subroutineTypeArg;
+    thisPointer = thisPointerArg;
+  }
+}
+
+// TODO: better comments, these are hard-coded to the current use case
+class ReplaceParameterInstruction extends BoundInstruction {
+  AbstractParameterBucket target;
+  Bucket source;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [target, source]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    append(output, ReplaceParameter(target.currentValueDatum(), compute(output, LoadAddress(source.currentValueDatum(), concat('compute temporary address for a ', target.commentName(), ' that will be thrown away'), source.commentName())), concat('replace old ', target.commentName(), ' with temporary ', source.commentName())));
+    return output;
+  }
+
+  Null constructor(AbstractParameterBucket targetArg, Bucket sourceArg) {
+    super.constructor();
+    target = targetArg;
+    source = sourceArg;
+  }
+}
+
+class PrepareConstructorTrampolineInstruction extends BoundInstruction {
+  Bucket thisBucket;
+  LocalBucket thisBucketPin;
+  LocalBucket closureBucketPin;
+  Bucket parameterCount;
+  LocalBucket parameterCountPin;
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    return [PrepareConstructorTrampoline(
+      thisBucket.currentValueDatum(),
+      thisBucketPin.currentValueDatum(),
+      thisBucket.currentTypeDatum(),
+      thisBucketPin.currentTypeDatum(),
+      closureBucketPin.currentValueDatum(),
+      parameterCount.currentValueDatum(),
+      parameterCountPin.currentValueDatum(),
+    )]:PseudoInstruction;
+  }
+
+  Null constructor(Bucket thisBucketArg, LocalBucket thisBucketPinArg, LocalBucket closureBucketPinArg, Bucket parameterCountArg, LocalBucket parameterCountPinArg) {
+    super.constructor();
+    thisBucket = thisBucketArg;
+    thisBucketPin = thisBucketPinArg;
+    closureBucketPin = closureBucketPinArg;
+    parameterCount = parameterCountArg;
+    parameterCountPin = parameterCountPinArg;
+  }
+}
+
+class ConstructorTrampolineInstruction extends BoundInstruction {
+  AssemblerLabel actualConstructor;
+  Bucket thisBucketPin;
+  Bucket closureBucketPin;
+  Bucket parameterCountPin;
+  
+  //#override
+  CodeFlow codeFlowEffect() {
+    return CodeFlow.endsFunction;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    return [
+      ConstructorTrampoline(actualConstructor),
+      KeepAlive(thisBucketPin.currentValueDatum()),
+      KeepAlive(thisBucketPin.currentTypeDatum()),
+      KeepAlive(closureBucketPin.currentValueDatum()),
+      KeepAlive(parameterCountPin.currentValueDatum()),
+    ]:PseudoInstruction;
+  }
+
+  Null constructor(AssemblerLabel actualConstructorArg, Bucket thisBucketPinArg, Bucket closureBucketPinArg, Bucket parameterCountPinArg) {
+    super.constructor();
+    actualConstructor = actualConstructorArg;
+    thisBucketPin = thisBucketPinArg;
+    closureBucketPin = closureBucketPinArg;
+    parameterCountPin = parameterCountPinArg;
+  }
+}
+
+class AstNodeReferenceInstruction extends BoundInstruction {
+  AstNode node;
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    return [AstNodeReference(node)]:PseudoInstruction;
+  }
+
+  Null constructor(AstNode nodeArg) {
+    super.constructor();
+    node = nodeArg;
+  }
+}
+
+class VariableDeclarationInstruction extends BoundInstruction {
+  LocalVariable variable;
+
+  //#override
+  LocalVariableList getCreatedLocalVariables() {
+    return [variable]:LocalVariable;
+  }
+
+  //#override
+  BucketList decrefCandidates() {
+    // technically we never incref anything here (the bucket is created with sentinel as the value), but
+    // the first time we assign to it we will then have an unbalanced incref (because the decref will be
+    // a no-op against the implicit incref for the sentinel value here).
+    return [variable]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    context.didCreateBucket(variable);
+    return [
+      VariableDeclaration(variable.valueKey, variable.currentValueDatum()),
+      VariableDeclaration(variable.typeKey, variable.currentTypeDatum()),
+    ]:PseudoInstruction;
+  }
+
+  Null constructor(LocalVariable variableArg) {
+    super.constructor();
+    variable = variableArg;
+  }
+}
+
+class UpdateVariableInstruction extends BoundInstruction {
+  LocalVariable target;
+  Bucket source;
+
+  //#override
+  LocalVariableList getModifiedLocalVariables() {
+    return [target]:LocalVariable;
+  }
+
+  //#override
+  BucketList bucketsUsed() {
+    return [target, source]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    decref(output, target, context);
+    append(output, Comment(concat('variable "', target.commentName(), '" now has the value of "', source.commentName(), '"')));
+    append(output, UpdateVariable(target.valueKey, source.currentValueDatum()));
+    target.setCurrentValueDatum(source.currentValueDatum());
+    append(output, UpdateVariable(target.typeKey, source.currentTypeDatum()));
+    target.setCurrentTypeDatum(source.currentTypeDatum());
+    target.typeInference.resetFrom(source.typeInference);
+    incref(output, target, context);
+    return output;
+  }
+
+  Null constructor(LocalVariable targetArg, Bucket sourceArg) {
+    super.constructor();
+    target = targetArg;
+    source = sourceArg;
+  }
+}
+
+class UpdateGlobalVariableInstruction extends BoundInstruction {
+  GlobalVariable target;
+  Bucket source;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [target, source]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    decref(output, target, context);
+    append(output, UpdateGlobalVariable(source.currentValueDatum(), target.currentValueDatum()));
+    append(output, UpdateGlobalVariable(source.currentTypeDatum(), target.currentTypeDatum()));
+    incref(output, target, context);
+    return output;
+  }
+
+  Null constructor(GlobalVariable targetArg, Bucket sourceArg) {
+    super.constructor();
+    target = targetArg;
+    source = sourceArg;
+  }
+}
+
+class CopyBucketInstruction extends BoundInstruction {
+  CopyBucket target;
+  Bucket source;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [source]:Bucket;
+  }
+
+  //#override
+  BucketList decrefCandidates() {
+    return [target]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    append(output, Comment(concat('copying ', source.commentName())));
+    target.copy(source, output);
+    incref(output, target, context);
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket sourceArg) {
+    super.constructor();
+    target = CopyBucket(sourceArg.staticType);
+    source = sourceArg;
+  }
+}
+
+// the location pointed to by targetPointer is assumed to _not_ be a GC root
+// (this is used for updating list values and object field values)
+class HeapUpdateInstruction extends BoundInstruction {
+  Bucket source;
+  Bucket targetPointer;
+  Type targetType;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [source, targetPointer]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum targetTypeDatum = compute(output, LoadQuad(targetPointer.currentValueDatum(), IntegerDatum(0x00, 'type offset'), concat('load type currently in ', targetPointer.commentName()), concat('old type of ', targetPointer.commentName())));
+    Datum targetValueDatum = compute(output, LoadQuad(targetPointer.currentValueDatum(), IntegerDatum(0x08, 'value offset'), concat('load value currently in ', targetPointer.commentName()), concat('old', targetPointer.commentName())));
+    Bucket original = DatumBucket(targetValueDatum, targetTypeDatum, targetType, false);
+    decref(output, original, context);
+    append(output, StoreQuad(source.currentTypeDatum(), targetPointer.currentValueDatum(), IntegerDatum(0x00, 'type offset'), concat('update type of ', targetPointer.commentName(), ' to ', source.currentTypeDatum().commentName)));
+    append(output, StoreQuad(source.currentValueDatum(), targetPointer.currentValueDatum(), IntegerDatum(0x08, 'value offset'), concat('update value of ', targetPointer.commentName(), ' to ', source.currentValueDatum().commentName)));
+    // source itself might be GC root, so we can't incref it directly, so we make a new bucket that points to the same place but is marked non-gcroot
+    Bucket replacement = DatumBucket(source.currentValueDatum(), source.currentTypeDatum(), targetType, false);
+    incref(output, replacement, context);
+    return output;
+  }
+
+  Null constructor(Bucket targetArg, Bucket sourceArg, Type targetTypeArg) {
+    super.constructor();
+    targetPointer = targetArg;
+    source = sourceArg;
+    targetType = targetTypeArg;
+  }
+}
+
+class WriteToAddressInstruction extends BoundInstruction {
+  Bucket targetPointer;
+  Bucket source;
+  Integer offset;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [targetPointer, source]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    return [StoreQuad(source.currentValueDatum(), targetPointer.currentValueDatum(), IntegerDatum(offset, 'offset'), 'store new value')]:PseudoInstruction;
+  }
+
+  Null constructor(Bucket targetPointerArg, Bucket sourceArg, Integer offsetArg) {
+    super.constructor();
+    targetPointer = targetPointerArg;
+    source = sourceArg;
+    offset = offsetArg;
+  }
+}
+
+class SeparatorInstruction extends BoundInstruction {
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    return [Separator()]:PseudoInstruction;
+  }
+
+  //#override
+  String toString() {
+    return '---';
+  }
+}
+
+class CommentInstruction extends BoundInstruction {
+  LazyComment comment;
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    return [ Comment(comment.flatten()) ]:PseudoInstruction;
+  }
+
+  Null constructor(LazyComment commentArg) {
+    super.constructor();
+    comment = commentArg;
+  }
+
+  //#override
+  String toString() {
+    return concat(className, '#', internalObjectId, ' "', escapeString(comment.flatten()), '"');
+  }
+}
+
+class AnnotationInstruction extends BoundInstruction {
+  AssemblerLabel label;
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    return [ Annotation(label) ]:PseudoInstruction;
+  }
+  
+  //#override
+  String toString() {
+    return concat(label);
+  }
+
+  Null constructor(AssemblerLabel labelArg) {
+    super.constructor();
+    label = labelArg;
+  }
+}
+
+class LabelInstruction extends BoundInstruction {
+  AssemblerLabel label;
+  String comment;
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    return [ Label(label, comment) ]:PseudoInstruction;
+  }
+  
+  //#override
+  String toString() {
+    return concat(className, '#', internalObjectId, ' label: ', label.name, ' comment: "', escapeString(comment), '"');
+  }
+
+  Null constructor(AssemblerLabel labelArg, String commentArg) {
+    super.constructor();
+    label = labelArg;
+    comment = commentArg;
+  }
+}
+
+class TypeCheckInstruction extends BoundInstruction {
+  Bucket value;
+  Type staticType;
+  String errorMessage; // TODO: add support for more details in error message
+  Boolean trustValueStaticType;
+  LazyComment reasonForTypeCheck;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [value]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    assert(!trustValueStaticType || staticType.isSubtypeOf(value.staticType) || value.staticType.isSubtypeOf(staticType), 'contract violation -- caller should have checked that types could theoretically be compatible');
+    if (!trustValueStaticType || value.staticType.needDynamicTypeCheckFor(staticType)) {
+      append(output, Comment(concat('type check: ', reasonForTypeCheck.flatten())));
+      append(output, If(
+       typeCheck(output, value, staticType, trustValueStaticType, true, 'type check result'),
+        []:PseudoInstruction,
+        fail(errorMessage, context),
+        scopeLabel.deriveWith('typeCheck'),
+        Map(),
+        concat('type is ', staticType.name),
+        concat('type error; type is not ', staticType.name),
+      ));
+    } else {
+      // just check for sentinel (which might be present even if we trust the static type)
+      TypeNullable type = value.currentTypeDatum().asType();
+      if (type == null && !value.typeInference.definitelyNotSentinel) {
+        append(output, Comment(concat('type check: ', reasonForTypeCheck.flatten(), '; types are statically known to be correct, only check for sentinel')));
+        append(output, If(
+          exactTypeCheck(output, value, context.types().coreSentinelType),
+          fail(errorMessage, context),
+          []:PseudoInstruction,
+          scopeLabel.deriveWith('typeCheck'),
+          Map(),
+          'type error; type is sentinel',
+          concat('type is ', staticType.name),
+        ));
+      } else if (type is SentinelType) {
+        // TODO: consider making this a compile time error
+        append(output, Comment(concat('type check: ', reasonForTypeCheck.flatten(), '; unfortunately we statically know it is sentinel here')));
+        for (instruction in fail(errorMessage, context)) {
+          append(output, instruction);
+        }
+      } else {
+        // statically has to be correct type, skip type check
+      }
+    }
+    value.typeInference.setDefinitelyNotSentinel();
+    if (len(output) > 0) {
+      append(output, Comment('end of type check'));
+    }
+    return output;
+  }
+
+  Null constructor(Bucket valueArg, Type staticTypeArg, String errorMessageArg, Boolean trustValueStaticTypeArg, LazyComment reasonForTypeCheckArg) {
+    super.constructor();
+    value = valueArg;
+    staticType = staticTypeArg;
+    errorMessage = errorMessageArg;
+    trustValueStaticType = trustValueStaticTypeArg;
+    reasonForTypeCheck = reasonForTypeCheckArg;
+  }
+}
+
+class ErrorInstruction extends BoundInstruction {
+  String errorMessage;
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    return fail(errorMessage, context);
+  }
+
+  Null constructor(String errorMessageArg) {
+    super.constructor();
+    errorMessage = errorMessageArg;
+  }
+}
+
+class SetReturnValueInstruction extends BoundInstruction {
+  Bucket returnValue;
+  Bucket returnValuePointer;
+  Bucket returnTypePointer;
+  Type returnValueStaticType;
+  Boolean isFallbackReturn;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [returnValue, returnValuePointer, returnTypePointer]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    if (returnValue.staticType.needDynamicTypeCheckFor(returnValueStaticType)) {
+      append(output, If(
+        typeCheck(output, returnValue, returnValueStaticType, true, !isFallbackReturn, 'type check result'),
+        []:PseudoInstruction,
+        fail('return value type error', context), // TODO: need to include more details
+        scopeLabel.deriveWith('returnTypeCheck'), 
+        Map(),
+        'good return type',
+        'return dynamic type does not match static type',
+      ));
+    }
+    append(output, StoreQuad(returnValue.currentValueDatum(), returnValuePointer.currentValueDatum(), IntegerDatum(0x00, 'zero offset'), 'set return value'));
+    append(output, StoreQuad(returnValue.currentTypeDatum(), returnTypePointer.currentValueDatum(), IntegerDatum(0x00, 'zero offset'), 'set return type'));
+    incref(
+      output,
+      DereferenceTwoBucketsBucket(
+        returnValuePointer,
+        returnTypePointer,
+        ow.QWord,
+        returnValueStaticType,
+        true, // isGCRoot
+        LazyComment('return value of the current function'),
+      ),
+      context,
+    ); // matched by doing a decref on the receiving end (see CallInstruction)
+    return output;
+  }
+
+  Null constructor(Bucket returnValueArg, Bucket returnValuePointerArg, Bucket returnTypePointerArg, Type returnValueStaticTypeArg, Boolean isFallbackReturnArg) {
+    super.constructor();
+    returnValue = returnValueArg;
+    returnValuePointer = returnValuePointerArg;
+    returnTypePointer = returnTypePointerArg;
+    returnValueStaticType = returnValueStaticTypeArg;
+    isFallbackReturn = isFallbackReturnArg;
+  }
+}
+
+class ReturnInstruction extends BoundInstruction {
+  //#override
+  CodeFlow codeFlowEffect() {
+    return CodeFlow.endsFunction;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    return [Return()]:PseudoInstruction;
+  }
+}
+
+class BreakInstruction extends BoundInstruction {
+  //#override
+  CodeFlow codeFlowEffect() {
+    return CodeFlow.endsLoop;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    return [Break()]:PseudoInstruction;
+  }
+}
+
+class ContinueInstruction extends BoundInstruction {
+  //#override
+  CodeFlow codeFlowEffect() {
+    return CodeFlow.endsLoop;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    return [Continue()]:PseudoInstruction;
+  }
+}
+
+fwdclass SubroutineBlockInstruction(BoundInstructionList, String) extends BoundInstruction;
+class SubroutineBlockInstruction extends BoundInstruction {
+  BoundInstructionList block;
+  String name;
+
+  //#override
+  BucketList bucketsUsed() {
+    BucketList result = []:Bucket;
+    for (instruction in block) {
+      for (bucket in instruction.bucketsUsed()) {
+        append(result, bucket);
+      }
+    }
+    return result;
+  }
+
+  //#override
+  BoundInstructionListList getSubblocks() {
+    return [block]:BoundInstructionList;
+  }
+
+  //#override
+  BoundInstruction freshClone() {
+    BoundInstruction result = SubroutineBlockInstruction([]:BoundInstruction, name);
+    result.bind(scopeLabel);
+    return result;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList childBlock = []:PseudoInstruction;
+    for (instruction in block) {
+      for (newInstruction in instruction.convertToPseudoInstructions(context)) {
+        append(childBlock, newInstruction);
+      }
+    }
+    return [ Block(childBlock, scopeLabel.deriveWith('body'), name) ]:PseudoInstruction;
+  }
+
+  Null constructor(BoundInstructionList blockArg, String nameArg) {
+    super.constructor();
+    block = blockArg;
+    name = nameArg;
+  }
+}
+
+// runs block1 if condition != false, otherwise runs block2
+fwdclass IfBlockInstruction(Bucket, BoundInstructionList, BoundInstructionList) extends BoundInstruction;
+class IfBlockInstruction extends BoundInstruction {
+  Bucket condition;
+  BoundInstructionList block1;
+  BoundInstructionList block2;
+
+  //#override
+  BucketList bucketsUsed() {
+    BucketList result = [condition]:Bucket;
+    // add the buckets from the two subblocks:
+    for (instruction in block1) {
+      for (bucket in instruction.bucketsUsed()) {
+        append(result, bucket);
+      }
+    }
+    for (instruction in block2) {
+      for (bucket in instruction.bucketsUsed()) {
+        append(result, bucket);
+      }
+    }
+    return result;
+  }
+
+  LocalVariableList getModifiedLocalVariablesInBlock(BoundInstructionList block) {
+    LocalVariableList result = []:LocalVariable;
+    Set created = Set();
+    for (instruction in block) {
+      created.addAll(instruction.getCreatedLocalVariables() as AnythingList);
+      for (variable in instruction.getModifiedLocalVariables()) {
+        if (!created.has(variable)) {
+          append(result, variable);
+        }
+      }
+    }
+    return result;
+  }
+
+  //#override
+  LocalVariableList getModifiedLocalVariables() {
+    Set result = Set(); // LocalVariable
+    result.addAll(getModifiedLocalVariablesInBlock(block1) as AnythingList);
+    result.addAll(getModifiedLocalVariablesInBlock(block2) as AnythingList);
+    return result.values() as LocalVariableList;
+  }
+
+  //#override
+  BoundInstructionListList getSubblocks() {
+    return [block1, block2]:BoundInstructionList;
+  }
+
+  //#override
+  BoundInstruction freshClone() {
+    BoundInstruction result = IfBlockInstruction(condition, []:BoundInstruction, []:BoundInstruction);
+    result.bind(scopeLabel);
+    return result;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(condition.staticType is BooleanType, concat('IfBlockInstruction expects a boolean, but got ', condition.staticType));
+    Set localVariables = Set(); // LocalVariables -- variables created in these blocks - DO NOT include these in the datumDestinations
+    Set variables = Set(); // LocalVariables -- this will provide the keys for our datumDestinations (two keys per variable: value and type)
+    Map typeInferenceBefore = Map(); // LocalVariable -> TypeInference
+    for (instruction in block1) {
+      for (variable in instruction.getCreatedLocalVariables()) {
+        localVariables.add(variable);
+      }
+      for (variable in instruction.getModifiedLocalVariables()) {
+        variables.add(variable);
+        typeInferenceBefore.set(variable, variable.typeInference.copy());
+      }
+    }
+    for (instruction in block2) {
+      for (variable in instruction.getCreatedLocalVariables()) {
+        localVariables.add(variable);
+      }
+      for (variable in instruction.getModifiedLocalVariables()) {
+        variables.add(variable);
+      }
+    }
+    for (variable in localVariables.values()) {
+      if (variables.has(variable)) {
+        variables.remove(variable);
+        typeInferenceBefore.remove(variable);
+      }
+    }
+    Map variableValues = Map(); // LocalVariable -> Datum
+    Map variableTypes = Map(); // LocalVariable -> Datum
+    for (v in variables.values()) {
+      LocalVariable variable = v as LocalVariable;
+      variableValues.set(variable, variable.currentValueDatum());
+      variableTypes.set(variable, variable.currentTypeDatum());
+    }
+    PseudoInstructionList output = []:PseudoInstruction;
+    PseudoInstructionList ifBlock = []:PseudoInstruction;
+    PseudoInstructionList elseBlock = []:PseudoInstruction;
+    for (instruction in block1) {
+      for (newInstruction in instruction.convertToPseudoInstructions(context)) {
+        append(ifBlock, newInstruction);
+      }
+    }
+    Map typeInferenceAfter1 = Map(); // LocalVariable -> TypeInference
+    for (v in variables.values()) {
+      LocalVariable variable = v as LocalVariable;
+      variable.setCurrentValueDatum(variableValues.get(variable) as Datum);
+      variable.setCurrentTypeDatum(variableTypes.get(variable) as Datum);
+      typeInferenceAfter1.set(variable, variable.typeInference.copy());
+      variable.typeInference.resetFrom(typeInferenceBefore.get(variable) as TypeInference);
+    }
+    for (instruction in block2) {
+      for (newInstruction in instruction.convertToPseudoInstructions(context)) {
+        append(elseBlock, newInstruction);
+      }
+    }
+    Map typeInferenceAfter2 = Map(); // LocalVariable -> TypeInference
+    Map datumDestinations = Map(); // Object -> LocalDatum
+    for (v in variables.values()) {
+      LocalVariable variable = v as LocalVariable;
+      variable.setCurrentValueDatum(LocalDatum(variable.commentName()));
+      datumDestinations.set(variable.valueKey, variable.currentValueDatum());
+      variable.setCurrentTypeDatum(LocalDatum(concat('type of ', variable.commentName())));
+      datumDestinations.set(variable.typeKey, variable.currentTypeDatum());
+      typeInferenceAfter2.set(variable, variable.typeInference.copy());
+    }
+    append(output, If(
+      condition.currentValueDatum(),
+      ifBlock,
+      elseBlock,
+      scopeLabel.deriveWith('if'),
+      datumDestinations,
+      concat(condition.commentName(), ' is true'),
+      concat(condition.commentName(), ' is false'),
+    ));
+    for (v in variables.values()) {
+      LocalVariable variable = v as LocalVariable;
+      variable.typeInference.setFromIntersectionOf(typeInferenceAfter1.get(variable) as TypeInference, typeInferenceAfter2.get(variable) as TypeInference);
+    }
+    return output;
+  }
+
+  Null constructor(Bucket conditionArg, BoundInstructionList block1Arg, BoundInstructionList block2Arg) {
+    super.constructor();
+    condition = conditionArg;
+    block1 = block1Arg;
+    block2 = block2Arg;
+  }
+}
+
+fwdclass LoopBlockInstruction(BoundInstructionList) extends BoundInstruction;
+class LoopBlockInstruction extends BoundInstruction {
+  BoundInstructionList block;
+
+  //#override
+  BucketList bucketsUsed() {
+    BucketList result = []:Bucket;
+    for (instruction in block) {
+      for (bucket in instruction.bucketsUsed()) {
+        append(result, bucket);
+      }
+    }
+    return result;
+  }
+
+  //#override
+  Boolean isLoop() {
+    return true;
+  }
+
+  //#override
+  LocalVariableList getModifiedLocalVariables() {
+    LocalVariableList result = []:LocalVariable;
+    Set created = Set();
+    for (instruction in block) {
+      created.addAll(instruction.getCreatedLocalVariables() as AnythingList);
+      for (variable in instruction.getModifiedLocalVariables()) {
+        if (!created.has(variable)) {
+          append(result, variable);
+        }
+      }
+    }
+    return result;
+  }
+
+  //#override
+  BoundInstructionListList getSubblocks() {
+    return [block]:BoundInstructionList;
+  }
+
+  //#override
+  BoundInstruction freshClone() {
+    BoundInstruction result = LoopBlockInstruction([]:BoundInstruction);
+    result.bind(scopeLabel);
+    return result;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    Set localVariables = Set(); // LocalVariables -- variables created in this block - DO NOT include these in the datumDestinations
+    Set variables = Set(); // LocalVariables -- this will provide the keys for our datumDestinations (two keys per variable: value and type)
+    Map typeInferenceBefore = Map(); // LocalVariable -> TypeInference
+    Set datumsUsed = Set();
+    for (instruction in block) {
+      for (variable in instruction.getCreatedLocalVariables()) {
+        localVariables.add(variable);
+      }
+      for (variable in instruction.getModifiedLocalVariables()) {
+        variables.add(variable);
+        typeInferenceBefore.set(variable, variable.typeInference.copy());
+      }
+      for (bucket in instruction.bucketsUsed()) {
+        if (context.bucketsCreatedSoFar().has(bucket)) {
+          datumsUsed.addAll(bucket.datumsUsed() as AnythingList);
+        }
+      }
+    }
+    for (variable in localVariables.values()) {
+      variables.remove(variable);
+      typeInferenceBefore.remove(variable);
+    }
+    PseudoInstructionList output = []:PseudoInstruction;
+    Map datumDestinations = Map(); // Object -> LocalDatum
+    for (v in variables.values()) {
+      LocalVariable variable = v as LocalVariable;
+      LocalDatum newValueDatum = LocalDatum(variable.name);
+      append(output, Mov(newValueDatum, variable.currentValueDatum(), concat('prepare variable "', variable.commentName(), '" for loop')));
+      variable.setCurrentValueDatum(newValueDatum);
+      append(output, UpdateVariable(variable.valueKey, newValueDatum));
+      datumDestinations.set(variable.valueKey, variable.currentValueDatum());
+      LocalDatum newTypeDatum = LocalDatum(concat('type of ', variable.name));
+      append(output, Mov(newTypeDatum, variable.currentTypeDatum(), concat('prepare type of "', variable.commentName(), '" for loop')));
+      variable.setCurrentTypeDatum(newTypeDatum);
+      append(output, UpdateVariable(variable.typeKey, newTypeDatum));
+      datumDestinations.set(variable.typeKey, variable.currentTypeDatum());
+    }
+    PseudoInstructionList convertedBlock = []:PseudoInstruction;
+    for (instruction in block) {
+      for (newInstruction in instruction.convertToPseudoInstructions(context)) {
+        append(convertedBlock, newInstruction);
+      }
+    }
+    append(convertedBlock, Continue());
+    append(output, Loop(
+      convertedBlock,
+      scopeLabel.deriveWith('loop'),
+      datumDestinations,
+      datumsUsed,
+    ));
+    for (v in variables.values()) {
+      LocalVariable variable = v as LocalVariable;
+      variable.setCurrentValueDatum(datumDestinations.get(variable.valueKey) as Datum);
+      variable.setCurrentTypeDatum(datumDestinations.get(variable.typeKey) as Datum);
+      variable.typeInference.resetFrom(typeInferenceBefore.get(variable) as TypeInference); // we can't infer anything from inside the loop because the iterable might be empty (or we might hit a break early, or...)
+    }
+    return output;
+  }
+
+  Null constructor(BoundInstructionList blockArg) {
+    super.constructor();
+    block = blockArg;
+  }
+}
+
+class ComputationBoundInstruction extends BoundInstruction {
+  ValueBucket target;
+
+  //#override
+  BucketList decrefCandidates() {
+    // really only matters for CallInstruction, none of the other ComputationBoundInstructions can create buckets that need decref
+    return [target]:Bucket;
+  }
+
+  Null constructor(Type staticType, LazyComment resultComment) {
+    super.constructor();
+    target = ValueBucket(staticType, resultComment);
+  }
+}
+
+class CallInstruction extends ComputationBoundInstruction {
+  Bucket targetLabel;
+  BucketNullable closure;
+  BucketNullable thisPointer;
+  BucketList arguments;
+
+  //#override
+  BucketList bucketsUsed() {
+    BucketList result = []:Bucket;
+    if (closure != null) {
+      append(result, closure!);
+    }
+    if (thisPointer != null) {
+      append(result, thisPointer!);
+    }
+    for (argument in arguments) {
+      append(result, argument);
+    }
+    return result;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    if (thisPointer == null) {
+      thisPointer = context.coreSentinel();
+    }
+    if (closure == null) {
+      closure = context.coreSentinel();
+    }
+    PseudoInstructionList output = []:PseudoInstruction;
+    target.assignDatums(
+      StackDatum(concat('return value of ', targetLabel.commentName())), 
+      StackDatum(concat('return type of ', targetLabel.commentName())),
+    );
+    DatumList argumentDatums = []:Datum;
+    append(argumentDatums, IntegerDatum(len(arguments), 'parameter count'));
+    append(argumentDatums, closure!.currentValueDatum());
+    append(argumentDatums, thisPointer!.currentTypeDatum());
+    append(argumentDatums, thisPointer!.currentValueDatum());
+    append(argumentDatums, compute(output, LoadAddress(target.currentTypeDatum(), concat('prepare a stack location for the type of ', target.commentName()), concat('pointer to ', target.currentTypeDatum().commentName))));
+    append(argumentDatums, compute(output, LoadAddress(target.currentValueDatum(), concat('prepare a stack location for ', target.commentName()), concat('pointer to ', target.commentName()))));
+    for (argument in arguments) {
+      append(argumentDatums, argument.currentTypeDatum());
+      append(argumentDatums, argument.currentValueDatum());
+    }
+    append(output, Call(targetLabel.currentValueDatum(), argumentDatums, targetLabel.currentValueDatum().commentName, target.commentName()));
+    target.typeInference.setDefinitelyNotSentinel();
+    append(output, KeepAlive(target.currentValueDatum()));
+    append(output, KeepAlive(target.currentTypeDatum()));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Type returnType, Bucket targetLabelArg, BucketNullable closureArg, BucketNullable thisPointerArg, BucketList argumentsArg) {
+    super.constructor(returnType, LazyComment('return value of ', targetLabelArg));
+    targetLabel = targetLabelArg;
+    closure = closureArg;
+    thisPointer = thisPointerArg;
+    arguments = argumentsArg;
+  }
+}
+
+class CallSystemInstruction extends ComputationBoundInstruction {
+  String libraryName;
+  String functionName;
+  BucketList arguments;
+
+  //#override
+  BucketList bucketsUsed() {
+    return arguments;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    DatumList argumentDatums = []:Datum;
+    for (argument in arguments) {
+      append(argumentDatums, argument.currentValueDatum());
+    }
+    Datum returnValue = compute(output, CallSystem(libraryName, functionName, argumentDatums));
+    target.assignDatums(returnValue, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Type returnType, String libraryNameArg, String functionNameArg, BucketList argumentsArg) {
+    super.constructor(returnType, LazyComment('return value of ', functionNameArg));
+    libraryName = libraryNameArg;
+    functionName = functionNameArg;
+    arguments = argumentsArg;
+  }
+}
+
+// Computes the pointer for subscripting a list.
+// Caller must apply static and dynamic type checks for list and index.
+class SubscriptEvaluationInstruction extends ComputationBoundInstruction {
+  Bucket list;
+  Bucket index;
+  
+  //#override
+  BucketList bucketsUsed() {
+    return [list, index]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    append(output, Comment(concat('subscript operator on ', list.commentName(), ', with index ', index.commentName())));
+    Datum length;
+    Datum baseAddress;
+    VarArgsParameterBucketNullable varArgs = list.asVarArgs();
+    if (varArgs != null) {
+      length = varArgs!.parameterCount.currentValueDatum();
+      baseAddress = varArgs!.baseAddress;
+    } else {
+      // list -> ...
+      //         ...
+      //         ...
+      //         ...
+      //         ldp -> ...
+      //                length
+      //                ...
+      //                ...
+      //                actual list data
+      Datum listData = compute(output, LoadQuad(list.currentValueDatum(), IntegerDatum(_listBlockData, '_listBlockData'), 'load list data', 'list data'));
+      length = compute(output, LoadQuad(listData, IntegerDatum(_gcBlockHeaderLength, '_gcBlockHeaderLength'), 'load list length', 'length of list'));
+      baseAddress = compute(output, UnsignedAdd(listData, IntegerDatum(_gcBlockData, '_gcBlockData'), 'get list base address', 'base address'));
+    }    
+    append(output, If(
+      compute(output, Cmp(index.currentValueDatum(), IntegerDatum(0, 'zero'), Comparison.LessThan, 'check if index is negative', 'condition of if statement')),
+      fail('subscript index is negative', context), // TODO: need to include more details
+      []:PseudoInstruction,
+      scopeLabel.deriveWith('rangeCheckMinimum'),
+      Map(),
+      'subscript index negative',
+      'subscript index positive or zero!',
+    ));
+    append(output, If(
+      compute(output, Cmp(index.currentValueDatum(), length, Comparison.GreaterThanOrEqual, 'check if index is more than length', 'condition of if')),
+      fail('subscript index is out of range', context), // TODO: need to include more details
+      []:PseudoInstruction,
+      scopeLabel.deriveWith('rangeCheckMaximum'),
+      Map(),
+      'subscript index too big',
+      'subscript index fine',
+    ));
+    Datum offset = compute(output, UnsignedMultiply(index.currentValueDatum(), IntegerDatum(16, '8*2'), 'multiply index by 16', 'offset of subscript dereference')); // (8 bytes per quad, and 2 quads for the value and type)
+    Datum address = compute(output, UnsignedAdd(baseAddress, offset, 'add offset to base address', target.commentName()));
+    target.assignDatums(address, TypeCodeDatum(context.types().coreIntegerType));
+    context.didCreateBucket(target);
+    append(output, Comment('end of subscript operator'));
+    return output;
+  }
+
+  Null constructor(Bucket listArg, Bucket indexArg, Type staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    list = listArg;
+    index = indexArg;
+  }
+}
+
+class BooleanNotInstruction extends ComputationBoundInstruction {
+  Bucket value;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [value]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(value.staticType.isSubtypeOf(target.staticType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum resultDatum = compute(output, BooleanNot(value.currentValueDatum(), concat('not ', value.commentName()), target.commentName()));
+    target.assignDatums(resultDatum, TypeCodeDatum(target.staticType));
+    return output;
+  }
+
+  Null constructor(Bucket valueArg, BooleanType staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    value = valueArg;
+  }
+}
+
+class BitwiseNotInstruction extends ComputationBoundInstruction {
+  Bucket value;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [value]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(value.staticType.isSubtypeOf(target.staticType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum resultDatum = compute(output, BitwiseNot(value.currentValueDatum(), concat('bitwise not ', value.commentName()), target.commentName()));
+    target.assignDatums(resultDatum, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket valueArg, IntegerType staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    value = valueArg;
+  }
+}
+
+class NegateInstruction extends ComputationBoundInstruction {
+  Bucket value;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [value]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(value.staticType.isSubtypeOf(target.staticType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum resultDatum = compute(output, Negate(value.currentValueDatum(), concat('negate ', value.commentName()), target.commentName()));
+    target.assignDatums(resultDatum, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket valueArg, IntegerType staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    value = valueArg;
+  }
+}
+
+class AndInstruction extends ComputationBoundInstruction {
+  Bucket left;
+  Bucket right;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [left, right]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(left.staticType.isSubtypeOf(target.staticType), 'contract violation');
+    assert(right.staticType.isSubtypeOf(target.staticType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum resultDatum = compute(output, And(left.currentValueDatum(), right.currentValueDatum(), concat('conjunction of ', left.commentName(), ' and ', right.commentName()), target.commentName()));
+    target.assignDatums(resultDatum, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket leftArg, Bucket rightArg, Type staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    assert(target.staticType is BooleanType || target.staticType is IntegerType, 'unexpected static type in AndInstruction');
+    left = leftArg;
+    right = rightArg;
+  }
+}
+
+class OrInstruction extends ComputationBoundInstruction {
+  Bucket left;
+  Bucket right;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [left, right]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(left.staticType.isSubtypeOf(target.staticType), 'contract violation');
+    assert(right.staticType.isSubtypeOf(target.staticType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum resultDatum = compute(output, Or(left.currentValueDatum(), right.currentValueDatum(), concat('disjunction of ', left.commentName(), ' and ', right.commentName()), target.commentName()));
+    target.assignDatums(resultDatum, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket leftArg, Bucket rightArg, Type staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    assert(target.staticType is BooleanType || target.staticType is IntegerType, 'unexpected static type in OrInstruction');
+    left = leftArg;
+    right = rightArg;
+  }
+}
+
+class XOrInstruction extends ComputationBoundInstruction {
+  Bucket left;
+  Bucket right;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [left, right]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(left.staticType.isSubtypeOf(target.staticType), 'contract violation');
+    assert(right.staticType.isSubtypeOf(target.staticType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum resultDatum = compute(output, XOr(left.currentValueDatum(), right.currentValueDatum(), concat('exclusive disjunction of ', left.commentName(), ' and ', right.commentName()), target.commentName()));
+    target.assignDatums(resultDatum, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket leftArg, Bucket rightArg, Type staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    assert(target.staticType is BooleanType || target.staticType is IntegerType, 'unexpected static type in XOrInstruction');
+    left = leftArg;
+    right = rightArg;
+  }
+}
+
+class SignedAddInstruction extends ComputationBoundInstruction {
+  Bucket addend;
+  Bucket augend;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [addend, augend]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(addend.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(augend.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(target.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum sumDatum = compute(output, SignedAdd(addend.currentValueDatum(), augend.currentValueDatum(), concat('signed addition of ', addend.commentName(), ' and ', augend.commentName()), target.commentName()));
+    target.assignDatums(sumDatum, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket addendArg, Bucket augendArg, IntegerType staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    addend = addendArg;
+    augend = augendArg;
+  }
+}
+
+class SignedSubtractInstruction extends ComputationBoundInstruction {
+  Bucket minuend;
+  Bucket subtrahend;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [minuend, subtrahend]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(minuend.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(subtrahend.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(target.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum sumDatum = compute(output, SignedSubtract(minuend.currentValueDatum(), subtrahend.currentValueDatum(), concat('signed subtraction of ', minuend.commentName(), ' and ', subtrahend.commentName()), target.commentName()));
+    target.assignDatums(sumDatum, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket miuendArg, Bucket subtrahendArg, IntegerType staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    minuend = miuendArg;
+    subtrahend = subtrahendArg;
+  }
+}
+
+class SignedMultiplyInstruction extends ComputationBoundInstruction {
+  Bucket multiplicand;
+  Bucket multiplier;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [multiplicand, multiplier]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(multiplicand.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(multiplier.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(target.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum productDatum = compute(output, SignedMultiply(multiplicand.currentValueDatum(), multiplier.currentValueDatum(), concat('signed multiplication of ', multiplicand.commentName(), ' and ', multiplier.commentName()), target.commentName()));
+    target.assignDatums(productDatum, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket multiplicandArg, Bucket multiplierArg, IntegerType staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    multiplicand = multiplicandArg;
+    multiplier = multiplierArg;
+  }
+}
+
+// sets type of quotient to integer
+class SignedDivideInstruction extends ComputationBoundInstruction {
+  Bucket dividend;
+  Bucket divisor;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [dividend, divisor]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(dividend.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(divisor.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(target.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum quotientDatum = compute(output, SignedDivide(dividend.currentValueDatum(), divisor.currentValueDatum(), concat('signed division of ', dividend.commentName(), ' by ', divisor.commentName()), target.commentName()));
+    target.assignDatums(quotientDatum, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket dividendArg, Bucket divisorArg, IntegerType staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    dividend = dividendArg;
+    divisor = divisorArg;
+  }
+}
+
+// sets type of remainder to integer
+class SignedModulusInstruction extends ComputationBoundInstruction {
+  Bucket dividend;
+  Bucket divisor;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [dividend, divisor]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(dividend.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(divisor.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(target.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum remainderDatum = compute(output, SignedModulus(dividend.currentValueDatum(), divisor.currentValueDatum(), concat('signed modulus of ', dividend.commentName(), ' by ', divisor.commentName()), target.commentName()));
+    target.assignDatums(remainderDatum, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket dividendArg, Bucket divisorArg, IntegerType staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    dividend = dividendArg;
+    divisor = divisorArg;
+  }
+}
+
+class UnsignedAddInstruction extends ComputationBoundInstruction {
+  Bucket addend;
+  Bucket augend;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [addend, augend]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(addend.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(augend.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(target.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum sumDatum = compute(output, UnsignedAdd(addend.currentValueDatum(), augend.currentValueDatum(), concat('unsigned addition of ', addend.commentName(), ' and ', augend.commentName()), target.commentName()));
+    target.assignDatums(sumDatum, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket addendArg, Bucket augendArg, IntegerType staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    addend = addendArg;
+    augend = augendArg;
+  }
+}
+
+//#ignore_unused
+class UnsignedSubtractInstruction extends ComputationBoundInstruction {
+  Bucket minuend;
+  Bucket subtrahend;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [minuend, subtrahend]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(minuend.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(subtrahend.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(target.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum sumDatum = compute(output, UnsignedSubtract(minuend.currentValueDatum(), subtrahend.currentValueDatum(), concat('unsigned subtraction of ', minuend.commentName(), ' and ', subtrahend.commentName()), target.commentName()));
+    target.assignDatums(sumDatum, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket miuendArg, Bucket subtrahendArg, IntegerType staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    minuend = miuendArg;
+    subtrahend = subtrahendArg;
+  }
+}
+
+class UnsignedMultiplyInstruction extends ComputationBoundInstruction {
+  Bucket multiplicand;
+  Bucket multiplier;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [multiplicand, multiplier]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(multiplicand.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(multiplier.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(target.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum productDatum = compute(output, UnsignedMultiply(multiplicand.currentValueDatum(), multiplier.currentValueDatum(), concat('unsigned multiplication of ', multiplicand.commentName(), ' and ', multiplier.commentName()), target.commentName()));
+    target.assignDatums(productDatum, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket multiplicandArg, Bucket multiplierArg, IntegerType staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    multiplicand = multiplicandArg;
+    multiplier = multiplierArg;
+  }
+}
+
+// sets type of quotient to integer
+//#ignore_unused
+class UnsignedDivideInstruction extends ComputationBoundInstruction {
+  Bucket dividend;
+  Bucket divisor;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [dividend, divisor]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(dividend.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(divisor.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(target.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum quotientDatum = compute(output, UnsignedDivide(dividend.currentValueDatum(), divisor.currentValueDatum(), concat('unsigned division of ', dividend.commentName(), ' and ', divisor.commentName()), target.commentName()));
+    target.assignDatums(quotientDatum, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket dividendArg, Bucket divisorArg, IntegerType staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    dividend = dividendArg;
+    divisor = divisorArg;
+  }
+}
+
+// sets type of remainder to integer
+//#ignore_unused
+class UnsignedModulusInstruction extends ComputationBoundInstruction {
+  Bucket dividend;
+  Bucket divisor;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [dividend, divisor]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(dividend.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(divisor.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(target.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum remainderDatum = compute(output, UnsignedModulus(dividend.currentValueDatum(), divisor.currentValueDatum(), concat('unsigned modulus of ', dividend.commentName(), ' and ', divisor.commentName()), target.commentName()));
+    target.assignDatums(remainderDatum, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket dividendArg, Bucket divisorArg, IntegerType staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    dividend = dividendArg;
+    divisor = divisorArg;
+  }
+}
+
+class ShiftLeftInstruction extends ComputationBoundInstruction {
+  Bucket lhs;
+  Bucket rhs;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [lhs, rhs]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(lhs.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(rhs.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(target.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum result = compute(output, ShiftLeft(lhs.currentValueDatum(), rhs.currentValueDatum(), concat('shift ', lhs.commentName(), ' left by ', rhs.commentName()), target.commentName()));
+    target.assignDatums(result, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket lhsArg, Bucket rhsArg, IntegerType staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    lhs = lhsArg;
+    rhs = rhsArg;
+  }
+}
+
+class ShiftRightInstruction extends ComputationBoundInstruction {
+  Bucket lhs;
+  Bucket rhs;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [lhs, rhs]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(lhs.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(rhs.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(target.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum result = compute(output, ShiftRight(lhs.currentValueDatum(), rhs.currentValueDatum(), concat('shift ', lhs.commentName(), ' right by ', rhs.commentName()), target.commentName()));
+    target.assignDatums(result, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket lhsArg, Bucket rhsArg, IntegerType staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    lhs = lhsArg;
+    rhs = rhsArg;
+  }
+}
+
+// implements == for all types (including strings)
+// this sets dynamic type of target to boolean
+class EqualityInstruction extends ComputationBoundInstruction {
+  Bucket a;
+  Bucket b;
+  Boolean negate;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [a, b]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    append(output, Comment(concat('equality comparison for ', a.commentName(), ' and ', b.commentName())));
+    LocalDatum preNegationTarget = LocalDatum('pre-negation target');
+    Datum result = compute(output, And(
+      compute(output, Cmp(a.currentValueDatum(), b.currentValueDatum(), Comparison.Equal, concat('compare ', a.commentName(), ' and ', b.commentName()), 'value equality result')),
+      compute(output, Cmp(a.currentTypeDatum(), b.currentTypeDatum(), Comparison.Equal, concat('compare ', a.currentTypeDatum().commentName, ' and ', b.currentTypeDatum().commentName), 'type equality result')),
+      concat('combine value and type equality results'),
+      'non-string equality result',
+    ));
+    TypeNullable aType = a.currentTypeDatum().asType();
+    TypeNullable bType = b.currentTypeDatum().asType();
+    if (context.types().coreStringType.isSubtypeOf(a.staticType) && 
+        context.types().coreStringType.isSubtypeOf(b.staticType) &&
+        (aType == null || aType == context.types().coreStringType) &&
+        (bType == null || bType == context.types().coreStringType)) {
+      PseudoInstructionList subblock = []:PseudoInstruction;
+      DatumNullable areTheyStrings = null;
+      if (aType == null) {
+        areTheyStrings = exactTypeCheck(subblock, a, context.types().coreStringType);
+      } else {
+        assert(aType == context.types().coreStringType, concat('invariant violation -- ', aType!.name, ' is not string!'));
+      }
+      if (bType == null) {
+        Datum subcondition = exactTypeCheck(subblock, b, context.types().coreStringType);
+        if (areTheyStrings != null) {
+          areTheyStrings = compute(subblock, And(areTheyStrings!, subcondition, concat('check if both ', a.commentName(), ' and ', b.commentName(), ' are strings'), '"are they strings?"'));
+        } else {
+          areTheyStrings = subcondition;
+        }
+      } else {
+        assert(bType == context.types().coreStringType, concat('invariant violation -- ', bType!.name, ' is not string!'));
+      }
+      PseudoInstructionList subsubblock = []:PseudoInstruction;
+      Datum lengthA = DereferenceDatum(a.currentValueDatum(), IntegerDatum(_gcBlockHeaderLength, '_gcBlockHeaderLength'), ow.QWord, concat('length of ', a.commentName()));
+      Datum lengthB = DereferenceDatum(b.currentValueDatum(), IntegerDatum(_gcBlockHeaderLength, '_gcBlockHeaderLength'), ow.QWord, concat('length of ', b.commentName()));
+      PseudoInstructionList subsubsubblock = []:PseudoInstruction;
+      Datum stringComparison = compute(subsubsubblock, StringCompare(lengthA, a.currentValueDatum(), _gcBlockStringData, b.currentValueDatum(), _gcBlockStringData, concat('perform string comparison of ', a.commentName(), ' and ', b.commentName()), 'string comparison result'));
+      append(subsubsubblock, Mov(preNegationTarget, stringComparison, concat('set ', preNegationTarget.commentName, ' to ', stringComparison.commentName)));
+      append(subsubblock, If(
+        compute(subsubblock, Cmp(lengthA, lengthB, Comparison.Equal, concat('compare lengths'), '"are they the same length?"')),
+        subsubsubblock, 
+        [Mov(preNegationTarget, result, concat('set ', preNegationTarget.commentName, ' to ', result.commentName))]:PseudoInstruction, 
+        scopeLabel.deriveWith('lengthCompare'),
+        Map(),
+        'lengths equal, continue with string compare',
+        'lengths unequal, strings must be unequal',
+      ));
+      if (areTheyStrings != null) {
+        append(subblock, If(
+          areTheyStrings!, 
+          subsubblock, 
+          [Mov(preNegationTarget, result, concat('set ', preNegationTarget.commentName, ' to ', result.commentName))]:PseudoInstruction, 
+          scopeLabel.deriveWith('typeCheck'),
+          Map(),
+          'values are strings, do string comparison',
+          'values are not strings, pointer equality is sufficient',
+        ));
+      } else {
+        // must be strings, no need to check
+        for (instruction in subsubblock) {
+          append(subblock, instruction);
+        }
+      }
+      append(output, If(
+        result,
+        [Mov(preNegationTarget, result, concat('set ', preNegationTarget.commentName, ' to result.commentName'))]:PseudoInstruction,
+        subblock,
+        scopeLabel.deriveWith('pointerEquality'),
+        Map(),
+        'values are exactly equal',
+        'values are not exactly equal, but they may be strings that are equal to each other',
+      ));
+    } else {
+      append(output, Mov(preNegationTarget, result, concat('set ', preNegationTarget.commentName, ' to ', result.commentName)));
+    }
+    if (negate) {
+      Datum negatedResult = compute(output, BooleanNot(preNegationTarget, concat('negate ', preNegationTarget.commentName), 'negated result of equality'));
+      target.assignDatums(negatedResult, TypeCodeDatum(target.staticType));
+    } else {
+      target.assignDatums(preNegationTarget, TypeCodeDatum(target.staticType));
+    }
+    context.didCreateBucket(target);
+    append(output, Comment(concat('end of equality comparison')));
+    return output;
+  }
+
+  Null constructor(Bucket aArg, Bucket bArg, Type staticTypeArg, Boolean negateArg, LazyComment resultComment) {
+    assert(staticTypeArg is BooleanType, 'invariant violation -- static type of equality must be boolean');
+    super.constructor(staticTypeArg, resultComment);
+    a = aArg;
+    b = bArg;
+    negate = negateArg;
+  }
+}
+
+class InequalityInstruction extends ComputationBoundInstruction {
+  Comparison comparison;
+  Bucket a;
+  Bucket b;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [a, b]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum result = compute(output, Cmp(a.currentValueDatum(), b.currentValueDatum(), comparison, concat('compare ', a.commentName(), ' and ', b.commentName()), target.commentName()));
+    target.assignDatums(result, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Comparison comparisonArg, Bucket aArg, Bucket bArg, Type staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    comparison = comparisonArg;
+    assert(comparison != Comparison.Equal, 'use EqualityInstruction for equality');
+    assert(comparison != Comparison.NotEqual, 'use EqualityInstruction (with negation enabled) for not-equals');
+    a = aArg;
+    b = bArg;
+  }
+}
+
+// does a type check ("is") on [value] for [type] and puts the boolean result in [target]
+class StoreTypeCheckInstruction extends ComputationBoundInstruction {
+  Type type;
+  Bucket value;
+  String typeCheckReason;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [value]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    // TODO: if we can prove this statically, we should just set the result in a hard-coded fashion
+    append(output, Comment(typeCheckReason));
+    Datum result = typeCheck(output, value, type, true, true, target.commentName());
+    target.assignDatums(result, TypeCodeDatum(target.staticType));
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Type typeArg, Bucket valueArg, Type staticTypeArg, String typeCheckReasonArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    type = typeArg;
+    value = valueArg;
+    assert(value.staticType.needDynamicTypeCheckFor(type), 'StoreTypeCheckInstruction is redundant when types are statically known to be correct');
+    typeCheckReason = typeCheckReasonArg;
+  }
+}
+
+class DebuggerInstruction extends BoundInstruction {
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    return [Debugger()]:PseudoInstruction;
+  }
+}

@@ -1,0 +1,1903 @@
+import 'syd-pseudo-instructions.syd';
+import 'syd-assembler.syd';
+import 'syd-x64-operands.syd';
+
+// TODO: instead of just tracking whether each operand is written to, we should track for each
+// operand whether it's written to AND whether it's read from, so that we can avoid moving
+// stack values into registers just before we blow them away.
+
+fwdclass X64Assembler extends Assembler;
+fwdclassprop NullFunction X64Assembler.addBlankLine;
+fwdclassprop NullFunction X64Assembler.addCode;
+fwdclassprop NullFunction X64Assembler.addLabel;
+fwdclassprop NullFunction X64Assembler.addComment;
+fwdclassprop NullFunction X64Assembler.addPendingComment;
+fwdclassprop NullFunction X64Assembler.addIncludeLib;
+fwdclassprop AssemblerLabelFunction X64Assembler.addExternProc;
+
+class PlaceholderOperand extends Operand {
+  OperandNullable actualOperand = null;
+
+  //#override
+  Integer operandVariety() {
+    if (actualOperand != null) {
+      return actualOperand!.operandVariety();
+    }
+    return 0xc; // we could still go either way, register or memory
+  }
+
+  //#override
+  Null assignOperand(Operand newOperand) {
+    if (actualOperand != null) {
+      actualOperand!.assignOperand(newOperand);
+      return;
+    }
+    assert(actualOperand == null, concat('cannot assign a placeholder operand to two different actual operands: ', actualOperand!.toString(), ' and ', newOperand.toString()));
+    actualOperand = newOperand;
+  }
+
+  //#override
+  Boolean isAssigned() {
+    return (actualOperand != null) && actualOperand!.isAssigned();
+  }
+
+  //#override
+  Boolean wantsStackOperand() {
+    assert(!isAssigned(), 'cannot call wantsStackOperand() on an assigned operand');
+    if (actualOperand != null) {
+      return actualOperand!.wantsStackOperand();
+    }
+    return false;
+  }
+
+  //#override
+  Operand snapshot(StackMetrics stackMetrics, Integer pushLevel) {
+    assert(actualOperand != null, 'contract violation');
+    return actualOperand!.snapshot(stackMetrics, pushLevel);
+  }
+
+  //#override
+  Null updateStackMetrics(StackMetrics stackMetrics) {
+    assert(actualOperand != null, 'contract violation');
+    actualOperand!.updateStackMetrics(stackMetrics);
+  }
+
+  //#override
+  Boolean isOperandKind(Integer kind) {
+    assert(actualOperand == null || actualOperand!.isOperandKind(stack | register), 'contract violation');
+    if (actualOperand != null) {
+      return actualOperand!.isOperandKind(kind);
+    }
+    return (kind & register) > 0;
+  }
+
+  //#override
+  String toString() {
+    String isPinned = '';
+    if (pinned) {
+      isPinned = ' 📌';
+    }
+    if (actualOperand != null) {
+      return concat('<#', internalObjectId, ' as ', actualOperand!.toString(), isPinned, '>');
+    }
+    return concat('<#', internalObjectId, isPinned, '>');
+  }
+
+  //#override
+  StackOperandNullable asStackOperand() {
+    assert(actualOperand != null, 'operand is not yet assigned');
+    return actualOperand!.asStackOperand();
+  }
+
+  //#override
+  Operand asWidth(ow width) {
+    assert(actualOperand != null, 'operand is not yet assigned');
+    return actualOperand!.asWidth(width);
+  }
+
+  //#override
+  IntegerNullable toInteger() {
+    assert(actualOperand == null || actualOperand!.toInteger() == null, 'contract violation');
+    return null;
+  }
+
+  //#override
+  Integer usedRegisters() {
+    assert(isAssigned(), 'contract violation');
+    return actualOperand!.usedRegisters();
+  }
+
+  //#override
+  Operand unwrap() {
+    if (actualOperand != null) {
+      return actualOperand!.unwrap();
+    }
+    return this;
+  }
+
+  //#override
+  Boolean equals(Operand other) {
+    assert(actualOperand == null, 'always call unwrap before checking equality');
+    return super.equals(other);
+  }
+}
+
+class PlaceholderStackOperand extends PlaceholderOperand {
+  //#override
+  Boolean isOperandKind(Integer kind) {
+    assert(actualOperand == null || actualOperand!.isOperandKind(stack), 'contract violation');
+    if (actualOperand != null) {
+      return actualOperand!.isOperandKind(kind);
+    }
+    return (kind & stack) > 0;
+  }
+
+  //#override
+  Integer operandVariety() {
+    if (actualOperand != null) {
+      return actualOperand!.operandVariety();
+    }
+    return 0x4; // always want to be stack
+  }
+
+  //#override
+  Boolean wantsStackOperand() {
+    assert(!isAssigned(), 'cannot call wantsStackOperand() on an assigned operand');
+    return true;
+  }
+
+  //#override
+  String toString() {
+    if (actualOperand != null) {
+      return actualOperand!.toString();
+    }
+    return '<stack placeholder>';
+  }
+}
+
+class X64Line extends Object {
+  Integer stackDeltaBefore = 0;
+  Integer stackDeltaAfter = 0;
+  Integer indentLevel;
+
+  Integer registersInOperands() {
+    return 0;
+  }
+
+  Null generateAssembler(X64Assembler assembler) {
+    abstract();
+  }
+
+  Null constructor(Integer indentLevelArg) {
+    super.constructor();
+    indentLevel = indentLevelArg;
+  }
+}
+
+class X64Prolog extends X64Line {
+  Integer registersUsed;
+  Integer stackSize;
+
+  Null recordSettings(StackMetrics stackMetrics, Integer registersUsedArg) {
+    registersUsed = registersUsedArg;
+    stackSize = stackMetrics.stackSize * 0x08;
+  }
+
+  //#override
+  Null generateAssembler(X64Assembler assembler) {
+    assembler.addPendingComment(indentLevel, 'prolog');
+    Integer nonvolatilesUsed = (registersUsed & nonvolatileRegister) & ~rsp.bit;
+    Integer count = 0;
+    for (register in allRegisters) {
+      if ((register.bit & nonvolatilesUsed) > 0) {
+        assembler.addCode(indentLevel, 'push', [register]:Operand, 'save non-volatile register');
+        count += 1;
+      }
+    }
+    Integer stackAdjustment;
+    // TODO: should list what variables we're allocating space for here
+    // TODO: if stackSize > 8KB (0x2000), call __chkstk__
+    assert(stackSize < 0x2000, 'need to implement calling __chkstk__');
+    if ((stackSize + count * 0x08) % 0x10 != 0) {
+      stackAdjustment = stackSize;
+    } else {
+      stackAdjustment = stackSize + 0x08;
+    }
+    if (stackAdjustment != 0) {
+      assembler.addCode(indentLevel, 'sub', [rsp, ImmediateIntegerOperand(stackAdjustment, '')]:Operand, 'allocate space for stack and align to 16 byte boundary');
+    }
+    assembler.addCode(indentLevel, 'lea', [rbp, RawAddressComputationOperand(rsp, null, 1, stackAdjustment + count * 0x08 - 0x08, ow.QWord, '')]:Operand, 'set up frame pointer');
+  }
+
+  //#override
+  String toString() {
+    return concat(stringTimes(' ', indentLevel), 'prolog');
+  }
+}
+
+class X64Epilog extends X64Line {
+  Integer registersUsed;
+  Integer stackSize;
+
+  Null recordSettings(StackMetrics stackMetrics, Integer registersUsedArg) {
+    registersUsed = registersUsedArg;
+    stackSize = stackMetrics.stackSize * 0x08;
+  }
+
+  //#override
+  Null generateAssembler(X64Assembler assembler) {
+    assembler.addPendingComment(indentLevel, 'epilog');
+    Integer nonvolatilesUsed = (registersUsed & nonvolatileRegister) & ~rsp.bit;
+    assert((nonvolatilesUsed & rbp.bit) > 0, 'rbp is not marked as used!');
+    Integer count = 0;
+    for (register in allRegisters) {
+      if ((register.bit & nonvolatilesUsed) > 0) {
+        count += 1;
+      }
+    }
+    Integer stackAdjustment;
+    if ((stackSize + count * 0x08) % 0x10 != 0) {
+      stackAdjustment = stackSize;
+    } else {
+      stackAdjustment = stackSize + 0x08;
+    }
+    if (stackAdjustment != 0) {
+      assembler.addCode(indentLevel, 'add', [rsp, ImmediateIntegerOperand(stackAdjustment, '')]:Operand, 'release stack space');
+    }
+    for (register in reverse(allRegisters) as Register64OperandList) {
+      if ((register.bit & nonvolatilesUsed) > 0) {
+        assembler.addCode(indentLevel, 'pop', [register]:Operand, 'restore non-volatile register');
+      }
+    }
+  }
+
+  //#override
+  String toString() {
+    return concat(stringTimes(' ', indentLevel), 'epilog');
+  }
+}
+
+class X64BlankLine extends X64Line {
+  //#override
+  Null generateAssembler(X64Assembler assembler) {
+    assembler.addBlankLine();
+  }
+
+  Null constructor() {
+    super.constructor(0);
+  }
+
+  //#override
+  String toString() {
+    return '---';
+  }
+}
+
+class X64Comment extends X64Line {
+  String comment;
+  Boolean includeOnlyIfFollowedByCode;
+
+  //#override
+  Null generateAssembler(X64Assembler assembler) {
+    if (includeOnlyIfFollowedByCode) {
+      assembler.addPendingComment(indentLevel, comment);
+    } else {
+      assembler.addComment(indentLevel, comment);
+    }
+  }
+
+  Null constructor(Integer indentArg, String commentArg, Boolean includeOnlyIfFollowedByCodeArg) {
+    super.constructor(indentArg);
+    comment = commentArg;
+    includeOnlyIfFollowedByCode = includeOnlyIfFollowedByCodeArg;
+  }
+
+  //#override
+  String toString() {
+    return concat(stringTimes(' ', indentLevel), '; ', comment);
+  }
+}
+
+class X64Label extends X64Line {
+  AssemblerLabel label;
+  StringNullable comment;
+
+  //#override
+  Null generateAssembler(X64Assembler assembler) {
+    assembler.addLabel(indentLevel, label, comment);
+  }
+
+  Null constructor(Integer indentLevelArg, AssemblerLabel labelArg, StringNullable commentArg) {
+    super.constructor(indentLevelArg);
+    label = labelArg;
+    comment = commentArg;
+  }
+
+  //#override
+  String toString() {
+    return concat(stringTimes(' ', indentLevel), label, ':');
+  }
+}
+
+class X64Instruction extends X64Line {
+  String opcode;
+  OperandList operands;
+  owList operandWidths = []:ow;
+  Integer operandCount; // if operandCount < operands, the remainder are implicit
+  StringNullable comment;
+
+  //#override
+  Integer registersInOperands() {
+    Integer result = 0;
+    for (operand in operands) {
+      result = result | operand.usedRegisters();
+    }
+    return result;
+  }
+
+  Integer currentOperandVarieties() {
+    Integer result = 0;
+    Integer index = len(operands);
+    for (operand2 in reverse(operands)) {
+      if (index > operandCount) {
+        index -= 1;
+        continue;
+      }
+      Operand operand = operand2 as Operand;
+      result = result << 4;
+      result = result | operand.operandVariety();
+      index -= 1;
+    }
+    return result;
+  }
+
+  // returns the four possible  patterns for this opcode
+  // each word represents a possible pattern of operands for this opcode
+  // within each word, the three lowest nibbles represent the possible operand types
+  // the four bits within each nibble represent the kinds of operands:
+  //  0b1000: registers            // 0xa = 0b1010: registers or imm32
+  //  0b0100: memory               // 0xc = 0b1100: registers or memory (r/m)
+  //  0b0010: immediate32
+  //  0b0001: immediate64
+  // patterns are examined starting with the lowest-order word
+  // nibbles are examined starting with the lowest-order nibble
+  // the high-order nibble of a pattern sets flags for the instruction:
+  //  0b0001: indicates that the first operand is written to, rather than read, and thus can't be indirected via another operand
+  //  0b0010: indicates the same for the second operand
+  //  0b0100: indicates the same for the third operand
+  // the high-order nibble of each word with a non-zero pattern should be the same
+  // some patterns may have fewer non-zero nibbles than the instruction has operands, these are invalid patterns and should be ignored
+  Integer allowedOperandVarieties() {
+    if (operandCount == 3) {
+      if (opcode == 'imul') {
+        return 0x00000000000012c8; // register (target), register/memory, immediate32
+      }
+      if (opcode == 'shlx') {
+        return 0x00000000000018c8; // register (target), register/memory, register
+      }
+      if (opcode == 'shrx') {
+        return 0x00000000000018c8; // register (target), register/memory, register
+      }
+      assert(false, concat('unsupported 3-operand opcode ', opcode));
+      return 0x0000000000000000;
+    }
+    if (operandCount == 2) {
+      if (opcode == 'imul') {
+        return 0x00000000000010c8; // register, register/memory
+      }
+      if (opcode == 'mov') {
+        //        flag opr3 opr2 opr1 
+        // mov => 0000 0000 0000 0000 opt4 0x0000
+        //        0000 0000 0000 0000 opt3 0x0000
+        //        0001 0000 1010 0100 opt2 0x00a4
+        //        0001 0000 1111 1000 opt1 0x00f8
+        return 0x0000000010a410f8;
+      }
+      if (opcode == 'lea') {
+        return 0x0000000000001048; // writes to target (register) and reads from source (memory)
+      }
+      if (opcode == 'cmp') {
+        return 0x00000000004800ac; // writes to flags
+      }
+      if (opcode == 'bt') {
+        return 0x00000000000000ac; // writes to flags
+      }
+      // TODO
+      // assert(false, 'unsupported 2-operand opcode');
+      // these affect operand 1:
+      // add
+      // sub
+      // xor
+      // or
+      // and
+      return 0x00000000000010e8; // by default, we allow only register for the first operand and register, memory, or immediate32 for the second operand
+    }
+    if (operandCount == 1) {
+      if (opcode == 'ja' || opcode == 'jae' || opcode == 'jb' || opcode == 'jbe' || opcode == 'jc' ||
+          opcode == 'jcxz' || opcode == 'jecxz' || opcode == 'jrcxz' || opcode == 'je' || opcode == 'jg' ||
+          opcode == 'jge' || opcode == 'jl' || opcode == 'jle' || opcode == 'jna' || opcode == 'jnae' ||
+          opcode == 'jnb' || opcode == 'jnbe' || opcode == 'jnc' || opcode == 'jne' || opcode == 'jng' ||
+          opcode == 'jnge' || opcode == 'jnl' || opcode == 'jnle' || opcode == 'jno' || opcode == 'jnp' ||
+          opcode == 'jns' || opcode == 'jnz' || opcode == 'jo' || opcode == 'jp' || opcode == 'jpe' ||
+          opcode == 'jpo' || opcode == 'js' || opcode == 'jz' ||
+          opcode == 'dq') { // used for annotations (not code)
+        return 0x0000000000000001; // imm64
+      }
+      if (opcode == 'int') {
+        return 0x0000000000000002; // imm32
+      }
+      if (opcode == 'seta' || opcode == 'setae' || opcode == 'setb' || opcode == 'setbe' || opcode == 'setc' ||
+          opcode == 'sete' || opcode == 'setg' || opcode == 'setge' || opcode == 'setl' || opcode == 'setle' ||
+          opcode == 'setna' || opcode == 'setnae' || opcode == 'setnb' || opcode == 'setnbe' || opcode == 'setnc' ||
+          opcode == 'setne' || opcode == 'setng' || opcode == 'setnge' || opcode == 'setnl' || opcode == 'setnle' ||
+          opcode == 'setno' || opcode == 'setnp' || opcode == 'setns' || opcode == 'setnz' || opcode == 'seto' ||
+          opcode == 'setp' || opcode == 'setpe' || opcode == 'setpo' || opcode == 'sets' || opcode == 'setz' ||
+          opcode == 'neg' || opcode == 'not' || opcode == 'mul' || opcode == 'div' || opcode == 'idiv' || opcode == 'pop') {
+        return 0x000000000000000c; // r/m64
+      }
+      if (opcode == 'call' || opcode == 'jmp') {
+        return 0x000000000000000d; // r64/m64 or imm64 (not imm32)
+      }
+      if (opcode == 'push') {
+        return 0x000000000000000e; // r/m64 or imm32
+      }
+      assert(false, 'unsupported 1-operand opcode');
+      return 0x0000000000000000;
+    }
+    assert(operandCount == 0, 'invariant violation');
+    assert(opcode == 'cqo' || opcode == 'ret' || opcode == 'cld' || opcode == 'repe cmpsb', concat('unsupported 0-operand opcode: ', opcode));
+    return 0x0000000000000000;
+  }
+
+  Null setImplicitOperands(Integer implicitCount) {
+    assert(operandCount == len(operands), 'contract violation - setImplicitOperands called twice');
+    assert(implicitCount > 0, 'contract violation - implicitCount must be positive');
+    assert(implicitCount <= operandCount, 'contract violation');
+    operandCount -= implicitCount;
+  }
+  
+  Null setStackDelta(Integer beforeDelta, Integer afterDelta) {
+    assert(stackDeltaBefore == 0, 'contract violation - setStackDelta called twice');
+    assert(stackDeltaAfter == 0, 'contract violation - setStackDelta called twice');
+    assert(beforeDelta != 0 || afterDelta != 0, 'contract violation - setStackDelta called with zero');
+    stackDeltaBefore = beforeDelta;
+    stackDeltaAfter = afterDelta;
+  }
+
+  X64Line withOperands(OperandList newOperands) {
+    abstract();
+  }
+
+  Null setOperandWidth(Integer index, ow newOperandWidth) {
+    operandWidths[index] = newOperandWidth;
+  }
+
+  Null setAllOperandWidths(ow newOperandWidth) {
+    Integer index = 0;
+    while (index < len(operandWidths)) {
+      operandWidths[index] = newOperandWidth;
+      index += 1;
+    }
+  }
+
+  Null copySettingsOnto(X64Instruction result) {
+    if (stackDeltaBefore != 0 || stackDeltaAfter != 0) {
+      result.setStackDelta(stackDeltaBefore, stackDeltaAfter);
+    }
+    if (operandCount != len(operands)) {
+      result.setImplicitOperands(len(operands) - operandCount);
+    }
+    Integer index = 0;
+    while (index < len(operands)) {
+      result.setOperandWidth(index, operandWidths[index]);
+      index += 1;
+    }
+  }
+
+  Null constructor(Integer indentLevelArg, String opcodeArg, OperandList operandsArg, StringNullable commentArg) {
+    super.constructor(indentLevelArg);
+    opcode = opcodeArg;
+    operands = operandsArg;
+    //#ignore_unused
+    for (operand in operands) {
+      append(operandWidths, ow.QWord);
+    }
+    operandCount = len(operandsArg);
+    comment = commentArg;
+  }
+
+  //#override
+  String toString() {
+    return concat(stringTimes(' ', indentLevel), opcode, ' ', join(map(operands, concat) as StringList, ', '), ' ; ', comment);
+  }
+}
+
+fwdclass X64Opcode extends X64Instruction;
+
+class X64Opcode extends X64Instruction {
+  //#override
+  Null generateAssembler(X64Assembler assembler) {
+    OperandList actualOperands = []:Operand;
+    Integer index = 0;
+    while (len(actualOperands) < operandCount) {
+      Operand operand = operands[index];
+      assert(!(operand is PlaceholderOperand) || (operand as PlaceholderOperand).actualOperand != null, 'All PlaceholderOperands must be assigned before generating assembler');
+      append(actualOperands, operand.asWidth(operandWidths[index]));
+      index += 1;
+    }
+    assert(index == len(actualOperands), 'invariant violation');
+    assembler.addCode(indentLevel, opcode, actualOperands, comment);
+  }
+
+  //#override
+  X64Line withOperands(OperandList newOperands) {
+    assert(len(newOperands) == len(operands), 'contract violation');
+    X64Opcode result = X64Opcode(indentLevel, opcode, newOperands, comment);
+    copySettingsOnto(result);
+    return result;
+  }
+}
+
+fwdclass X64DerefOpcode(Integer, String, Integer, OperandList, StringNullable, Integer) extends X64Instruction;
+
+class X64DerefOpcode extends X64Instruction {
+  Integer derefIndex;
+  Integer offset;
+
+  //#override
+  Integer allowedOperandVarieties() {
+    Integer base = super.allowedOperandVarieties();
+    Integer result = 0x0000000000000000;
+    Integer variant = 3;
+    while (variant >= 0) {
+      Integer variantBits = (base >> (variant * 16)) & 0xFFFF; // variant * 16 is to convert from words to bits
+      // first we remove the derefIndex's "am i modified" bit because we are modifying the target of dereferencing it, not modifying it itself
+      Integer nibble = ((variantBits >> 12) & 0xF) & ~(1 << derefIndex);
+      result = (result << 4) + nibble;
+      // next we adjust all the operands' allowed operand kinds so that the derefed operand is allowed to be an immediate operand or register operand only
+      // and the other operands are not allowed to be memory operands (since we're going to be using a memory operand for the derefed operand regardless)
+      Integer operand = 2;
+      while (operand >= 0) {
+        Integer nibble = (variantBits >> (operand * 4)) & 0xF;
+        if (operand == derefIndex) {
+          if ((nibble & 0x4) > 0) { // memory bit is set
+            nibble = 0xb; // replace it with register + immediates (which will be dereferenced)
+          } else {
+            nibble = 0x0; // cannot dereference this operand
+          }
+        } else {
+          nibble = nibble & 0xb; // remove memory bit
+        }
+        result = (result << 4) + nibble;
+        operand -= 1;
+      }
+      variant -= 1;
+    }
+    return result;
+  }
+
+  //#override
+  Null generateAssembler(X64Assembler assembler) {
+    OperandList actualOperands = []:Operand;
+    Integer index = 0;
+    while (len(actualOperands) < operandCount) {
+      Operand operand = operands[index];
+      assert(!(operand is PlaceholderOperand) || (operand as PlaceholderOperand).actualOperand != null, 'All PlaceholderOperands must be assigned before generating assembler');
+      if (len(actualOperands) == derefIndex) {
+        append(actualOperands, operand.dereference(operandWidths[index], offset));
+      } else {
+        append(actualOperands, operand.asWidth(operandWidths[index]));
+      }
+      index += 1;
+    }
+    assert(index == len(actualOperands), 'invariant violation');
+    assembler.addCode(indentLevel, opcode, actualOperands, comment);
+  }
+
+  //#override
+  X64Line withOperands(OperandList newOperands) {
+    assert(len(newOperands) == len(operands), 'contract violation');
+    X64DerefOpcode result = X64DerefOpcode(indentLevel, opcode, derefIndex, newOperands, comment, offset);
+    copySettingsOnto(result);
+    return result;
+  }
+
+  //#override
+  String toString() {
+    Integer i = -1;
+    String addSquareBrackets(Operand arg) {
+      i++;
+      if (i == derefIndex) {
+        return concat('[', arg, ']');
+      }
+      return arg.toString();
+    }
+    return concat(stringTimes(' ', indentLevel), opcode, ' ', join(map(operands, addSquareBrackets) as StringList, ', '), ' ; ', comment);
+  }
+
+  Null constructor(Integer indentLevelArg, String opcodeArg, Integer derefIndexArg, OperandList operandsArg, StringNullable commentArg, Integer offsetArg) {
+    super.constructor(indentLevelArg, opcodeArg, operandsArg, commentArg);
+    derefIndex = derefIndexArg;
+    offset = offsetArg;
+    assert(operands[derefIndex].canBeDereferencedWithOffset(offset), concat('check canBeDereferencedWithOffset() before creating a X64DerefOpcode - ', operands[derefIndex].className, ' cannot be dereferenced with ', offset));
+  }
+}
+
+fwdclass X64KeepAlive(Integer, OperandList) extends X64Instruction;
+
+class X64KeepAlive extends X64Instruction {
+  //#override
+  String toString() {
+    return concat(stringTimes(' ', indentLevel), ' ; keep alive: ', join(map(operands, concat) as StringList, ', '));
+  }
+
+  //#override
+  Integer allowedOperandVarieties() {
+    return 0x00000fff00ff000f;
+  }
+
+  //#override
+  Null generateAssembler(X64Assembler assembler) { }
+
+  //#override
+  X64Line withOperands(OperandList newOperands) {
+    assert(len(newOperands) == len(operands), 'contract violation');
+    X64KeepAlive result = X64KeepAlive(indentLevel, newOperands);
+    copySettingsOnto(result);
+    return result;
+  }
+  
+  Null constructor(Integer indentLevelArg, OperandList operandsArg) {
+    super.constructor(indentLevelArg, 'nop', operandsArg, null);
+  }
+}
+
+fwdclass X64Save(Integer, Operand, Storage) extends X64Instruction;
+
+class X64Save extends X64Instruction {
+  Storage storage;
+
+  //#override
+  String toString() {
+    return concat(stringTimes(' ', indentLevel), ' ; saving ', single(operands));
+  }
+
+  //#override
+  Integer allowedOperandVarieties() {
+    return 0x000000000000000f;
+  }
+
+  //#override
+  Null generateAssembler(X64Assembler assembler) { }
+
+  //#override
+  X64Line withOperands(OperandList newOperands) {
+    assert(len(newOperands) == 1, 'contract violation');
+    X64Save result = X64Save(indentLevel, single(newOperands) as Operand, storage);
+    copySettingsOnto(result);
+    return result;
+  }
+  
+  Null constructor(Integer indentLevelArg, Operand operandArg, Storage storageArg) {
+    super.constructor(indentLevelArg, 'nop', [operandArg]:Operand, null);
+    storage = storageArg;
+  }
+}
+
+fwdclass X64Restore(Integer, Operand, Storage) extends X64Instruction;
+
+class X64Restore extends X64Instruction {
+  Storage storage;
+
+  //#override
+  String toString() {
+    return concat(stringTimes(' ', indentLevel), ' ; restoring ', single(operands), ' to ', storage.data);
+  }
+
+  //#override
+  Integer allowedOperandVarieties() {
+    return 0x000000000000000f;
+  }
+
+  //#override
+  Null generateAssembler(X64Assembler assembler) { }
+
+  //#override
+  X64Line withOperands(OperandList newOperands) {
+    assert(len(newOperands) == 1, 'contract violation');
+    X64Restore result = X64Restore(indentLevel, single(newOperands) as Operand, storage);
+    copySettingsOnto(result);
+    return result;
+  }
+  
+  Null constructor(Integer indentLevelArg, Operand operandArg, Storage storageArg) {
+    super.constructor(indentLevelArg, 'nop', [operandArg]:Operand, null);
+    storage = storageArg;
+  }
+}
+
+class X64Context extends Object {
+  Map assignedDatums = Map(); // Datum -> PlaceholderOperand
+  X64LineList output = []:X64Line;
+  Integer indent = 0;
+  OperandListNullable parameters = null;
+  OperandNullable varArgsBaseAddress = null;
+
+  Null incIndent() {
+    indent += 1;
+  }
+
+  Null decIndent() {
+    indent -= 1;
+  }
+
+  X64Assembler _assembler; // for internal use only
+
+  Null initParameters(PrologType type) {
+    assert(parameters == null, 'contract violation - parameters must not be initialized before initParameters');
+    parameters = []:Operand;
+    if (type != PrologType.library) {
+      PlaceholderOperandList realParameters = [ PlaceholderOperand('syd parameter count') ];
+      realParameters[0].assignOperand(rcx);
+      if (type != PrologType.generatedConstructor) {
+        append(realParameters, PlaceholderOperand('closure pointer'));
+        realParameters[1].assignOperand(rdx);
+        append(realParameters, PlaceholderOperand('"this" type'));
+        realParameters[2].assignOperand(r8);
+        append(realParameters, PlaceholderOperand('"this" value'));
+        realParameters[3].assignOperand(r9);
+      }
+      Integer i = 0;
+      while (i < len(realParameters)) {
+        append(parameters!, PlaceholderOperand(realParameters[i].commentName));
+        append(output, X64Opcode(indent, 'mov', [parameters![i], realParameters[i]]:Operand, concat('save ', realParameters[i].commentName)));
+        i += 1;
+      }
+      if (type == PrologType.varArgsSubroutine) {
+        varArgsBaseAddress = PlaceholderOperand('varargs base address');
+        // we're assuming varArgsBaseAddress can be dereferenced with an offset here.
+        append(output, X64DerefOpcode(indent, 'lea', 1, [varArgsBaseAddress!, rbp]:Operand, concat('initialize ', varArgsBaseAddress!.commentName), 0x40));
+      } else {
+        while (len(parameters!) < 4) {
+          append(parameters!, PlaceholderOperand(concat('reserved (os parameter ', len(parameters!), ')')));
+        }
+      }
+    }
+  }
+
+  Operand getParameter(Integer index) {
+    assert(parameters != null, 'contract violation - parameters must be initialized');
+    if (index < len(parameters!)) {
+      return parameters![index];
+    }
+    while (index >= len(parameters!)) {
+      append(parameters!, ParameterOperand(len(parameters!), concat('os parameter ', len(parameters!))));
+    }
+    return parameters![index];
+  }
+
+  AssemblerLabel registerExternalFunction(String functionName, String libraryName) {
+    _assembler.addIncludeLib(libraryName);
+    return _assembler.addExternProc(functionName);
+  }
+
+  Null resetForEpilog() {
+    parameters = null;
+    varArgsBaseAddress = null;
+  }
+
+  Null constructor(X64Assembler assemblerArg) {
+    super.constructor();
+    _assembler = assemblerArg;
+  }
+}
+
+class OperandLifetime extends Object {
+  Integer start;
+  Integer end;
+  
+  Null updateEnd(Integer endArg) {
+    end = endArg;
+  }
+
+  Null constructor(Integer startArg, Integer endArg) {
+    super.constructor();
+    start = startArg;
+    end = endArg;
+  }
+}
+
+OperandFunction convertToX64Operand;
+
+PlaceholderOperand dereferenceDatums(X64Context context, String opcode, BaseAndOffsetDatum datum) {
+  IntegerNullable fixedOffset = datum.offset.numericValue(); // can return null
+  Operand baseOperand = convertToX64Operand(context, datum.base);
+  PlaceholderOperand result = PlaceholderOperand(datum.commentName);
+  if (fixedOffset != null && baseOperand.canBeDereferencedWithOffset(fixedOffset!)) {
+    if (datum.width != ow.QWord) {
+      append(context.output, X64Opcode(context.indent, 'xor', [result, result]:Operand, concat('clear ', result.commentName)));
+    }
+    X64DerefOpcode instruction = X64DerefOpcode(context.indent, opcode, 1, [result, baseOperand]:Operand, concat('dereference ', datum.commentName), fixedOffset!);
+    instruction.setAllOperandWidths(datum.width);
+    append(context.output, instruction);
+  } else if (datum.width == ow.QWord ||
+             opcode == 'movzx' || // move with zero-extend
+             opcode == 'lea') { // lea zero-extends when address size is smaller than destination operand size
+    Operand offsetOperand = convertToX64Operand(context, datum.offset);
+    append(context.output, X64Opcode(context.indent, 'mov', [result, baseOperand]:Operand, concat('prepare "add" operand 1: ', baseOperand.commentName)));
+    append(context.output, X64Opcode(context.indent, 'add', [result, offsetOperand]:Operand, concat('add ', offsetOperand.commentName, ' to ', baseOperand.commentName)));
+    X64DerefOpcode instruction = X64DerefOpcode(context.indent, opcode, 1, [result, result]:Operand, concat('dereference ', datum.base.commentName, ' (plus ', datum.offset.commentName, ') to obtain ', result.commentName), 0);
+    instruction.setAllOperandWidths(datum.width);
+    append(context.output, instruction);
+  } else {
+    Operand offsetOperand = convertToX64Operand(context, datum.offset);
+    PlaceholderOperand pointer = PlaceholderOperand(concat('pointer to ', datum.commentName));
+    append(context.output, X64Opcode(context.indent, 'mov', [pointer, baseOperand]:Operand, concat('prepare "add" operand 1: ', baseOperand.commentName)));
+    append(context.output, X64Opcode(context.indent, 'add', [pointer, offsetOperand]:Operand, concat('add ', offsetOperand.commentName, ' to ', baseOperand.commentName)));
+    append(context.output, X64Opcode(context.indent, 'xor', [result, result]:Operand, concat('clear ', result.commentName, ' (because ', opcode, ' does not zero-extend)')));
+    X64DerefOpcode instruction =  X64DerefOpcode(context.indent, opcode, 1, [result, pointer]:Operand, concat('dereference ', datum.base.commentName, ' (plus ', datum.offset.commentName, ') to obtain ', result.commentName), 0);
+    instruction.setAllOperandWidths(datum.width);
+    append(context.output, instruction);
+  }
+  return result;
+}
+
+PlaceholderOperand convertToWritableX64Operand(X64Context context, LocalDatum datum) {
+  PlaceholderOperandNullable placeholder = context.assignedDatums.get(datum) as PlaceholderOperandNullable;
+  if (placeholder == null) {
+    placeholder = PlaceholderOperand(datum.commentName);
+    context.assignedDatums.set(datum, placeholder);
+  }
+  return placeholder;
+}
+
+Operand convertToStackX64Operand(X64Context context, StackDatum datum) {
+  PlaceholderOperandNullable placeholder = context.assignedDatums.get(datum) as PlaceholderOperandNullable;
+  if (placeholder == null) {
+    placeholder = PlaceholderStackOperand(datum.commentName);
+    context.assignedDatums.set(datum, placeholder);
+  }
+  return placeholder;
+}
+
+Operand _convertToX64Operand(X64Context context, Datum datum) {
+  if (datum is LocalDatum) {
+    return convertToWritableX64Operand(context, datum as LocalDatum);
+  } 
+  if (datum is StackDatum) {
+    return convertToStackX64Operand(context, datum as StackDatum);
+  } 
+  if (datum is ScratchDatum) {
+    if ((datum as ScratchDatum).scratchIdentifier == ScratchIdentifier.FakeReturnValue) {
+      return ShadowOperand(0, datum.commentName);
+    }
+    if ((datum as ScratchDatum).scratchIdentifier == ScratchIdentifier.FakeReturnType) {
+      return ShadowOperand(1, datum.commentName);
+    }
+    throw(concat('Unknown ScratchIdentifier in convertToX64Operand: ', (datum as ScratchDatum).scratchIdentifier));
+  } 
+  if (datum is CompileTimeNumericDatum) {
+    return ImmediateIntegerOperand(datum.numericValue()!, datum.commentName);
+  }
+  if (datum is GlobalVariableDatum) {
+    return DereferenceLabelOperand((datum as GlobalVariableDatum).label, ow.QWord, datum.commentName);
+  }
+  if (datum is DataLabelDatum) {
+    return DataAddressOperand((datum as DataLabelDatum).label, datum.commentName);
+  } 
+  if (datum is CodeLabelDatum) {
+    return CodeAddressOperand((datum as CodeLabelDatum).label, datum.commentName);
+  } 
+  if (datum is ConstantDatum) {
+    return DataAddressOperand((datum as ConstantDatum).constant.label, datum.commentName);
+  } 
+  if (datum is StringDatum) {
+    return StringOperand((datum as StringDatum).value, datum.commentName);
+  } 
+  if (datum is ParameterDatum) {
+    return context.getParameter((datum as ParameterDatum).index);
+  } 
+  if (datum is VarArgsBaseAddressDatum) {
+    return context.varArgsBaseAddress;
+  } 
+  if (datum is DereferenceDatum) {
+    return dereferenceDatums(context, 'mov', datum as DereferenceDatum);
+  } 
+  if (datum is ReferenceDatum) {
+    return dereferenceDatums(context, 'lea', datum as ReferenceDatum);
+  } 
+  throw(concat('Unknown Datum type in convertToX64Operand: ', datum.className));
+}
+convertToX64Operand = _convertToX64Operand;
+
+Integer pushArguments(X64Context context, OperandList operands, DatumList arguments, String name, Integer unpinnedVolatilesArg) {
+  Integer unpinnedVolatiles = unpinnedVolatilesArg;
+  Integer argumentIndex = len(arguments) - 1;
+  Integer pushCount = 0;
+  while (argumentIndex > 3) {
+    Operand argumentOperand = convertToX64Operand(context, arguments[argumentIndex]);
+    X64Instruction instruction = X64Opcode(context.indent, 'push', [argumentOperand]:Operand, concat('argument #', argumentIndex + 1, ' of ', name, ': ', arguments[argumentIndex].commentName));
+    append(context.output, instruction);
+    instruction.setStackDelta(0, 1);
+    argumentIndex -= 1;
+    pushCount += 1;
+  }
+  if (argumentIndex == 3) {
+    Operand argumentOperand = convertToX64Operand(context, arguments[argumentIndex]);
+    PlaceholderOperand implicitOperand = PlaceholderOperand(concat('implicit operand for call argument #', argumentIndex + 1, ' (', arguments[argumentIndex].commentName, ')'));
+    implicitOperand.assignOperand(r9);
+    implicitOperand.pinOperand();
+    append(operands, implicitOperand);
+    append(context.output, X64Opcode(context.indent, 'mov', [implicitOperand, argumentOperand]:Operand, concat('argument #', argumentIndex + 1, ': ', arguments[argumentIndex].commentName)));
+    unpinnedVolatiles -= r9.bit;
+    argumentIndex -= 1;
+  }
+  if (argumentIndex == 2) {
+    Operand argumentOperand = convertToX64Operand(context, arguments[argumentIndex]);
+    PlaceholderOperand implicitOperand = PlaceholderOperand(concat('implicit operand for call argument #', argumentIndex + 1, ' (', arguments[argumentIndex].commentName, ')'));
+    implicitOperand.assignOperand(r8);
+    implicitOperand.pinOperand();
+    append(operands, implicitOperand);
+    append(context.output, X64Opcode(context.indent, 'mov', [implicitOperand, argumentOperand]:Operand, concat('argument #', argumentIndex + 1, ': ', arguments[argumentIndex].commentName)));
+    unpinnedVolatiles -= r8.bit;
+    argumentIndex -= 1;
+  }
+  if (argumentIndex == 1) {
+    Operand argumentOperand = convertToX64Operand(context, arguments[argumentIndex]);
+    PlaceholderOperand implicitOperand = PlaceholderOperand(concat('implicit operand for call argument #', argumentIndex + 1, ' (', arguments[argumentIndex].commentName, ')'));
+    implicitOperand.assignOperand(rdx);
+    implicitOperand.pinOperand();
+    append(operands, implicitOperand);
+    append(context.output, X64Opcode(context.indent, 'mov', [implicitOperand, argumentOperand]:Operand, concat('argument #', argumentIndex + 1, ': ', arguments[argumentIndex].commentName)));
+    unpinnedVolatiles -= rdx.bit;
+    argumentIndex -= 1;
+  }
+  if (argumentIndex == 0) {
+    Operand argumentOperand = convertToX64Operand(context, arguments[argumentIndex]);
+    PlaceholderOperand implicitOperand = PlaceholderOperand(concat('implicit operand for call argument #', argumentIndex + 1, ' (', arguments[argumentIndex].commentName, ')'));
+    implicitOperand.assignOperand(rcx);
+    implicitOperand.pinOperand();
+    append(operands, implicitOperand);
+    append(context.output, X64Opcode(context.indent, 'mov', [implicitOperand, argumentOperand]:Operand, concat('argument #', argumentIndex + 1, ': ', arguments[argumentIndex].commentName)));
+    unpinnedVolatiles -= rcx.bit;
+    argumentIndex -= 1;
+  }
+  assert(argumentIndex == -1, 'invariant violation');
+  for (register in allRegisters) {
+    if ((register.bit & unpinnedVolatiles) > 0) {
+      PlaceholderOperand implicitOperand = PlaceholderOperand(concat('implicit operand to pin volatile register ', register.r64));
+      implicitOperand.assignOperand(register);
+      implicitOperand.pinOperand();
+      append(operands, implicitOperand);
+      unpinnedVolatiles -= register.bit;
+    }
+  }
+  return pushCount;
+}
+
+Null call(X64Context context, LocalDatum resultDatum, Datum target, DatumList arguments, String comment) {
+  // TODO: make sure stack is aligned to 16 bit boundaries
+  Operand result = convertToWritableX64Operand(context, resultDatum);
+  Operand tempResult = PlaceholderOperand(concat('result of ', comment));
+  tempResult.assignOperand(rax);
+  tempResult.pinOperand();
+  Integer unpinnedVolatiles = volatileRegister - rax.bit;
+  OperandList operands = [convertToX64Operand(context, target), tempResult]:Operand;
+  Integer pushCount = pushArguments(context, operands, arguments, comment, unpinnedVolatiles);
+  X64Instruction growStack = X64Opcode(context.indent, 'sub', [rsp, ImmediateIntegerOperand(32, 'shadow space size')]:Operand, 'allocate shadow space');
+  append(context.output, growStack);
+  growStack.setStackDelta(0, 4);
+  X64Opcode callOpcode = X64Opcode(context.indent, 'call', operands, concat('invoke ', comment, ' syd function'));
+  callOpcode.setImplicitOperands(len(operands) - 1);
+  append(context.output, callOpcode);
+  X64Instruction shrinkStack = X64Opcode(context.indent, 'add', [rsp, ImmediateIntegerOperand(32 + 8 * pushCount, 'size of shadow space and pushed arguments')]:Operand, 'pop shadow space and pushed arguments');
+  append(context.output, shrinkStack);
+  shrinkStack.setStackDelta(0, -(4 + pushCount));
+  append(context.output, X64Opcode(context.indent, 'mov', [result, tempResult]:Operand, concat('save ', result.commentName))); // this will always get optimised out
+}
+
+Null callSystem(X64Context context, LocalDatum resultDatum, String functionName, String libraryName, DatumList arguments, String comment) {
+  // TODO: make sure stack is aligned to 16 bit boundaries
+  Operand result = convertToWritableX64Operand(context, resultDatum);
+  Operand tempResult = PlaceholderOperand(concat('result of ', functionName, ' from ', libraryName));
+  tempResult.assignOperand(rax);
+  tempResult.pinOperand();
+  Integer unpinnedVolatiles = volatileRegister - rax.bit;
+  OperandList operands = [CodeAddressOperand(context.registerExternalFunction(functionName, libraryName), concat(functionName, ' from ', libraryName)), tempResult]:Operand;
+  Integer pushCount = pushArguments(context, operands, arguments, comment, unpinnedVolatiles);
+  X64Instruction growStack = X64Opcode(context.indent, 'sub', [rsp, ImmediateIntegerOperand(32, 'quantity of shadow space')]:Operand, 'shadow space');
+  append(context.output, growStack);
+  growStack.setStackDelta(0, 4);
+  X64Opcode callOpcode = X64Opcode(context.indent, 'call', operands, concat('invoke ', comment, ' system function'));
+  callOpcode.setImplicitOperands(len(operands) - 1);
+  append(context.output, callOpcode);
+  X64Instruction shrinkStack = X64Opcode(context.indent, 'add', [rsp, ImmediateIntegerOperand(32 + 8 * pushCount, 'popped back shadow space')]:Operand, 'pop shadow space');
+  append(context.output, shrinkStack);
+  shrinkStack.setStackDelta(0, -(4 + pushCount));
+  append(context.output, X64Opcode(context.indent, 'mov', [result, tempResult]:Operand, concat('save ', result.commentName)));
+}
+
+Null integerDivision(X64Context context, String opcode, Datum dividendDatum, Datum divisorDatum, LocalDatumNullable quotientDatum, LocalDatumNullable remainderDatum, String comment) {
+  assert(opcode == 'div' || opcode == 'idiv', 'contract violation');
+  Operand quotient = PlaceholderOperand('quotient (rax)');
+  quotient.assignOperand(rax);
+  quotient.pinOperand();
+  append(context.output, X64Opcode(context.indent, 'mov', [quotient, convertToX64Operand(context, dividendDatum)]:Operand, 'move dividend into rax'));
+  Operand divisor = convertToX64Operand(context, divisorDatum);
+  Operand remainder = PlaceholderOperand('remainder (rdx)');
+  remainder.assignOperand(rdx);
+  remainder.pinOperand();
+  X64Opcode signExtendDividend = X64Opcode(context.indent, 'cqo', [quotient, remainder]:Operand, 'sign extend rax into rdx:rax (dividend)');
+  signExtendDividend.setImplicitOperands(2);
+  append(context.output, signExtendDividend);
+  X64Opcode division = X64Opcode(context.indent, opcode, [ divisor, quotient, remainder ]:Operand, comment);
+  division.setImplicitOperands(2);
+  append(context.output, division);
+  if (quotientDatum != null) {
+    append(context.output, X64Opcode(context.indent, 'mov', [convertToWritableX64Operand(context, quotientDatum!), quotient]:Operand, concat('save ', quotientDatum!.commentName)));
+  }
+  if (remainderDatum != null) {
+    append(context.output, X64Opcode(context.indent, 'mov', [convertToWritableX64Operand(context, remainderDatum!), remainder]:Operand, concat('save ', remainderDatum!.commentName)));
+  }
+}
+
+String ComparisonToSetCCInstruction(Comparison comparison) {
+  if (comparison == Comparison.Equal) {
+    return 'sete';
+  }
+  if (comparison == Comparison.NotEqual) {
+    return 'setne';
+  }
+  if (comparison == Comparison.LessThan) {
+    return 'setl';
+  }
+  if (comparison == Comparison.LessThanOrEqual) {
+    return 'setle';
+  }
+  if (comparison == Comparison.GreaterThanOrEqual) {
+    return 'setge';
+  }
+  if (comparison == Comparison.GreaterThan) {
+    return 'setg';
+  }
+  throw(concat('Unknown Comparison in ComparisonToSetCCInstruction: ', comparison));
+}
+
+Null convertToX64(X64Context context, PseudoInstruction instruction) {
+  if (instruction is Separator) {
+    append(context.output, X64BlankLine());
+  } else if (instruction is Comment) {
+    append(context.output, X64Comment(context.indent, (instruction as Comment).comment, false));
+  } else if (instruction is BlockStartMarker) {
+    context.incIndent();
+  } else if (instruction is BlockEndMarker) {
+    context.decIndent();
+    assert(context.indent >= 0, 'invariant violation');
+  } else if (instruction is Prolog) {
+    append(context.output, X64Prolog(context.indent));
+    context.initParameters((instruction as Prolog).type);
+  } else if (instruction is Epilog) {
+    context.resetForEpilog();
+    append(context.output, X64Epilog(context.indent));
+  } else if (instruction is AstNodeReference) {
+    AstNode node = (instruction as AstNodeReference).node;
+    append(context.output, X64Comment(context.indent, concat('line ', node.sourceLocation.lineNo, ': ', truncateString(concat(node), 64)), false));
+  } else if (instruction is Annotation) {
+    append(context.output, X64Opcode(context.indent, 'dq', [DataAddressOperand((instruction as Annotation).label, 'annotation')]:Operand, null));
+  } else if (instruction is Label) {
+    append(context.output, X64Label(context.indent, (instruction as Label).label, (instruction as Label).comment));
+  } else if (instruction is Mov) {
+    append(context.output, X64Opcode(context.indent, 'mov', [
+      convertToWritableX64Operand(context, (instruction as Mov).target),
+      convertToX64Operand(context, (instruction as Mov).source),
+    ]:Operand, (instruction as Mov).comment));
+  } else if (instruction is Push) {
+    X64Instruction opcode = X64Opcode(context.indent, 'push', [convertToX64Operand(context, (instruction as Push).source)]:Operand, (instruction as Push).comment);
+    append(context.output, opcode);
+    opcode.setStackDelta(0, 1);
+  } else if (instruction is Pop) {
+    X64Instruction opcode = X64Opcode(context.indent, 'pop', [convertToWritableX64Operand(context, (instruction as Pop).target)]:Operand, (instruction as Pop).comment);
+    append(context.output, opcode);
+    opcode.setStackDelta(-1, 0);
+  } else if (instruction is KeepAlive) {
+    append(context.output, X64KeepAlive(context.indent, [convertToX64Operand(context, (instruction as KeepAlive).target)]));
+  } else if (instruction is Save) {
+    append(context.output, X64Save(context.indent, convertToX64Operand(context, (instruction as Save).target), (instruction as Save).storage));
+  } else if (instruction is Restore) {
+    append(context.output, X64Restore(context.indent, convertToX64Operand(context, (instruction as Restore).target), (instruction as Restore).storage));
+  } else if (instruction is UpdateGlobalVariable) {
+    // instruction.target is a GlobalVariableDatum, which is
+    // a special case that we know is directly writable, which
+    // is why we don't use convertToWritableX64Operand.
+    assert((instruction as UpdateGlobalVariable).target is GlobalVariableDatum, 'api contract violation');
+    append(context.output, X64Opcode(context.indent, 'mov', [
+      convertToX64Operand(context, (instruction as UpdateGlobalVariable).target),
+      convertToX64Operand(context, (instruction as UpdateGlobalVariable).source),
+    ], concat('set ', (instruction as UpdateGlobalVariable).target.commentName, ' to ', (instruction as UpdateGlobalVariable).source.commentName)));
+  } else if (instruction is ReplaceParameter) {
+    // instruction.target is a ParameterDatum, which is
+    // a special case that we know is directly writable, which
+    // is why we don't use convertToWritableX64Operand.
+    assert((instruction as ReplaceParameter).target is ParameterDatum, 'api contract violation');
+    append(context.output, X64Opcode(context.indent, 'mov', [
+      convertToX64Operand(context, (instruction as ReplaceParameter).target),
+      convertToX64Operand(context, (instruction as ReplaceParameter).source),
+    ], (instruction as ReplaceParameter).comment));
+  } else if (instruction is Jmp) {
+    if ((instruction as Jmp).condition == null) {
+      append(context.output, X64Opcode(context.indent, 'jmp', [CodeAddressOperand((instruction as Jmp).label, (instruction as Jmp).label.name)]:Operand, (instruction as Jmp).comment));
+    } else {
+      Operand condition = convertToX64Operand(context, (instruction as Jmp).condition!);
+      append(context.output, X64Opcode(context.indent, 'cmp', [condition, ImmediateIntegerOperand(0, 'zero')]:Operand, 'move condition to flags'));
+      append(context.output, X64Opcode(context.indent, 'jnz', [CodeAddressOperand((instruction as Jmp).label, (instruction as Jmp).label.name)]:Operand, (instruction as Jmp).comment));
+    }
+  } else if (instruction is Call) {
+    call(context, (instruction as Call).result, (instruction as Call).target, (instruction as Call).arguments, (instruction as Call).comment);
+  } else if (instruction is CallSystem) {
+    callSystem(context, (instruction as CallSystem).result, (instruction as CallSystem).functionName, (instruction as CallSystem).libraryName, (instruction as CallSystem).arguments, (instruction as CallSystem).comment);
+  } else if (instruction is StoreByte) {
+    Operand source = convertToX64Operand(context, (instruction as StoreByte).source);
+    Operand result = convertToX64Operand(context, (instruction as StoreByte).targetPointer);
+    X64DerefOpcode instruction = X64DerefOpcode(context.indent, 'mov', 0, [result, source], concat((instruction as StoreByte).comment, '!!11'), /*offset:*/ 0);
+    instruction.setAllOperandWidths(ow.Byte);
+    append(context.output, instruction);
+  } else if (instruction is StoreQuad) {
+    Operand source = convertToX64Operand(context, (instruction as StoreQuad).source);
+    Operand baseOperand = convertToX64Operand(context, (instruction as StoreQuad).targetPointer);
+    IntegerNullable offset = (instruction as StoreQuad).offset.numericValue(); // can return null
+    if (offset != null && baseOperand.canBeDereferencedWithOffset(offset!)) {
+      append(
+        context.output, 
+        X64DerefOpcode(
+          context.indent, 
+          'mov',
+          0, 
+          [baseOperand, source]:Operand, 
+          concat((instruction as StoreQuad).comment, ' (target: ', baseOperand.commentName, ')'), 
+          offset!,
+        ),
+      );
+    } else {
+      Operand targetOperand = PlaceholderOperand('result of deref');
+      Operand offsetOperand = convertToX64Operand(context, (instruction as StoreQuad).offset);
+      append(context.output, X64Opcode(context.indent, 'mov', [targetOperand, baseOperand]:Operand, concat('set ', targetOperand.commentName, ' to ', baseOperand.commentName)));
+      append(context.output, X64Opcode(context.indent, 'add', [targetOperand, offsetOperand]:Operand, concat('add ', offsetOperand.commentName, ' to ', targetOperand.commentName)));
+      append(context.output, X64DerefOpcode(context.indent, 'mov', 0, [targetOperand, source]:Operand, (instruction as StoreQuad).comment, 0));
+    }
+  } else if (instruction is LoadByte) {
+    Operand source = convertToX64Operand(context, (instruction as LoadByte).source);
+    Operand result = convertToWritableX64Operand(context, (instruction as LoadByte).result);
+    X64DerefOpcode instruction = X64DerefOpcode(context.indent, 'mov', 1, [result, source], (instruction as LoadByte).comment, /*offset:*/ 0);
+    instruction.setAllOperandWidths(ow.Byte);
+    append(context.output, instruction);
+  } else if (instruction is LoadQuad) {
+    Operand baseOperand = convertToX64Operand(context, (instruction as LoadQuad).source);
+    Operand target = convertToWritableX64Operand(context, (instruction as LoadQuad).result);
+    IntegerNullable offset = (instruction as LoadQuad).offset.numericValue(); // can return null
+    if (offset != null && baseOperand.canBeDereferencedWithOffset(offset!)) {
+      append(context.output, X64DerefOpcode(context.indent, 'mov', 1, [target, baseOperand]:Operand, (instruction as LoadQuad).comment, offset!));
+    } else {
+      Operand sourceOperand = PlaceholderOperand('temporary for deref');
+      Operand offsetOperand = convertToX64Operand(context, (instruction as LoadQuad).offset);
+      append(context.output, X64Opcode(context.indent, 'mov', [sourceOperand, baseOperand]:Operand, concat('set ', sourceOperand.commentName, ' to ', baseOperand.commentName)));
+      append(context.output, X64Opcode(context.indent, 'add', [sourceOperand, offsetOperand]:Operand, concat('add ', offsetOperand.commentName, ' to ', sourceOperand.commentName)));
+      append(context.output, X64DerefOpcode(context.indent, 'mov', 1, [target, sourceOperand]:Operand, (instruction as LoadQuad).comment, 0));
+    }
+  } else if (instruction is LoadAddress) {
+    Operand source = convertToX64Operand(context, (instruction as LoadAddress).source);
+    Operand result = convertToWritableX64Operand(context, (instruction as LoadAddress).result);
+    append(context.output, X64Opcode(context.indent, 'lea', [result, source], (instruction as LoadAddress).comment));
+  } else if (instruction is Cmp) {
+    String comment = (instruction as Cmp).comment;
+    String setcc = ComparisonToSetCCInstruction((instruction as Cmp).comparison);
+    Operand result = convertToWritableX64Operand(context, (instruction as Cmp).result);
+    append(context.output, X64Opcode(
+      context.indent,
+      'xor',
+      [result, result]:Operand,
+      concat('clear ', result.commentName),
+    ));
+    append(context.output, X64Opcode(context.indent, 'cmp', [
+      convertToX64Operand(context, (instruction as Cmp).left),
+      convertToX64Operand(context, (instruction as Cmp).right),
+    ], comment));
+    X64Opcode opcode = X64Opcode(context.indent, setcc, [result]:Operand, concat('set ', result.commentName, ' to ZF (zero flag is set if values are equal)'));
+    opcode.setOperandWidth(0, ow.Byte);
+    append(context.output, opcode);
+  } else if (instruction is StringCompare) {
+    Operand result = convertToWritableX64Operand(context, (instruction as StringCompare).result);
+    append(context.output, X64Opcode(context.indent, 'xor', [result, result]:Operand, concat('clear ', result.commentName)));
+    Operand leftOperand = convertToX64Operand(context, (instruction as StringCompare).left);
+    PlaceholderOperand rsiOperand = PlaceholderOperand(concat('pointer to ', (instruction as StringCompare).left.commentName));
+    rsiOperand.assignOperand(rsi);
+    rsiOperand.pinOperand();
+    if (leftOperand.canBeDereferencedWithOffset((instruction as StringCompare).leftOffset)) {
+      append(context.output, X64DerefOpcode(context.indent, 'lea', 1, [rsiOperand, leftOperand]:Operand, (instruction as StringCompare).left.commentName, (instruction as StringCompare).leftOffset));
+    } else {
+      append(context.output, X64Opcode(context.indent, 'mov', [rsiOperand, leftOperand]:Operand, (instruction as StringCompare).left.commentName));
+      append(context.output, X64Opcode(context.indent, 'add', [rsiOperand, ImmediateIntegerOperand((instruction as StringCompare).leftOffset, 'offset')]:Operand, 'with offset'));
+    }
+    Operand rightOperand = convertToX64Operand(context, (instruction as StringCompare).right);
+    PlaceholderOperand rdiOperand = PlaceholderOperand(concat('pointer to ', (instruction as StringCompare).right.commentName));
+    rdiOperand.assignOperand(rdi);
+    rdiOperand.pinOperand();
+    if (rightOperand.canBeDereferencedWithOffset((instruction as StringCompare).rightOffset)) {
+      append(context.output, X64DerefOpcode(context.indent, 'lea', 1, [rdiOperand, rightOperand]:Operand, (instruction as StringCompare).right.commentName, (instruction as StringCompare).rightOffset));
+    } else {
+      append(context.output, X64Opcode(context.indent, 'mov', [rdiOperand, rightOperand]:Operand, (instruction as StringCompare).right.commentName));
+      append(context.output, X64Opcode(context.indent, 'add', [rdiOperand, ImmediateIntegerOperand((instruction as StringCompare).rightOffset, 'offset')]:Operand, 'with offset'));
+    }
+    Operand lengthOperand = convertToX64Operand(context, (instruction as StringCompare).length);
+    PlaceholderOperand rcxOperand = PlaceholderOperand('length to compare');
+    rcxOperand.assignOperand(rcx);
+    rcxOperand.pinOperand();
+    append(context.output, X64Opcode(context.indent, 'mov', [rcxOperand, lengthOperand]:Operand, (instruction as StringCompare).length.commentName));
+    append(context.output, X64Opcode(context.indent, 'cld', []:Operand, 'configure repe cmpsb to increment'));
+    append(context.output, X64Opcode(context.indent, 'repe cmpsb', []:Operand, 'compare strings for rcx bytes, result in ZF (ZF=1 is a match)'));
+    X64Opcode setz = X64Opcode(context.indent, 'setz', [result]:Operand, 'store result from ZF');
+    setz.setOperandWidth(0, ow.Byte);
+    append(context.output, setz);
+  } else if (instruction is BitTest) {
+    Operand result = convertToWritableX64Operand(context, (instruction as BitTest).result);
+    append(context.output, X64Opcode(context.indent, 'xor', [result, result]:Operand, concat('clear ', result.commentName)));
+    append(context.output, X64Opcode(context.indent, 'bt', [
+      convertToX64Operand(context, (instruction as BitTest).bitBase),
+      convertToX64Operand(context, (instruction as BitTest).bitOffset),
+    ], (instruction as BitTest).comment));
+    X64Opcode opcode = X64Opcode(context.indent, 'setc', [result]:Operand, concat('set ', (instruction as BitTest).result.commentName, ' from carry flag'));
+    opcode.setOperandWidth(0, ow.Byte);
+    append(context.output, opcode);
+  } else if (instruction is BooleanNot) {
+    Operand result = convertToWritableX64Operand(context, (instruction as BooleanNot).result);
+    Operand value = convertToX64Operand(context, (instruction as BooleanNot).operand);
+    append(context.output, X64Opcode(context.indent, 'mov', [result, value], concat('prepare "xor" operand: ', value.commentName)));
+    append(context.output, X64Opcode(context.indent, 'xor', [result, ImmediateIntegerOperand(1, 'true')]:Operand, concat((instruction as BooleanNot).comment, '; put result in ', result.commentName)));
+  } else if (instruction is BitwiseNot) {
+    Operand result = convertToWritableX64Operand(context, (instruction as BitwiseNot).result);
+    Operand value = convertToX64Operand(context, (instruction as BitwiseNot).operand);
+    append(context.output, X64Opcode(context.indent, 'mov', [result, value], concat('prepare "not" operand: ', value.commentName)));
+    append(context.output, X64Opcode(context.indent, 'not', [result]:Operand, concat((instruction as BitwiseNot).comment, '; put result in ', result.commentName)));
+  } else if (instruction is Negate) {
+    Operand result = convertToWritableX64Operand(context, (instruction as Negate).result);
+    Operand value = convertToX64Operand(context, (instruction as Negate).operand);
+    append(context.output, X64Opcode(context.indent, 'mov', [result, value], concat('prepare "neg" operand: ', value.commentName)));
+    append(context.output, X64Opcode(context.indent, 'neg', [result]:Operand, concat((instruction as Negate).comment, '; put result in ', result.commentName)));
+  } else if (instruction is And) {
+    Operand result = convertToWritableX64Operand(context, (instruction as And).result);
+    Operand left = convertToX64Operand(context, (instruction as And).left);
+    Operand right = convertToX64Operand(context, (instruction as And).right);
+    append(context.output, X64Opcode(context.indent, 'mov', [result, left], concat('prepare "and" operand 1: ', left.commentName)));
+    append(context.output, X64Opcode(context.indent, 'and', [result, right], concat((instruction as And).comment, '; put result in ', result.commentName)));
+  } else if (instruction is Or) {
+    Operand result = convertToWritableX64Operand(context, (instruction as Or).result);
+    Operand left = convertToX64Operand(context, (instruction as Or).left);
+    Operand right = convertToX64Operand(context, (instruction as Or).right);
+    append(context.output, X64Opcode(context.indent, 'mov', [result, left], concat('prepare "or" operand 1: ', left.commentName)));
+    append(context.output, X64Opcode(context.indent, 'or', [result, right], concat((instruction as Or).comment, '; put result in ', result.commentName)));
+  } else if (instruction is XOr) {
+    Operand result = convertToWritableX64Operand(context, (instruction as XOr).result);
+    Operand left = convertToX64Operand(context, (instruction as XOr).left);
+    Operand right = convertToX64Operand(context, (instruction as XOr).right);
+    append(context.output, X64Opcode(context.indent, 'mov', [result, left], concat('prepare "xor" operand 1: ', left.commentName)));
+    append(context.output, X64Opcode(context.indent, 'xor', [result, right], concat((instruction as XOr).comment, '; put result in ', result.commentName)));
+  } else if (instruction is SignedAdd) {
+    Operand result = convertToWritableX64Operand(context, (instruction as SignedAdd).result);
+    Operand augend = convertToX64Operand(context, (instruction as SignedAdd).augend);
+    Operand addend = convertToX64Operand(context, (instruction as SignedAdd).addend);
+    append(context.output, X64Opcode(context.indent, 'mov', [result, augend], concat('prepare "add" operand 1: ', augend.commentName)));
+    append(context.output, X64Opcode(context.indent, 'add', [result, addend], concat((instruction as SignedAdd).comment, '; put result in ', result.commentName)));
+  } else if (instruction is UnsignedAdd) {
+    Operand result = convertToWritableX64Operand(context, (instruction as UnsignedAdd).result);
+    Operand augend = convertToX64Operand(context, (instruction as UnsignedAdd).augend);
+    Operand addend = convertToX64Operand(context, (instruction as UnsignedAdd).addend);
+    append(context.output, X64Opcode(context.indent, 'mov', [result, augend], concat('prepare "add" operand 1: ', augend.commentName)));
+    append(context.output, X64Opcode(context.indent, 'add', [result, addend], concat((instruction as UnsignedAdd).comment, '; put result in ', result.commentName)));
+  } else if (instruction is SignedSubtract) {
+    Operand result = convertToWritableX64Operand(context, (instruction as SignedSubtract).result);
+    Operand minuend = convertToX64Operand(context, (instruction as SignedSubtract).minuend);
+    Operand subtrahend = convertToX64Operand(context, (instruction as SignedSubtract).subtrahend);
+    append(context.output, X64Opcode(context.indent, 'mov', [result, minuend], concat('prepare "sub" operand 1: ', minuend.commentName)));
+    append(context.output, X64Opcode(context.indent, 'sub', [result, subtrahend], concat((instruction as SignedSubtract).comment, '; put result in ', result.commentName)));
+  } else if (instruction is UnsignedSubtract) {
+    Operand result = convertToWritableX64Operand(context, (instruction as UnsignedSubtract).result);
+    Operand minuend = convertToX64Operand(context, (instruction as UnsignedSubtract).minuend);
+    Operand subtrahend = convertToX64Operand(context, (instruction as UnsignedSubtract).subtrahend);
+    append(context.output, X64Opcode(context.indent, 'mov', [result, minuend], concat('prepare "sub" operand 1: ', minuend.commentName)));
+    append(context.output, X64Opcode(context.indent, 'sub', [result, subtrahend], concat((instruction as UnsignedSubtract).comment, '; put result in ', result.commentName)));
+  } else if (instruction is SignedMultiply) {
+    Operand result = convertToWritableX64Operand(context, (instruction as SignedMultiply).result);
+    Operand multiplicand = convertToX64Operand(context, (instruction as SignedMultiply).multiplicand);
+    Operand multiplier = convertToX64Operand(context, (instruction as SignedMultiply).multiplier);
+    append(context.output, X64Opcode(context.indent, 'mov', [result, multiplicand], concat('prepare "imul" operand 1: ', multiplicand.commentName)));
+    append(context.output, X64Opcode(context.indent, 'imul', [result, multiplier], concat((instruction as SignedMultiply).comment, '; put result in ', result.commentName)));
+    // TODO: imul has a 3 operand form whose third operand has to be immediate
+  } else if (instruction is UnsignedMultiply) {
+    Operand result = PlaceholderOperand('multiply result low 64 bits (rax)');
+    result.assignOperand(rax);
+    result.pinOperand();
+    Operand extendedResult = PlaceholderOperand('multiply result high 64 bits (rdx)');
+    extendedResult.assignOperand(rdx);
+    extendedResult.pinOperand();
+    Operand multiplicand = convertToX64Operand(context, (instruction as UnsignedMultiply).multiplicand);
+    Operand multiplier = convertToX64Operand(context, (instruction as UnsignedMultiply).multiplier);
+    append(context.output, X64Opcode(context.indent, 'mov', [result, multiplicand], concat('move ', multiplicand.commentName, ' (multiplicand) to rax for mul instruction')));
+    X64Opcode multiplication = X64Opcode(context.indent, 'mul', [ multiplier, result, extendedResult ], (instruction as UnsignedMultiply).comment);
+    multiplication.setImplicitOperands(2);
+    append(context.output, multiplication);
+    append(context.output, X64Opcode(context.indent, 'mov', [convertToWritableX64Operand(context, (instruction as UnsignedMultiply).result), result]:Operand, concat('save ', result.commentName)));
+  } else if (instruction is SignedDivide) {
+    integerDivision(context,
+      'idiv',
+      (instruction as SignedDivide).dividend, 
+      (instruction as SignedDivide).divisor, 
+      (instruction as SignedDivide).result, 
+      null,
+      (instruction as SignedDivide).comment,
+    );
+  } else if (instruction is SignedModulus) {
+    integerDivision(context,
+      'idiv',
+      (instruction as SignedModulus).dividend, 
+      (instruction as SignedModulus).divisor, 
+      null,
+      (instruction as SignedModulus).result,
+      (instruction as SignedModulus).comment,
+    );
+  } else if (instruction is UnsignedDivide) {
+    integerDivision(context,
+      'div',
+      (instruction as UnsignedDivide).dividend, 
+      (instruction as UnsignedDivide).divisor, 
+      (instruction as UnsignedDivide).result, 
+      null,
+      (instruction as UnsignedDivide).comment,
+    );
+  } else if (instruction is UnsignedModulus) {
+    integerDivision(context,
+      'div',
+      (instruction as UnsignedModulus).dividend, 
+      (instruction as UnsignedModulus).divisor, 
+      null,
+      (instruction as UnsignedModulus).result,
+      (instruction as UnsignedModulus).comment,
+    );
+  } else if (instruction is ShiftLeft) {
+    // TODO: check that rhs is in range
+    Operand result = convertToWritableX64Operand(context, (instruction as ShiftPseudoComputation).result);
+    Operand lhs = convertToX64Operand(context, (instruction as ShiftPseudoComputation).lhs);
+    Operand rhs = convertToX64Operand(context, (instruction as ShiftPseudoComputation).rhs);
+    append(context.output, X64Opcode(context.indent, 'shlx', [result, lhs, rhs], concat('shift ', lhs.commentName, ' by ', rhs.commentName)));
+  } else if (instruction is ShiftRight) {
+    // TODO: check that rhs is in range
+    Operand result = convertToWritableX64Operand(context, (instruction as ShiftPseudoComputation).result);
+    Operand lhs = convertToX64Operand(context, (instruction as ShiftPseudoComputation).lhs);
+    Operand rhs = convertToX64Operand(context, (instruction as ShiftPseudoComputation).rhs);
+    append(context.output, X64Opcode(context.indent, 'shrx', [result, lhs, rhs], concat('shift ', lhs.commentName, ' by ', rhs.commentName)));
+  } else if (instruction is FinalReturn) {
+    append(context.output, X64Opcode(context.indent, 'ret', []:Operand, 'return'));
+  } else if (instruction is PrepareConstructorTrampoline) {
+    PrepareConstructorTrampoline source = instruction as PrepareConstructorTrampoline;
+    Null prepareTrampolineArgument(Datum source, LocalDatum pin, Register64Operand target) {
+      Operand sourceOperand = convertToX64Operand(context, source);
+      PlaceholderOperand targetOperand = convertToWritableX64Operand(context, pin);
+      targetOperand.assignOperand(target);
+      targetOperand.pinOperand();
+      append(context.output, X64Opcode(context.indent, 'mov', [targetOperand, sourceOperand]:Operand, source.commentName));
+    }
+    prepareTrampolineArgument(source.parameterCount, source.parameterCountPin, rcx);
+    prepareTrampolineArgument(SentinelDatum('closure pointer'), source.closurePin, rdx);
+    prepareTrampolineArgument(source.thisType, source.thisTypePin, r8);
+    prepareTrampolineArgument(source.thisPointer, source.thisPointerPin, r9);
+  } else if (instruction is ConstructorTrampoline) {
+    OperandList operands = [CodeAddressOperand((instruction as ConstructorTrampoline).actualConstructor, 'user-generated constructor')]:Operand;
+    append(context.output, X64Opcode(context.indent, 'jmp', operands, 'jump to user-generated constructor'));
+  } else if (instruction is Debugger) {
+    append(context.output, X64Opcode(context.indent, 'int', [ImmediateIntegerOperand(3, 'INTERRUPT_ENTER_DEBUGGER')]:Operand, 'enter debugger'));
+  } else {
+    throw(concat('Unknown PseudoInstruction in convertToX64: ', instruction.className));
+  }
+}
+
+class X64Assembler extends Assembler {
+  Integer lineLength = 64;
+
+  String serializeOperand(Operand operand) {
+    return operand.serialize(serializeLabel); // serializeLabel is the function used to, uh, serialize labels
+  }
+
+  StringNullable pendingComment = null;
+
+  StringList code = []:String;
+
+  Null addLine(Integer indent, String line, StringNullable comment, Boolean includePendingComment) {
+    if (pendingComment != null) {
+      if (includePendingComment) {
+        append(code, pendingComment); 
+      }
+      pendingComment = null;
+    }
+    String indentedLine = concat(stringTimes('  ', indent), line);
+    if (comment != null) {
+      append(code, concat(padRight(indentedLine, lineLength, ' '), ' ; ', comment));
+    } else {
+      append(code, indentedLine);
+    }
+  }
+
+  Null addLabel(Integer indent, AssemblerLabel label, StringNullable comment) {
+    pendingComment = null;
+    addLine(indent, concat(serializeLabel(label), ':'), comment, false);
+  }
+
+  Null addComment(Integer indent, String message) {
+    addLine(indent, concat('; ', message), null, true);
+  }
+
+  Null addPendingComment(Integer indent, String message) {
+    pendingComment = concat(stringTimes('  ', indent), '; ', message);
+  }
+
+  Null addBlankLine() {
+    pendingComment = null;
+    if (len(code) > 1) {
+      append(code, '');
+    }
+  }
+
+  Null addCode(Integer indent, String opcode, OperandList operands, StringNullable comment) {
+    assert(!contains(charsOf(opcode), ':'), 'use addLabel to add a label');
+    addLine(indent, concat(opcode, ' ', join(map(operands, serializeOperand) as StringList, ', ')), comment, true);
+  }
+
+  Set includelibs = Set();
+  StringList externs = []:String;
+
+  Null addIncludeLib(String filename) {
+    includelibs.add(concat('includelib ', filename));
+  }
+
+  AssemblerLabel addExternProc(String procname) {
+    assert(labels.get(procname) == null, 'external labels must be registered before potentially conflicting local labels');
+    append(externs, concat('extern ', procname, ' : proc'));
+    AssemblerLabel result = rootLabel.deriveWith(procname);
+    labels.set(result, procname);
+    labelSequenceIds.set(procname, 0);
+    return result;
+  }
+
+  X64Context convertInstructionsToX64(PseudoInstructionList instructions) {
+    X64Context context = X64Context(this);
+    for (instruction in instructions) {
+      convertToX64(context, instruction);
+    }
+    return context;
+  }
+
+  X64LineList assignRegisterOperands(X64LineList instructions) {
+    X64LineList result = []:X64Line;
+    OperandList operands = []:Operand;
+    Map operandUsages = Map(); // Operand -> OperandLifetime
+    IntegerList registerUsages = []:Integer; // TODO: set length of registerUsages here to avoid growing the list dynamically
+    Integer position = 0;
+    for (instruction in instructions) {
+      if (instruction is X64Instruction) {
+        Integer registerUsage = 0;
+        for (operand in (instruction as X64Instruction).operands) {
+          if (!operand.isAssigned()) {
+            OperandLifetimeNullable lifetime = operandUsages.get(operand) as OperandLifetimeNullable;
+            if (lifetime == null) {
+              lifetime = OperandLifetime(position, position);
+              operandUsages.set(operand, lifetime);
+              append(operands, operand);
+            }
+            lifetime!.updateEnd(position);
+          } else {
+            registerUsage |= operand.usedRegisters();
+          }
+        }
+        append(registerUsages, registerUsage);
+      } else {
+        append(registerUsages, 0);
+      }
+      append(result, instruction);
+      position += 1;
+    }
+
+    Integer compareOperand(Operand a, Operand b) {
+      OperandLifetime lifeA = operandUsages.get(a) as OperandLifetime;
+      OperandLifetime lifeB = operandUsages.get(b) as OperandLifetime;
+      return (lifeA.end - lifeA.start) - (lifeB.end - lifeB.start);
+    }
+    // list every operand that needs assignment in the interval tree, along with its total lifetime
+    sortWithComparator(operands, compareOperand);
+
+    for (operand in operands) {
+      if (operand.isAssigned()) {
+        continue;
+      }
+      if (!operand.wantsStackOperand()) {
+        OperandLifetime lifetime = operandUsages.get(operand) as OperandLifetime;
+        Integer activeRegisters = registerUsages[lifetime.start];
+        Integer index = lifetime.start + 1;
+        while (index <= lifetime.end) {
+          activeRegisters = activeRegisters | registerUsages[index];
+          index += 1;
+        }
+        assert((activeRegisters & ~(preferredRegisters | rsp.bit | rbp.bit)) == 0, 'invariant violation');
+        if ((preferredRegisters & ~activeRegisters) > 0) {
+          Boolean found = false;
+          // a register is still available!
+          for (register in preferredRegistersList) {
+            if ((register.bit & activeRegisters) == 0) {
+              operand.assignOperand(register);
+              Integer index = lifetime.start;
+              while (index <= lifetime.end) {
+                registerUsages[index] |= register.bit;
+                index += 1;
+              }
+              found = true;
+              break;
+            }
+          }
+          if (found) {
+            continue;
+          }
+        }
+      }
+      // if we get here either there were no available registers or the operand wants a stack operand
+      // make it a stack operand
+      operand.assignOperand(PlaceholderStackOperand(operand.commentName));
+    }
+    return result;
+  }
+
+  X64LineList assignStackOperands(X64LineList instructions) {
+    X64LineList result = []:X64Line;
+    Map stackOperandLifetimeEnds = Map(); // Operand -> end
+    Integer position = 0;
+    for (instruction in instructions) {
+      if (instruction is X64Instruction) {
+        for (operand in (instruction as X64Instruction).operands) {
+          if (operand.isOperandKind(stack)) {
+            assert(!operand.isAssigned(), 'invariant violation');
+            assert(operand.wantsStackOperand(), 'invariant violation');
+            stackOperandLifetimeEnds.set(operand, position);
+          }
+        }
+      }
+      append(result, instruction);
+      position += 1;
+    }
+
+    position = 0;
+    BooleanList activeStackLocations = []:Boolean;
+    Map assignedIndicies = Map(); // operand -> index
+    for (instruction in instructions) {
+      if (instruction is X64Instruction) {
+        for (operand in (instruction as X64Instruction).operands) {
+          if (operand.isOperandKind(stack)) {
+            if (!operand.isAssigned() && operand.wantsStackOperand()) {
+              Integer index = 0;
+              while (index < len(activeStackLocations)) {
+                if (!activeStackLocations[index]) {
+                  break;
+                }
+                index += 1;
+              }
+              if (index == len(activeStackLocations)) {
+                append(activeStackLocations, true);
+              } else {
+                activeStackLocations[index] = true;
+              }
+              operand.assignOperand(StackOperand(index, operand.commentName));
+              assignedIndicies.set(operand, index);
+            }
+            if (stackOperandLifetimeEnds.get(operand) == position) {
+              activeStackLocations[assignedIndicies.get(operand) as Integer] = false;
+            }
+          }
+        }
+      }
+      position += 1;
+    }
+    return result;
+  }
+
+  X64LineList fixUpOperands(X64LineList instructions) {
+    X64LineList result = []:X64Line;
+    for (instruction in instructions) {
+      if (instruction is X64Instruction) {
+        X64Instruction instruction = instruction as X64Instruction;
+        Integer currentVariety = instruction.currentOperandVarieties();
+        Integer allowedVarieties = instruction.allowedOperandVarieties();
+        if (((currentVariety & ~(allowedVarieties)) > 0) &&
+            ((currentVariety & ~(allowedVarieties >> 16)) > 0) &&
+            ((currentVariety & ~(allowedVarieties >> 32)) > 0) &&
+            ((currentVariety & ~(allowedVarieties >> 48)) > 0)) {
+
+          // we have (up to) three (real) operands. they are each one of:
+          //  - not actually an operand. do nothing. always matches.
+          //  - is a register. do nothing. hope.
+          //  - is an immediate. consider making a register. definitely won't be written to.
+          //  - is a stack. consider making a register. possibly restore it.
+
+          // so we have six possible things we might do:
+          //  001 - make the third operand a register
+          //  010 - make the second operand a register
+          //  100 - make the first operand a register
+          //  011 - make the second and third operands registers
+          //  101 - make the first and third operands registers
+          //  110 - make the first and second operands registers
+
+          Boolean wouldFixupWork(Integer currentVariety, Integer allowedVarieties, Boolean makeFirstRegister, Boolean makeSecondRegister, Boolean makeThirdRegister) {
+            assert(makeFirstRegister || makeSecondRegister || makeThirdRegister, 'redundant call');
+            Integer newVariety = currentVariety;
+            if (makeFirstRegister) {
+              newVariety = newVariety & ~(0xf     ) | (0x8     );
+            }
+            if (makeSecondRegister) {
+              newVariety = newVariety & ~(0xf << 4) | (0x8 << 4);
+            }
+            if (makeThirdRegister) {
+              newVariety = newVariety & ~(0xf << 8) | (0x8 << 8);
+            }
+            return (newVariety & ~(allowedVarieties)) == 0 ||
+                   (newVariety & ~(allowedVarieties >> 16)) == 0 ||
+                   (newVariety & ~(allowedVarieties >> 32)) == 0 ||
+                   (newVariety & ~(allowedVarieties >> 48)) == 0;
+          }
+
+          // replacementRegisters is a list representing all the current operands, where
+          // a null means "don't replace this operand" and a non-null means "replace this
+          // operand with this register".
+          Null fixupInstruction(X64Instruction instruction, OperandNullableList replacementRegisters, Integer writeMask) {
+            OperandList newOperands = copy(instruction.operands) as OperandList;
+            Integer index = 0;
+            for (operand in replacementRegisters) {
+              if (operand != null) {
+                assert(index < len(newOperands), 'contract violation');
+                newOperands[index] = operand!;
+                append(result, X64Opcode(instruction.indentLevel, 'mov', [operand!, instruction.operands[index]]:Operand, concat('move ', instruction.operands[index].commentName, ' to ', operand!.commentName, ' for ', instruction.opcode)));
+              }
+              index += 1;
+            }
+            append(result, instruction.withOperands(newOperands));
+            // restore back to stack if needed
+            index = 0;
+            for (operand in replacementRegisters) {
+              if (operand != null) {
+                if (((writeMask >> index) & 0x1) > 0) {
+                  assert(instruction.operands[index].isOperandKind(memory), 'invariant violation');
+                  append(result, X64Opcode(instruction.indentLevel, 'mov', [instruction.operands[index], operand!]:Operand, concat('restore ', instruction.operands[index].commentName)));
+                }
+              }
+              index += 1;
+            }
+          }
+          Integer writeMask = (allowedVarieties >> 12) & 0xf;
+          if (wouldFixupWork(currentVariety, allowedVarieties, true, false, false)) {
+            fixupInstruction(instruction, [r14, null, null]:OperandNullable, writeMask);
+          } else if (wouldFixupWork(currentVariety, allowedVarieties, false, true, false)) {
+            fixupInstruction(instruction, [null, r14, null]:OperandNullable, writeMask);
+          } else if (wouldFixupWork(currentVariety, allowedVarieties, false, false, true)) {
+            fixupInstruction(instruction, [null, null, r14]:OperandNullable, writeMask);
+          } else if (wouldFixupWork(currentVariety, allowedVarieties, true, true, false)) {
+            fixupInstruction(instruction, [r14, r15, null]:OperandNullable, writeMask);
+          } else if (wouldFixupWork(currentVariety, allowedVarieties, true, false, true)) {
+            fixupInstruction(instruction, [r14, null, r15]:OperandNullable, writeMask);
+          } else if (wouldFixupWork(currentVariety, allowedVarieties, false, true, true)) {
+            fixupInstruction(instruction, [null, r14, r15]:OperandNullable, writeMask);
+          } else {
+            unimplemented();
+          }
+        } else {
+          append(result, instruction);
+        }  
+      } else {
+        append(result, instruction);
+      }  
+    }
+    return result;
+  }
+
+  X64LineList snapshotOperands(X64LineList instructions) {
+    X64LineList result = []:X64Line;
+    StackMetrics stackMetrics = StackMetrics();
+    Integer pushLevel = 0;
+    Integer registersUsed = stackRegisters;
+    X64PrologNullable prolog = null;
+
+    Null emit(X64Line line) {
+      append(result, line);
+      if (line is X64Instruction) {
+        for (operand in (line as X64Instruction).operands) {
+          assert(operand.snapshot(stackMetrics, pushLevel) == operand, concat('tried to emit an operand that was not snapshoted: ', line));
+        }
+      }
+      registersUsed = registersUsed | line.registersInOperands();
+    }
+
+    Integer position = 0;
+    while (position < len(instructions)) {
+      X64Line instruction = instructions[position];
+      if (instruction is X64Prolog) {
+        prolog = instruction as X64Prolog;
+        stackMetrics = StackMetrics();
+        pushLevel = 0;
+        registersUsed = stackRegisters;
+        emit(prolog!);
+      } else if (instruction is X64Epilog) {
+        X64Epilog epilog = instruction as X64Epilog;
+        prolog!.recordSettings(stackMetrics, registersUsed);
+        epilog.recordSettings(stackMetrics, registersUsed);
+        stackMetrics = StackMetrics();
+        pushLevel = 0;
+        registersUsed = stackRegisters;
+        prolog = null;
+        emit(epilog);
+      } else if (instruction is X64Save) {
+        X64Save save = instruction as X64Save;
+        Operand operand = (single(save.operands) as Operand).unwrap();
+        save.storage.save(operand);
+      } else if (instruction is X64Restore) {
+        X64Restore restore = instruction as X64Restore;
+        Operand original = restore.storage.data as Operand;
+        Operand current = (single(restore.operands) as Operand).unwrap();
+        if (!original.equals(current)) {
+          assert(original.isOperandKind(memory | register), concat('invariant violation: ', original, '#', original.internalObjectId, ' (', original.className, ') is not a memory or register (', hex(memory | register), '), but it became ', current, '#', current.internalObjectId, ' (', current.className, '), "', current.commentName, '"'));
+          assert(current.isOperandKind(memory | register), concat('invariant violation: ', current, ' is not a memory or register'));
+          emit(X64Opcode(restore.indentLevel, 'mov', [original.snapshot(stackMetrics, pushLevel), current.snapshot(stackMetrics, pushLevel)], concat('restore ', original.commentName)));
+        }
+      } else if (instruction is X64Instruction) {
+        X64Instruction instruction = instruction as X64Instruction;
+        pushLevel += instruction.stackDeltaBefore;
+        OperandList newOperands = []:Operand;
+        for (operand in instruction.operands) {
+          operand.updateStackMetrics(stackMetrics);
+          append(newOperands, operand.snapshot(stackMetrics, pushLevel));
+        }
+        emit((instruction.withOperands(newOperands)));
+        pushLevel += instruction.stackDeltaAfter;
+      } else {
+        emit(instruction);
+      }
+      position += 1;
+    }
+    return result;
+  }
+
+  X64LineList optimizeX64Lines(X64LineList instructions) {
+    return instructions;
+  }
+
+  String serializeData(X64Context context, ConstantList data) {
+    StringList buffer = []:String;
+    for (entry in data) {
+      String prefix = serializeLabel(entry.label);
+      Integer index = 0;
+      while (index < len(entry.data)) {
+        ConstantPart rawData = entry.data[index];
+        StringList line = []:String;
+        append(line, '  ');
+        append(line, padRight(prefix, 12, ' '));
+        append(line, ' ');
+        append(line, dataPrefixFor(rawData.width));
+        Integer rawDataIndex = 0;
+        while (rawDataIndex < len(rawData.data)) {
+          if (rawDataIndex > 0) {
+            append(line, ', ');
+          }
+          append(line, serializeOperand(convertToX64Operand(context, rawData.data[rawDataIndex])));
+          rawDataIndex += 1;
+        }
+        StringNullable comment = rawData.comment;
+        if (comment != null) {
+          append(buffer, concat(padRight(join(line, ''), lineLength, ' '), ' ; ', comment));
+        } else {
+          for (bit in line) {
+            append(buffer, bit);
+          }
+        }
+        append(buffer, '\n');
+        index += 1;
+        prefix = '';
+      }
+      if (entry.suffixComment != null) {
+        StringList commentLines = split(entry.suffixComment!, '\n');
+        for (commentLine in commentLines) {
+          append(buffer, concat('  ; ', commentLine, '\n'));
+        }
+      }
+    }
+    return join(buffer, '');
+  }
+
+  String serializeBss(X64Context context, UninitializedGlobalList data) {
+    StringList buffer = []:String;
+    for (entry in data) {
+      String prefix;
+      Integer count;
+      if (entry.bytes % 8 == 0) {
+        prefix = 'dq';
+        count = entry.bytes / 8;
+      } else {
+        prefix = 'db';
+        count = entry.bytes;
+      }
+      append(buffer,
+        concat(
+          padRight(
+            concat('  ', serializeLabel(entry.label), ' ', prefix, ' ?', stringTimes(', ?', count - 1)),
+            lineLength, ' ',
+          ),
+          ' ; ', entry.comment,
+          '\n',
+        )
+      );
+    }
+    return join(buffer, '');
+  }
+
+  String serializedConst;
+  String serializedData;
+  String serializedBss;
+
+  //#override
+  Null assemble(PseudoInstructionList pseudoInstructions) {
+    stderr('convertInstructionsToX64...');
+    X64Context context = convertInstructionsToX64(pseudoInstructions);
+    X64LineList x64Lines = context.output;
+    stderr('assignRegisterOperands...');
+    x64Lines = assignRegisterOperands(x64Lines);
+    stderr('assignStackOperands...');
+    x64Lines = assignStackOperands(x64Lines);
+    stderr('fixUpOperands...');
+    x64Lines = fixUpOperands(x64Lines);
+    stderr('snapshotOperands...');
+    x64Lines = snapshotOperands(x64Lines);
+    stderr('optimizeX64Lines...');
+    x64Lines = optimizeX64Lines(x64Lines);
+    stderr('generateAssembler...');
+    for (line in x64Lines) {
+      line.generateAssembler(this);
+    }
+    stderr('serializeData...');
+    serializedConst = serializeData(context, const);
+    serializedData = serializeData(context, data);
+    stderr('serializeBss...');
+    serializedBss = serializeBss(context, uninitializedGlobals);
+  }
+
+  //#override
+  String serialize() {
+    return concat(
+      '_drectve segment info alias(".drectve")\n',
+      '  db \' /ENTRY:main \'\n',
+      '_drectve ends\n',
+      'option casemap:none\n',
+      '\n',
+      '; includes\n',
+      join((includelibs.values() as StringList), '\n'),
+      '\n\n',
+      '; externs\n',
+      join(externs, '\n'),
+      '\n\n',
+      '.const\n',
+      serializedConst,
+      '\n',
+      '.data\n',
+      serializedData,
+      '\n',
+      '_BSS segment\n',
+      serializedBss,
+      '\n\n',
+      '.code\n',
+      '\n',
+      'public main\n',
+      'main:\n',
+      join(code, '\n'),
+      '\n',
+      'end\n',
+    );
+  }
+}

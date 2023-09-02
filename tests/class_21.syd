@@ -1,0 +1,18 @@
+// expected error: missing declaration of forward-declared property "foo" in class "A" (expected type "NullFunction")
+// unexpected output: FAIL
+
+println('FAIL');
+
+fwdclass A;
+fwdclassprop NullFunction A.foo;
+
+class A {
+}
+
+class B extends A {
+  Null foo() {
+    super.foo();
+  }
+}
+
+B;

@@ -14,3 +14,4 @@ syd.obj
 .packages
 .dart_tool
 profile.txt
+error-dump.txt

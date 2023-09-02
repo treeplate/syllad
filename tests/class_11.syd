@@ -11,6 +11,7 @@ class B extends A {
     return test;
   }
 
+  //#override
   Null test() {
     println('B::test');
   }

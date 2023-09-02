@@ -1,0 +1,19 @@
+// expected output: runtime:
+// expected output: func1
+// expected output: 666 1
+
+println('runtime:');
+
+Integer func1() { return 666; } // a
+
+class A {
+  Integer field1 = func1(); // refers to a, hopefully
+  Integer func1() { println('func1'); return 1; } // b
+}
+
+class B extends A {
+  Integer field2 = func1(); // refers to b, hopefully
+}
+
+B b = B();
+println(b.field1, b.field2);

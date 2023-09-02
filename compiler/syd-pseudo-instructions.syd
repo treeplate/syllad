@@ -1,0 +1,1180 @@
+import 'syd-utils.syd';
+import 'syd-datum.syd';
+
+enum Comparison { Equal NotEqual LessThan LessThanOrEqual GreaterThanOrEqual GreaterThan }
+
+//#ignore_unused
+String describeComparison(Comparison comparison) {
+  if (comparison == Comparison.Equal) {
+    return '==';
+  } else if (comparison == Comparison.NotEqual) {
+    return '!=';
+  } else if (comparison == Comparison.LessThan) {
+    return '<';
+  } else if (comparison == Comparison.LessThanOrEqual) {
+    return '<=';
+  } else if (comparison == Comparison.GreaterThanOrEqual) {
+    return '>=';
+  } else if (comparison == Comparison.GreaterThan) {
+    return '>';
+  } else {
+    assert(false, 'unreachable');
+  }
+}
+
+// Pseudo-code instructions.
+// These do not map directly to x64 instructions, but can convert into them.
+
+class BlockConfiguration extends Object {
+  MapNullable datumOrigins; // variable -> datum
+  Map datumDestinations; // variable -> LocalDatum
+  AssemblerLabelNullable topLabel;
+  AssemblerLabel bottomLabel;
+  Boolean isLoop; // break and continue break out of these
+
+  Boolean debugCheckDatumDestinations(Map datumDestinations) {
+    for (datum in datumDestinations.values()) {
+      if (!(datum is LocalDatum)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  //#override
+  String toString() {
+    return concat('BlockConfiguration(', datumOrigins, ', ', datumDestinations, ', ', topLabel, ', ', bottomLabel, ', ', isLoop, ')');
+  }
+
+  Null constructor(MapNullable datumOriginsArg, Map datumDestinationsArg, AssemblerLabelNullable topLabelArg, AssemblerLabel bottomLabelArg, Boolean isLoopArg) {
+    super.constructor();
+    datumOrigins = datumOriginsArg;
+    datumDestinations = datumDestinationsArg;
+    assert(debugCheckDatumDestinations(datumDestinations), 'contract violation');
+    topLabel = topLabelArg;
+    bottomLabel = bottomLabelArg;
+    isLoop = isLoopArg;
+  }
+}
+
+class Storage extends Object {
+  Anything data = null;
+
+  Null save(Anything newData) {
+    assert(data == null, 'contract violation');
+    assert(newData != null, 'contract violation');
+    data = newData;
+  }
+
+  //#override
+  String toString() {
+    return concat('Storage(', data, ')');
+  }
+}
+
+class PseudoInstruction extends Object {
+  // returns true if the instruction terminates code flow in the current block
+  Boolean flatten(PseudoInstructionList output, Map datumStatuses, BlockConfigurationList blocks) {
+    append(output, this);
+    return false;
+  }
+
+  // used to replace datums (f is called for each datum, and must return a replacement datum, or the given datum)
+  // types must be compatible (e.g. LocalDatums cannot become IntegerDatums)
+  Null walkDatums(DatumFunction f) { }
+}
+
+enum PrologType { library subroutine varArgsSubroutine generatedConstructor }
+
+class Prolog extends PseudoInstruction {
+  PrologType type;
+
+  Null constructor(PrologType typeArg) {
+    super.constructor();
+    type = typeArg;
+  }
+}
+
+class Epilog extends PseudoInstruction { }
+
+class FinalReturn extends PseudoInstruction { }
+
+class PrepareConstructorTrampoline extends PseudoInstruction {
+  Datum thisPointer;
+  LocalDatum thisPointerPin;
+  Datum thisType;
+  LocalDatum thisTypePin;
+  LocalDatum closurePin;
+  Datum parameterCount;
+  LocalDatum parameterCountPin;
+
+  Null constructor(Datum thisPointerArg, LocalDatum thisPointerPinArg, Datum thisTypeArg, LocalDatum thisTypePinArg, LocalDatum closurePinArg, Datum parameterCountArg, LocalDatum parameterCountPinArg) {
+    super.constructor();
+    thisPointer = thisPointerArg;
+    thisPointerPin = thisPointerPinArg;
+    thisType = thisTypeArg;
+    thisTypePin = thisTypePinArg;
+    closurePin = closurePinArg;
+    parameterCount = parameterCountArg;
+    parameterCountPin = parameterCountPinArg;
+  }
+}
+
+class ConstructorTrampoline extends PseudoInstruction {
+  AssemblerLabel actualConstructor;
+
+  Null constructor(AssemblerLabel actualConstructorArg) {
+    super.constructor();
+    actualConstructor = actualConstructorArg;
+  }
+}
+
+class AstNodeReference extends PseudoInstruction {
+  AstNode node;
+
+  Null constructor(AstNode nodeArg) {
+    super.constructor();
+    node = nodeArg;
+  }
+}
+
+class BlockStartMarker extends PseudoInstruction { }
+
+class BlockEndMarker extends PseudoInstruction { }
+
+class Mov extends PseudoInstruction {
+  LocalDatum target;
+  Datum source;
+  String comment;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    target = f(target) as LocalDatum;
+    source = f(source); 
+  }
+
+  Null constructor(LocalDatum targetArg, Datum sourceArg, String commentArg) {
+    super.constructor();
+    target = targetArg;
+    source = sourceArg;
+    comment = commentArg;
+  }
+}
+
+class Push extends PseudoInstruction {
+  Datum source;
+  String comment;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    source = f(source); 
+  }
+
+  Null constructor(Datum sourceArg, String commentArg) {
+    super.constructor();
+    source = sourceArg;
+    comment = commentArg;
+  }
+}
+
+class Pop extends PseudoInstruction {
+  LocalDatum target;
+  String comment;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    target = f(target) as LocalDatum;
+  }
+
+  Null constructor(LocalDatum targetArg, String commentArg) {
+    super.constructor();
+    target = targetArg;
+    comment = commentArg;
+  }
+}
+
+class KeepAlive extends PseudoInstruction {
+  Datum target;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    target = f(target);
+  }
+
+  Null constructor(Datum targetArg) {
+    super.constructor();
+    target = targetArg;
+  }
+}
+
+// Tells the architecture-specific code that we are
+// going to need to restore another Datum to this one
+// later (used in loops).
+//
+// Storage is architecture-specific.
+class Save extends PseudoInstruction {
+  Datum target;
+  Storage storage;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    target = f(target);
+  }
+
+  Null constructor(Datum targetArg, Storage storageArg) {
+    super.constructor();
+    target = targetArg;
+    storage = storageArg;
+  }
+}
+
+// Tells the architecture-specific code to restore a
+// Datum back to wherever "storage" says it should be
+// (used in loops).
+//
+// Storage is architecture-specific and is filled during
+// the processing of a Save instruction.
+class Restore extends PseudoInstruction {
+  Datum target;
+  Storage storage;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    target = f(target);
+  }
+
+  Null constructor(Datum targetArg, Storage storageArg) {
+    super.constructor();
+    target = targetArg;
+    storage = storageArg;
+  }
+}
+
+class ReplaceParameter extends PseudoInstruction {
+  ParameterDatum target;
+  Datum source;
+  String comment;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    target = f(target) as ParameterDatum;
+    source = f(source); 
+  }
+
+  Null constructor(ParameterDatum targetArg, Datum sourceArg, String commentArg) {
+    super.constructor();
+    target = targetArg;
+    source = sourceArg;
+    comment = commentArg;
+  }
+}
+
+class UpdateGlobalVariable extends PseudoInstruction {
+  GlobalVariableDatum target;
+  Datum source;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    target = f(target) as GlobalVariableDatum;
+    source = f(source);
+  }
+
+  Null constructor(Datum sourceArg, GlobalVariableDatum targetArg) {
+    super.constructor();
+    source = sourceArg;
+    target = targetArg;
+  }
+}
+
+class Separator extends PseudoInstruction { }
+
+class Comment extends PseudoInstruction {
+  String comment;
+
+  Null constructor(String commentArg) {
+    super.constructor();
+    comment = commentArg;
+  }
+}
+
+class Annotation extends PseudoInstruction {
+  AssemblerLabel label;
+
+  Null constructor(AssemblerLabel labelArg) {
+    super.constructor();
+    label = labelArg;
+  }
+}
+
+class Label extends PseudoInstruction {
+  AssemblerLabel label;
+  String comment;
+
+  Null constructor(AssemblerLabel labelArg, String commentArg) {
+    super.constructor();
+    label = labelArg;
+    comment = commentArg;
+  }
+}
+
+// jump to label if condition is not false
+class Jmp extends PseudoInstruction {
+  DatumNullable condition;
+  AssemblerLabel label;
+  String comment;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    if (condition != null) {
+      condition = f(condition!);
+    }
+  }
+
+  Null constructor(DatumNullable conditionArg, AssemblerLabel labelArg, String commentArg) {
+    super.constructor();
+    condition = conditionArg;
+    label = labelArg;
+    comment = commentArg;
+  }
+}
+
+//#ignore_unused
+class StoreByte extends PseudoInstruction {
+  Datum source;
+  Datum targetPointer;
+  String comment;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    source = f(source);
+    targetPointer = f(targetPointer); 
+  }
+
+  Null constructor(Datum sourceArg, Datum targetPointerArg, String commentArg) {
+    super.constructor();
+    source = sourceArg;
+    targetPointer = targetPointerArg;
+    comment = commentArg;
+  }
+}
+
+class StoreQuad extends PseudoInstruction {
+  Datum source;
+  Datum targetPointer;
+  Datum offset;
+  String comment;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    source = f(source);
+    offset = f(offset);
+    targetPointer = f(targetPointer); 
+  }
+
+  Null constructor(Datum sourceArg, Datum targetPointerArg, Datum offsetArg, String commentArg) {
+    super.constructor();
+    source = sourceArg;
+    targetPointer = targetPointerArg;
+    comment = commentArg;
+    offset = offsetArg;
+  }
+}
+
+class PseudoComputation extends PseudoInstruction {
+  LocalDatum result;
+  String comment;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    result = f(result) as LocalDatum;
+  }
+
+  Null constructor(String instructionComment, String resultComment) {
+    super.constructor();
+    comment = instructionComment;
+    result = LocalDatum(resultComment);
+  }
+}
+
+Datum compute(PseudoInstructionList result, PseudoComputation instruction) {
+  append(result, instruction);
+  return instruction.result;
+}
+
+class Call extends PseudoComputation {
+  Datum target;
+  DatumList arguments;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    target = f(target);
+    Integer i = 0;
+    for (argument in arguments) {
+      arguments[i] = f(argument);
+      i++;
+    }
+  }
+
+  Null constructor(Datum targetArg, DatumList argumentsArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    target = targetArg;
+    arguments = argumentsArg;
+  }
+}
+
+class CallSystem extends PseudoComputation {
+  String libraryName;
+  String functionName;
+  DatumList arguments;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    Integer i = 0;
+    for (argument in arguments) {
+      arguments[i] = f(argument);
+      i++;
+    }
+  }
+
+  Null constructor(String libraryNameArg, String functionNameArg, DatumList argumentsArg) {
+    super.constructor(concat(functionNameArg, ' from ', libraryNameArg), concat('return value of ', functionNameArg));
+    libraryName = libraryNameArg;
+    functionName = functionNameArg;
+    arguments = argumentsArg;
+  }
+}
+
+class LoadByte extends PseudoComputation {
+  Datum source;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    source = f(source); 
+  }
+
+  Null constructor(Datum sourceArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    source = sourceArg;
+  }
+}
+
+class LoadQuad extends PseudoComputation {
+  Datum source;
+  Datum offset;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    source = f(source);
+    offset = f(offset); 
+  }
+
+  Null constructor(Datum sourceArg, Datum offsetArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    source = sourceArg;
+    offset = offsetArg;
+  }
+}
+
+class LoadAddress extends PseudoComputation {
+  Datum source;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    source = f(source); 
+  }
+
+  Null constructor(Datum sourceArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    source = sourceArg;
+  }
+}
+
+class Cmp extends PseudoComputation {
+  Datum left;
+  Datum right;
+  Comparison comparison;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    left = f(left);
+    right = f(right); 
+  }
+
+  Null constructor(Datum leftArg, Datum rightArg, Comparison comparisonArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    left = leftArg;
+    right = rightArg;
+    comparison = comparisonArg;
+  }
+}
+
+class BitTest extends PseudoComputation {
+  Datum bitBase;
+  Datum bitOffset;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    bitBase = f(bitBase);
+    bitOffset = f(bitOffset);
+  }
+
+  Null constructor(Datum bitBaseArg, Datum bitOffsetArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    bitBase = bitBaseArg;
+    bitOffset = bitOffsetArg;
+  }
+}
+
+class StringCompare extends PseudoComputation {
+  Datum length;
+  Datum left;
+  Integer leftOffset;
+  Datum right;
+  Integer rightOffset;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    length = f(length);
+    left = f(left);
+    right = f(right); 
+  }
+
+  Null constructor(Datum lengthArg, Datum leftArg, Integer leftOffsetArg, Datum rightArg, Integer rightOffsetArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    length = lengthArg;
+    left = leftArg;
+    leftOffset = leftOffsetArg;
+    right = rightArg;
+    rightOffset = rightOffsetArg;
+  }
+}
+
+class MonoOperandPseudoComputation extends PseudoComputation {
+  Datum operand;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    operand = f(operand);
+  }
+
+  Null constructor(Datum operandArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    operand = operandArg;
+  }
+}
+
+class BooleanNot extends MonoOperandPseudoComputation { }
+class BitwiseNot extends MonoOperandPseudoComputation { }
+class Negate extends MonoOperandPseudoComputation { }
+
+class BiOperandPseudoComputation extends PseudoComputation {
+  Datum left;
+  Datum right;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    left = f(left);
+    right = f(right); 
+  }
+
+  Null constructor(Datum leftArg, Datum rightArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    left = leftArg;
+    right = rightArg;
+  }
+}
+
+class And extends BiOperandPseudoComputation { }
+class Or extends BiOperandPseudoComputation { }
+class XOr extends BiOperandPseudoComputation { }
+
+class SignedAdd extends PseudoComputation {
+  Datum augend;
+  Datum addend;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    augend = f(augend);
+    addend = f(addend); 
+  }
+
+  Null constructor(Datum augendArg, Datum addendArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    augend = augendArg;
+    addend = addendArg;
+  }
+}
+
+class SignedSubtract extends PseudoComputation {
+  Datum minuend;
+  Datum subtrahend;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    minuend = f(minuend);
+    subtrahend = f(subtrahend); 
+  }
+
+  Null constructor(Datum minuendArg, Datum subtrahendArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    minuend = minuendArg;
+    subtrahend = subtrahendArg;
+  }
+}
+
+class SignedMultiply extends PseudoComputation {
+  Datum multiplicand;
+  Datum multiplier;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    multiplicand = f(multiplicand);
+    multiplier = f(multiplier); 
+  }
+
+  Null constructor(Datum multiplicandArg, Datum multiplierArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    multiplicand = multiplicandArg;
+    multiplier = multiplierArg;
+  }
+}
+
+class SignedDivide extends PseudoComputation {
+  Datum dividend;
+  Datum divisor;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    dividend = f(dividend);
+    divisor = f(divisor); 
+  }
+
+  Null constructor(Datum dividendArg, Datum divisorArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    dividend = dividendArg;
+    divisor = divisorArg;
+  }
+}
+
+class SignedModulus extends PseudoComputation {
+  Datum dividend;
+  Datum divisor;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    dividend = f(dividend);
+    divisor = f(divisor); 
+  }
+
+  Null constructor(Datum dividendArg, Datum divisorArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    dividend = dividendArg;
+    divisor = divisorArg;
+  }
+}
+
+class UnsignedAdd extends PseudoComputation {
+  Datum augend;
+  Datum addend;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    augend = f(augend);
+    addend = f(addend);
+  }
+
+  Null constructor(Datum augendArg, Datum addendArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    augend = augendArg;
+    addend = addendArg;
+  }
+}
+
+class UnsignedSubtract extends PseudoComputation {
+  Datum minuend;
+  Datum subtrahend;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    minuend = f(minuend);
+    subtrahend = f(subtrahend);
+  }
+
+  Null constructor(Datum minuendArg, Datum subtrahendArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    minuend = minuendArg;
+    subtrahend = subtrahendArg;
+  }
+}
+
+class UnsignedMultiply extends PseudoComputation {
+  Datum multiplicand;
+  Datum multiplier;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    multiplicand = f(multiplicand);
+    multiplier = f(multiplier); 
+  }
+
+  Null constructor(Datum multiplicandArg, Datum multiplierArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    multiplicand = multiplicandArg;
+    multiplier = multiplierArg;
+  }
+}
+
+class UnsignedDivide extends PseudoComputation {
+  Datum dividend;
+  Datum divisor;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    dividend = f(dividend);
+    divisor = f(divisor); 
+  }
+
+  Null constructor(Datum dividendArg, Datum divisorArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    dividend = dividendArg;
+    divisor = divisorArg;
+  }
+}
+
+class UnsignedModulus extends PseudoComputation {
+  Datum dividend;
+  Datum divisor;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    dividend = f(dividend);
+    divisor = f(divisor); 
+  }
+
+  Null constructor(Datum dividendArg, Datum divisorArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    dividend = dividendArg;
+    divisor = divisorArg;
+  }
+}
+
+class ShiftPseudoComputation extends PseudoComputation {
+  Datum lhs;
+  Datum rhs;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    lhs = f(lhs);
+    rhs = f(rhs); 
+  }
+
+  Null constructor(Datum lhsArg, Datum rhsArg, String commentArg, String resultCommentArg) {
+    super.constructor(commentArg, resultCommentArg);
+    lhs = lhsArg;
+    rhs = rhsArg;
+  }
+}
+
+class ShiftLeft extends ShiftPseudoComputation { }
+class ShiftRight extends ShiftPseudoComputation { }
+
+class CodeFlowPseudoInstruction extends PseudoInstruction {
+  // Moves variables to consistent locations after a block.
+  //
+  // arguments:
+  //   output: instruction stream to use to add the relevant Mov instructions
+  //   datumMap: variable key -> new destination datum; this is the list of variables that need to be moved
+  //   datumStatuses: variable key -> current datum; this is the current state of all variables (where they are now)
+  //   statementName: used to build comments for Mov instructions
+  Null normalizeVariables(PseudoInstructionList output, Map datumMap, Map datumStatuses, String statementName) {
+    // we push and pop to avoid having to deal with loops in how the values are actually stored / restored
+    LocalDatumList destinations = []:LocalDatum;
+    for (variable in datumMap.keys()) {
+      assert(datumStatuses.get(variable) != null, concat('Cannot find current status of variable "', variable, '".'));
+      Datum currentDatum = datumStatuses.get(variable) as Datum;
+      LocalDatum destinationDatum = datumMap.get(variable) as LocalDatum;
+      if (currentDatum != destinationDatum) {
+        append(output, Push(currentDatum, concat('move datums for ', statementName))); 
+        append(destinations, destinationDatum);
+      }
+    }
+    for (destination in reverse(destinations)) {
+      append(output, Pop(destination, concat('move datums for ', statementName)));
+    }
+  }
+
+  // Moves variables to consistent locations (and keeps them alive so that they will definitely
+  // have lasted until this point to be put back, so that they survive returning to the top of a loop).
+  //
+  // arguments:
+  //   output: instruction stream to use to add the relevant Mov instructions
+  //   datumMap: variable key -> new destination datum; this is the list of variables that need to be moved
+  //   datumStatuses: variable key -> current datum; this is the current state of all variables (where they are now)
+  //   statementName: used to build comments for Mov instructions
+  Null restoreVariables(PseudoInstructionList output, Map datumMap, Map datumStatuses, String statementName) {
+    // we push and pop to avoid having to deal with loops in how the values are actually stored / restored
+    LocalDatumList destinations = []:LocalDatum;
+    for (variable in datumMap.keys()) {
+      assert(datumStatuses.get(variable) != null, concat('Cannot find current status of variable "', variable, '".'));
+      Datum currentDatum = datumStatuses.get(variable) as Datum;
+      Datum destinationDatum = datumMap.get(variable) as Datum;
+      if (destinationDatum is LocalDatum && (currentDatum != destinationDatum)) {
+        append(output, Push(currentDatum, concat('restore ', destinationDatum.commentName, ' (from ', currentDatum.commentName, ') for ', statementName))); 
+        append(destinations, destinationDatum as LocalDatum);
+      } else {
+        throw(concat('cannot restore ', destinationDatum.commentName, ' from a ', destinationDatum.className));
+        append(output, Comment(concat('cannot restore ', destinationDatum.commentName, ' from a ', destinationDatum.className)));
+      }
+    }
+    for (destination in reverse(destinations)) {
+      append(output, Pop(destination, concat('restore ', destination.commentName, ' for ', statementName))); 
+      append(output, KeepAlive(destination));
+    }
+  }
+}
+
+class Return extends CodeFlowPseudoInstruction {
+  //#override
+  Boolean flatten(PseudoInstructionList output, Map datumStatuses, BlockConfigurationList blocks) {
+    Integer index = len(blocks) - 1;
+    BlockConfiguration block;
+    while (index >= 0) {
+      assert(index < len(blocks), 'invariant violation');
+      block = blocks[index];
+      normalizeVariables(output, block.datumDestinations, datumStatuses, 'return');
+      index -= 1;
+    }
+    append(output, Jmp(null, block.bottomLabel, 'return (jump to epilog)'));
+    return true;
+  }
+}
+
+class Break extends CodeFlowPseudoInstruction {
+  //#override
+  Boolean flatten(PseudoInstructionList output, Map datumStatuses, BlockConfigurationList blocks) {
+    Integer index = len(blocks) - 1;
+    BlockConfiguration block;
+    while (true) {
+      assert(index < len(blocks), 'invariant violation');
+      assert(index >= 0, 'invariant violation');
+      block = blocks[index];
+      normalizeVariables(output, block.datumDestinations, datumStatuses, 'break');
+      if (block.isLoop) {
+        break;
+      }
+      index -= 1;
+      if (index < 0) {
+        assert(false, 'contract violation, no loop found to break out of');
+      }
+    }
+    append(output, Jmp(null, block.bottomLabel, 'break'));
+    return true;
+  }
+}
+
+class Continue extends CodeFlowPseudoInstruction {
+  //#override
+  Boolean flatten(PseudoInstructionList output, Map datumStatuses, BlockConfigurationList blocks) {
+    Integer index = len(blocks) - 1;
+    BlockConfiguration block;
+    while (true) {
+      assert(index < len(blocks), 'invariant violation');
+      assert(index >= 0, 'invariant violation');
+      block = blocks[index];
+      restoreVariables(output, block.datumOrigins!, datumStatuses, 'continue');
+      if (block.isLoop) {
+        break;
+      }
+      index -= 1;
+      if (index < 0) {
+        throw('contract violation, no loop found to break out of');
+      }
+    }
+    append(output, Jmp(null, block.topLabel!, 'continue'));
+    return true;
+  }
+}
+
+class VariableDeclaration extends PseudoInstruction {
+  Object variable;
+  Datum datum;
+
+  //#override
+  Boolean flatten(PseudoInstructionList output, Map datumStatuses, BlockConfigurationList blocks) {
+    assert(datumStatuses.get(variable) == null, 'variable existed before being declared');
+    assert(len(blocks) == 0 || (last(blocks) as BlockConfiguration).datumOrigins == null || (last(blocks) as BlockConfiguration).datumOrigins!.get(variable) == null, 'variable had an origin before existing');
+    assert(len(blocks) == 0 || (last(blocks) as BlockConfiguration).datumDestinations.get(variable) == null, 'variable escaped its block');
+    datumStatuses.set(variable, datum);
+    return false;
+  }
+
+  Null constructor(Object variableArg, Datum datumArg) {
+    super.constructor();
+    variable = variableArg;
+    datum = datumArg;
+  }
+}
+
+class UpdateVariable extends PseudoInstruction {
+  Object variable;
+  Datum datum;
+
+  //#override
+  Boolean flatten(PseudoInstructionList output, Map datumStatuses, BlockConfigurationList blocks) {
+    datumStatuses.set(variable, datum);
+    return false;
+  }
+
+  Null constructor(Object variableArg, Datum datumArg) {
+    super.constructor();
+    variable = variableArg;
+    datum = datumArg;
+  }
+}
+
+class BlockPseudoInstruction extends PseudoInstruction {
+  Map datumDestinations; // each block has a map of "variable" -> datum
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    unimplemented(); // datumDestinations
+  }
+
+  Null constructor(Map datumDestinationsArg) {
+    super.constructor();
+    datumDestinations = datumDestinationsArg;
+  }
+}
+
+class If extends BlockPseudoInstruction {
+  Datum condition; // not false means do block1, false means do block2
+  PseudoInstructionList block1;
+  PseudoInstructionList block2;
+  AssemblerLabel parentLabel;
+  String commentForIf;
+  String commentForElse;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    condition = f(condition);
+    unimplemented(); // block1, block2
+  }
+
+  Null normalizeVariables(PseudoInstructionList block, Map datumStatuses) {
+    for (variable in datumDestinations.keys()) {
+      Datum currentDatum = datumStatuses.get(variable) as Datum;
+      LocalDatum destinationDatum = datumDestinations.get(variable) as LocalDatum;
+      if (currentDatum != destinationDatum) {
+        append(block, Mov(destinationDatum, currentDatum, concat('fix variable "', destinationDatum.commentName, '" for end of block')));
+        datumStatuses.set(variable, destinationDatum);
+      }
+    }
+  }
+
+  //#override
+  Boolean flatten(PseudoInstructionList output, Map datumStatuses, BlockConfigurationList blocks) {
+    AssemblerLabel ifLabel = parentLabel.deriveWith('if');
+    AssemblerLabel elseLabel = parentLabel.deriveWith('else');
+    AssemblerLabel endifLabel = parentLabel.deriveWith('endif');
+    append(blocks, BlockConfiguration(null, datumDestinations, null, endifLabel, false));
+    append(output, Jmp(condition, ifLabel, concat('if ', condition.commentName, ' is true')));
+    append(output, Jmp(null, elseLabel, concat('else ', condition.commentName, ' is false')));
+    Boolean terminated;
+
+    // IF BLOCK
+    Map ifBlockDatumStatuses = datumStatuses.copy();
+    append(output, Label(ifLabel, commentForIf));
+    append(output, BlockStartMarker());
+    terminated = false;
+    for (instruction in block1) {
+      terminated = instruction.flatten(output, ifBlockDatumStatuses, blocks);
+      if (terminated) {
+        break;
+      }
+    }
+    if (!terminated) {
+      // If we were not terminated (e.g. via Break or Continue) then
+      // we will never have called normalizeVariables, so we need to do it now.
+      for (variable in datumDestinations.keys()) {
+        assert(ifBlockDatumStatuses.get(variable) != null, 'datumStatuses no longer contains expected variable');
+      }
+      normalizeVariables(output, ifBlockDatumStatuses); // updates ifBlockDatumStatuses, not datumStatuses!
+      append(output, Jmp(null, endifLabel, 'skip else block'));
+    }
+    append(output, BlockEndMarker());
+
+    // ELSE BLOCK
+    Map elseBlockDatumStatuses = datumStatuses.copy();
+    append(output, Label(elseLabel, commentForElse));
+    append(output, BlockStartMarker());
+    terminated = false;
+    for (instruction in block2) {
+      terminated = instruction.flatten(output, elseBlockDatumStatuses, blocks);
+      if (terminated) {
+        break;
+      }
+    }
+    if (!terminated) {
+      // If we were not terminated (e.g. via Break or Continue) then
+      // we will never have called normalizeVariables, so we need to do it now.
+      for (variable in datumDestinations.keys()) {
+        assert(datumStatuses.get(variable) != null, 'datumStatuses no longer contains expected variable');
+      }
+      normalizeVariables(output, elseBlockDatumStatuses); // updates elseBlockDatumStatuses, not datumStatuses!
+    }
+
+    // Now update datumStatuses.
+    for (variable in datumDestinations.keys()) {
+      datumStatuses.set(variable, datumDestinations.get(variable) as LocalDatum);
+    }
+    append(output, BlockEndMarker());
+
+    append(output, Label(endifLabel, concat('end of if/else block for ', condition.commentName)));
+    pop(blocks);
+
+    return false; // "if" does not terminate code flow
+  }
+
+  Null constructor(Datum conditionArg, PseudoInstructionList block1Arg, PseudoInstructionList block2Arg, AssemblerLabel parentLabelArg, Map datumDestinationsArg, String commentForIfArg, String commentForElseArg) {
+    super.constructor(datumDestinationsArg);
+    condition = conditionArg;
+    block1 = block1Arg;
+    block2 = block2Arg;
+    parentLabel = parentLabelArg;
+    commentForIf = commentForIfArg;
+    commentForElse = commentForElseArg;
+  }
+}
+
+class Loop extends BlockPseudoInstruction {
+  PseudoInstructionList block;
+  AssemblerLabel parentLabel;
+  Set datumsUsed;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    unimplemented(); // block, datumsUsed
+  }
+
+  //#override
+  Boolean flatten(PseudoInstructionList output, Map datumStatuses, BlockConfigurationList blocks) {
+    Map datumOrigins = Map(); // Object -> Datum
+    for (variable in datumDestinations.keys()) {
+      assert(datumStatuses.get(variable) != null, concat('datumStatuses does not contain expected variable (available variables: ', datumStatuses, ', wanted ', variable, ')'));
+      datumOrigins.set(variable, datumStatuses.get(variable));
+    }
+    AssemblerLabel beforeLabel = parentLabel.deriveWith('before');
+    AssemblerLabel afterLabel = parentLabel.deriveWith('after');
+    append(blocks, BlockConfiguration(datumOrigins, datumDestinations, beforeLabel, afterLabel, true));
+
+    Map datumStorage = Map(); // Datum -> Storage
+    append(output, Label(beforeLabel, 'top of loop'));
+    append(output, BlockStartMarker());
+    for (datum in datumsUsed.values()) {
+      Storage storage = Storage();
+      datumStorage.set(datum, storage);
+      append(output, Save(datum as Datum, storage));
+    }
+    Boolean terminated = false;
+    for (instruction in block) {
+      terminated = instruction.flatten(output, datumStatuses, blocks);   
+      if (terminated) {
+        break;
+      }
+    }
+    for (datum in datumsUsed.values()) {
+      append(output, Restore(datum as Datum, datumStorage.get(datum) as Storage));
+    }
+    append(output, BlockEndMarker());
+    append(output, Label(afterLabel, 'bottom of loop'));
+
+    for (variable in datumDestinations.keys()) {
+      assert(datumStatuses.get(variable) != null, 'datumStatuses no longer contains expected variable');
+      datumStatuses.set(variable, datumDestinations.get(variable) as LocalDatum);
+    }
+
+    pop(blocks);
+    return false;
+  }
+
+  Null constructor(PseudoInstructionList blockArg, AssemblerLabel parentLabelArg, Map datumDestinationsArg, Set datumsUsedArg) {
+    super.constructor(datumDestinationsArg);
+    block = blockArg;
+    parentLabel = parentLabelArg;
+    datumsUsed = datumsUsedArg;
+  }
+}
+
+
+class Block extends PseudoInstruction {
+  PseudoInstructionList block;
+  AssemblerLabel parentLabel;
+  String name;
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    unimplemented(); // block
+  }
+
+  //#override
+  Boolean flatten(PseudoInstructionList output, Map datumStatuses, BlockConfigurationList blocks) {
+    AssemblerLabel afterLabel = parentLabel.deriveWith('end');
+    append(blocks, BlockConfiguration(Map(), Map(), null, afterLabel, false));
+    append(output, BlockStartMarker());
+    Boolean terminated = false;
+    for (instruction in block) {
+      terminated = instruction.flatten(output, datumStatuses, blocks);
+      if (terminated) {
+        break;
+      }
+    }
+    append(output, BlockEndMarker());
+    append(output, Label(afterLabel, concat('end of ', name)));
+    pop(blocks);
+    return false;
+  }
+
+  Null constructor(PseudoInstructionList blockArg, AssemblerLabel parentLabelArg, String nameArg) {
+    super.constructor();
+    block = blockArg;
+    parentLabel = parentLabelArg;
+    name = nameArg;
+  }
+}
+
+class Debugger extends PseudoInstruction { }

@@ -1,0 +1,133 @@
+// expected output: PASS
+
+class Foo {
+  Null x() {}
+}
+
+class Bar {
+  Null x() {}
+}
+
+Null _verify() {
+  _garbageCollector();
+  assert(_blockCount == 2, 'leak');
+}
+
+Null test1() {
+  Foo foo = Foo();
+  return;
+  foo.x();
+}
+test1();
+_verify();
+
+Null test2() {
+   Foo foo = Foo();
+   foo.x();
+   return;
+}
+test2();
+_verify();
+ 
+Null test3(Boolean condition) {
+  Foo foo = Foo();
+  Bar bar = Bar();
+  if (condition) {
+    return;
+    bar.x();
+  }
+  foo.x();
+  return;
+}
+test3(true);
+test3(false);
+_verify();
+
+Null test4(Boolean condition) {
+  Foo foo = Foo();
+  Bar bar = Bar();
+  if (condition) {
+    bar.x();
+  }
+  foo.x();
+}
+test4(true);
+test4(false);
+_verify();
+
+Null test5(Boolean condition) {
+  Foo foo = Foo();
+  if (condition) {
+    Bar bar = Bar();
+    bar.x();
+  }
+  foo.x();
+  return;
+}
+test5(true);
+test5(false);
+_verify();
+
+Null test6(Boolean condition) {
+  Foo foo = Foo();
+  Bar bar = Bar();
+  if (condition) {
+    foo.x();
+  } else {
+    bar.x(); 
+  }
+  return;
+}
+test6(true);
+test6(false);
+_verify();
+
+Null test7(Boolean condition) {
+  Foo foo = Foo();
+  Bar bar = Bar();
+  while (condition) {
+    foo.x();
+    if (condition) {
+      return;
+    }
+    bar.x();
+  }
+  return;
+}
+test7(true);
+test7(false);
+_verify();
+
+Null test8(Boolean condition) {
+  Foo foo = Foo();
+  Bar bar = Bar();
+  while (condition) {
+    foo.x();
+    if (condition) {
+      break;
+    }
+    bar.x();
+  }
+  return;
+}
+test8(true);
+test8(false);
+_verify();
+
+Null test9(Boolean condition) {
+  Foo foo = Foo();
+  while (condition) {
+    Bar bar = Bar();
+    foo.x();
+    if (condition) {
+      break;
+    }
+    bar.x();
+  }
+  return;
+}
+test9(true);
+test9(false);
+_verify();
+
+println('PASS');

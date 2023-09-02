@@ -1,0 +1,11 @@
+// expected error: invalid constructor forward declaration for class with no explicit constructor: no super constructor with matching argument types
+// unexpected output: FAIL
+
+println('FAIL');
+
+fwdclass A;
+fwdclass B(String, Integer) extends A;
+class A { Null constructor(String foo) { } }
+class B extends A { }
+
+B;

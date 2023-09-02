@@ -1,0 +1,3 @@
+// expected error: Cannot break out of no loop
+
+break;

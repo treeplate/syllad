@@ -7,13 +7,14 @@ class A {
 }
 
 class B extends A {
-    Null foo() {
-      println('FAIL');
-    }
-
-    Null bar() {
-      super.foo();
-    }
+  //#override
+  Null foo() {
+    println('FAIL');
+  }
+  
+  Null bar() {
+    super.foo();
+  }
 }
 
 class C extends B {

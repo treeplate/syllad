@@ -1,0 +1,7 @@
+// expected output: PASS
+
+fwdclass Test;
+class Test {}
+
+println('PASS');
+Test;

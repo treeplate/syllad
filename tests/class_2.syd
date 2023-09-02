@@ -1,4 +1,7 @@
 // expected error: cannot reassign 'x'
+// unexpected output: FAIL
+
+println('FAIL');
 
 class A {
   Whatever x;

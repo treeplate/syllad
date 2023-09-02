@@ -1,0 +1,22 @@
+// expected error: runtime type error
+// expected output: PASS
+// expected output: CREATING
+// unexpected output: FAIL
+
+Whatever zap() {
+  println('CREATING');
+  return 'hello';
+}
+
+class A {
+  IntegerFunction foo = zap(); // type error at object init
+}
+
+class B extends A {
+  //#override
+  Integer foo() { return 1; }
+}
+
+println('PASS');
+B().foo();
+println('FAIL');

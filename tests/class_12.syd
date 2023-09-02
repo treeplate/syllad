@@ -1,4 +1,7 @@
 // expected error: class A has no superclass - attempted 'super'
+// unexpected output: FAIL
+
+println('FAIL');
 
 class A {
     Null constructor() {

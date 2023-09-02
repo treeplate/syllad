@@ -1,0 +1,8 @@
+// expected stderr: test
+// expected error: throw
+
+String toString() {
+  throw('test');
+}
+
+println(toString());

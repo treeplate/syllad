@@ -1,3 +1,6 @@
 // expected error: []:Anything, a AnythingList, is not a StringList (line 3)
+// unexpected output: FAIL
+
+println('FAIL');
 
 StringList foo = []:Anything;

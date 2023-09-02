@@ -1,4 +1,7 @@
 // expected error: error: subscript index out of range (0 is not in range 0..-1)
+// expected output: PASS
+
+println('PASS');
 
 Null test(Integer... args) {
   print(args[0]);
