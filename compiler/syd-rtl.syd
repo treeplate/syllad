@@ -1,3 +1,6 @@
+// RUNTIME LIBRARY
+// Code in this file defines and uses compiler intrinsics.
+
 // TODO: turn RTL privates into foo# syntax
 // TODO: complain if a function is __intrinsic and we don't know about it
 
@@ -495,34 +498,6 @@ WhateverList copy(WhateverIterable iterable) {
   return list;
 }
 
-Whatever first(WhateverIterable iterable) {
-  WhateverIterator i = iterator(iterable);
-  next(i);
-  return current(i);
-}
-
-Whatever last(WhateverIterable iterable) {
-  if (iterable is WhateverList) {
-    return (iterable as WhateverList)[len(iterable as WhateverList) - 1];
-  }
-  Whatever result;
-  for (value in iterable) {
-    result = value;
-  }
-  return result;
-}
-
-Whatever single(WhateverIterable iterable) {
-  WhateverIterator i = iterator(iterable);
-  next(i);
-  Whatever result = current(i);
-  if (next(i)) {
-    stderr('single() called with Iterable with more than one element');
-    exit(1);
-  }
-  return result;
-}
-
 
 // CLASSES
 
@@ -625,66 +600,6 @@ WhateverFunction _dynamicLookup(Anything receiver, Integer methodId) __intrinsic
   }
   throw(concat('No member with specified name found on "', (receiver as __Object).className, '".'));
 }
-
-
-// STANDARD LIBRARY
-
-String chr(Integer character) {
-  // TODO: implement this
-  stderr('chr is not implemented');
-  exit(1);
-}
-
-String _joinListOffset(StringList args, Integer offset) {
-  if (len(args) - offset == 0) {
-    return '';
-  }
-  if (len(args) - offset == 1) {
-    return concat(args[offset]);
-  }
-  return concat(args[offset], _joinListOffset(args, offset + 1));
-}
-
-String joinList(WhateverList args) {
-  // TODO: this should allocate the buffer ahead of time and copy each list into the buffer
-  return _joinListOffset(args, 0);
-}
-
-String stringTimes(String str, Integer count) {
-  // TODO: implement this
-  stderr('stringTimes is not implemented');
-  exit(1);
-}
-
-StringList charsOf(String str) {
-  // TODO: implement this
-  stderr('charsOf is not implemented');
-  exit(1);
-}
-
-StringList scalarValues(String str) {
-  // TODO: implement this
-  stderr('scalarValues is not implemented');
-  exit(1);
-}
-
-String hex(Integer num) {
-  // TODO: implement this
-  stderr('hex is not implemented');
-  exit(1);
-}
-
-String readFile(String file) {
-  // TODO: implement this
-  stderr('readFile is not implemented');
-  exit(1);
-}
-
-
-// // TODO: depends on charsOf, stringTimes, lists...
-// String padLeft(String line, Integer length, String padding) {
-//   return concat(stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))), line);
-// }
 
 
 // I/O

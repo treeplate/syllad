@@ -87,6 +87,9 @@ CompilationEnvironment compilationEnvironment = CompilationEnvironment();
 compilationEnvironment.setRuntimeLibrary(
   parseTokens(tokenize(scalarValues(readFile('syd-rtl.syd')), 'runtime library', true), 'runtime library', false).generateScopes(compilationEnvironment)
 );
+compilationEnvironment.setStandardLibrary(
+  parseTokens(tokenize(scalarValues(readFile('syd-stdlib.syd')), 'standard library', true), 'standard library', false).generateScopes(compilationEnvironment)
+);
 CompiledLibrary program = processFile(mainProgramFileName, compilationEnvironment, true); // this generates the root Program AST node
 compilationEnvironment.defineLibrary(mainProgramFileName, program);
 Assembler assembler = X64Assembler(compilationEnvironment.rootLabel);

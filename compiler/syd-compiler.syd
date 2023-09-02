@@ -229,6 +229,7 @@ class CompilationEnvironment extends TypeRegistry {
   }
 
   CompiledLibraryNullable runtimeLibrary = null; 
+  CompiledLibraryNullable standardLibrary = null; 
 
   Null declareLibrary(String filename) {
     assert(libraries.get(filename) == null, 'tried to declare library that was already declared');
@@ -261,6 +262,10 @@ class CompilationEnvironment extends TypeRegistry {
 
   Null setRuntimeLibrary(CompiledLibrary runtimeLibraryArg) { 
     runtimeLibrary = runtimeLibraryArg;
+  }
+
+  Null setStandardLibrary(CompiledLibrary standardLibraryArg) { 
+    standardLibrary = standardLibraryArg;
   }
 
   String errorIntrinsicName = '_error';
@@ -322,6 +327,7 @@ class CompilationEnvironment extends TypeRegistry {
   Null finalizeInstructions(Assembler assembler) {
     intrinsicsLibrary.finalizeInstructions(assembler);
     runtimeLibrary!.finalizeInstructions(assembler);
+    standardLibrary!.finalizeInstructions(assembler);
     for (libraryName in libraryNames) {
       (libraries.get(libraryName) as CompiledLibrary).finalizeInstructions(assembler);
     }
@@ -341,6 +347,7 @@ class CompilationEnvironment extends TypeRegistry {
     BoundInstructionList result = []:BoundInstruction;
     intrinsicsLibrary.extractInstructionsInto(result);
     runtimeLibrary!.extractInstructionsInto(result);
+    standardLibrary!.extractInstructionsInto(result);
     for (libraryName in libraryNames) {
       (libraries.get(libraryName) as CompiledLibrary).extractInstructionsInto(result);
     }
@@ -2959,6 +2966,10 @@ class CompiledLibrary extends CompiledStackFrameScope {
     CompiledLibraryNullable runtimeLibrary = compilationEnvironment.runtimeLibrary;
     if (runtimeLibrary != null) {
       importLibrary(runtimeLibrary!);
+    }
+    CompiledLibraryNullable standardLibrary = compilationEnvironment.standardLibrary;
+    if (standardLibrary != null) {
+      importLibrary(standardLibrary!);
     }
   }
 
