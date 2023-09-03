@@ -125,22 +125,50 @@ class ListLiteralExpression extends Expression {
   //#override
   Bucket generateInstructions(CompiledScope scope) {
     CompilationEnvironment environment = scope.environment();
+
+    // Determine the elements of the list.
     BucketList elements = []:Bucket;
     for (value in values) {
       append(elements, value.generateInstructions(scope));
-      // TODO: static type checks
     }
     Integer initialLength = 1;
     if (len(elements) > initialLength) {
       initialLength = len(elements);
     }
+
+    // Determine type of list.
     Type evaluatedElementType;
     if (elementType != null) {
       evaluatedElementType = elementType!.generateInstructions(scope);
     } else {
-      // TODO: infer the type based on the elements of the list
-      evaluatedElementType = environment.coreAnythingType;
+      // infer the type based on the elements of the list
+      TypeNullable currentType = null;
+      for (element in elements) {
+        if (!(element.staticType is WhateverType)) {
+          if (currentType == null) {
+            currentType = element.staticType;
+          } else {
+            if (currentType != element.staticType) {
+              currentType = environment.coreAnythingType;
+              break;
+            }
+          }
+        }
+      }
+      if (currentType == null) {
+        currentType = environment.coreAnythingType;
+      }
+      evaluatedElementType = currentType!;
     }
+      
+    Integer index = 0;
+    for (element in elements) {
+      if (!element.staticType.isSubtypeOf(evaluatedElementType)) {
+        throw(concat('List of type ', evaluatedElementType.name, ' cannot contain element of type ', element.staticType.name, ' at ', values[index].sourceLocation));
+      }
+      index += 1;
+    }
+
     Type type = createOrFindListType(environment, evaluatedElementType);
     type.markConstructed();
     createOrFindIteratorType(environment, evaluatedElementType).markConstructed();
@@ -610,7 +638,7 @@ class UnwrapExpression extends Expression {
       throw(concat('Type of expression (', value.staticType.name, ') is not a nullable type at ', sourceLocation));
     }
     Type unwrappedType = (value.staticType as NullableType).subtype;
-    assert(value.staticType.needDynamicTypeCheckFor(unwrappedType), 'internal error');
+    assert(value.staticType.needRuntimeTypeCheckFor(unwrappedType), 'internal error');
     assert(unwrappedType.isSubtypeOf(value.staticType), 'internal error');
     scope.emit(TypeCheckInstruction(value, unwrappedType, 'value is null', true, LazyComment('check type of ', value, ' is ', unwrappedType, ' and not null')));
     return StaticCastBucket(value, unwrappedType);
@@ -635,7 +663,7 @@ class IsOperatorExpression extends Expression {
   Bucket generateInstructions(CompiledScope scope) {
     Bucket lhs = expression.generateInstructions(scope);
     Type rhs = type.generateInstructions(scope);
-    if (!lhs.staticType.needDynamicTypeCheckFor(rhs)) {
+    if (!lhs.staticType.needRuntimeTypeCheckFor(rhs)) {
       // always true
       return scope.environment().coreTrue;
     }
@@ -704,6 +732,29 @@ class ReinterpretAsOperatorExpression extends Expression {
   }
 
   Null constructor(Expression expressionArg, TypeIdentifier typeArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
+    expression = expressionArg;
+    type = typeArg;
+  }
+}
+
+class DynamicIsOperatorExpression extends Expression {
+  Expression expression;
+  Expression type;
+  
+  //#override
+  String toStringIndent(Integer indent) {
+    return concat(expression.toStringIndent(indent), ' __dynamic_is__ ', type.toStringIndent(indent));
+  }
+
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    Bucket lhs = expression.generateInstructions(scope);
+    Bucket rhs = type.generateInstructions(scope);
+    return scope.compute(StoreDynamicTypeCheckInstruction(rhs, lhs, scope.environment().coreBooleanType, 'evaluate __dynamic_is_ operator', LazyComment('result of "__dynamic_is__" operator')));
+  }
+
+  Null constructor(Expression expressionArg, Expression typeArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     expression = expressionArg;
     type = typeArg;
@@ -895,6 +946,40 @@ class TypeOfExpression extends UnaryExpression {
   //#override
   Bucket generateExpressionInstructions(Bucket rhsValue, CompiledScope scope) {
     return TypeOfBucket(rhsValue, scope.environment().coreIntegerType);
+  }
+}
+
+class ElementTypeFromExpression extends UnaryExpression {
+  //#override
+  String describeOperator() {
+    return '__elementTypeFrom';
+  }
+
+  //#override
+  Type rhsType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
+  }
+
+  //#override
+  Type returnType(CompilationEnvironment environment) {
+    return environment.coreIntegerType;
+  }
+
+  //#override
+  Bucket generateExpressionInstructions(Bucket rhsValue, CompiledScope scope) {
+    // input: type code of iterable
+    // output: type code of elements in iterable
+    // the elementTypeTableLabel is a table of 32 bit wide codes (4 bytes wide)
+    // first, multiply the type code by 4 to get the offset into the table in bytes
+    Bucket index = scope.compute(ShiftLeftInstruction(rhsValue, scope.environment().integer(2), scope.environment().coreIntegerType, LazyComment('offset into element type table')));
+    // add the offset of the table to the index to find the memory location of our entry
+    return DereferenceWithStaticTypeBucket(
+      scope.environment().elementTypeTablePointer, 
+      index, 
+      ow.DWord, 
+      scope.environment().coreIntegerType, 
+      LazyComment('element type of ', rhsValue),
+    );
   }
 }
 

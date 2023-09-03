@@ -42,7 +42,7 @@ class Type extends Object {
   // This returns the opposite of isSubtypeOf, except for Whatever, where it always returns true.
   // If this returns false, then you know that this.isSubtypeOf(other) is true.
   // If this returns true, you cannot assume the types are not statically known to be disjoint.
-  Boolean needDynamicTypeCheckFor(Type other) {
+  Boolean needRuntimeTypeCheckFor(Type other) {
     return !isSubtypeOf(other);
   }
 
@@ -93,7 +93,7 @@ class WhateverType extends Type {
   }
 
   //#override
-  Boolean needDynamicTypeCheckFor(Type other) {
+  Boolean needRuntimeTypeCheckFor(Type other) {
     return true;
   }
 

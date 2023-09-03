@@ -469,11 +469,13 @@ class CompilationEnvironment extends TypeRegistry {
 
   AssemblerLabel typeTableLabel;
   Bucket typeTablePointer;
+  AssemblerLabel elementTypeTableLabel;
+  Bucket elementTypeTablePointer;
   AssemblerLabel iteratorTypeTableLabel;
   Bucket iteratorTypeTablePointer;
   AssemblerLabel listTypeTableLabel;
   Bucket listTypeTablePointer;
-  Integer typeTableOffset;
+  Integer typeTableOffset; // the code of the first type to have bits in the type table (type code of type in first column)
   Integer typeTableWidth; // in bits
 
   Null _generateTypeTable(Assembler assembler, AssemblerLabel label) {
@@ -564,7 +566,10 @@ class CompilationEnvironment extends TypeRegistry {
     typeTableWidth = width;
   }
 
-  Null _generateIteratorTypeTable(Assembler assembler, AssemblerLabel label) {
+  // mapper is a function with signature (Type) -> Type
+  // it is passed the element type of every type that is IterableType or AbstractListType
+  // the returned types have their codes put into the generated table
+  ConstantPartList _generateIterableConversionTypeTable(TypeFunction mapper, String tableName) {
     IntegerListList iteratorTypes = []:IntegerList; // groups of 4 integers at a time
     IntegerList buffer = []:Integer;
     IntegerList debugCodes = []:Integer;
@@ -573,10 +578,10 @@ class CompilationEnvironment extends TypeRegistry {
         append(debugCodes, type.code);
         if (type.isSubtypeOf(coreIterableType)) {
           if (type is IterableType) {
-            Type iteratorType = createOrFindIteratorType(this, (type as IterableType).elementType);
+            Type iteratorType = mapper((type as IterableType).elementType);
             append(buffer, iteratorType.code);
           } else if (type is AbstractListType) {
-            Type iteratorType = createOrFindIteratorType(this, (type as AbstractListType).elementType);
+            Type iteratorType = mapper((type as AbstractListType).elementType);
             append(buffer, iteratorType.code);
           } else {
             throw(concat('Unrecognized iterable type: ', type));
@@ -603,69 +608,40 @@ class CompilationEnvironment extends TypeRegistry {
       StringNullable comment;
       if (isFirst) {
         isFirst = false;
-        comment = 'Table mapping iterable types to iterator types';
+        comment = tableName;
       } else {
         comment = null;
       }
       // each code is 32 bits wide, so we use ow.DWord
       return ConstantPart(ow.DWord, map(buffer, buildIntegerDatumNoCommentName) as ImmediateDatumList, comment);
     }
-    ConstantPartList data = map(iteratorTypes, genLines) as ConstantPartList;
-    assembler.addConst(Constant(label, data, null, 'iterator type table'));
+    return map(iteratorTypes, genLines) as ConstantPartList;
+  }
+
+  Null _generateElementTypeTable(Assembler assembler, AssemblerLabel label) {
+    Type mapper(Type elementType) {
+      return elementType;
+    }
+    assembler.addConst(Constant(label, _generateIterableConversionTypeTable(mapper, 'Table mapping iterable types to element types'), null, 'element type table'));
+  }
+
+  Null _generateIteratorTypeTable(Assembler assembler, AssemblerLabel label) {
+    Type mapper(Type elementType) {
+      return createOrFindIteratorType(this, elementType);
+    }
+    assembler.addConst(Constant(label, _generateIterableConversionTypeTable(mapper, 'Table mapping iterable types to iterator types'), null, 'iterator type table'));
   }
 
   Null _generateListTypeTable(Assembler assembler, AssemblerLabel label) {
-    IntegerListList listTypes = []:IntegerList; // groups of 4 integers at a time
-    IntegerList buffer = []:Integer;
-    IntegerList debugCodes = []:Integer;
-    for (type in sortedTypes) {
-      if (type.isConstructed) {
-        append(debugCodes, type.code);
-        if (type.isSubtypeOf(coreIterableType)) {
-          if (type is IterableType) {
-            Type listType = createOrFindListType(this, (type as IterableType).elementType);
-            append(buffer, listType.code);
-          } else if (type is AbstractListType) {
-            Type listType = createOrFindListType(this, (type as AbstractListType).elementType);
-            append(buffer, listType.code);
-          } else {
-            throw(concat('Unrecognized iterable type: ', type));
-          }
-        } else {
-          append(buffer, 0xffffffff);
-        }
-      }
-      if (len(buffer) == 4) {
-        append(listTypes, buffer);
-        buffer = []:Integer;
-      }
+    Type mapper(Type elementType) {
+      return createOrFindListType(this, elementType);
     }
-    if (len(buffer) > 0) {
-      append(listTypes, buffer);
-      buffer = []:Integer;
-    }
-    // now we generate the Constant from the listTypes array
-    assert(first(debugCodes) == 0, 'expected sorted type codes to start at zero');
-    assert(last(debugCodes) == len(debugCodes) - 1, 'expected sorted type codes to be consecutive');
-
-    Boolean isFirst = true;
-    ConstantPart genLines(IntegerList buffer) {
-      StringNullable comment;
-      if (isFirst) {
-        isFirst = false;
-        comment = 'Table mapping iterable types to list types';
-      } else {
-        comment = null;
-      }
-      // each code is 32 bits wide, so we use ow.DWord
-      return ConstantPart(ow.DWord, map(buffer, buildIntegerDatumNoCommentName) as ImmediateDatumList, comment);
-    }
-    ConstantPartList data = map(listTypes, genLines) as ConstantPartList;
-    assembler.addConst(Constant(label, data, null, 'list type table'));
+    assembler.addConst(Constant(label, _generateIterableConversionTypeTable(mapper, 'Table mapping iterable types to list types'), null, 'list type table'));
   }
 
   Null generateTypeTables(Assembler assembler) {
     _generateTypeTable(assembler, typeTableLabel);
+    _generateElementTypeTable(assembler, elementTypeTableLabel);
     _generateIteratorTypeTable(assembler, iteratorTypeTableLabel);
     _generateListTypeTable(assembler, listTypeTableLabel);
   }
@@ -683,6 +659,9 @@ class CompilationEnvironment extends TypeRegistry {
           return IntegerDatum(width / 8 + 1, original.commentName);
         }
         return IntegerDatum(width / 8, original.commentName);
+      }
+      if (original is TypeTableOffsetDatum) {
+        return IntegerDatum(typeTableOffset, original.commentName);
       }
       if (original is TypeTablePointerDatum) {
         return typeTablePointer.currentValueDatum();
@@ -743,6 +722,8 @@ class CompilationEnvironment extends TypeRegistry {
     super.constructor();
     typeTableLabel = rootLabel.deriveWith('typeTable');
     typeTablePointer = DataLabelBucket(typeTableLabel, coreIntegerType);
+    elementTypeTableLabel = rootLabel.deriveWith('elementTypeTable');
+    elementTypeTablePointer = DataLabelBucket(elementTypeTableLabel, coreIntegerType);
     iteratorTypeTableLabel = rootLabel.deriveWith('iteratorTypeTable');
     iteratorTypeTablePointer = DataLabelBucket(iteratorTypeTableLabel, coreIntegerType);
     listTypeTableLabel = rootLabel.deriveWith('listTypeTable');

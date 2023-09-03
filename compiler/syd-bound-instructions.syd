@@ -121,25 +121,43 @@ class BoundInstruction extends Object {
     return output;
   }
 
+  Datum typeCheckCalculations(
+    PseudoInstructionList output, 
+    Datum typeTableWidth,
+    Datum typeBit,
+    Datum typeByte,
+    Datum typeTablePointer,
+    Datum valueType,
+    String resultComment,
+    String expressionComment,
+  ) {
+    Datum timesWidth = compute(output, UnsignedMultiply(valueType, typeTableWidth, concat('multiply ', valueType.commentName, ' by ', typeTableWidth.commentName), '"type * typeTableWidth"'));
+    Datum plusType = compute(output, UnsignedAdd(timesWidth, typeByte, concat('add ', typeByte.commentName), '"(type * typeTableWidth) + typeByte"'));
+    Datum bytePointer = compute(output, UnsignedAdd(plusType, typeTablePointer, concat('add ', typeTablePointer.commentName), ' pointer to byte containing needed bit'));
+    Datum byteValue = compute(output, LoadByte(bytePointer, 'obtain byte from type table containing the bit we want to check', 'byte containing needed bit'));
+    return compute(output, BitTest(byteValue, typeBit, concat('check the specific bit from the type table that corresponds to ', expressionComment), resultComment));
+  }
+
   Datum typeCheck(PseudoInstructionList output, Bucket value, Type type, Boolean trustValueStaticType, Boolean checkForRedundancies, String resultComment) {
-    assert(!checkForRedundancies || !trustValueStaticType || value.staticType.needDynamicTypeCheckFor(type), 'contract violation - redundant, known to not need dynamic type check');
+    assert(!checkForRedundancies || !trustValueStaticType || value.staticType.needRuntimeTypeCheckFor(type), 'contract violation - redundant, known to not need dynamic type check');
     assert(!checkForRedundancies || type.isSubtypeOf(value.staticType), concat('contract violation - redundant, ', type, ' is known to not be subtype of ', value.staticType));
     type.markUsedInTypeCheck();
-
     Datum typeTableWidth = TypeTableWidthDatum('type table width (in bytes)');
     Datum typeBit = TypeBitDatum(type, concat('type bit of ', type.name));
     Datum typeByte = TypeByteDatum(type, concat('type byte of ', type.name));
     Datum typeTablePointer = TypeTablePointerDatum('type table pointer');
     Datum valueType = value.currentTypeDatum();
+    return typeCheckCalculations(output, typeTableWidth, typeBit, typeByte, typeTablePointer, valueType, resultComment, concat('"', value.commentName(), ' is ', type.name, '"'));
+  }
 
-    // compute which byte of value's type's row in the type table contains the bit for staticType
-    // bytePointer = (valueType * typeTableWidth) + typeByte + typeTablePointer
-    Datum timesWidth = compute(output, UnsignedMultiply(valueType, typeTableWidth, concat('multiply ', valueType.commentName, ' by ', typeTableWidth.commentName), '"type * typeTableWidth"'));
-    Datum plusType = compute(output, UnsignedAdd(timesWidth, typeByte, concat('add ', typeByte.commentName), '"(type * typeTableWidth) + typeByte"'));
-    Datum bytePointer = compute(output, UnsignedAdd(plusType, typeTablePointer, concat('add ', typeTablePointer.commentName), ' pointer to byte containing needed bit'));
-
-    Datum byteValue = compute(output, LoadByte(bytePointer, 'obtain byte from type table containing the bit we want to check', 'byte containing needed bit'));
-    return compute(output, BitTest(byteValue, typeBit, concat('check the specific bit from the type table that corresponds to "', value.commentName(), ' is ', type.name, '"'), resultComment));
+  Datum dynamicTypeCheck(PseudoInstructionList output, Bucket value, Bucket type, String resultComment) {
+    Datum typeTableWidth = TypeTableWidthDatum('type table width (in bytes)');
+    Datum typeColumn = compute(output, UnsignedSubtract(type.currentValueDatum(), TypeTableOffsetDatum('type table offset'), 'calculate column of type table for type', 'type column'));
+    Datum typeBit = compute(output, UnsignedModulus(typeColumn, IntegerDatum(8, 'bits per byte'), 'calculate which bit in the column is relevant', 'type bit'));
+    Datum typeByte = compute(output, UnsignedDivide(typeColumn, IntegerDatum(8, 'bits per byte'), 'calculate which byte in the column is relevant', 'type byte'));
+    Datum typeTablePointer = TypeTablePointerDatum('type table pointer');
+    Datum valueType = value.currentTypeDatum();
+    return typeCheckCalculations(output, typeTableWidth, typeBit, typeByte, typeTablePointer, valueType, resultComment, concat('"', value.commentName(), ' __dynamic_is_ ', type.commentName(), '"'));
   }
 
   Datum exactTypeCheck(PseudoInstructionList output, Bucket value, Type type) {
@@ -176,11 +194,11 @@ class BoundInstruction extends Object {
     PseudoInstructionList block = []:PseudoInstruction;
     DatumNullable condition = null;
     if (mightBeGc && mightBeString) {
-      if (value.staticType.needDynamicTypeCheckFor(registry.coreReferenceCountedType)) {
+      if (value.staticType.needRuntimeTypeCheckFor(registry.coreReferenceCountedType)) {
         condition = typeCheck(block, value, registry.coreReferenceCountedType, true, true, 'type check result');
       }
     } else if (mightBeGc) {
-      if (value.staticType.needDynamicTypeCheckFor(registry.coreGarbageCollectableType)) {
+      if (value.staticType.needRuntimeTypeCheckFor(registry.coreGarbageCollectableType)) {
         condition = typeCheck(block, value, registry.coreGarbageCollectableType, true, true, 'type check result');
       }
     } else if (mightBeString) {
@@ -260,7 +278,7 @@ class BoundInstruction extends Object {
     Boolean mightBeString = registry.coreStringType.isSubtypeOf(value.staticType) && (type == context.types().coreStringType || type == null);
     PseudoInstructionList block = []:PseudoInstruction;
     if (mightBeGc && !mightBeString) {
-      if (value.staticType.needDynamicTypeCheckFor(registry.coreGarbageCollectableType)) {
+      if (value.staticType.needRuntimeTypeCheckFor(registry.coreGarbageCollectableType)) {
         append(block, If(
           typeCheck(block, value, registry.coreGarbageCollectableType, true, true, 'type check result'),
           doDecref(value, false, false, context),
@@ -286,7 +304,7 @@ class BoundInstruction extends Object {
         }
       }
     } else if (mightBeString && mightBeGc) {
-      if (value.staticType.needDynamicTypeCheckFor(registry.coreReferenceCountedType)) {
+      if (value.staticType.needRuntimeTypeCheckFor(registry.coreReferenceCountedType)) {
         append(block, If(
           typeCheck(block, value, registry.coreReferenceCountedType, true, true, 'type check result'),
           doDecref(value, true, true, context),
@@ -767,7 +785,7 @@ class TypeCheckInstruction extends BoundInstruction {
   PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
     PseudoInstructionList output = []:PseudoInstruction;
     assert(!trustValueStaticType || staticType.isSubtypeOf(value.staticType) || value.staticType.isSubtypeOf(staticType), 'contract violation -- caller should have checked that types could theoretically be compatible');
-    if (!trustValueStaticType || value.staticType.needDynamicTypeCheckFor(staticType)) {
+    if (!trustValueStaticType || value.staticType.needRuntimeTypeCheckFor(staticType)) {
       append(output, Comment(concat('type check: ', reasonForTypeCheck.flatten())));
       append(output, If(
        typeCheck(output, value, staticType, trustValueStaticType, true, 'type check result'),
@@ -848,7 +866,7 @@ class SetReturnValueInstruction extends BoundInstruction {
   //#override
   PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
     PseudoInstructionList output = []:PseudoInstruction;
-    if (returnValue.staticType.needDynamicTypeCheckFor(returnValueStaticType)) {
+    if (returnValue.staticType.needRuntimeTypeCheckFor(returnValueStaticType)) {
       append(output, If(
         typeCheck(output, returnValue, returnValueStaticType, true, !isFallbackReturn, 'type check result'),
         []:PseudoInstruction,
@@ -2069,7 +2087,36 @@ class StoreTypeCheckInstruction extends ComputationBoundInstruction {
     super.constructor(staticTypeArg, resultComment);
     type = typeArg;
     value = valueArg;
-    assert(value.staticType.needDynamicTypeCheckFor(type), 'StoreTypeCheckInstruction is redundant when types are statically known to be correct');
+    assert(value.staticType.needRuntimeTypeCheckFor(type), 'StoreTypeCheckInstruction is redundant when types are statically known to be correct');
+    typeCheckReason = typeCheckReasonArg;
+  }
+}
+
+// does a type check ("__dynamic_is__") on [value] for [type] and puts the boolean result in [target]
+class StoreDynamicTypeCheckInstruction extends ComputationBoundInstruction {
+  Bucket type;
+  Bucket value;
+  String typeCheckReason;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [value, type]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    append(output, Comment(typeCheckReason));
+    Datum result = dynamicTypeCheck(output, value, type, target.commentName());
+    target.assignDatums(result, TypeCodeDatum(target.staticType)); // (boolean)
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket typeArg, Bucket valueArg, Type staticTypeArg, String typeCheckReasonArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    type = typeArg;
+    value = valueArg;
     typeCheckReason = typeCheckReasonArg;
   }
 }

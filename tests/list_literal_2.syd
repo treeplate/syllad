@@ -1,0 +1,44 @@
+// expected output: BEGIN
+// expected output: END
+// unexpected output: FAIL
+
+Integer count = 0;
+Null expect(Boolean condition, Boolean result) {
+  count += 1;
+  if (condition != result) {
+    println('FAIL', count);
+  }
+}
+
+println('BEGIN');
+expect([] is AnythingList, true); // 1
+expect([] is WhateverList, true); // 2
+expect([] is IntegerList, false); // 3
+expect([]:Anything is AnythingList, true); // 4
+expect([]:Anything is WhateverList, true); // 5
+expect([]:Anything is IntegerList, false); // 6
+expect([]:Whatever is AnythingList, true); // 7
+expect([]:Whatever is WhateverList, true); // 8
+expect([]:Whatever is IntegerList, true); // 9
+expect([]:Integer is AnythingList, false); // 10
+expect([]:Integer is WhateverList, true); // 11
+expect([]:Integer is IntegerList, true); // 12
+expect([1] is AnythingList, false); // 13
+expect([1] is IntegerList, true); // 14
+expect([1, 2] is AnythingList, false); // 15
+expect([1, 2] is IntegerList, true); // 16
+expect([1, 2 as Whatever] is AnythingList, false); // 17
+expect([1, 2 as Whatever] is IntegerList, true); // 18
+expect([1 as Whatever, 2] is AnythingList, false); // 19
+expect([1 as Whatever, 2] is IntegerList, true); // 20
+expect([1 as Whatever, 2 as Whatever] is AnythingList, true); // 21
+expect([1 as Whatever, 2 as Whatever] is IntegerList, false); // 22
+
+expect([1, '2'] is AnythingList, true); // 23
+expect([1, '2'] is IntegerList, false); // 24
+expect(['1', 2] is AnythingList, true); // 25
+expect(['1', 2] is IntegerList, false); // 26
+expect(['1', '2'] is AnythingList, false); // 27
+expect(['1', '2'] is IntegerList, false); // 28
+expect(['1', '2'] is StringList, true); // 29
+println('END');

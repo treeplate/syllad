@@ -420,6 +420,9 @@ Null _growList(WhateverList list) {
 }
 
 Null append(WhateverList list, Anything element) __intrinsic {
+  if (!(element __dynamic_is__ __elementTypeFrom __typeOf list)) {
+    throw('type error in append');
+  }
   _gcLocked += 1;
   Integer intermediaryAddress = list __as__ Integer;
   Integer size = __readFromAddress(intermediaryAddress + _gcBlockData + 0 + 8);

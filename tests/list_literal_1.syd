@@ -1,0 +1,19 @@
+// expected output: BEGIN
+// expected output: test1
+// expected output: test2
+// unexpected output: END
+// expected error: type error
+
+Whatever test1() {
+  println('test1');
+  return 1;
+}
+
+Whatever test2() {
+  println('test2');
+  return '2';
+}
+
+println('BEGIN');
+[test1(), test2()]:String;
+println('END');

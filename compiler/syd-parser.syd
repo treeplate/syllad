@@ -98,6 +98,11 @@ Expression parseUnaryExpression(TokenConsumer source) {
     SourceLocation location = source.lastLocation();
     return TypeOfExpression(parseUnaryExpression(source), location);
   }
+  if (source.isNextIdentifier('__elementTypeFrom')) {
+    source.expectIdentifier('__elementTypeFrom');
+    SourceLocation location = source.lastLocation();
+    return ElementTypeFromExpression(parseUnaryExpression(source), location);
+  }
   if (source.isNextIdentifier('__iteratorTypeFrom')) {
     source.expectIdentifier('__iteratorTypeFrom');
     SourceLocation location = source.lastLocation();
@@ -152,6 +157,11 @@ Expression parseUnaryExpression(TokenConsumer source) {
       source.expectIdentifier('__as__');
       String typeName = source.readIdentifier();
       result = ReinterpretAsOperatorExpression(result, TypeIdentifier(typeName, source.lastLocation()), source.lastLocation());
+      continue;
+    }
+    if (source.isNextIdentifier('__dynamic_is__')) {
+      source.expectIdentifier('__dynamic_is__');
+      result = DynamicIsOperatorExpression(result, parseUnaryExpression(source), source.lastLocation());
       continue;
     }
     if (source.isNextIdentifier('__dynamic_as__')) {

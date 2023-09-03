@@ -124,6 +124,8 @@ class TypeCodeDatum extends CompileTimeNumericDatum {
 
 class TypeTableWidthDatum extends ImmediateDatum { }
 
+class TypeTableOffsetDatum extends ImmediateDatum { }
+
 class TypeTablePointerDatum extends ImmediateDatum { }
 
 class TypeBitDatum extends ImmediateDatum {
