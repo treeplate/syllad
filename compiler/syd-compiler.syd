@@ -177,7 +177,7 @@ class CompilationEnvironment extends TypeRegistry {
 
   SentinelBucket coreSentinel;
   ConstantBucket coreNull;
-  ConstantBucket coreTrue; // included for completeness, so #ignore_unused
+  ConstantBucket coreTrue;
   ConstantBucket coreFalse;
 
   Map stringAtomTable = Map(); // String -> Constant
@@ -1745,16 +1745,13 @@ class ClassType extends Type {
 
   //#override
   Boolean isSubtypeOf(Type other) {
-    if (this == other) {
-      return true;
-    }
-    if (supertype != this) {
-      return supertype.isSubtypeOf(other);
-    }
-    return other is AnythingType
+    return other == this
+        || other is AnythingType
         || other is WhateverType
         || other is GarbageCollectableType
-        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
+        || other is ReferenceCountedType
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype))
+        || (supertype != this && supertype.isSubtypeOf(other));
   }
   
   //#override
@@ -1986,13 +1983,13 @@ class CompiledScope extends Object {
       LazyComment('callee'),
     );
     // Extract closure and this from function pointer structure
-    Bucket closure = DereferenceWithStaticTypeBucket(
+    Bucket closure = emitCopy(DereferenceWithStaticTypeBucket(
       target,
       environment.integer(_subroutineClosurePointer),
       ow.QWord,
       environment.coreClosureType,
       LazyComment('closure'),
-    );
+    ));
     Bucket thisPointer = DereferenceWithOffsetsBucket(
       target,
       environment.integer(_subroutineReceiverPointer),
@@ -2076,7 +2073,6 @@ class CompiledScope extends Object {
     appendReturn(result);
   }
 
-  // due to a bug in the intrerpreter we have to mark this #ignore_unused
   Null finalizeInstructions(Assembler assembler) {}
 
   AssemblerLabel createLabel() {
@@ -2747,13 +2743,13 @@ class BuiltInReadFromAddressIntrinsic extends CompilerIntrinsic {
 
   //#override
   Bucket inlineBody(CompiledScope scope, BucketList arguments) {
-    return DereferenceWithStaticTypeBucket(
+    return scope.emitCopy(DereferenceWithStaticTypeBucket(
       arguments[0],
       environment().integer(0), 
       ow.QWord, 
       environment().coreIntegerType,
       LazyComment(arguments[0]),
-    );
+    ));
   }
 
   Null constructor(CompiledIntrinsicsLibrary parentArg) { 

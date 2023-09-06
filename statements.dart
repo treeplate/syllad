@@ -39,7 +39,7 @@ class ImportStatement extends Statement {
       newStack[newStack.length - 1] = CursorPositionLazyString((newStack.last as NotLazyString).str, line, col, workspace, currentFilename);
     }
     scope.addParent((filesRan[filename] ??
-        (filesRan[filename] = runProgram(file, filename, workspace, scope.intrinsics, typeValidator, false,
+        (filesRan[filename] = runProgram(file, filename, workspace, scope.intrinsics, scope.rtl, typeValidator, false,
             false /* debug and profile mode are only for the main program */, ['INTERPRETER ERROR'], newStack))));
     return StatementResult(StatementResultType.nothing);
   }
@@ -164,6 +164,7 @@ class FunctionStatement extends Statement {
       Scope funscope = Scope(
         false,
         false,
+        scope.rtl,
         parent: thisScope ?? scope,
         stack: stack + [NotLazyString("${fromClass}${name.name}")],
         declaringClass: scope.declaringClass,
@@ -245,6 +246,7 @@ class WhileStatement extends Statement {
         ? Scope(
             false,
             false,
+            scope.rtl,
             parent: scope,
             stack: scope.stack,
             debugName: CursorPositionLazyString('while loop', line, col, workspace, file),
@@ -294,6 +296,7 @@ class NamespaceStatement extends Statement {
     Scope whileScope = NamespaceScope(
       scope,
       namespace,
+      scope.rtl,
     );
     for (Statement statement in body) {
       StatementResult statementResult = statement.run(whileScope);
@@ -325,6 +328,7 @@ class IfStatement extends Statement {
       Scope ifScope = Scope(
         false,
         false,
+        scope.rtl,
         parent: scope,
         stack: scope.stack,
         debugName: CursorPositionLazyString(
@@ -352,6 +356,7 @@ class IfStatement extends Statement {
       Scope elseScope = Scope(
         false,
         false,
+        scope.rtl,
         parent: scope,
         stack: scope.stack,
         debugName: CursorPositionLazyString(
@@ -402,6 +407,7 @@ class ForStatement extends Statement {
       Scope forScope = Scope(
         false,
         false,
+        scope.rtl,
         parent: scope,
         stack: scope.stack,
         debugName: CursorPositionLazyString(
@@ -517,6 +523,7 @@ class EnumStatement extends Statement {
     Scope newScope = Scope(
       false,
       false,
+      scope.rtl,
       intrinsics: scope.intrinsics,
       parent: scope,
       stack: scope.stack + [ConcatenateLazyString(NotLazyString('enum '), VariableLazyString(name))],
@@ -577,6 +584,7 @@ class ClassStatement extends Statement {
     Scope methods = Scope(
       false,
       false,
+      scope.rtl,
       parent: scope,
       stack: [NotLazyString('${name.name}-methods')],
       declaringClass: type,
@@ -592,6 +600,7 @@ class ClassStatement extends Statement {
     Scope staticMembers = Scope(
       false,
       true,
+      scope.rtl,
       parent: superclass == null
           ? null
           : scope.internal_getVar(variables['${superclass!.name}']!)!.valueC<Class>(scope, scope.stack, line, col, workspace, file).staticMembers,
@@ -728,6 +737,7 @@ class ClassStatement extends Statement {
                   Scope thisScope = Scope(
                     true,
                     false,
+                    scope.rtl,
                     parent: scope,
                     stack: stack + [NotLazyString('${name.name}-instance')],
                     debugName: NotLazyString('instance of ${name.name}'),

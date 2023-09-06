@@ -3,6 +3,7 @@ import 'dart:io';
 import 'parser-core.dart';
 import 'runner.dart';
 import 'statement-parser.dart';
+import 'package:path/path.dart' as path;
 
 void main(List<String> args) {
   bool profileMode = false;
@@ -19,13 +20,13 @@ void main(List<String> args) {
     profileMode = true;
     args = args.skip(1).toList();
   }
-  if (!(args.length >= 2)) {
+  if (!(args.length >= 1)) {
     stderr.writeln(
         "This program takes 2+ arguments: the workspace of the file, and the filename, and then the arguments to the program it is running. You have passed in ${args.length}: ${args.map((e) => '|$e|').join(', ')}");
     exit(1);
   }
-  String workspace = args.first;
-  String file = args[1];
+  String workspace = path.dirname(args.first);
+  String file = path.basename(args.first);
   String fileContents = File(workspace + '/' + file).readAsStringSync();
   if (fileContents.startsWith('// expected') || fileContents.startsWith('// unexpected')) {
     const String expectedOutput = '// expected output: ';
@@ -72,12 +73,18 @@ void main(List<String> args) {
     handleVariable(thisVariable);
     handleVariable(toStringVariable);
     handleVariable(throwVariable);
+    handleVariable(stringBufferVariable);
     handleVariable(Variable('Anything'));
     handleVariable(Variable('Integer'));
     handleVariable(Variable('String'));
     handleVariable(Variable('Boolean'));
     handleVariable(Variable('Null'));
     handleVariable(Variable('~root_class'));
+
+    String rtlDirectory = path.dirname(path.fromUri(Platform.script));
+    String rtlPath = path.join(rtlDirectory, 'rtl.syd');
+
+    var rtl = parse(lex(File(rtlPath).readAsStringSync(), rtlDirectory, 'rtl.syd'), rtlDirectory, 'rtl.syd', null, false);
     var parseResult = parse(
         lex(
           fileContents,
@@ -86,22 +93,34 @@ void main(List<String> args) {
         ).toList(),
         workspace,
         file,
-        false,
+        rtl,
         true);
     for (ValueType type in ValueType.types.values) {
       if (type is ClassValueType && type.fwdDeclared) {
         throw BSCException('$type forward-declared but never declared', parseResult.value);
       }
     }
+    Scope rtl2 = runProgram(
+      rtl.key,
+      'rtl.syd',
+      rtlDirectory,
+      null,
+      null,
+      rtl.value,
+      profileMode,
+      debugMode,
+      args,
+    );
     runProgram(
       parseResult.key,
       file,
       workspace,
       null,
+      rtl2,
       parseResult.value,
       profileMode,
       debugMode,
-      args.skip(2).toList(),
+      args,
     );
     File('profile.txt').writeAsStringSync((profile.entries.toList()
           ..sort((kv2, kv1) => kv1.value.key.elapsedMilliseconds.compareTo(kv2.value.key.elapsedMilliseconds)))

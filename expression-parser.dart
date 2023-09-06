@@ -111,7 +111,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
             tokens.expectChar(TokenType.comma);
           }
           elements.add(expr);
-          if (type == null) {
+          if (type == null && !(expr.type.name == whateverVariable)) {
             type = expr.type;
           } else if (expr.type.name == whateverVariable) {
             // has been cast()-ed

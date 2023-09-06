@@ -575,7 +575,7 @@ Statement _parseStatement(TokenConsumer source) {
   // Expression followed by some operator: must be assignment.
   // TODO: the following leads to a weird error when the input is just |''|.
   if (!(expression is LValueExpression)) {
-    throw(source.butFound('assignable lvalue expression', expression.toString()));
+    throw(source.expected('semicolon'));
   }
   if (source.isNext(tt.Equals)) {
     source.expectPunctuation(tt.Equals);
@@ -747,6 +747,14 @@ Statement parseTopLevelStatement(TokenConsumer source) {
     SourceLocation location = source.lastLocation();
     source.expectPunctuation(tt.Semicolon);
     return ForwardClassPropertyDeclaration(hostClass, propertyType, propertyName, location);
+  }
+  if (source.isNextIdentifier('typedef#')) {
+    source.expectIdentifier('typedef#');
+    String name = source.readIdentifier();
+    source.expectIdentifier('is');
+    source.expectIdentifier('GarbageCollectable');
+    source.expectPunctuation(tt.Semicolon);
+    return TypeIntrinsicDeclaration(name, source.lastLocation());
   }
   return parseStatement(source);
 }

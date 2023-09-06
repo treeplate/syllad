@@ -293,7 +293,7 @@ TestResult? runInterpreter(File file) {
   }
   ProcessResult result = Process.runSync(
     'dart',
-    ['run', '--enable-asserts', 'main.dart', '--debug', './' + path.posix.joinAll(path.split(path.dirname(file.path))), path.basename(file.path)],
+    ['run', '--enable-asserts', 'main.dart', '--debug', './' + file.path],
   );
   ResultCode resultCode;
   switch (result.exitCode) {

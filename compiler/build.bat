@@ -6,12 +6,11 @@ ECHO CONFIGURING ENVIRONMENT...
 CALL "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" > NUL
 :RUN
 ECHO COMPILING...
-CD ..
 
 SET TEMPFILE=%TEMP%\%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%%TIME:~9,2%.$$$
 SET TEMPFILE=%TEMPFILE: =0%
 REM add --observe to profile
-CALL "C:\dev\flutter\bin\dart.bat" run main.dart --debug ./compiler syd.syd %1 > %TEMPFILE%
+CALL "C:\dev\flutter\bin\dart.bat" run ..\main.dart --debug syd.syd %1 > %TEMPFILE%
 IF NOT !ERRORLEVEL! == 0 (
     ECHO Compilation failed with exit code %ERRORLEVEL%
     IF !ERRORLEVEL! == -1073741510 ECHO "0xC000013A: STATUS_CONTROL_C_EXIT"
@@ -19,13 +18,12 @@ IF NOT !ERRORLEVEL! == 0 (
     ECHO compiler exit code: %ERRORLEVEL%
     EXIT /B 0
 ) ELSE (
-    MOVE /Y %TEMPFILE% compiler\syd.asm > NUL
+    MOVE /Y %TEMPFILE% syd.asm > NUL
     IF NOT !ERRORLEVEL! == 0 (
         ECHO Could not update syd.asm, error %ERRORLEVEL%
         ECHO == FAILED ==
         EXIT /B %ERRORLEVEL%
     )
-    CD compiler
     ECHO ASSEMBLING AND LINKING...
     IF EXIST "syd.exe" (
         DEL syd.exe

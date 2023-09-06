@@ -1,4 +1,0 @@
-// expected output: Line 1
-// expected output: Line 2
-import '../import_2.syd';
-func('Line 2');

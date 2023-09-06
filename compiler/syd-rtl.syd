@@ -401,7 +401,7 @@ WhateverList _listConstructor(Integer typeCode, Integer initialSize) __intrinsic
   WhateverList list = _constructor(typeCode, 2, 2) as WhateverList;
   __ListData data = _constructor(__typeToCode __ListData, 0, initialSize) as __ListData;
   __writeToAddress(list __as__ Integer + _gcBlockData + 0, __typeOf initialSize);
-  __writeToAddress(list __as__ Integer + _gcBlockData + 8, initialSize __as__ Integer);
+  __writeToAddress(list __as__ Integer + _gcBlockData + 8, initialSize);
   __writeToAddress(list __as__ Integer + _gcBlockData + 16, __typeOf data);
   __writeToAddress(list __as__ Integer + _gcBlockData + 24, data __as__ Integer);
   _gcLocked -= 1;
@@ -605,6 +605,81 @@ WhateverFunction _dynamicLookup(Anything receiver, Integer methodId) __intrinsic
 }
 
 
+// STRING BUFFERS
+
+typedef# StringBuffer is GarbageCollectable;
+
+class StringBufferPart# {
+  String value;
+
+  StringBufferPart#Nullable next = null;
+  Null setNext(StringBufferPart# part) {
+    next = part;
+  }
+
+  Null constructor(String valueArg) {
+    value = valueArg;
+  }
+}
+
+class StringBuffer# {
+  Integer length = 0;
+
+  StringBufferPart#Nullable first = null;
+  Null setFirst(StringBufferPart# part) {
+    first = part;
+  }
+
+  StringBufferPart#Nullable last = null;
+  Null add(StringBufferPart# part) {
+    last = part;
+    length += _stringByteLength(part.value);
+  }
+}
+
+StringBuffer createStringBuffer() {
+  StringBuffer# buffer = StringBuffer#();
+  return buffer __as__ StringBuffer;
+}
+
+Null writeStringBuffer(StringBuffer buffer, String value) {
+  if (value == '') {
+    return;
+  }
+  StringBuffer# target = buffer __as__ StringBuffer#;
+  StringBufferPart# part = StringBufferPart#(value);
+  if (target.first == null) {
+    assert(target.length == 0, 'invariant violation');
+    target.setFirst(part);
+  } else {
+    assert(target.length > 0, 'invariant violation');
+    target.last!.setNext(part);
+  }
+  target.add(part);
+}
+
+String readStringBuffer(StringBuffer buffer) {
+  StringBuffer# source = buffer __as__ StringBuffer#;
+  if (source.first == null) {
+    assert(source.length == 0, 'invariant violation');
+    return '';
+  }
+  Integer resultPointer = _alloc(16 + source.length);
+  __writeToAddress(resultPointer, 0); // ref count
+  __writeToAddress(resultPointer + 8, source.length);
+  Integer cursor = resultPointer + 16;
+  StringBufferPart#Nullable part = source.first!;
+  while (part != null) {
+    Integer segmentLength = _stringByteLength(part!.value);
+    Integer segmentPointer = part!.value __as__ Integer;
+    _moveBytes(segmentPointer + 16, cursor, segmentLength);
+    part = part!.next;
+    cursor += segmentLength;
+  }
+  return resultPointer __as__ String;
+}
+
+
 // I/O
 
 Integer __getStdHandle(Integer handle) __extern 'kernel32.lib' 'GetStdHandle';
@@ -663,7 +738,10 @@ String _stringify(Anything arg) {
   if (arg is __ListData) {
     return '<__ListData>';
   }
-  stderr('value cannot be stringified');
+  if (arg is StringBuffer) {
+    return '<StringBuffer>';
+  }
+  stderr('value cannot be stringified:', __typeOf arg);
   exit(1);
 }
 

@@ -9,21 +9,21 @@
             "request": "launch",
             "type": "dart",
             "program": "main.dart",
-            "args": ["--debug", "./compiler", "syd.syd", "temp.syd"],
+            "args": ["--debug", "./compiler/syd.syd", "compiler/temp.syd"],
         },
         {
             "name": "Profile",
             "request": "launch",
             "type": "dart",
             "program": "main.dart",
-            "args": ["--profile", "./compiler", "syd.syd", "temp.syd"],
+            "args": ["--profile", "./compiler/syd.syd", "compiler/temp.syd"],
         },
         {
             "name": "Fast Run",
             "request": "launch",
             "type": "dart",
             "program": "main.dart",
-            "args": ["./compiler", "syd.syd", "temp.syd"],
+            "args": ["./compiler/syd.syd", "compiler/temp.syd"],
         }
     ]
     

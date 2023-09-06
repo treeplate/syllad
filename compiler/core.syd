@@ -1,6 +1,3 @@
-// Standard Library
-//stderr('Syllad core library 1.0 loaded.');
-
 //#ignore_unused
 Integer min(Integer a, Integer b) {
   if (a > b) {
@@ -638,4 +635,82 @@ Boolean unorderedListEquals(WhateverList list1, WhateverList list2) {
     }
   }
   return true;
+}
+
+StringList pathSplit(String path) {
+  StringList result = []:String;
+  StringBuffer buffer = createStringBuffer();
+  Null terminateComponent() {
+    String part = readStringBuffer(buffer);
+    if (part == '') {
+      if (len(result) == 0) {
+        append(result, '/');
+      }
+    } else {
+      append(result, part);
+      buffer = createStringBuffer();
+    }
+  }
+  for (c in charsOf(path)) {
+    if (c == '/' || c == '\\') {
+      terminateComponent();
+    } else {
+      writeStringBuffer(buffer, c);
+    }
+  }
+  String part = readStringBuffer(buffer);
+  if (part != '') {
+    append(result, part);
+  }
+  return result;
+}
+
+String pathJoin(StringList paths) {
+  StringList result = []:String;
+  Boolean absolute = false;
+  Integer leadingDotDots = 0;
+  for (part in paths) {
+    if (part == '' || part == '.') {
+      // skip
+    } else if (part == '/') {
+      result = []:String;
+      absolute = true;
+      leadingDotDots = 0;
+    } else if (part == '..') {
+      if (len(result) > 0) {
+        pop(result);
+      } else {
+        if (!absolute) {
+          leadingDotDots += 1;
+        }
+      }
+    } else {
+      append(result, part);
+    }
+  }
+  if (absolute || leadingDotDots > 0) {
+    result = reverse(result);
+    if (absolute) {
+      assert(leadingDotDots == 0, 'absolute path cannot have ..');
+      if (len(result) == 0) {
+        return '/';
+      }
+      append(result, '');
+    } else {
+      while (leadingDotDots > 0) {
+        append(result, '..');
+        leadingDotDots -= 1;
+      }
+    }
+    result = reverse(result);
+  }
+  return join(result as StringList, '/');
+}
+
+// This assumes base points to a file, not a directory. #ignore_unused
+String pathResolve(String base, String path) {
+  StringList resolvedPath = pathSplit(base);
+  pop(resolvedPath);
+  appendAll(resolvedPath, pathSplit(path));
+  return pathJoin(resolvedPath);
 }

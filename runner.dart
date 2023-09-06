@@ -5,12 +5,12 @@ import 'parser-core.dart';
 import 'statements.dart';
 import 'package:characters/characters.dart';
 
-Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? intrinsics, TypeValidator tv, bool profileMode, bool debugMode,
+Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? intrinsics, Scope? rtl, TypeValidator tv, bool profileMode, bool debugMode,
     [List<String>? args, List<LazyString>? stack, Scope? parent]) {
   if (intrinsics == null) {
     assert(parent == null);
     assert(stack == null);
-    intrinsics = Scope(false, false,
+    intrinsics = Scope(false, false, rtl,
         debugName: NotLazyString('intrinsics'),
         stack: [NotLazyString('intrinsics')],
         profileMode: profileMode,
@@ -73,17 +73,6 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
             'scalarValues rtv',
           );
         },
-        "filledList": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          return ValueWrapper<Object?>(
-            ListValueType(anythingType, 'intrinsics'),
-            List<ValueWrapper<Object?>>.filled(
-              l.first.valueC(null, s, -2, 0, 'interr', 'interr'),
-              l.last,
-              growable: true,
-            ),
-            'filledList rtv',
-          );
-        },
         "len": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           if (l.single.typeC(null, s, -2, 0, 'interr', 'interr') is! IterableValueType) {
             throw BSCException(
@@ -136,19 +125,6 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
             'copy rtv',
           );
         },
-        "first": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          return l.single.valueC<Iterable<ValueWrapper>>(null, s, -2, 0, 'interr', 'interr').first;
-        },
-        "last": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          Iterable<ValueWrapper> v = l.single.valueC<Iterable<ValueWrapper>>(null, s, -2, 0, 'interr', 'interr');
-          if (v.isEmpty) {
-            throw BSCException("Cannot get the last element of an empty list!\n${s.reversed.join('\n')}", NoDataVG());
-          }
-          return v.last;
-        },
-        "single": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          return l.single.valueC<Iterable<ValueWrapper>>(null, s, -2, 0, 'interr', 'interr').single;
-        },
         "clear": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           l.single.valueC<List<ValueWrapper>>(null, s, -2, 0, 'interr', 'interr').clear();
           return ValueWrapper(integerType, 0, 'clear rtv');
@@ -163,10 +139,11 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
           exit(l.single.valueC(null, s, -2, 0, 'interr', 'interr'));
         },
         "readFile": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          
           try {
-            File file =  File('$workspace/${l.single.valueC(null, s, -2, 0, 'interr', 'interr')}');
+            File file =  File('${l.single.valueC(null, s, -2, 0, 'interr', 'interr')}');
             if(!file.existsSync()) {
-              throw BSCException("${l.single.toStringWithStack(s, -2, 0, 'interr', 'interr', false)} is not a existing file\n${s.reversed.join('\n')}", NoDataVG());
+              throw BSCException("${l.single.toStringWithStack(s, -2, 0, 'interr', 'interr', false)} is not a existing file\n${s.reversed.join('\n')}", StringVariableGroup('$workspace'));
             }
             return ValueWrapper(stringType, file.readAsStringSync(), 'readFile rtv');
           } on PathNotFoundException catch (e) {
@@ -190,12 +167,6 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
                 l.last.valueC(null, s, -2, 0, 'interr', 'interr'), NoDataVG());
           }
           throw ThrowException(l.single.valueC<String>(null, s, -2, 0, 'interr', 'interr') + "\nstack:\n" + s.reversed.join('\n'), NoDataVG());
-        },
-        "joinList": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          return ValueWrapper(
-              stringType,
-              l.single.valueC<List>(null, s, -2, 0, 'interr', 'interr').map((x) => x.toStringWithStack(s, -2, 0, 'interr', 'todo', true)).join(''),
-              'joinList rtv');
         },
         "cast": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           return l.single;
@@ -238,13 +209,25 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
         },
         "debugName": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           return ValueWrapper(stringType, (l.single.valueC(null, s, -2, 0, workspace, filename) as Scope).debugName, 'debugName rtv');
-        }
+        },
+        'createStringBuffer': (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          return ValueWrapper(stringBufferType, StringBuffer(), 'createStringBuffer rtv');
+        },
+        'writeStringBuffer': (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          StringBuffer buffer = l.first.valueC(null, s, -2, 0, workspace, filename);
+          buffer.write(l.last.valueC(null, s, -2, 0, workspace, filename));
+          return ValueWrapper(nullType, null, 'writeStringBuffer rtv');
+        },
+        'readStringBuffer': (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          StringBuffer buffer = l.first.valueC(null, s, -2, 0, workspace, filename);
+          return ValueWrapper(stringType, buffer.toString(), 'readStringBuffer rtv');
+        },
       }.map((key, value) => MapEntry(
           variables[key] ??= Variable(key), MaybeConstantValueWrapper(ValueWrapper(tv.igv(variables[key]!, false), value, '$key from intrinsics'), true))));
   }
-  Scope scope = Scope(false, false,
+  Scope scope = Scope(false, false, rtl,
       intrinsics: intrinsics,
-      parent: parent ?? intrinsics,
+      parent: parent ?? rtl ?? intrinsics,
       stack: (stack ?? []) + [NotLazyString('$filename')],
       debugName: NotLazyString('$filename global scope'));
   for (Statement statement in ast) {

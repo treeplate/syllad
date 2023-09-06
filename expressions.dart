@@ -70,9 +70,6 @@ class GetExpr extends Expression {
   bool isLValue(TypeValidator scope) => scope.igvnc(name);
 
   GetExpr(this.name, this.typeValidator, int line, col, String workspace, file) : super(line, col, workspace, file) {
-    if (name.name == 'operandsy') {
-      print('hi');
-    }
     typeValidator.getVar(name, line, col, workspace, file, 'for a get expression', true);
   }
 
@@ -717,7 +714,17 @@ class ListLiteralExpression extends Expression {
   ValueType get type => ListValueType(genParam, file);
   String toString() => "$n:$genParam";
   bool isLValue(TypeValidator scope) => false;
-  ValueWrapper eval(Scope scope) => ValueWrapper(ListValueType(genParam, file), n.map((e) => e.eval(scope)).toList(), 'literal');
+  ValueWrapper eval(Scope scope) {
+    List<ValueWrapper> params = n.map((e) => e.eval(scope)).toList();
+    for (ValueWrapper param in params) {
+      if (!param.typeC(scope, scope.stack, line, col, workspace, file).isSubtypeOf(genParam)) {
+        throw BSCException(
+            "List literal element ${param.toStringWithStack(scope.stack, line, col, workspace, file, false)} (${param.typeC(scope, scope.stack, line, col, workspace, file)}) is not a subtype of $genParam ${formatCursorPosition(line, col, workspace, file)}\n${scope.stack.reversed.join('\n')}",
+            scope);
+      }
+    }
+    return ValueWrapper(ListValueType(genParam, file), params, 'literal');
+  }
 }
 
 class ShiftRightExpression extends Expression {

@@ -329,6 +329,7 @@ class AbstractSubroutineType extends Type {
         || other is AnythingType
         || other is WhateverType
         || other is GarbageCollectableType
+        || other is ReferenceCountedType
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
@@ -506,6 +507,7 @@ class ListDataType extends Type {
         || other is AnythingType
         || other is WhateverType
         || other is GarbageCollectableType
+        || other is ReferenceCountedType
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
@@ -547,6 +549,7 @@ class ListType extends AbstractListType {
         || other is AnythingType
         || other is WhateverType
         || other is GarbageCollectableType
+        || other is ReferenceCountedType
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
@@ -577,6 +580,7 @@ class ReadOnlyListType extends AbstractListType {
         || other is AnythingType
         || other is WhateverType
         || other is GarbageCollectableType // not technically true of VarArgs per se but any time it would matter it is true
+        || other is ReferenceCountedType // not technically true of VarArgs per se but any time it would matter it is true
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
@@ -606,6 +610,7 @@ class IterableType extends Type {
         || other is AnythingType
         || other is WhateverType
         || other is GarbageCollectableType
+        || other is ReferenceCountedType
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
@@ -641,6 +646,7 @@ class IteratorType extends Type {
         || other is AnythingType
         || other is WhateverType
         || other is GarbageCollectableType
+        || other is ReferenceCountedType
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
@@ -669,7 +675,8 @@ class ClosureType extends Type {
   //#override
   Boolean isSubtypeOf(Type other) {
     return other is ClosureType
-        || other is GarbageCollectableType;
+        || other is GarbageCollectableType
+        || other is ReferenceCountedType;
   }
 
   //#override
@@ -679,6 +686,24 @@ class ClosureType extends Type {
 
   Null constructor(TypeRegistry typeRegistryArg) {
     super.constructor(typeRegistryArg, '<closure>');
+  }
+}
+
+/* for typedef# types like StringBuffer */
+class IntrinsicType extends Type {
+  //#override
+  Boolean isSubtypeOf(Type other) {
+    return other == this
+        || other is GarbageCollectableType
+        || other is ReferenceCountedType
+        || other is AnythingType
+        || other is WhateverType
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
+  }
+
+  //#override
+  Boolean neverReferenceCounted() {
+    return false;
   }
 }
 
@@ -733,7 +758,7 @@ class TypeRegistry extends Object {
   ReferenceCountedType coreReferenceCountedType;
   SubroutineCodeAddressType coreSubroutineCodeAddressType;
   ListDataType coreListDataType;
-  ClosureType coreClosureType; // will be used eventually, so #ignore_unused
+  ClosureType coreClosureType;
   AbstractSubroutineType coreSubroutineType;
   AbstractListType coreSubscriptableType;
   IterableType coreIterableType;

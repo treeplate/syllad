@@ -14,7 +14,7 @@ List<Statement> parseBlock(TokenIterator tokens, TypeValidator scope, [bool acce
   return block;
 }
 
-ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
+ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignoreUnused) {
   tokens.moveNext();
   Variable name = tokens.currentIdent;
   tokens.moveNext();
@@ -40,8 +40,9 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
     throw BSCException("${superclass.name} nonexistent while trying to have ${name.name} extend it. ${formatCursorPositionFromTokens(tokens)}", scope);
   }
   TypeValidator newScope = superclass == null
-      ? TypeValidator([scope], ConcatenateLazyString(NotLazyString('root class '), VariableLazyString(name)), true, false, false)
-      : TypeValidator([scope.classes[superclass]!, scope], ConcatenateLazyString(NotLazyString('subclass '), VariableLazyString(name)), true, false, false);
+      ? TypeValidator([scope], ConcatenateLazyString(NotLazyString('root class '), VariableLazyString(name)), true, false, false, scope.rtl)
+      : TypeValidator(
+          [scope.classes[superclass]!, scope], ConcatenateLazyString(NotLazyString('subclass '), VariableLazyString(name)), true, false, false, scope.rtl);
   ClassValueType type = ClassValueType(name, supertype as ClassValueType?, newScope, tokens.file, false);
   if (newScope != type.properties) {
     if (supertype != type.supertype) {
@@ -54,7 +55,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
   TypeValidator fwdProps = type.properties.copy();
   bool hasFwdDecl = newScope != type.properties;
   // newScope = type.properties..parents.addAll([scope]);
-  newScope = ClassTypeValidator(fwdProps, newScope.parents, type.properties.debugName, true, false, false);
+  newScope = ClassTypeValidator(fwdProps, newScope.parents, type.properties.debugName, true, false, false, scope.rtl);
   type.properties.types = newScope.types;
   newScope.usedVars = type.properties.usedVars;
   type.properties.parents.add(fwdProps);
@@ -83,7 +84,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
     throw BSCException("Cannot extend an class that has not been defined yet.", scope);
   }
   TypeValidator staticMembers = TypeValidator([if (superclass != null) (supertype1 as ClassOfValueType).staticMembers],
-      ConcatenateLazyString(NotLazyString('static members of '), VariableLazyString(name)), false, true, false);
+      ConcatenateLazyString(NotLazyString('static members of '), VariableLazyString(name)), false, true, false, scope.rtl);
   for (Statement statement in block) {
     if (statement is StaticFieldStatement) {
       if (!statement.val.type.isSubtypeOf(
@@ -194,6 +195,9 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope) {
     tokens.workspace,
     tokens.file,
   );
+  if (ignoreUnused) {
+    scope.igv(name, true);
+  }
   scope.nonconst.remove(name);
   tokens.expectChar(TokenType.closeBrace);
   return ClassStatement(name, superclass, block, type, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, classOfType);
@@ -731,7 +735,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   }
   tokens.expectChar(TokenType.openBrace);
   Iterable<ValueType> typeParams = isVararg ? InfiniteIterable(params.first.type) : params.map((e) => e.type);
-  TypeValidator tv = TypeValidator([scope], ConcatenateLazyString(NotLazyString('function '), VariableLazyString(ident2)), false, false, static)
+  TypeValidator tv = TypeValidator([scope], ConcatenateLazyString(NotLazyString('function '), VariableLazyString(ident2)), false, false, static, scope.rtl)
     ..types.addAll(isVararg
         ? {params.first.name: TVProp(false, ListValueType(params.first.type, 'internal'), false)}
         : Map.fromEntries(params.map((e) => MapEntry(e.name, TVProp(false, e.type, false)))))
@@ -785,22 +789,12 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   );
 }
 
-MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String workspace, String file, bool isRtl, bool isMain) {
-  TokenIterator tokens = TokenIterator(
-      (isRtl
-              ? <Token>[]
-              : [
-                  IdentToken('import', -1, 6),
-                  StringToken(('../' * '/'.allMatches(workspace).length) + 'rtl.syd', -1, 19),
-                  CharToken(TokenType.endOfStatement, -1, 20)
-                ])
-          .followedBy(rtokens)
-          .iterator,
-      workspace,
-      file);
+MapEntry<List<Statement>, TypeValidator> parse(
+    Iterable<Token> rtokens, String workspace, String file, MapEntry<List<Statement>, TypeValidator>? rtl, bool isMain) {
+  TokenIterator tokens = TokenIterator(rtokens.iterator, workspace, file);
 
   tokens.moveNext();
-  TypeValidator intrinsics = TypeValidator([], NotLazyString('intrinsics'), false, false, false)
+  TypeValidator intrinsics = TypeValidator([], NotLazyString('intrinsics'), false, false, false, rtl)
     ..types = <String, ValueType>{
       "true": booleanType,
       "false": booleanType,
@@ -814,7 +808,6 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String w
           InfiniteIterable(ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')), 'intrinsics'),
       'charsOf': FunctionValueType(IterableValueType(stringType, 'intrinsics'), [stringType], 'intrinsics'),
       'scalarValues': FunctionValueType(IterableValueType(integerType, 'intrinsics'), [stringType], 'intrinsics'),
-      'filledList': FunctionValueType(ListValueType(anythingType, 'intrinsics'), [integerType, anythingType], 'intrinsics'),
       'split': FunctionValueType(ListValueType(stringType, 'intrinsics'), [stringType, stringType], 'intrinsics'),
       'len': FunctionValueType(
           integerType, [IterableValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')], 'intrinsics'),
@@ -828,12 +821,6 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String w
       'stringTimes': FunctionValueType(stringType, [stringType, integerType], 'intrinsics'),
       'copy': FunctionValueType(ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics'),
           [IterableValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')], 'intrinsics'),
-      'first': FunctionValueType(
-          anythingType, [IterableValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')], 'intrinsics'),
-      'last': FunctionValueType(
-          anythingType, [IterableValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')], 'intrinsics'),
-      'single': FunctionValueType(
-          anythingType, [IterableValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')], 'intrinsics'),
       'hex': FunctionValueType(stringType, [integerType], 'intrinsics'),
       'chr': FunctionValueType(stringType, [integerType], 'intrinsics'),
       'exit': FunctionValueType(nullType, [integerType], 'intrinsics'),
@@ -846,8 +833,6 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String w
       'debug': FunctionValueType(stringType, [rootClassType], 'intrinsics'),
       'throw': FunctionValueType(nullType, [stringType], 'intrinsics'),
       'cast': FunctionValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), [anythingType], 'intrinsics'),
-      'joinList':
-          FunctionValueType(stringType, [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')], 'intrinsics'),
       'pop':
           FunctionValueType(anythingType, [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')], 'intrinsics'),
       'substring': FunctionValueType(stringType, [stringType, integerType, integerType], 'intrinsics'),
@@ -855,6 +840,9 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String w
           [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics'), integerType, integerType], 'intrinsics'),
       'stackTrace': FunctionValueType(stringType, [], 'intrinsics'),
       'debugName': FunctionValueType(stringType, [rootClassType], 'intrinsics'),
+      'createStringBuffer': FunctionValueType(stringBufferType, [], 'intrinsics'),
+      'writeStringBuffer': FunctionValueType(nullType, [stringBufferType, stringType], 'intrinsics'),
+      'readStringBuffer': FunctionValueType(stringType, [stringBufferType], 'intrinsics'),
     }.map(
       (key, value) => MapEntry(
         variables[key] ??= Variable(key),
@@ -863,7 +851,12 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String w
     );
   intrinsics.directVars.addAll(intrinsics.types.keys);
 
-  TypeValidator validator = TypeValidator([intrinsics], ConcatenateLazyString(NotLazyString('file '), NotLazyString(file)), false, false, false);
+  TypeValidator validator = TypeValidator([intrinsics], ConcatenateLazyString(NotLazyString('file '), NotLazyString(file)), false, false, false, rtl);
+  if (rtl != null) {
+    validator.types.addAll(rtl.value.types);
+    validator.classes.addAll(rtl.value.classes);
+    validator.usedVars.addAll(rtl.value.usedVars);
+  }
   List<Statement> ast = parseBlock(tokens, validator, false);
   if (isMain) {
     List<Variable> unusedGlobalscopeVars = validator.types.keys.where((element) => !validator.usedVars.contains(element)).toList();
@@ -894,7 +887,7 @@ WhileStatement parseWhile(TokenIterator tokens, TypeValidator scope) {
   }
   tokens.expectChar(TokenType.closeParen);
   tokens.expectChar(TokenType.openBrace);
-  TypeValidator tv = TypeValidator([scope], NotLazyString('while loop'), false, false, false);
+  TypeValidator tv = TypeValidator([scope], NotLazyString('while loop'), false, false, false, scope.rtl);
   List<Statement> body = parseBlock(tokens, tv);
   List<String> unusedWhileLoopVars = tv.types.keys.where((element) => !tv.usedVars.contains(element)).map((e) => e.name).toList();
   if (!unusedWhileLoopVars.isEmpty) {
@@ -938,8 +931,7 @@ ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
   tokens.expectChar(TokenType.endOfStatement);
 
   MapEntry<List<Statement>, TypeValidator> result = filesLoaded[str] ??
-      (filesLoaded[str] =
-          parse(lex(File('${tokens.workspace}/$str').readAsStringSync(), tokens.workspace, str), tokens.workspace, str, str.contains('rtl.syd'), false));
+      (filesLoaded[str] = parse(lex(File('${tokens.workspace}/$str').readAsStringSync(), tokens.workspace, str), tokens.workspace, str, scope.rtl, false));
   loadedGlobalScopes[str] = result.value;
   filesStartedLoading.remove(str);
   scope.types.addAll(result.value.types);
@@ -1019,11 +1011,12 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       if (tokens.current is IdentToken && tokens.currentIdent == variables['extends']) {
         spt =
             ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file) as ClassValueType;
-        props =
-            TypeValidator([spt.properties], ConcatenateLazyString(NotLazyString('forward-declared subclass '), VariableLazyString(cln)), true, false, false);
+        props = TypeValidator(
+            [spt.properties], ConcatenateLazyString(NotLazyString('forward-declared subclass '), VariableLazyString(cln)), true, false, false, scope.rtl);
         tokens.moveNext();
       } else {
-        props = TypeValidator([scope], ConcatenateLazyString(NotLazyString('forward-declared root class '), VariableLazyString(cln)), true, false, false);
+        props = TypeValidator(
+            [scope], ConcatenateLazyString(NotLazyString('forward-declared root class '), VariableLazyString(cln)), true, false, false, scope.rtl);
       }
       ClassValueType x = ClassValueType(cln, spt, props, tokens.file, true);
       FunctionValueType? constructorType;
@@ -1100,10 +1093,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       if (overriden) {
         stderr.writeln('Can\'t override classes ${formatCursorPositionFromTokens(tokens)}');
       }
-      if (ignoreUnused) {
-        stderr.writeln('Ignore-unused on classes not yet implemented - consider commenting out, if reasonable ${formatCursorPositionFromTokens(tokens)}');
-      }
-      return parseClass(tokens, scope);
+      return parseClass(tokens, scope, ignoreUnused);
     case namespaceVariable:
       if (overriden) {
         stderr.writeln('Can\'t override namespaces ${formatCursorPositionFromTokens(tokens)}');
@@ -1233,7 +1223,7 @@ Statement parseNamespace(TokenIterator tokens, TypeValidator scope) {
   Variable namespace = tokens.currentIdent;
   tokens.moveNext();
   tokens.expectChar(TokenType.closeParen);
-  TypeValidator innerScope = NamespaceTypeValidator(scope, namespace);
+  TypeValidator innerScope = NamespaceTypeValidator(scope, namespace, scope.rtl);
   tokens.expectChar(TokenType.openBrace);
   List<Statement> body = parseBlock(tokens, innerScope);
   List<Variable> unusedNamespaceVars = innerScope.types.keys.where((element) => !innerScope.usedVars.contains(element)).toList();
@@ -1268,7 +1258,7 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
       null, variables["WhateverIterable"] ??= Variable("WhateverIterable"), tokens.current.line, tokens.current.col, tokens.workspace, tokens.file))) {
     throw BSCException("tried to for loop over non-iterable (iterated over ${iterable.type}) ${formatCursorPositionFromTokens(tokens)}", scope);
   }
-  TypeValidator innerScope = TypeValidator([scope], NotLazyString('for loop'), false, false, false);
+  TypeValidator innerScope = TypeValidator([scope], NotLazyString('for loop'), false, false, false, scope.rtl);
   innerScope.newVar(
     currentName,
     iterable.type is IterableValueType ? (iterable.type as IterableValueType).genericParameter : anythingType,
@@ -1304,7 +1294,7 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
   Variable name = tokens.currentIdent;
   tokens.moveNext();
   List<Variable> body = [];
-  TypeValidator tv = TypeValidator([], ConcatenateLazyString(VariableLazyString(name), NotLazyString('-enum')), false, false, false);
+  TypeValidator tv = TypeValidator([], ConcatenateLazyString(VariableLazyString(name), NotLazyString('-enum')), false, false, false, scope.rtl);
   EnumPropertyValueType propType = EnumPropertyValueType(
     name,
     tokens.file,
@@ -1359,7 +1349,7 @@ IfStatement parseIf(TokenIterator tokens, TypeValidator scope) {
   }
   tokens.expectChar(TokenType.closeParen);
   tokens.expectChar(TokenType.openBrace);
-  TypeValidator innerScope = TypeValidator([scope], NotLazyString('if statement'), false, false, false);
+  TypeValidator innerScope = TypeValidator([scope], NotLazyString('if statement'), false, false, false, scope.rtl);
   List<Statement> body = parseBlock(tokens, innerScope);
   List<String> unusedForLoopVars = innerScope.types.keys.where((element) => !innerScope.usedVars.contains(element)).map((e) => e.name).toList();
   if (!unusedForLoopVars.isEmpty) {
@@ -1374,7 +1364,7 @@ IfStatement parseIf(TokenIterator tokens, TypeValidator scope) {
       elseBody = [parsedIf];
     } else {
       tokens.expectChar(TokenType.openBrace);
-      elseBody = parseBlock(tokens, TypeValidator([scope], NotLazyString('if statement - else block'), false, false, false));
+      elseBody = parseBlock(tokens, TypeValidator([scope], NotLazyString('if statement - else block'), false, false, false, scope.rtl));
       tokens.expectChar(TokenType.closeBrace);
     }
   }

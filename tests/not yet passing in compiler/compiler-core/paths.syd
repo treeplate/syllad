@@ -1,0 +1,81 @@
+// expected output: PASS
+// unexpected output: FAIL
+
+import '../../../compiler/core.syd';
+
+assert(pathJoin(pathSplit('')) == '', 'FAIL');
+assert(pathJoin(pathSplit('/')) == '/', 'FAIL');
+assert(pathJoin(pathSplit('a')) == 'a', 'FAIL');
+assert(pathJoin(pathSplit('ab/cd')) == 'ab/cd', 'FAIL');
+assert(pathJoin(pathSplit('..')) == '..', 'FAIL');
+assert(pathJoin(pathSplit('../')) == '..', 'FAIL');
+assert(pathJoin(pathSplit('../../')) == '../..', 'FAIL');
+assert(pathJoin(pathSplit('../a/../../b')) == '../../b', 'FAIL');
+assert(pathJoin(pathSplit('a/../b')) == 'b', 'FAIL');
+assert(pathJoin(pathSplit('/ab/../cd')) == '/cd', 'FAIL');
+assert(pathJoin(pathSplit('foo/bar/')) == 'foo/bar', 'FAIL');
+assert(pathJoin(pathSplit('c:\\dir\\test.bar')) == 'c:/dir/test.bar', 'FAIL');
+assert(pathJoin(pathSplit('//')) == '/', 'FAIL');
+assert(pathJoin(pathSplit('a//b//c//d')) == 'a/b/c/d', 'FAIL');
+assert(pathJoin(pathSplit('a//b//..//d')) == 'a/d', 'FAIL');
+assert(pathJoin(pathSplit('\\a\\b')) == '/a/b', 'FAIL');
+assert(pathJoin(pathSplit('a b .. c')) == 'a b .. c', 'FAIL');
+assert(pathJoin(pathSplit('test./')) == 'test.', 'FAIL');
+assert(pathJoin(pathSplit('a/./b/')) == 'a/b', 'FAIL');
+assert(pathJoin(pathSplit('\\..\\')) == '/', 'FAIL');
+assert(pathJoin(pathSplit('\\a\\b\\..\\c\\..\\..\\..\\')) == '/', 'FAIL');
+
+// TODO: more complicated windows paths
+//assert(pathJoin(pathSplit('c:\\..\\')) == 'c:\\', 'FAIL');
+//assert(pathJoin(pathSplit('\\\\foo\\bar')) == '\\\\foo\\bar', 'FAIL');
+
+assert(pathJoin(['']:String) == '', 'FAIL');
+assert(pathJoin(['/']:String) == '/', 'FAIL');
+assert(pathJoin(['a']:String) == 'a', 'FAIL');
+assert(pathJoin(['.']:String) == '', 'FAIL');
+assert(pathJoin(['..']:String) == '..', 'FAIL');
+assert(pathJoin([' ']:String) == ' ', 'FAIL');
+
+assert(pathJoin(['', '']:String) == '', 'FAIL');
+assert(pathJoin(['/', '']:String) == '/', 'FAIL');
+assert(pathJoin(['a', '']:String) == 'a', 'FAIL');
+assert(pathJoin(['.', '']:String) == '', 'FAIL');
+assert(pathJoin(['..', '']:String) == '..', 'FAIL');
+assert(pathJoin([' ', '']:String) == ' ', 'FAIL');
+
+assert(pathJoin(['', '/']:String) == '/', 'FAIL');
+assert(pathJoin(['/', '/']:String) == '/', 'FAIL');
+assert(pathJoin(['a', '/']:String) == '/', 'FAIL');
+assert(pathJoin(['.', '/']:String) == '/', 'FAIL');
+assert(pathJoin(['..', '/']:String) == '/', 'FAIL');
+assert(pathJoin([' ', '/']:String) == '/', 'FAIL');
+
+assert(pathJoin(['', 'a']:String) == 'a', 'FAIL');
+assert(pathJoin(['/', 'a']:String) == '/a', 'FAIL');
+assert(pathJoin(['a', 'a']:String) == 'a/a', 'FAIL');
+assert(pathJoin(['.', 'a']:String) == 'a', 'FAIL');
+assert(pathJoin(['..', 'a']:String) == '../a', 'FAIL');
+assert(pathJoin([' ', 'a']:String) == ' /a', 'FAIL');
+
+assert(pathJoin(['', '.']:String) == '', 'FAIL');
+assert(pathJoin(['/', '.']:String) == '/', 'FAIL');
+assert(pathJoin(['a', '.']:String) == 'a', 'FAIL');
+assert(pathJoin(['.', '.']:String) == '', 'FAIL');
+assert(pathJoin(['..', '.']:String) == '..', 'FAIL');
+assert(pathJoin([' ', '.']:String) == ' ', 'FAIL');
+
+assert(pathJoin(['', '..']:String) == '..', 'FAIL');
+assert(pathJoin(['/', '..']:String) == '/', 'FAIL');
+assert(pathJoin(['a', '..']:String) == '', 'FAIL');
+assert(pathJoin(['.', '..']:String) == '..', 'FAIL');
+assert(pathJoin(['..', '..']:String) == '../..', 'FAIL');
+assert(pathJoin([' ', '..']:String) == '', 'FAIL');
+
+assert(pathJoin(['', ' ']:String) == ' ', 'FAIL');
+assert(pathJoin(['/', ' ']:String) == '/ ', 'FAIL');
+assert(pathJoin(['a', ' ']:String) == 'a/ ', 'FAIL');
+assert(pathJoin(['.', ' ']:String) == ' ', 'FAIL');
+assert(pathJoin(['..', ' ']:String) == '../ ', 'FAIL');
+assert(pathJoin([' ', ' ']:String) == ' / ', 'FAIL');
+
+println('PASS');

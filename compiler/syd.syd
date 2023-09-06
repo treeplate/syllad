@@ -66,12 +66,13 @@ CompiledLibrary processFile(String filename, CompilationEnvironment compilationE
   compilationEnvironment.declareLibrary(filename);
   for (child in ast.children) {
     if (child is ImportStatement) {
-      ls childLibraryState = compilationEnvironment.getLibraryState(cast(cast(child).path));
+      ImportStatement node = child as ImportStatement;
+      node.setResolvedPath(pathResolve(filename, node.path));
+      ls childLibraryState = compilationEnvironment.getLibraryState(node.resolvedPath);
       if (childLibraryState == ls.Declared) {
         throw(concat('Import loop at ', child.sourceLocation));
       } else if (childLibraryState == ls.Unknown) {
-        String libraryPath = cast(cast(child).path); // TODO: handle relative paths correctly
-        compilationEnvironment.defineLibrary(libraryPath, processFile(libraryPath, compilationEnvironment, false));
+        compilationEnvironment.defineLibrary(node.resolvedPath, processFile(node.resolvedPath, compilationEnvironment, false));
       }
     } else {
       break;
@@ -81,14 +82,15 @@ CompiledLibrary processFile(String filename, CompilationEnvironment compilationE
   return ast.generateScopes(compilationEnvironment);
 }
 
-assert(len(args) > 0, 'no input file specified');
-String mainProgramFileName = args[0];
+assert(len(args) > 1, 'no input file specified');
+String compilerPath = args[0];
+String mainProgramFileName = args[1];
 CompilationEnvironment compilationEnvironment = CompilationEnvironment();
 compilationEnvironment.setRuntimeLibrary(
-  parseTokens(tokenize(scalarValues(readFile('syd-rtl.syd')), 'runtime library', true), 'runtime library', false).generateScopes(compilationEnvironment)
+  parseTokens(tokenize(scalarValues(readFile(pathResolve(compilerPath, 'syd-rtl.syd'))), 'runtime library', true), 'runtime library', false).generateScopes(compilationEnvironment)
 );
 compilationEnvironment.setStandardLibrary(
-  parseTokens(tokenize(scalarValues(readFile('syd-stdlib.syd')), 'standard library', true), 'standard library', false).generateScopes(compilationEnvironment)
+  parseTokens(tokenize(scalarValues(readFile(pathResolve(compilerPath, 'syd-stdlib.syd'))), 'standard library', false), 'standard library', false).generateScopes(compilationEnvironment)
 );
 CompiledLibrary program = processFile(mainProgramFileName, compilationEnvironment, true); // this generates the root Program AST node
 compilationEnvironment.defineLibrary(mainProgramFileName, program);

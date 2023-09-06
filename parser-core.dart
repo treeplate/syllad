@@ -1,5 +1,6 @@
 import 'expressions.dart';
 import 'lexer.dart';
+import 'statements.dart';
 
 Map<String, TypeValidator> loadedGlobalScopes = {};
 Map<Variable, MapEntry<Stopwatch, int>> profile = {};
@@ -19,11 +20,12 @@ const Variable ifVariable = Variable("if");
 const Variable enumVariable = Variable("enum");
 const Variable forVariable = Variable("for");
 const Variable constVariable = Variable("const");
-Variable classNameVariable = Variable("className");
-Variable constructorVariable = Variable("constructor");
-Variable thisVariable = Variable("this");
-Variable toStringVariable = Variable("toString");
-Variable throwVariable = Variable("throw");
+const Variable classNameVariable = Variable("className");
+const Variable constructorVariable = Variable("constructor");
+const Variable thisVariable = Variable("this");
+const Variable toStringVariable = Variable("toString");
+const Variable throwVariable = Variable("throw");
+const Variable stringBufferVariable = Variable("StringBuffer");
 
 Null handleVariable(Variable variable) {
   if (variables[variable.name] == null) {
@@ -116,6 +118,17 @@ sealed class VariableGroup {
   String dump();
 }
 
+class StringVariableGroup extends VariableGroup {
+  final String value;
+
+  StringVariableGroup(this.value);
+
+  @override
+  String dump() {
+    return value;
+  }
+}
+
 class NoDataVG extends VariableGroup {
   @override
   String dump() {
@@ -129,6 +142,7 @@ class TypeValidator extends VariableGroup {
   bool isClassOf;
   final bool isStaticMethod;
   TypeValidator get intrinsics => parents.isEmpty ? this : parents.first.intrinsics;
+  final MapEntry<List<Statement>, TypeValidator>? rtl;
 
   bool get indirectlyStaticMethod {
     if (isStaticMethod) {
@@ -139,7 +153,7 @@ class TypeValidator extends VariableGroup {
 
   String toString() => "$debugName";
 
-  TypeValidator(this.parents, this.debugName, this.isClass, this.isClassOf, this.isStaticMethod) {
+  TypeValidator(this.parents, this.debugName, this.isClass, this.isClassOf, this.isStaticMethod, this.rtl) {
     if (parents.any((element) => element.isClass)) isClass = true;
     if (parents.any((element) => element.isClassOf)) isClassOf = true;
   }
@@ -274,7 +288,7 @@ class TypeValidator extends VariableGroup {
   }
 
   TypeValidator copy() {
-    return TypeValidator(parents.toList(), ConcatenateLazyString(debugName, NotLazyString(' copy')), isClass, isClassOf, isStaticMethod)
+    return TypeValidator(parents.toList(), ConcatenateLazyString(debugName, NotLazyString(' copy')), isClass, isClassOf, isStaticMethod, rtl)
       ..nonconst = nonconst.toList()
       ..types = types.map((key, value) => MapEntry(key, value));
   }
@@ -307,7 +321,7 @@ T? orElse<T>(T? a, T? b) {
 
 class ClassTypeValidator extends TypeValidator {
   final TypeValidator fwdProps;
-  ClassTypeValidator(this.fwdProps, super.parents, super.debugName, super.isClass, super.isClassOf, super.isStaticMethod) {}
+  ClassTypeValidator(this.fwdProps, super.parents, super.debugName, super.isClass, super.isClassOf, super.isStaticMethod, super.rtl) {}
 
   @override
   ValueType? igv(Variable name, bool addToUsedVars,
@@ -335,8 +349,8 @@ class NamespaceTypeValidator extends TypeValidator {
   final TypeValidator deferTarget;
   final Variable namespace;
 
-  NamespaceTypeValidator(this.deferTarget, this.namespace)
-      : super([deferTarget], ConcatenateLazyString(NotLazyString('namespace of '), VariableLazyString(namespace)), false, false, false);
+  NamespaceTypeValidator(this.deferTarget, this.namespace, MapEntry<List<Statement>, TypeValidator>? rtl)
+      : super([deferTarget], ConcatenateLazyString(NotLazyString('namespace of '), VariableLazyString(namespace)), false, false, false, rtl);
   @override
   late Map<Variable, TypeValidator> classes = deferTarget.classes;
 
@@ -354,7 +368,7 @@ class NamespaceTypeValidator extends TypeValidator {
 
   @override
   TypeValidator copy() {
-    return NamespaceTypeValidator(deferTarget, namespace)
+    return NamespaceTypeValidator(deferTarget, namespace, rtl)
       ..nonconst = nonconst.toList()
       ..types = types.map((key, value) => MapEntry(key, value));
   }
@@ -445,10 +459,11 @@ class NamespaceScope extends Scope {
   final Scope deferTarget;
   final Variable namespace;
 
-  NamespaceScope(this.deferTarget, this.namespace)
+  NamespaceScope(this.deferTarget, this.namespace, Scope? rtl)
       : super(
           true,
           true,
+          rtl,
           stack: [NotLazyString('nvr-gt-hr')],
           debugName: NotLazyString('never get here'),
           intrinsics: null /*we override the getter*/,
@@ -883,7 +898,8 @@ class Scope extends VariableGroup {
 
   Scope(
     this.isClass,
-    this.isStaticClass, {
+    this.isStaticClass,
+    this.rtl, {
     required this.intrinsics,
     Scope? parent,
     required this.stack,
@@ -898,6 +914,7 @@ class Scope extends VariableGroup {
   final List<Scope> parents;
   final List<LazyString> stack;
   final Scope? intrinsics;
+  final Scope? rtl;
   final bool isStaticClass;
   final String? staticClassName;
   final ClassValueType? declaringClass;
@@ -1068,6 +1085,7 @@ final ValueType<String> stringType = ValueType.internal(anythingType, variables[
 final ValueType<bool> booleanType = ValueType.internal(anythingType, variables['Boolean']!, 'intrinsics', false);
 final ValueType<Null> nullType = ValueType.internal(anythingType, variables['Null']!, 'intrinsics', false);
 final ValueType<Scope> rootClassType = ValueType.internal(anythingType, variables['~root_class']!, 'intrinsics', false);
+final ValueType<StringBuffer> stringBufferType = ValueType.internal(anythingType, variables['StringBuffer']!, 'intrinsics', false);
 
 ValueType? basicTypes(Variable name, ValueType? parent, String file) {
   switch (name) {

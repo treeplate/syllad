@@ -570,7 +570,7 @@ class MemberAccessSubroutineCallExpression extends Expression {
       }
       throw(concat('nonexistent member ', member, ' at ', sourceLocation));
     } else {
-      throw(concat('cannot call member whose static type is not known at compile time; consider casting to AnythingFunction at ', sourceLocation));
+      throw(concat('cannot call member on non-class type ', lBucket.staticType.name, ' at ', sourceLocation));
     }
   }
 
@@ -2252,6 +2252,25 @@ class ForwardClassPropertyDeclaration extends DeclarationStatement {
   }
 }
 
+class TypeIntrinsicDeclaration extends DeclarationStatement {
+  String identifier;
+  
+  //#override
+  String toStringIndent(Integer indent) {
+    return concat('typedef# ', identifier, ' is GarbageCollectable;\n');
+  }
+
+  //#override
+  Null generateInstructions(CompiledScope scope) {
+    assert(scope is CompiledLibrary, 'found typedef# in non-global scope');
+    if (scope.environment().isCompoundType(identifier)) {
+      throw(concat('"', identifier, '" is not a valid intrinsic type name at ', sourceLocation));
+    }
+    IntrinsicType type = IntrinsicType(scope.environment(), identifier);
+    (scope as CompiledLibrary).declareType(type);
+  }
+}
+
 class ExpressionStatement extends Statement {
   Expression expression;
   
@@ -2348,6 +2367,11 @@ class ContinueStatement extends Statement {
 
 class ImportStatement extends Statement {
   String path;
+  String resolvedPath;
+
+  Null setResolvedPath(String resolvedPathArg) {
+    resolvedPath = resolvedPathArg;
+  }
   
   //#override
   String toStringIndent(Integer indent) {
@@ -2356,9 +2380,9 @@ class ImportStatement extends Statement {
 
   //#override
   Null generateInstructions(CompiledScope scope) {
-    assert(scope.environment().getLibraryState(path) == ls.Defined, concat('tried to import library "', path, '" before it was compiled'));
+    assert(scope.environment().getLibraryState(resolvedPath) == ls.Defined, concat('tried to import library "', path, '" before it was compiled'));
     assert(scope is CompiledLibrary, 'found import outside global scope');
-    (scope as CompiledLibrary).importLibrary(scope.environment().getLibrary(path) as CompiledLibrary);
+    (scope as CompiledLibrary).importLibrary(scope.environment().getLibrary(resolvedPath) as CompiledLibrary);
   }
 
   Null constructor(String pathArg, SourceLocation sourceLocationArg) {

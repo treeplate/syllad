@@ -1,0 +1,31 @@
+// expected output: AB
+
+StringBuffer buffer = createStringBuffer();
+writeStringBuffer(buffer, 'A');
+writeStringBuffer(buffer, 'B');
+println(readStringBuffer(buffer));
+
+StringBuffer a = createStringBuffer();
+assert(readStringBuffer(a) == '', 'FAIL');
+writeStringBuffer(a, '1');
+assert(readStringBuffer(a) == '1', 'FAIL');
+writeStringBuffer(a, '23');
+assert(readStringBuffer(a) == '123', 'FAIL');
+writeStringBuffer(a, '');
+assert(readStringBuffer(a) == '123', 'FAIL');
+
+StringBuffer b = createStringBuffer();
+writeStringBuffer(b, '');
+assert(readStringBuffer(b) == '', 'FAIL');
+writeStringBuffer(b, '');
+writeStringBuffer(b, '');
+writeStringBuffer(b, '');
+assert(readStringBuffer(b) == '', 'FAIL');
+
+StringBuffer c = createStringBuffer();
+writeStringBuffer(c, readStringBuffer(c));
+assert(readStringBuffer(c) == '', 'FAIL');
+writeStringBuffer(c, 'xx');
+assert(readStringBuffer(c) == 'xx', 'FAIL');
+writeStringBuffer(c, readStringBuffer(c));
+assert(readStringBuffer(c) == 'xxxx', 'FAIL');

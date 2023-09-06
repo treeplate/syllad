@@ -381,13 +381,9 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
         if ((ch >= 0x30 && ch <= 0x39) || // 0-9
             (ch >= 0x41 && ch <= 0x5a) || // A-Z
             (ch >= 0x61 && ch <= 0x7a) || // a-z
-            (ch == 0x5f)) { // _
+            (ch == 0x5f) || // _
+            (internal && ch == 0x23)) { /* # */
           append(cast(buffer), chr(ch));
-          break;
-        } else if (internal && ch == 0x23) { /* # */
-          append(cast(buffer), chr(ch));
-          append(tokens, Token(tt.Identifier, SourceLocation(lineNo, colNo, filename), joinList(cast(buffer))));
-          state = ts.Top;
           break;
         } else {
           append(tokens, Token(tt.Identifier, SourceLocation(lineNo, colNo - 1, filename), joinList(cast(buffer))));

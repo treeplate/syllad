@@ -3,6 +3,7 @@
 
 // LISTS
 
+//#ignore_unused
 WhateverList filledList(Integer length, Whatever value) {
   // TODO: use a fixed-size list constructor ("sizedList")
   WhateverList result = [];
@@ -14,12 +15,14 @@ WhateverList filledList(Integer length, Whatever value) {
   return result;
 }
 
+//#ignore_unused
 Whatever first(WhateverIterable iterable) {
   WhateverIterator i = iterator(iterable);
   next(i);
   return current(i);
 }
 
+//#ignore_unused
 Whatever last(WhateverIterable iterable) {
   if (iterable is WhateverList) {
     return (iterable as WhateverList)[len(iterable as WhateverList) - 1];
@@ -31,6 +34,7 @@ Whatever last(WhateverIterable iterable) {
   return result;
 }
 
+//#ignore_unused
 Whatever single(WhateverIterable iterable) {
   WhateverIterator i = iterator(iterable);
   next(i);
@@ -45,25 +49,19 @@ Whatever single(WhateverIterable iterable) {
 
 // STRINGS
 
+String joinList(WhateverList args) {
+  StringBuffer result = createStringBuffer();
+  for (arg in args) {
+    writeStringBuffer(result, concat(arg));
+  }
+  return readStringBuffer(result);
+}
+
+/*
 String chr(Integer character) {
   // TODO: implement this
   stderr('chr is not implemented');
   exit(1);
-}
-
-String _joinListOffset(StringList args, Integer offset) {
-  if (len(args) - offset == 0) {
-    return '';
-  }
-  if (len(args) - offset == 1) {
-    return concat(args[offset]);
-  }
-  return concat(args[offset], _joinListOffset(args, offset + 1));
-}
-
-String joinList(WhateverList args) {
-  // TODO: this should allocate the buffer ahead of time and copy each list into the buffer
-  return _joinListOffset(args, 0);
 }
 
 String stringTimes(String str, Integer count) {
@@ -103,3 +101,4 @@ String readFile(String file) {
   stderr('readFile is not implemented');
   exit(1);
 }
+*/
