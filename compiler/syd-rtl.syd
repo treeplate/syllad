@@ -141,113 +141,6 @@ Null _fillQuadWords(Integer destination, Integer length, Integer value) {
 }
 
 
-// STRINGS
-
-StringFunction concat;
-
-Integer _stringByteLength(String data) {
-  Integer pointer = data __as__ Integer;
-  return __readFromAddress(pointer + 8);
-}
-
-String digitToStr(Integer digit) {
-  if (digit == 0) {
-    return '0';
-  }
-  if (digit == 1) {
-    return '1';
-  }
-  if (digit == 2) {
-    return '2';
-  }
-  if (digit == 3) {
-    return '3';
-  }
-  if (digit == 4) {
-    return '4';
-  }
-  if (digit == 5) {
-    return '5';
-  }
-  if (digit == 6) {
-    return '6';
-  }
-  if (digit == 7) {
-    return '7';
-  }
-  if (digit == 8) {
-    return '8';
-  }
-  if (digit == 9) {
-    return '9';
-  }
-  stderr('Invalid digit passed to digitToStr (digit as exit code)');
-  exit(digit);
-}
-
-String intToStr(Integer value) {
-  if (value == 0) {
-    return '0';
-  }
-  if (value < 0) {
-    return concat('-', intToStr(-value));
-  }
-  if (value < 10) {
-    return digitToStr(value);
-  }
-  String buffer = ''; 
-  Integer newValue = value; // parameters are final
-  while (newValue > 0) {
-    Integer digit = newValue % 10;
-    newValue = newValue / 10;
-    buffer = concat(digitToStr(digit), buffer); // TODO: optimize this, it's O(N^2)
-  }
-  return buffer;
-}
-
-String join(StringList items, String joiner) {
-  if (len(items) == 0) {
-    return '';
-  }
-  Integer length = 0;
-  Integer index = 0;
-  while (index < len(items)) {
-    length += _stringByteLength(items[index]);
-    index += 1;
-  }
-  Integer joinerLength = _stringByteLength(joiner);
-  length += joinerLength * (len(items) - 1);
-  assert(length >= 0, 'negative length detected');
-  if (length >= 2147483648) {
-    stderr('absurd length detected (as exit code)');
-    exit(length);
-  }
-  Integer resultPointer = _alloc(16 + length);
-  __writeToAddress(resultPointer, 0); // ref count
-  __writeToAddress(resultPointer + 8, length);
-  Integer cursor = resultPointer + 16;
-  index = 0;
-  while (index < len(items)) {
-    String segment = items[index];
-    Integer segmentLength = _stringByteLength(segment);
-    if (segmentLength > 0) {
-      Integer segmentPointer = segment __as__ Integer;
-      _moveBytes(segmentPointer + 16, cursor, segmentLength);
-      cursor += segmentLength;
-    }
-    if (index < len(items) - 1) {
-      if (joinerLength > 0) {
-        Integer joinerPointer = joiner __as__ Integer;
-        _moveBytes(joinerPointer + 16, cursor, joinerLength);
-        cursor += joinerLength;
-      }
-    }
-    index += 1;
-  }
-  return resultPointer __as__ String;
-}
-
-
 // GARBAGE COLLECTION
 
 // Allocated blocks that participate in garbage collection are a subtype of GarbageCollectable.
@@ -444,6 +337,17 @@ Null append(WhateverList list, Anything element) __intrinsic {
   _gcLocked -= 1;
 }
 
+Anything pop(WhateverList list) {
+  Integer lastIndex = len(list) - 1;
+  if (lastIndex < 0) {
+    throw('cannot pop from empty list');
+  }
+  Anything result = list[lastIndex];
+  Integer intermediaryAddress = list __as__ Integer;
+  Integer dataAddress = __readFromAddress(intermediaryAddress + _gcBlockData + 16 + 8);
+  __writeToAddress(dataAddress + _gcBlockHeaderLength, lastIndex);
+  return result;
+}
 
 // ITERABLES AND ITERATORS
 
@@ -499,6 +403,54 @@ WhateverList copy(WhateverIterable iterable) {
     append(list, value);
   }
   return list;
+}
+
+
+// CONCAT
+
+Integer _stringByteLength(String data) {
+  Integer pointer = data __as__ Integer;
+  return __readFromAddress(pointer + 8);
+}
+
+StringFunction _stringify; // defined later
+String concat(Anything... arguments) {
+  if (len(arguments) == 0) {
+    return '';
+  }
+  if (len(arguments) == 1) {
+    return _stringify(arguments[0]);
+  }
+  StringList strings = []:String;
+  Integer length = 0;
+  Integer index = 0;
+  while (index < len(arguments)) {
+    String segment = _stringify(arguments[index]);
+    append(strings, segment);
+    length += _stringByteLength(segment);
+    index += 1;
+  }
+  assert(length >= 0, 'negative length detected');
+  if (length >= 2147483648) {
+    stderr('absurd length detected (as exit code)\n');
+    exit(length);
+  }
+  Integer resultPointer = _alloc(16 + length);
+  __writeToAddress(resultPointer, 0); // ref count
+  __writeToAddress(resultPointer + 8, length);
+  Integer cursor = resultPointer + 16;
+  index = 0;
+  while (index < len(strings)) {
+    String segment = strings[index];
+    Integer segmentLength = _stringByteLength(segment);
+    if (segmentLength > 0) {
+      Integer segmentPointer = segment __as__ Integer;
+      _moveBytes(segmentPointer + 16, cursor, segmentLength);
+      cursor += segmentLength;
+    }
+    index += 1;
+  }
+  return resultPointer __as__ String;
 }
 
 
@@ -605,7 +557,67 @@ WhateverFunction _dynamicLookup(Anything receiver, Integer methodId) __intrinsic
 }
 
 
-// STRING BUFFERS
+// I/O
+
+Integer __getStdHandle(Integer handle) __extern 'kernel32.lib' 'GetStdHandle';
+Integer __writeFile(Integer hFile, Integer lpBuffer, Integer nNumberOfBytesToWrite, Integer lpNumberOfBytesWritten, Integer lpOverlapped) __extern 'kernel32.lib' 'WriteFile';
+Integer __STD_OUTPUT_HANDLE = -11;
+Integer __STD_ERROR_HANDLE = -12;
+Integer _scratch = _alloc(8); // used for lpNumberOfBytesWritten
+
+Null __writeToHandle(Integer handle, String message) {
+  __writeFile(__getStdHandle(handle), (message __as__ Integer) + 16, _stringByteLength(message), _scratch, 0);
+}
+
+Null print(Anything... parts) { 
+  Boolean first = true;
+  Integer index = 0;
+  while (index < len(parts)) {
+    if (first == false) {
+      __writeToHandle(__STD_OUTPUT_HANDLE, ' ');
+    }
+    __writeToHandle(__STD_OUTPUT_HANDLE, _stringify(parts[index]));
+    first = false;
+    index += 1;
+  }
+}
+
+Null println(Anything... parts) {
+  Boolean first = true;
+  Integer index = 0;
+  while (index < len(parts)) {
+    if (first == false) {
+      __writeToHandle(__STD_OUTPUT_HANDLE, ' ');
+    }
+    __writeToHandle(__STD_OUTPUT_HANDLE, _stringify(parts[index]));
+    first = false;
+    index += 1;
+  }
+  __writeToHandle(__STD_OUTPUT_HANDLE, '\n');
+}
+
+Null _stderr(Anything... parts) {
+  Boolean first = true;
+  Integer index = 0;
+  while (index < len(parts)) {
+    if (first == false) {
+      __writeToHandle(__STD_ERROR_HANDLE, ' ');
+    }
+    __writeToHandle(__STD_ERROR_HANDLE, _stringify(parts[index]));
+    first = false;
+    index += 1;
+  }
+  __writeToHandle(__STD_ERROR_HANDLE, '\n');
+}
+stderr = _stderr;
+
+Null _error(Anything... arguments) __intrinsic {
+  assert(len(arguments) >= 1, 'insufficient arguments to _error');
+  stderr(arguments[0]);
+  exit(1);
+}
+
+// STRING MANIPULATION
 
 typedef# StringBuffer is GarbageCollectable;
 
@@ -679,20 +691,102 @@ String readStringBuffer(StringBuffer buffer) {
   return resultPointer __as__ String;
 }
 
-
-// I/O
-
-Integer __getStdHandle(Integer handle) __extern 'kernel32.lib' 'GetStdHandle';
-Integer __writeFile(Integer hFile, Integer lpBuffer, Integer nNumberOfBytesToWrite, Integer lpNumberOfBytesWritten, Integer lpOverlapped) __extern 'kernel32.lib' 'WriteFile';
-Integer __STD_OUTPUT_HANDLE = -11;
-Integer __STD_ERROR_HANDLE = -12;
-Integer _scratch = _alloc(8); // used for lpNumberOfBytesWritten
-
-Null __writeToHandle(Integer handle, String message) {
-  __writeFile(__getStdHandle(handle), (message __as__ Integer) + 16, _stringByteLength(message), _scratch, 0);
+String _intDigitToStr(Integer digit) {
+  if (digit == 0) {
+    return '0';
+  }
+  if (digit == 1) {
+    return '1';
+  }
+  if (digit == 2) {
+    return '2';
+  }
+  if (digit == 3) {
+    return '3';
+  }
+  if (digit == 4) {
+    return '4';
+  }
+  if (digit == 5) {
+    return '5';
+  }
+  if (digit == 6) {
+    return '6';
+  }
+  if (digit == 7) {
+    return '7';
+  }
+  if (digit == 8) {
+    return '8';
+  }
+  if (digit == 9) {
+    return '9';
+  }
+  stderr('Invalid digit passed to _intDigitToStr (digit as exit code)');
+  exit(digit);
 }
 
-String _stringify(Anything arg) {
+String intToStr(Integer value) {
+  if (value >= 0 && value < 10) {
+    return _intDigitToStr(value);
+  }
+  StringBuffer buffer = createStringBuffer();
+  Integer newValue = value; // parameters are final
+  if (value < 0) {
+    writeStringBuffer(buffer, '-');
+    newValue = -newValue;
+  }
+  while (newValue > 0) {
+    Integer digit = newValue % 10;
+    newValue = newValue / 10;
+    writeStringBuffer(buffer, _intDigitToStr(digit));
+  }
+  return readStringBuffer(buffer);
+}
+
+String join(StringList items, String joiner) {
+  if (len(items) == 0) {
+    return '';
+  }
+  Integer length = 0;
+  Integer index = 0;
+  while (index < len(items)) {
+    length += _stringByteLength(items[index]);
+    index += 1;
+  }
+  Integer joinerLength = _stringByteLength(joiner);
+  length += joinerLength * (len(items) - 1);
+  assert(length >= 0, 'negative length detected');
+  if (length >= 2147483648) {
+    stderr('absurd length detected (as exit code)');
+    exit(length);
+  }
+  Integer resultPointer = _alloc(16 + length);
+  __writeToAddress(resultPointer, 0); // ref count
+  __writeToAddress(resultPointer + 8, length);
+  Integer cursor = resultPointer + 16;
+  index = 0;
+  while (index < len(items)) {
+    String segment = items[index];
+    Integer segmentLength = _stringByteLength(segment);
+    if (segmentLength > 0) {
+      Integer segmentPointer = segment __as__ Integer;
+      _moveBytes(segmentPointer + 16, cursor, segmentLength);
+      cursor += segmentLength;
+    }
+    if (index < len(items) - 1) {
+      if (joinerLength > 0) {
+        Integer joinerPointer = joiner __as__ Integer;
+        _moveBytes(joinerPointer + 16, cursor, joinerLength);
+        cursor += joinerLength;
+      }
+    }
+    index += 1;
+  }
+  return resultPointer __as__ String;
+}
+
+String __stringify(Anything arg) {
   if (arg is String) {
     return arg as String;
   }
@@ -744,96 +838,18 @@ String _stringify(Anything arg) {
   stderr('value cannot be stringified:', __typeOf arg);
   exit(1);
 }
+_stringify = __stringify;
 
-String _concat(Anything... arguments) {
-  if (len(arguments) == 0) {
-    return '';
-  }
-  if (len(arguments) == 1) {
-    return _stringify(arguments[0]);
-  }
-  StringList strings = []:String;
-  Integer length = 0;
-  Integer index = 0;
-  while (index < len(arguments)) {
-    String segment = _stringify(arguments[index]);
-    append(strings, segment);
-    length += _stringByteLength(segment);
-    index += 1;
-  }
-  assert(length >= 0, 'negative length detected');
-  if (length >= 2147483648) {
-    stderr('absurd length detected (as exit code)\n');
-    exit(length);
-  }
-  Integer resultPointer = _alloc(16 + length);
+String chr(Integer code) {
+  assert(code >= 0, 'invalid Unicode value');
+  assert(code <= 0x10FFFF, 'invalid Unicode value');
+  assert(code <= 255, 'Unicode unimplemented');
+  Integer resultPointer = _alloc(16 + 1);
   __writeToAddress(resultPointer, 0); // ref count
-  __writeToAddress(resultPointer + 8, length);
-  Integer cursor = resultPointer + 16;
-  index = 0;
-  while (index < len(strings)) {
-    String segment = strings[index];
-    Integer segmentLength = _stringByteLength(segment);
-    if (segmentLength > 0) {
-      Integer segmentPointer = segment __as__ Integer;
-      _moveBytes(segmentPointer + 16, cursor, segmentLength);
-      cursor += segmentLength;
-    }
-    index += 1;
-  }
+  __writeToAddress(resultPointer + 8, 1); // length
+  __writeToAddress(resultPointer + 16, code); // the character
   return resultPointer __as__ String;
 }
-concat = _concat;
-
-Null print(Anything... parts) { 
-  Boolean first = true;
-  Integer index = 0;
-  while (index < len(parts)) {
-    if (first == false) {
-      __writeToHandle(__STD_OUTPUT_HANDLE, ' ');
-    }
-    __writeToHandle(__STD_OUTPUT_HANDLE, _stringify(parts[index]));
-    first = false;
-    index += 1;
-  }
-}
-
-Null println(Anything... parts) {
-  Boolean first = true;
-  Integer index = 0;
-  while (index < len(parts)) {
-    if (first == false) {
-      __writeToHandle(__STD_OUTPUT_HANDLE, ' ');
-    }
-    __writeToHandle(__STD_OUTPUT_HANDLE, _stringify(parts[index]));
-    first = false;
-    index += 1;
-  }
-  __writeToHandle(__STD_OUTPUT_HANDLE, '\n');
-}
-
-Null _stderr(Anything... parts) {
-  Boolean first = true;
-  Integer index = 0;
-  while (index < len(parts)) {
-    if (first == false) {
-      __writeToHandle(__STD_ERROR_HANDLE, ' ');
-    }
-    __writeToHandle(__STD_ERROR_HANDLE, _stringify(parts[index]));
-    first = false;
-    index += 1;
-  }
-  __writeToHandle(__STD_ERROR_HANDLE, '\n');
-}
-stderr = _stderr;
-
-Null _error(Anything... arguments) __intrinsic {
-  assert(len(arguments) >= 1, 'insufficient arguments to _error');
-  stderr(arguments[0]);
-  exit(1);
-}
-
-// STRING MANIPULATION
 
 StringList scalarValues(String value) {
   // This should decode UTF-8.
@@ -844,11 +860,7 @@ StringList scalarValues(String value) {
   Integer end = cursor + length;
   while (cursor < end) {
     Integer code = __readFromAddress(cursor);
-    Integer resultPointer = _alloc(16 + 1);
-    __writeToAddress(resultPointer, 0); // ref count
-    __writeToAddress(resultPointer + 8, 1); // length
-    __writeToAddress(resultPointer + 16, code); // the "character"
-    append(result, resultPointer __as__ String);
+    append(result, chr(code));
     cursor += 1;
   }
   return result;

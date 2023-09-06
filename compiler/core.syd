@@ -15,11 +15,6 @@ Integer max(Integer a, Integer b) {
 }
 
 //#ignore_unused
-String padRight(String line, Integer length, String padding) {
-  return concat(line, stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))));
-}
-
-//#ignore_unused
 AnythingList map(WhateverList items, AnythingFunction callback) {
   AnythingList result = [];
   Integer index = 0;

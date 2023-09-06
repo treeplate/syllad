@@ -49,6 +49,7 @@ Whatever single(WhateverIterable iterable) {
 
 // STRINGS
 
+//#ignore_unused
 String joinList(WhateverList args) {
   StringBuffer result = createStringBuffer();
   for (arg in args) {
@@ -57,6 +58,7 @@ String joinList(WhateverList args) {
   return readStringBuffer(result);
 }
 
+//#ignore_unused
 String stringTimes(String str, Integer count) {
   StringBuffer result = createStringBuffer();
   Integer index = 0;
@@ -67,35 +69,84 @@ String stringTimes(String str, Integer count) {
   return readStringBuffer(result);
 }
 
-/*
-String chr(Integer character) {
-  // TODO: implement this
-  stderr('chr is not implemented');
-  exit(1);
+//#ignore_unused
+String padRight(String line, Integer length, String padding) {
+  return concat(line, stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))));
 }
 
-StringList scalarValues(String str) {
-  // TODO: implement this
-  stderr('scalarValues is not implemented');
-  exit(1);
-}
-
-String hex(Integer num) {
-  // TODO: implement this
-  stderr('hex is not implemented');
-  exit(1);
-}
-
+//#ignore_unused
 String padLeft(String line, Integer length, String padding) {
   return concat(stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))), line);
 }
 
-
-// I/O
-
-String readFile(String file) {
-  // TODO: implement this
-  stderr('readFile is not implemented');
-  exit(1);
+String _hexDigitToStr(Integer digit) {
+  if (digit == 0) {
+    return '0';
+  }
+  if (digit == 1) {
+    return '1';
+  }
+  if (digit == 2) {
+    return '2';
+  }
+  if (digit == 3) {
+    return '3';
+  }
+  if (digit == 4) {
+    return '4';
+  }
+  if (digit == 5) {
+    return '5';
+  }
+  if (digit == 6) {
+    return '6';
+  }
+  if (digit == 7) {
+    return '7';
+  }
+  if (digit == 8) {
+    return '8';
+  }
+  if (digit == 9) {
+    return '9';
+  }
+  if (digit == 10) {
+    return 'a';
+  }
+  if (digit == 11) {
+    return 'b';
+  }
+  if (digit == 12) {
+    return 'c';
+  }
+  if (digit == 13) {
+    return 'd';
+  }
+  if (digit == 14) {
+    return 'e';
+  }
+  if (digit == 15) {
+    return 'f';
+  }
+  stderr('Invalid digit passed to _hexDigitToStr (digit as exit code)');
+  exit(digit);
 }
-*/
+
+//#ignore_unused
+String hex(Integer value) {
+  if (value >= 0 && value < 16) {
+    return _hexDigitToStr(value);
+  }
+  StringBuffer buffer = createStringBuffer();
+  Integer newValue = value; // parameters are final
+  if (value < 0) {
+    writeStringBuffer(buffer, '-');
+    newValue = -newValue;
+  }
+  while (newValue > 0) {
+    Integer digit = newValue % 16;
+    newValue = newValue / 16;
+    writeStringBuffer(buffer, _hexDigitToStr(digit));
+  }
+  return readStringBuffer(buffer);
+}

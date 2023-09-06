@@ -2099,6 +2099,8 @@ class ClassDeclaration extends AbstractClassDeclaration {
     TypeNullable existingStaticType = scope.globalScope().lookupType(identifier);
     if (existingStaticType == null) {
       declareType(scope);
+      assert(staticType != null, 'invariant violation');
+      assert(scope.globalScope().lookupType(identifier) == staticType, 'invariant violation');
     } else {
       staticType = existingStaticType!;
       // either someone declared an unrelated type with the same name (bad)
@@ -2120,7 +2122,10 @@ class ClassDeclaration extends AbstractClassDeclaration {
     }
     (staticType as ClassType).markAsDefined();
     if (!(staticType as ClassType).supertype.isDefined) {
-      assert(superclassName != null, 'we were not defined wat');
+      if (superclassName == null) {
+        throw(concat('Class defined before __Object is defined at ', sourceLocation));
+      }
+      assert(superclassName != null, 'we were not defined');
       throw(concat('Cannot extend a class that has not yet been defined at ', superclassName!.sourceLocation));
     }
     // register members on the class type
