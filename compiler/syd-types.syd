@@ -189,7 +189,9 @@ NullableType createOrFindNullableType(TypeRegistry typeRegistry, Type subtype) {
       return entry;
     }
   }
-  return NullableType(typeRegistry, subtype);
+  NullableType result = NullableType(typeRegistry, subtype);
+  append(typeRegistry.typesOfNullables, result);
+  return result;
 }
 
 class NumericType extends Type {
@@ -469,7 +471,9 @@ SubroutineTypeWithAnyArgumentsNullable findSubroutineTypeWithAnyArguments(TypeRe
 SubroutineTypeWithAnyArguments createOrFindSubroutineTypeWithAnyArgs(TypeRegistry typeRegistry, Type returnType) {
   SubroutineTypeWithAnyArgumentsNullable result = findSubroutineTypeWithAnyArguments(typeRegistry, returnType);
   if (result == null) {
-    return SubroutineTypeWithAnyArguments(typeRegistry, returnType);
+    SubroutineTypeWithAnyArguments result = SubroutineTypeWithAnyArguments(typeRegistry, returnType);
+    append(typeRegistry.typesOfSubroutinesWithAnyArguments, result);
+    return result;
   }
   return result!;
 }
@@ -487,7 +491,9 @@ SubroutineTypeWithVarArgs createOrFindSubroutineTypeWithVarArgs(TypeRegistry typ
   assert(len(parameterTypes) == 1, 'varargs must have exactly one parameter type');
   AbstractSubroutineTypeWithSpecificParametersNullable result = findSubroutineTypeWithSpecificParameters(typeRegistry, returnType, parameterTypes, true);
   if (result == null) {
-    return SubroutineTypeWithVarArgs(typeRegistry, returnType, parameterTypes[0]);
+    SubroutineTypeWithVarArgs result = SubroutineTypeWithVarArgs(typeRegistry, returnType, parameterTypes[0]);
+    append(typeRegistry.typesOfSubroutinesWithSpecificParameters, result);
+    return result;
   }
   return result as SubroutineTypeWithVarArgs;
 }
@@ -495,7 +501,9 @@ SubroutineTypeWithVarArgs createOrFindSubroutineTypeWithVarArgs(TypeRegistry typ
 SubroutineTypeWithSpecificParameters createOrFindSubroutineTypeWithSpecificParameters(TypeRegistry typeRegistry, Type returnType, TypeList parameterTypes) {
   AbstractSubroutineTypeWithSpecificParametersNullable result = findSubroutineTypeWithSpecificParameters(typeRegistry, returnType, parameterTypes, false);
   if (result == null) {
-    return SubroutineTypeWithSpecificParameters(typeRegistry, returnType, parameterTypes);
+    SubroutineTypeWithSpecificParameters result = SubroutineTypeWithSpecificParameters(typeRegistry, returnType, parameterTypes);
+    append(typeRegistry.typesOfSubroutinesWithSpecificParameters, result);
+    return result;
   }
   return result as SubroutineTypeWithSpecificParameters;
 }
@@ -565,7 +573,9 @@ ListType createOrFindListType(TypeRegistry typeRegistry, Type elementType) {
       return entry;
     }
   }
-  return ListType(typeRegistry, elementType);
+  ListType result = ListType(typeRegistry, elementType);
+  append(typeRegistry.typesOfLists, result);
+  return result;
 }
 
 class ReadOnlyListType extends AbstractListType {
@@ -596,7 +606,9 @@ ReadOnlyListType createOrFindReadOnlyListType(TypeRegistry typeRegistry, Type el
       return entry;
     }
   }
-  return ReadOnlyListType(typeRegistry, elementType);
+  ReadOnlyListType result = ReadOnlyListType(typeRegistry, elementType);
+  append(typeRegistry.typesOfReadOnlyLists, result);
+  return result;
 }
 
 class IterableType extends Type {
@@ -632,7 +644,9 @@ IterableType createOrFindIterableType(TypeRegistry typeRegistry, Type elementTyp
       return entry;
     }
   }
-  return IterableType(typeRegistry, elementType);
+  IterableType result = IterableType(typeRegistry, elementType);
+  append(typeRegistry.typesOfIterables, result);
+  return result;
 }
 
 class IteratorType extends Type {
@@ -668,7 +682,9 @@ IteratorType createOrFindIteratorType(TypeRegistry typeRegistry, Type elementTyp
       return entry;
     }
   }
-  return IteratorType(typeRegistry, elementType);
+  IteratorType result = IteratorType(typeRegistry, elementType);
+  append(typeRegistry.typesOfIterators, result);
+  return result;
 }
 
 class ClosureType extends Type {
@@ -872,4 +888,8 @@ class TypeRegistry extends Object {
     }
     return lookupType(name);
   }
+}
+
+Boolean typesEquivalent(Type a, Type b) {
+  return a.isSubtypeOf(b) && b.isSubtypeOf(a);
 }

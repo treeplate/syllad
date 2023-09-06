@@ -587,6 +587,21 @@ Boolean listEquals(WhateverList list1, WhateverList list2) {
 }
 
 //#ignore_unused
+Boolean listEqualsWithComparator(WhateverList list1, WhateverList list2, BooleanFunction comparator) {
+  if (len(list1) != len(list2)) {
+    return false;
+  }
+  Integer index = 0;
+  while (index < len(list1)) {
+    if (!comparator(list1[index], list2[index])) {
+      return false;
+    }
+    index += 1;
+  }
+  return true;
+}
+
+//#ignore_unused
 Boolean unorderedListEquals(WhateverList list1, WhateverList list2) {
   if (len(list1) != len(list2)) {
     return false;

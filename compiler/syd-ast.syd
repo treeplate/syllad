@@ -1962,6 +1962,7 @@ class EnumDeclaration extends DeclarationStatement {
     globalScope.declareType(enumType);
     Integer index = 0;
     for (value in values) {
+      // TODO: we need to only register "identifier" here, add all the values to EnumType, and then make member access know about enums
       String name = concat(identifier, value);
       if (scope.isIdentifierDeclaredInLocalScope(name)) {
         throw(concat('Cannot redeclare identifier "', name, '" at ', sourceLocation));
@@ -2197,7 +2198,11 @@ class ClassDeclaration extends AbstractClassDeclaration {
         }
       } else {
         if (!((staticType as ClassType).constructorSubroutine.staticType is SubroutineTypeWithSpecificParameters) ||
-            !listEquals(((staticType as ClassType).constructorSubroutine.staticType as SubroutineTypeWithSpecificParameters).parameterTypes, constructorParameters)) {
+            !listEqualsWithComparator(
+              ((staticType as ClassType).constructorSubroutine.staticType as SubroutineTypeWithSpecificParameters).parameterTypes,
+              constructorParameters,
+              typesEquivalent,
+             )) {
           throw(concat('Forward class declaration constructor signature did not match constructor declaration at ', constructorMember!.sourceLocation));
         }
       }
