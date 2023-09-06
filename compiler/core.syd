@@ -15,33 +15,6 @@ Integer max(Integer a, Integer b) {
 }
 
 //#ignore_unused
-String intToStr(Integer value) {
-  if (value == 0) {
-    return '0';
-  }
-  StringList buffer = []:String;
-  Integer newValue = value; // parameters are final
-  if (newValue < 0) {
-    newValue = -newValue;
-  }
-  while (newValue > 0) {
-    Integer digit = newValue % 10;
-    newValue = newValue / 10;
-    append(buffer, chr(0x30 + digit));
-  }
-  if (value < 0) {
-    append(buffer, '-');
-  }
-  Integer index = len(buffer);
-  StringList flippedBuffer = []:String;
-  while (index > 0) {
-    index -= 1;
-    append(flippedBuffer, buffer[index]);
-  }
-  return joinList(flippedBuffer);
-}
-
-//#ignore_unused
 String padRight(String line, Integer length, String padding) {
   return concat(line, stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))));
 }

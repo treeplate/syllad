@@ -832,3 +832,30 @@ Null _error(Anything... arguments) __intrinsic {
   stderr(arguments[0]);
   exit(1);
 }
+
+// STRING MANIPULATION
+
+StringList scalarValues(String value) {
+  // This should decode UTF-8.
+  // For now we only support 8-bit character encodings.
+  StringList result = []:String;
+  Integer length = _stringByteLength(value);
+  Integer cursor = value __as__ Integer + 16;
+  Integer end = cursor + length;
+  while (cursor < end) {
+    Integer code = __readFromAddress(cursor);
+    Integer resultPointer = _alloc(16 + 1);
+    __writeToAddress(resultPointer, 0); // ref count
+    __writeToAddress(resultPointer + 8, 1); // length
+    __writeToAddress(resultPointer + 16, code); // the "character"
+    append(result, resultPointer __as__ String);
+    cursor += 1;
+  }
+  return result;
+}
+
+StringList charsOf(String value) {
+  // This should use ICU's BreakIterator.
+  // For now we just return Unicode Scalar Values since we only support 8-bit encodings anyway.
+  return scalarValues(value);
+}

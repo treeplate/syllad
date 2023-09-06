@@ -1,0 +1,4 @@
+// Expected output: 1
+
+Whatever x = 1;
+println(x!);

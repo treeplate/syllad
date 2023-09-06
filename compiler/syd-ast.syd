@@ -92,12 +92,12 @@ class IntegerLiteralExpression extends Expression {
   //#override
   String toStringIndent(Integer indent) {
     if (value > -10 && value < 10) {
-      return intToStr(value);
+      return concat(value);
     }
     if (value < 0) {
-      return concat(intToStr(value), ' /* -0x', hex(-value), ' *\/');
+      return concat(value, ' /* -0x', hex(-value), ' *\/');
     }
-    return concat(intToStr(value), ' /* 0x', hex(value), ' *\/');
+    return concat(value, ' /* 0x', hex(value), ' *\/');
   }
 
   Null constructor(Integer valueArg, SourceLocation sourceLocationArg) {
@@ -634,14 +634,24 @@ class UnwrapExpression extends Expression {
     // check that it's not nullable
     // return a static cast
     Bucket value = lhs.generateInstructions(scope);
-    if (!(value.staticType is NullableType)) {
+    if (value.staticType is NullableType) {
+      Type unwrappedType = (value.staticType as NullableType).subtype;
+      assert(value.staticType.needRuntimeTypeCheckFor(unwrappedType), 'internal error');
+      assert(unwrappedType.isSubtypeOf(value.staticType), 'internal error');
+      scope.emit(TypeCheckInstruction(value, unwrappedType, 'value is null', true, LazyComment('check type of ', value, ' is ', unwrappedType, ' and not null')));
+      return StaticCastBucket(value, unwrappedType);
+    } else if (value.staticType is WhateverType) {
+      BoundInstruction error = ErrorInstruction('unexpected null value');
+      error.bind(scope.label);
+      scope.emit(IfBlockInstruction(
+        scope.compute(EqualityInstruction(value, scope.environment().coreNull, scope.environment().coreBooleanType, false, LazyComment('check ', value, ' is not null'))),
+        []:BoundInstruction,
+        [ error ]:BoundInstruction,
+      ));
+      return value;
+    } else {
       throw(concat('Type of expression (', value.staticType.name, ') is not a nullable type at ', sourceLocation));
     }
-    Type unwrappedType = (value.staticType as NullableType).subtype;
-    assert(value.staticType.needRuntimeTypeCheckFor(unwrappedType), 'internal error');
-    assert(unwrappedType.isSubtypeOf(value.staticType), 'internal error');
-    scope.emit(TypeCheckInstruction(value, unwrappedType, 'value is null', true, LazyComment('check type of ', value, ' is ', unwrappedType, ' and not null')));
-    return StaticCastBucket(value, unwrappedType);
   }
 
   Null constructor(Expression lhsArg, SourceLocation sourceLocationArg) {

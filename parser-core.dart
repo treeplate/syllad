@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'expressions.dart';
 import 'lexer.dart';
 import 'statements.dart';
@@ -962,7 +964,7 @@ class Scope extends VariableGroup {
     }
   }
 
-  final Map<Variable, MaybeConstantValueWrapper> values = {};
+  final Map<Variable, MaybeConstantValueWrapper> values = HashMap();
 
   void setVar(Expression expr, ValueWrapper value, bool isConstant, int line, int col, String workspace, String file) {
     expr.write(value, isConstant, this);

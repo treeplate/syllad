@@ -57,22 +57,20 @@ String joinList(WhateverList args) {
   return readStringBuffer(result);
 }
 
+String stringTimes(String str, Integer count) {
+  StringBuffer result = createStringBuffer();
+  Integer index = 0;
+  while (index < count) {
+    writeStringBuffer(result, str);
+    index += 1;
+  }
+  return readStringBuffer(result);
+}
+
 /*
 String chr(Integer character) {
   // TODO: implement this
   stderr('chr is not implemented');
-  exit(1);
-}
-
-String stringTimes(String str, Integer count) {
-  // TODO: implement this
-  stderr('stringTimes is not implemented');
-  exit(1);
-}
-
-StringList charsOf(String str) {
-  // TODO: implement this
-  stderr('charsOf is not implemented');
   exit(1);
 }
 
@@ -88,10 +86,9 @@ String hex(Integer num) {
   exit(1);
 }
 
-// // TODO: depends on charsOf, stringTimes, lists...
-// String padLeft(String line, Integer length, String padding) {
-//   return concat(stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))), line);
-// }
+String padLeft(String line, Integer length, String padding) {
+  return concat(stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))), line);
+}
 
 
 // I/O
