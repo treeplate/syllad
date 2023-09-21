@@ -4,7 +4,6 @@ fwdclass TypeRegistry extends Object;
 fwdclass Type(TypeRegistry, String) extends Object;
 fwdclass NullableType(TypeRegistry, Type) extends Type;
 fwdclass NumericType extends Type;
-fwdclass EnumType(TypeRegistry, String) extends NumericType;
 fwdclass AbstractSubroutineType(TypeRegistry, Type) extends Type;
 fwdclass SubroutineTypeWithAnyArguments extends AbstractSubroutineType;
 fwdclass AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineType;
@@ -244,16 +243,6 @@ class IntegerType extends NumericType {
 
   Null constructor(TypeRegistry typeRegistryArg) {
     super.constructor(typeRegistryArg, 'Integer');
-  }
-}
-
-class EnumType extends NumericType {
-  //#override
-  Boolean isSubtypeOf(Type other) {
-    return other == this
-        || other is AnythingType
-        || other is WhateverType
-        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 }
 

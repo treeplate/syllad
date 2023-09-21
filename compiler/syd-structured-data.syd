@@ -32,6 +32,15 @@ class Constant extends Object {
   }
 }
 
+class StringConstant extends Constant {
+  String value;
+
+  Null constructor(AssemblerLabel labelArg, String valueArg, ConstantPartList dataArg, StringNullable suffixCommentArg, String commentNameArg) {
+    super.constructor(labelArg, dataArg, suffixCommentArg, commentNameArg);
+    value = valueArg;
+  }
+}
+
 class UninitializedGlobal extends Object {
   AssemblerLabel label;
   Integer bytes;

@@ -653,7 +653,7 @@ class UnwrapExpression extends Expression {
   String toString() => "$a!";
 
   @override
-  ValueType get type => (a.type as NullableValueType).genericParam;
+  ValueType get type => a.type is NullableValueType ? (a.type as NullableValueType).genericParam : a.type;
 }
 
 class FunctionCallExpr extends Expression {

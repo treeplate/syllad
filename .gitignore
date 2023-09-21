@@ -15,3 +15,5 @@ syd.obj
 .dart_tool
 profile.txt
 error-dump.txt
+compiler/syd.asm
+compiler/syd.exe

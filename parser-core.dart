@@ -451,7 +451,7 @@ class ValueWrapper<T extends Object?> {
       throw 'internal error: ValueWrapper.toString() called'; // toStringWithStack([NotLazyString('internal error: ValueWrapper.toString() called')], -2, 0, 'interr', 'interrr');
 
   String toStringWithStack(List<LazyString> s, int line, int col, String workspace, String file, bool rethrowErrors) {
-    return _value is Function ? "<function ($debugCreationDescription)>" : toStringWithStacker(this, s, line, col, workspace, file, rethrowErrors);
+    return _value is Function ? "<function ($debugCreationDescription)>" : _value is Enum ? debugCreationDescription.toString() : toStringWithStacker(this, s, line, col, workspace, file, rethrowErrors);
   }
 }
 

@@ -539,7 +539,7 @@ class EnumStatement extends Statement {
       ValueWrapper(
         type,
         Enum(newScope),
-        LazyInterpolatorSpace('enum', VariableLazyString(name)),
+        VariableLazyString(name),
       ),
       true,
     );

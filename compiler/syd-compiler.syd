@@ -83,6 +83,11 @@ fwdclass BuiltInWriteToAddressIntrinsic(CompiledIntrinsicsLibrary) extends Compi
 fwdclass CompiledVarArgsSubroutine extends CompiledSubroutine;
 fwdclass IdentifierEntity extends Object;
 fwdclass SubroutinePointerBucket extends ConstantBucket;
+fwdclass RootEnumPropertyType(TypeRegistry, String) extends NumericType;
+fwdclass EnumPropertyType(TypeRegistry, String) extends NumericType;
+fwdclass RootReifiedEnumType(TypeRegistry, String) extends NumericType;
+fwdclass ReifiedEnumType(TypeRegistry, AssemblerLabel, StringBucket, EnumPropertyType, Map) extends NumericType;
+fwdclass ReifiedEnumBucket(ReifiedEnumType) extends DataLabelBucket;
 
 // CompiledScope
 fwdclassprop AssemblerLabel CompiledScope.label;
@@ -152,6 +157,13 @@ fwdclassprop CompiledSubroutineNullable MemberDescription.setter;
 // IdentifierEntity
 fwdclassprop BucketNullableFunction IdentifierEntity.inline;
 
+// ReifiedEnumType
+fwdclassprop StringBucket ReifiedEnumType.nameBucket;
+fwdclassprop AssemblerLabel ReifiedEnumType.label;
+fwdclassprop Map ReifiedEnumType.values;
+fwdclassprop EnumPropertyType ReifiedEnumType.propertyType;
+
+
 // ============================================================================
 // COMPILATION ENVIRONMENT
 // ============================================================================
@@ -183,8 +195,8 @@ class CompilationEnvironment extends TypeRegistry {
   Map stringAtomTable = Map(); // String -> Constant
   ConstantList constants = []:Constant;
 
-  StringBucket registerStringConstant(AssemblerLabel label, String value, String comment, String commentName) {
-    ConstantNullable maybeConstant = stringAtomTable.get(value) as ConstantNullable;
+  StringBucket registerStringConstant(AssemblerLabel label, String value, Type type, String comment, String commentName) {
+    StringConstantNullable maybeConstant = stringAtomTable.get(value) as StringConstantNullable;
     if (maybeConstant == null) {
       // TODO: length is wrong, we should be giving the byte length in whatever encoding we use (probably UTF-8? though windows, so maybe UTF-16?)
       ConstantPartList lines = []:ConstantPart;
@@ -203,17 +215,16 @@ class CompilationEnvironment extends TypeRegistry {
           append(lines, ConstantPart(ow.Byte, buffer, 'padding to align to 8-byte boundary'));
         }
       }
-      maybeConstant = Constant(label, lines, null, commentName);
+      maybeConstant = StringConstant(label, value, lines, null, commentName);
       stringAtomTable.set(value, maybeConstant);
       append(constants, maybeConstant);
-      assert(coreStringType.isConstructed, 'caller of registerStringConstant must markConstructed string type'); // TODO: reconsider now that we have a string type accessible more easily
+      type.markConstructed();
     }
-    return StringBucket(maybeConstant!, coreStringType);
+    return StringBucket(maybeConstant!, type);
   }
 
   Bucket errorMessage(String value) { 
-    coreStringType.markConstructed();
-    return registerStringConstant(rootLabel.deriveWith('error'), value, 'built-in error message', commentNameForString(value));
+    return registerStringConstant(rootLabel.deriveWith('error'), value, coreStringType, 'built-in error message', commentNameForString(value));
   }
 
   Map dynamicDispatchAtomTable = Map(); // String -> Integer
@@ -226,6 +237,14 @@ class CompilationEnvironment extends TypeRegistry {
   }
   Boolean neededForDynamicDispatch(String identifier) {
     return dynamicDispatchAtomTable.get(identifier) != null;
+  }
+
+  Set reifiedEnumTypes = Set(); // ReifiedEnumType
+
+  ConstantBucket registerEnumType(ReifiedEnumType reifiedEnumType) {
+    assert(!reifiedEnumTypes.has(reifiedEnumType), 'tried to register enum constant that was already registered');
+    reifiedEnumTypes.add(reifiedEnumType);
+    return ReifiedEnumBucket(reifiedEnumType);
   }
 
   CompiledLibraryNullable runtimeLibrary = null; 
@@ -639,11 +658,37 @@ class CompilationEnvironment extends TypeRegistry {
     assembler.addConst(Constant(label, _generateIterableConversionTypeTable(mapper, 'Table mapping iterable types to list types'), null, 'list type table'));
   }
 
+  Null _generateEnumTables(Assembler assembler) {
+    for (reifiedEnumType in reifiedEnumTypes.values() as ReifiedEnumTypeList) {
+      StringBucket enumNameBucket = reifiedEnumType.nameBucket;
+      AssemblerLabel label = reifiedEnumType.label;
+      ConstantPartList dynamicValues = []:ConstantPart;
+      for (valueName in reifiedEnumType.values.keys() as StringList) {
+        if (neededForDynamicDispatch(valueName)) {
+          StringBucket valueTarget = reifiedEnumType.values.get(valueName) as StringBucket;
+          ImmediateDatum atomCode = IntegerDatum(atomizeForDynamicDispatch(valueName), concat('dynamic dispatch code for "', valueTarget.value.value, '"'));
+          ImmediateDatum stringPointer = valueTarget.currentValueDatum() as ImmediateDatum;
+          append(dynamicValues, ConstantPart(ow.QWord, [atomCode, stringPointer]:ImmediateDatum, valueTarget.value.value));
+        }
+      }
+      ConstantPartList lines = [
+        ConstantPart(ow.QWord, [enumNameBucket.currentValueDatum() as ImmediateDatum]:ImmediateDatum, 'Enum constant name'),
+        ConstantPart(ow.QWord, [IntegerDatum(len(dynamicValues), 'Number of reified values')]:ImmediateDatum, 'Number of reified values'),
+      ]:ConstantPart;
+      if (len(dynamicValues) > 0) {
+        append(lines, ConstantPart(ow.QWord, [TypeCodeDatum(reifiedEnumType.propertyType)]:ImmediateDatum, concat(reifiedEnumType.propertyType.name, ' type code')));
+        appendAll(lines, dynamicValues);
+      }
+      assembler.addConst(Constant(label, lines, null, concat(enumNameBucket.value.value, ' reified enum table')));
+    }
+  }
+
   Null generateTypeTables(Assembler assembler) {
     _generateTypeTable(assembler, typeTableLabel);
     _generateElementTypeTable(assembler, elementTypeTableLabel);
     _generateIteratorTypeTable(assembler, iteratorTypeTableLabel);
     _generateListTypeTable(assembler, listTypeTableLabel);
+    _generateEnumTables(assembler);
   }
 
   Null generateVmts(Assembler assembler) {
@@ -718,6 +763,9 @@ class CompilationEnvironment extends TypeRegistry {
     assembler.assemble(pseudoInstructions);
   }
 
+  RootEnumPropertyType coreRootEnumPropertyType;
+  RootReifiedEnumType coreRootReifiedEnumType;
+
   Null constructor() {
     super.constructor();
     typeTableLabel = rootLabel.deriveWith('typeTable');
@@ -730,6 +778,8 @@ class CompilationEnvironment extends TypeRegistry {
     listTypeTablePointer = DataLabelBucket(listTypeTableLabel, coreIntegerType);
     coreSentinel = SentinelBucket(coreSentinelType);
     coreSentinelType.markConstructed();
+    coreRootEnumPropertyType = RootEnumPropertyType(this, 'EnumProperty#');
+    coreRootReifiedEnumType = RootReifiedEnumType(this, 'ReifiedEnum#');
     coreNull = IntegerBucket(0x00, coreNullType);
     coreFalse = IntegerBucket(0x00, coreBooleanType);
     coreTrue = IntegerBucket(0x01, coreBooleanType);
@@ -1665,8 +1715,7 @@ class ClassType extends Type {
   
       append(vmtLines, ConstantPart(ow.QWord, [IntegerDatum(fieldCount, concat('field count of ', name))]:ImmediateDatum, 'number of fields to allocate during construction'));
   
-      assert(environment.coreStringType.isConstructed, 'Cannot encode string into VMT; strings are not used anywhere in this program.');
-      StringBucket classNameBucket = environment.registerStringConstant(label.deriveWith('className'), name, 'class name', name);
+      StringBucket classNameBucket = environment.registerStringConstant(label.deriveWith('className'), name, environment.coreStringType, 'class name', name);
       append(vmtLines, ConstantPart(ow.QWord, [ConstantDatum(classNameBucket.value, concat('"', name, '"'))]:ImmediateDatum, 'pointer to class name'));
 
       // Pointer to parent VMT
@@ -1778,6 +1827,77 @@ class ClassType extends Type {
     methodsLabel = label.deriveWith('method');
     gettersLabel = label.deriveWith('getter');
     settersLabel = label.deriveWith('setter');
+  }
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+// internal type for RTL to recognize enum values
+// all enum values are of this type
+class RootEnumPropertyType extends NumericType {
+  //#override
+  Boolean isSubtypeOf(Type other) {
+    return other is RootEnumPropertyType
+        || other is AnythingType
+        || other is WhateverType
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
+  }
+}
+
+// the specific type of an enum value
+class EnumPropertyType extends NumericType {
+  //#override
+  Boolean isSubtypeOf(Type other) {
+    return other == this
+        || other is RootEnumPropertyType
+        || other is AnythingType
+        || other is WhateverType
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
+  }
+}
+
+// internal type for RTL to recognize reified enum types
+// all reified enums are of this type
+class RootReifiedEnumType extends NumericType {
+  //#override
+  Boolean isSubtypeOf(Type other) {
+    return other is RootReifiedEnumType
+        || other is AnythingType
+        || other is WhateverType
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
+  }
+}
+
+// the type of the enum namespace
+class ReifiedEnumType extends NumericType {
+  StringBucket nameBucket;
+  AssemblerLabel label;
+  Map values; // String -> StringBucket
+  EnumPropertyType propertyType;
+
+  //#override
+  Boolean isSubtypeOf(Type other) {
+    return other == this
+        || other is RootReifiedEnumType
+        || other is AnythingType
+        || other is WhateverType
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
+  }
+
+  Null constructor(TypeRegistry typeRegistryArg, AssemblerLabel labelArg, StringBucket nameBucketArg, EnumPropertyType propertyTypeArg, Map valuesArg) {
+    super.constructor(typeRegistryArg, concat(nameBucketArg.value.value, 'Enum'));
+    nameBucket = nameBucketArg;
+    label = labelArg;
+    propertyType = propertyTypeArg;
+    values = valuesArg;
+  }
+}
+
+class ReifiedEnumBucket extends DataLabelBucket {
+  Null constructor(ReifiedEnumType staticTypeArg) {
+    super.constructor(staticTypeArg.label, staticTypeArg);
   }
 }
 
@@ -2294,10 +2414,10 @@ class CompiledSubroutine extends CompiledStackFrameScope {
       thisPointer = ThisPointerParameterBucket(parentClass!);
       identifiers.set('this', ImmutableVariableIdentifierEntity(thisPointer));
     }
-    environment().coreStringType.markConstructed();
     nameConstant = environment().registerStringConstant(
       label.deriveWith('annotation'),
       name,
+      environment().coreStringType, 
       concat('annotation for ', name, '(line ', __LINE__, ' col ', __COL__, ' in ', __FILE__, ')'),
       concat('"', name, '"'),
     );
@@ -2981,6 +3101,8 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
     declareType(environment.coreReferenceCountedType);
     declareType(environment.coreSubroutineCodeAddressType);
     declareType(environment.coreListDataType);
+    declareType(environment.coreRootEnumPropertyType);
+    declareType(environment.coreRootReifiedEnumType);
 
     // built-in functions not used from compiler
     registerSubroutine(BuiltInDebuggerSubroutine(this), false);

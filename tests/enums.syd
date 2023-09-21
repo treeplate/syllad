@@ -1,0 +1,14 @@
+// expected output: Foo is FooEnum: true
+// expected output: true Foo
+// expected output: Dynamic dispatch: true
+// expected output: Enum value: Foo.baz
+
+enum Foo { bar baz }
+
+println('Foo is FooEnum:', Foo is FooEnum);
+
+Whatever x = Foo;
+println(concat(Foo) == concat(x), concat(x));
+println('Dynamic dispatch:', x.bar == Foo.bar);
+
+println('Enum value:', concat(Foo.baz));

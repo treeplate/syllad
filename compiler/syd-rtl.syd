@@ -31,6 +31,11 @@ Integer _subroutineClosurePointer = _gcBlockData + 1 * 16 + 8;
 Integer _subroutineCodeType = _gcBlockData + 2 * 16; // for completeness, always code address type
 Integer _subroutineCodePointer = _gcBlockData + 2 * 16 + 8;
 
+Integer _enumTableNameOffset = 0x00;
+Integer _enumTableLengthOffset = 0x08;
+Integer _enumTableEntryTypeOffset = 0x10;
+Integer _enumTableFirstEntryOffset = 0x18;
+
 fwdclass __Object __intrinsic;
 
 // ERROR MANAGEMENT
@@ -516,8 +521,9 @@ class __Object __intrinsic {
 }
 
 // Code pointers are blocks with the following values:
-//  1: pointer to object or closure; null for global scope function pointers
-//  2: pointer to code (with annotation at -8 bytes) as an Integer
+//  1: pointer to object; null for global scope function pointers
+//  2: pointer to closure; null for global scope function pointers
+//  3: pointer to code (with annotation at -8 bytes) as an Integer
 
 WhateverFunction _createMethodPointer(__Object receiver, __CodeAddress codePointer, Integer functionTypeCode) __intrinsic {
   _gcLocked += 1;
@@ -532,28 +538,45 @@ WhateverFunction _createMethodPointer(__Object receiver, __CodeAddress codePoint
   return result;
 }
 
-Whatever _dummy1() {
-  throw('dummy function called');
-}
+Whatever _WhateverFunctionPrototype() { }
 
-// This function returns a getter, which you then need to call to get the actual value.
-WhateverFunction _dynamicLookup(Anything receiver, Integer methodId) __intrinsic {
-  if (!receiver is __Object) {
-    throw(concat('Cannot dynamic dispatch on ', receiver, ' which is not an object.'));
-  }
-  Integer vmt = (receiver as __Object).vmt#;
-  Integer ddt = __readFromAddress(vmt + _vmtDynamicDispatchTable);
-  // TODO: make this a binary search
-  Integer cursor = ddt + 8;
-  Integer end = ddt + 8 + __readFromAddress(ddt) * 8;
-  while (cursor < end) {
-    Integer entry = __readFromAddress(cursor);
-    if ((entry & 0x00000000FFFFFFFF) == methodId) {
-      return _createMethodPointer(receiver as __Object, __readFromAddress(vmt + (entry >> 32)) __as__ __CodeAddress, __typeOf _dummy1);
+Whatever _dynamicLookup(Anything receiver, Integer methodId) __intrinsic {
+  if (receiver is __Object) {
+    Integer vmt = (receiver as __Object).vmt#;
+    Integer ddt = __readFromAddress(vmt + _vmtDynamicDispatchTable);
+    // TODO: make this a binary search
+    Integer cursor = ddt + 8;
+    Integer end = ddt + 8 + __readFromAddress(ddt) * 8;
+    while (cursor < end) {
+      Integer entry = __readFromAddress(cursor);
+      if ((entry & 0x00000000FFFFFFFF) == methodId) {
+        WhateverFunction getter = _createMethodPointer(
+          receiver as __Object,
+          __readFromAddress(vmt + (entry >> 32)) __as__ __CodeAddress,
+          __typeOf _WhateverFunctionPrototype,
+        );
+        return getter();
+      }
+      cursor += 8;
     }
-    cursor += 8;
+    throw(concat('No member with specified name found on "', (receiver as __Object).className, '".'));
   }
-  throw(concat('No member with specified name found on "', (receiver as __Object).className, '".'));
+  if (receiver is ReifiedEnum#) {
+    Integer enumTable = receiver __as__ Integer;
+    Integer length = __readFromAddress(enumTable + _enumTableLengthOffset);
+    // TODO: make this a binary search
+    Integer cursor = enumTable + _enumTableFirstEntryOffset;
+    Integer end = enumTable + _enumTableFirstEntryOffset + length * 16;
+    while (cursor < end) {
+      Integer entry = __readFromAddress(cursor);
+      if (entry == methodId) {
+        return __readFromAddress(cursor + 8) __dynamic_as__ __readFromAddress(enumTable + _enumTableEntryTypeOffset);
+      }
+      cursor += 16;
+    }
+    throw(concat('No member with specified name found on "', __readFromAddress(enumTable + _enumTableNameOffset) __as__ String, '".'));
+  }
+  throw(concat('Cannot dynamic dispatch on ', receiver, '.'));
 }
 
 
@@ -691,7 +714,28 @@ String readStringBuffer(StringBuffer buffer) {
   return resultPointer __as__ String;
 }
 
-String _intDigitToStr(Integer digit) {
+String _readStringBufferBackwards(StringBuffer buffer) {
+  StringBuffer# source = buffer __as__ StringBuffer#;
+  if (source.first == null) {
+    assert(source.length == 0, 'invariant violation');
+    return '';
+  }
+  Integer resultPointer = _alloc(16 + source.length);
+  __writeToAddress(resultPointer, 0); // ref count
+  __writeToAddress(resultPointer + 8, source.length);
+  Integer cursor = resultPointer + 16 + source.length;
+  StringBufferPart#Nullable part = source.first!;
+  while (part != null) {
+    Integer segmentLength = _stringByteLength(part!.value);
+    cursor -= segmentLength;
+    Integer segmentPointer = part!.value __as__ Integer;
+    _moveBytes(segmentPointer + 16, cursor, segmentLength);
+    part = part!.next;
+  }
+  return resultPointer __as__ String;
+}
+
+String _digitToStr(Integer digit) {
   if (digit == 0) {
     return '0';
   }
@@ -722,28 +766,71 @@ String _intDigitToStr(Integer digit) {
   if (digit == 9) {
     return '9';
   }
-  stderr('Invalid digit passed to _intDigitToStr (digit as exit code)');
+  if (digit == 10) {
+    return 'a';
+  }
+  if (digit == 11) {
+    return 'b';
+  }
+  if (digit == 12) {
+    return 'c';
+  }
+  if (digit == 13) {
+    return 'd';
+  }
+  if (digit == 14) {
+    return 'e';
+  }
+  if (digit == 15) {
+    return 'f';
+  }
+  stderr('Invalid digit passed to _digitToStr (digit as exit code)');
   exit(digit);
 }
 
+//#ignore_unused
 String intToStr(Integer value) {
   if (value >= 0 && value < 10) {
-    return _intDigitToStr(value);
+    return _digitToStr(value);
   }
   StringBuffer buffer = createStringBuffer();
   Integer newValue = value; // parameters are final
-  if (value < 0) {
-    writeStringBuffer(buffer, '-');
+  if (newValue < 0) {
     newValue = -newValue;
   }
   while (newValue > 0) {
     Integer digit = newValue % 10;
     newValue = newValue / 10;
-    writeStringBuffer(buffer, _intDigitToStr(digit));
+    writeStringBuffer(buffer, _digitToStr(digit));
   }
-  return readStringBuffer(buffer);
+  if (value < 0) {
+    writeStringBuffer(buffer, '-');
+  }
+  return _readStringBufferBackwards(buffer);
 }
 
+//#ignore_unused
+String hex(Integer value) {
+  if (value >= 0 && value < 16) {
+    return _digitToStr(value);
+  }
+  StringBuffer buffer = createStringBuffer();
+  Integer newValue = value; // parameters are final
+  if (newValue < 0) {
+    newValue = -newValue;
+  }
+  while (newValue > 0) {
+    Integer digit = newValue % 16;
+    newValue = newValue / 16;
+    writeStringBuffer(buffer, _digitToStr(digit));
+  }
+  if (value < 0) {
+    writeStringBuffer(buffer, '-');
+  }
+  return _readStringBufferBackwards(buffer);
+}
+
+//#ignore_unused
 String join(StringList items, String joiner) {
   if (len(items) == 0) {
     return '';
@@ -829,11 +916,17 @@ String __stringify(Anything arg) {
     }
     return concat('[', join(new, ', '), ']');
   }
+  if (arg is StringBuffer) {
+    return '<StringBuffer>';
+  }
   if (arg is __ListData) {
     return '<__ListData>';
   }
-  if (arg is StringBuffer) {
-    return '<StringBuffer>';
+  if (arg is ReifiedEnum#) {
+    return __readFromAddress(arg __as__ Integer + _enumTableNameOffset) __as__ String;
+  }
+  if (arg is EnumProperty#) {
+    return arg __as__ String;
   }
   stderr('value cannot be stringified:', __typeOf arg);
   exit(1);

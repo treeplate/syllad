@@ -22,6 +22,14 @@
 //   8 bytes pointer to closure
 //   8 bytes internal code address type
 //   8 bytes pointer to code (with annotation at -8 bytes) as an Integer
+//
+// Reified Enum Table
+//   8 bytes pointer to name
+//   8 bytes number of enum values
+//   8 bytes type of enum values (absent if length is 0)
+//   values, 16 bytes each:
+//      8 bytes atom identifier
+//      8 bytes enum value (pointer to enum value name)
 
 Integer _gcBlockHeaderRefCount = 0 * 8;
 Integer _gcBlockHeaderLength = 1 * 8;
@@ -59,3 +67,12 @@ Integer _fieldVmt = _gcBlockData + 0x00;
 Integer _fieldClassName = _gcBlockData + 0x10;
 //#ignore_unused
 Integer _fieldsRemainder = _gcBlockData + 0x20;
+
+//#ignore_unused
+Integer _enumTableNameOffset = 0x00;
+//#ignore_unused
+Integer _enumTableLengthOffset = 0x08;
+//#ignore_unused
+Integer _enumTableEntryTypeOffset = 0x10; // only present if length is non-zero
+//#ignore_unused
+Integer _enumTableFirstEntryOffset = 0x18; // length (atom code, string pointer) pairs

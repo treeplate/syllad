@@ -281,7 +281,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
           );
         } else if (tokens.currentChar == TokenType.bang) {
           tokens.moveNext();
-          if (result.type is! NullableValueType) {
+          if (!nullType.isSubtypeOf(result.type)) {
             throw BSCException("Attempted unwrap of non-nullable type (${result.type}) ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           result = UnwrapExpression(

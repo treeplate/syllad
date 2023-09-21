@@ -174,7 +174,7 @@ class IntegerBucket extends ConstantBucket {
 }
 
 class StringBucket extends ConstantBucket {
-  Constant value;
+  StringConstant value;
 
   //#override
   String commentName() {
@@ -191,7 +191,7 @@ class StringBucket extends ConstantBucket {
     return null;
   }
 
-  Null constructor(Constant valueArg, StringType staticTypeArg) {
+  Null constructor(StringConstant valueArg, Type staticTypeArg) {
     super.constructor(staticTypeArg);
     value = valueArg;
   }
