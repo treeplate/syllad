@@ -8,6 +8,7 @@ class ConversionContext extends Object {
   TypeRegistry types() { abstract(); }
   CodeLabelDatum freeIntrinsic() { abstract(); }
   CodeLabelDatum errorIntrinsic() { abstract(); }
+  CodeLabelDatum exponentiationIntrinsic() { abstract(); }
   Bucket errorMessage(String value) { abstract(); }
   Bucket coreSentinel() { abstract(); }
   //#ignore_unused
@@ -113,6 +114,31 @@ class BoundInstruction extends Object {
       append(argumentValues, argument.currentValueDatum());
     }
     append(output, Call(subroutine, argumentValues, subroutine.commentName, concat('return value of ', subroutine.commentName)));
+  }
+
+  // call a syd subroutine with no "this" pointer and no closure, and places the result in the given target bucket
+  // no type checks are done here
+  Null callFunction(PseudoInstructionList output, Datum subroutine, BucketList arguments, ValueBucket target) {
+    target.assignDatums(
+      StackDatum(concat('return value of ', subroutine.commentName)), 
+      StackDatum(concat('return type of ', subroutine.commentName)),
+    );
+    DatumList argumentValues = [
+      IntegerDatum(len(arguments), 'parameter count'),
+      SentinelDatum('closure (N/A)'),
+      SentinelDatum('this type (N/A)'),
+      SentinelDatum('this pointer (N/A)'),
+      compute(output, LoadAddress(target.currentTypeDatum(), concat('prepare a stack location for the type of ', target.commentName()), concat('pointer to ', target.currentTypeDatum().commentName))),
+      compute(output, LoadAddress(target.currentValueDatum(), concat('prepare a stack location for ', target.commentName()), concat('pointer to ', target.commentName()))),
+    ]:Datum;
+    for (argument in arguments) {
+      append(argumentValues, argument.currentTypeDatum());
+      append(argumentValues, argument.currentValueDatum());
+    }
+    append(output, Call(subroutine, argumentValues, subroutine.commentName, concat('return value of ', subroutine.commentName)));
+    target.typeInference.setDefinitelyNotSentinel();
+    append(output, KeepAlive(target.currentValueDatum()));
+    append(output, KeepAlive(target.currentTypeDatum()));
   }
 
   PseudoInstructionList fail(String message, ConversionContext context) {
@@ -1633,6 +1659,33 @@ class SignedSubtractInstruction extends ComputationBoundInstruction {
     super.constructor(staticTypeArg, resultComment);
     minuend = miuendArg;
     subtrahend = subtrahendArg;
+  }
+}
+
+class SignedExponentiationInstruction extends ComputationBoundInstruction {
+  Bucket base;
+  Bucket exponent;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [base, exponent]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    assert(base.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(exponent.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    assert(target.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
+    PseudoInstructionList output = []:PseudoInstruction;
+    callFunction(output, context.exponentiationIntrinsic(), [base, exponent]:Bucket, target);
+    context.didCreateBucket(target);
+    return output;
+  }
+
+  Null constructor(Bucket baseArg, Bucket exponentArg, IntegerType staticTypeArg, LazyComment resultComment) {
+    super.constructor(staticTypeArg, resultComment);
+    base = baseArg;
+    exponent = exponentArg;
   }
 }
 

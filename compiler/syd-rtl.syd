@@ -354,6 +354,7 @@ Anything pop(WhateverList list) {
   return result;
 }
 
+
 // ITERABLES AND ITERATORS
 
 // Iterators are blocks with the following values:
@@ -639,6 +640,7 @@ Null _error(Anything... arguments) __intrinsic {
   stderr(arguments[0]);
   exit(1);
 }
+
 
 // STRING MANIPULATION
 
@@ -963,4 +965,26 @@ StringList charsOf(String value) {
   // This should use ICU's BreakIterator.
   // For now we just return Unicode Scalar Values since we only support 8-bit encodings anyway.
   return scalarValues(value);
+}
+
+
+// ARITHMETIC
+
+Integer pow#(Integer base, Integer exponent) __intrinsic {
+  if (exponent == 0) {
+    return 1;
+  }
+  if (base == 0 || base == 1 || exponent == 1) {
+    return base;
+  }
+  if (exponent < 0) {
+    throw('negative exponents not supported');
+  }
+  Integer index = exponent;
+  Integer result = base;
+  while (index > 1) {
+    result *= base;
+    index -= 1;
+  }
+  return result;
 }

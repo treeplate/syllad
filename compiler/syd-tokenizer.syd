@@ -6,7 +6,7 @@ import 'syd-utils.syd';
 // TODO: add "as" as a separate token to be able to parse "foo as bar" as a statement (currently becomes a variable declaration)
 // TODO: add a test for this
 
-enum ts {
+enum ts { // TokenState
   Top
   Identifier 
   SingleQuoteString 
@@ -26,6 +26,7 @@ enum ts {
   Plus
   Minus
   Asterisk
+  AsteriskAsterisk
   Slash 
   Modulus
   Equals
@@ -45,7 +46,7 @@ enum ts {
   CR 
 }
 
-enum tt {
+enum tt { // TokenType
   Identifier // String
   String // String
   Integer // Integer
@@ -67,6 +68,8 @@ enum tt {
   MinusEquals
   Asterisk
   AsteriskEquals
+  AsteriskAsterisk
+  AsteriskAsteriskEquals
   Slash
   SlashEquals
   Modulus
@@ -171,6 +174,12 @@ class Token extends Object {
     }
     if (type == tt.AsteriskEquals) {
       return '"*="';
+    }
+    if (type == tt.AsteriskAsterisk) {
+      return '"**"';
+    }
+    if (type == tt.AsteriskAsteriskEquals) {
+      return '"**="';
     }
     if (type == tt.Slash) {
       return '"/"';
@@ -383,16 +392,16 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
             (ch >= 0x61 && ch <= 0x7a) || // a-z
             (ch == 0x5f) || // _
             (internal && ch == 0x23)) { /* # */
-          append(cast(buffer), chr(ch));
+          append(buffer as StringList, chr(ch));
           break;
         } else {
-          append(tokens, Token(tt.Identifier, SourceLocation(lineNo, colNo - 1, filename), joinList(cast(buffer))));
+          append(tokens, Token(tt.Identifier, SourceLocation(lineNo, colNo - 1, filename), joinList(buffer as StringList)));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
       } else if (state == ts.SingleQuoteString) {
         if (ch == 0x27) { // '
-          append(tokens, Token(tt.String, SourceLocation(lineNo, colNo, filename), joinList(cast(buffer))));
+          append(tokens, Token(tt.String, SourceLocation(lineNo, colNo, filename), joinList(buffer as StringList)));
           state = ts.Top; 
           lastInterestingLineNo = -1;
           lastInterestingColNo = -1;
@@ -401,7 +410,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           state = ts.SingleQuoteStringEscape;
           break;
         } else {
-          append(cast(buffer), chr(ch));
+          append(buffer as StringList, chr(ch));
           if (ch == 0x0a) { // LF
             lineNo += 1;
             colNo = 0;
@@ -419,15 +428,15 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
         // no break, reprocess in ts.SingleQuoteString
       } else if (state == ts.SingleQuoteStringEscape) {
         if (ch == 0x6e) { // n
-          append(cast(buffer), '\n');
+          append(buffer as StringList, '\n');
           state = ts.SingleQuoteString;
           break;
         } else if (ch == 0x72) { // r
-          append(cast(buffer), '\r');
+          append(buffer as StringList, '\r');
           state = ts.SingleQuoteString;
           break;
         } else {
-          append(cast(buffer), chr(ch));
+          append(buffer as StringList, chr(ch));
           state = ts.SingleQuoteString;
           if (ch == 0x0a) { // LF
             lineNo += 1;
@@ -439,7 +448,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
         }
       } else if (state == ts.DoubleQuoteString) {
         if (ch == 0x22) { // "
-          append(tokens, Token(tt.String, SourceLocation(lineNo, colNo, filename), joinList(cast(buffer))));
+          append(tokens, Token(tt.String, SourceLocation(lineNo, colNo, filename), joinList(buffer as StringList)));
           state = ts.Top;
           lastInterestingLineNo = -1;
           lastInterestingColNo = -1;
@@ -448,7 +457,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           state = ts.DoubleQuoteStringEscape;
           break;
         } else {
-          append(cast(buffer), chr(ch));
+          append(buffer as StringList, chr(ch));
           if (ch == 0x0a) { // LF
             lineNo += 1;
             colNo = 0;
@@ -466,15 +475,15 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
         // no break, reprocess in ts.DoubleQuoteString
       } else if (state == ts.DoubleQuoteStringEscape) {
         if (ch == 0x6e) { // n
-          append(cast(buffer), '\n');
+          append(buffer as StringList, '\n');
           state = ts.DoubleQuoteString;
           break;
         } else if (ch == 0x72) { // r
-          append(cast(buffer), '\r');
+          append(buffer as StringList, '\r');
           state = ts.DoubleQuoteString;
           break;
         } else {
-          append(cast(buffer), chr(ch));
+          append(buffer as StringList, chr(ch));
           state = ts.DoubleQuoteString;
           if (ch == 0x0a) { // LF
             lineNo += 1;
@@ -499,7 +508,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
         }
       } else if (state == ts.Integer) {
         if (ch >= 0x30 && ch <= 0x39) { // 0-9
-          buffer = cast(buffer) * 10 + ch - 0x30;
+          buffer = buffer as Integer * 10 + ch - 0x30;
           break;
         } else {
           append(tokens, Token(tt.Integer, SourceLocation(lineNo, colNo - 1, filename), buffer));
@@ -518,13 +527,13 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
         }
       } else if (state == ts.Hex) {
         if (ch >= 0x30 && ch <= 0x39) { // 0-9
-          buffer = cast(buffer) * 0x10 + ch - 0x30;
+          buffer = buffer as Integer * 0x10 + ch - 0x30;
           break;
         } else if (ch >= 0x41 && ch <= 0x46) { // A-F
-          buffer = (cast(buffer) * 0x10 + ch - 0x41) + 10;
+          buffer = (buffer as Integer * 0x10 + ch - 0x41) + 10;
           break;
         } else if (ch >= 0x61 && ch <= 0x66) { // a-f
-          buffer = (cast(buffer) * 0x10 + ch - 0x61) + 10;
+          buffer = (buffer as Integer * 0x10 + ch - 0x61) + 10;
           break;
         } else {
           append(tokens, Token(tt.Integer, SourceLocation(lineNo, colNo - 1, filename), buffer));
@@ -571,12 +580,25 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           // no break, reprocess in ts.Top
         }
       } else if (state == ts.Asterisk) {
-        if (ch == 0x3d) { // =
+        if (ch == 0x2a) { // *
+          state = ts.AsteriskAsterisk;
+          break;
+        } else if (ch == 0x3d) { // =
           append(tokens, Token(tt.AsteriskEquals, SourceLocation(lineNo, colNo, filename), null));
           state = ts.Top;
           break;
         } else {
           append(tokens, Token(tt.Asterisk, SourceLocation(lineNo, colNo - 1, filename), null));
+          state = ts.Top;
+          // no break, reprocess in ts.Top
+        }
+      } else if (state == ts.AsteriskAsterisk) {
+        if (ch == 0x3d) { // =
+          append(tokens, Token(tt.AsteriskAsteriskEquals, SourceLocation(lineNo, colNo, filename), null));
+          state = ts.Top;
+          break;
+        } else {
+          append(tokens, Token(tt.AsteriskAsterisk, SourceLocation(lineNo, colNo - 1, filename), null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
@@ -802,6 +824,8 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
     append(tokens, Token(tt.Minus, SourceLocation(lineNo, colNo, filename), null));
   } else if (state == ts.Asterisk) {
     append(tokens, Token(tt.Asterisk, SourceLocation(lineNo, colNo, filename), null));
+  } else if (state == ts.AsteriskAsterisk) {
+    append(tokens, Token(tt.AsteriskAsterisk, SourceLocation(lineNo, colNo, filename), null));
   } else if (state == ts.Slash) {
     append(tokens, Token(tt.Slash, SourceLocation(lineNo, colNo, filename), null));
   } else if (state == ts.Modulus) {
@@ -877,7 +901,7 @@ class TokenConsumer extends Object {
     if (!isNext(tt.Identifier)) {
       throw(concat(expected('identifier')));
     }
-    String result = cast(tokens[index].data);
+    String result = tokens[index].data as String;
     index = index + 1;
     return result;
   }
@@ -886,7 +910,7 @@ class TokenConsumer extends Object {
     if (!isNext(tt.String)) {
       throw(concat(expected('string literal')));
     }
-    String result = cast(tokens[index].data);
+    String result = tokens[index].data as String;
     index = index + 1;
     return result;
   }
@@ -895,7 +919,7 @@ class TokenConsumer extends Object {
     if (!isNext(tt.Integer)) {
       throw(concat(expected('integer literal')));
     }
-    Integer result = cast(tokens[index].data);
+    Integer result = tokens[index].data as Integer;
     index = index + 1;
     return result;
   }

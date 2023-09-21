@@ -168,9 +168,6 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
           }
           throw ThrowException(l.single.valueC<String>(null, s, -2, 0, 'interr', 'interr') + "\nstack:\n" + s.reversed.join('\n'), NoDataVG());
         },
-        "cast": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          return l.single;
-        },
         "substring": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           if (l[1].valueC(null, s, -2, 0, 'interr', 'interr') as int > (l[2].valueC(null, s, -2, 0, 'interr', 'interr') as int)) {
             throw BSCException("Cannot substring when the start (${l[1]}) is more than the end (${l[2]})!\n${s.reversed.join('\n')}", NoDataVG());

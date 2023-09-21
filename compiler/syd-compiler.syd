@@ -290,6 +290,7 @@ class CompilationEnvironment extends TypeRegistry {
   String errorIntrinsicName = '_error';
   String exitIntrinsicName = 'exit';
   String freeIntrinsicName = '_free';
+  String exponentiationIntrinsicName = 'pow#';
   String listConstructorIntrinsicName = '_listConstructor';
   String classAllocatorIntrinsicName = '_classAllocator';
   String appendIntrinsicName = 'append';
@@ -797,6 +798,8 @@ class EnvironmentConversionContext extends ConversionContext {
   CodeLabelDatum freeIntrinsic() { return environment.lookupIntrinsicSubroutine(environment.freeIntrinsicName).codePointer.currentValueDatum() as CodeLabelDatum; }
   //#override
   CodeLabelDatum errorIntrinsic() { return environment.lookupIntrinsicSubroutine(environment.errorIntrinsicName).codePointer.currentValueDatum() as CodeLabelDatum; }
+  //#override
+  CodeLabelDatum exponentiationIntrinsic() { return environment.lookupIntrinsicSubroutine(environment.exponentiationIntrinsicName).codePointer.currentValueDatum() as CodeLabelDatum; }
   //#override
   Bucket errorMessage(String value) { return environment.errorMessage(value); }
   //#override

@@ -1318,7 +1318,7 @@ String? toStringWithStackerNullable(ValueWrapper x, List<LazyString> s, int line
     return x.valueC<Scope>(null, s, line, col, workspace, file).toStringWithStack(s, line, col, workspace, file, rethrowErrors);
   } else {
     Object? v = x.valueC(null, s, line, col, workspace, file);
-    if (v is List<ValueWrapper>) {
+    if (v is Iterable<ValueWrapper>) {
       return v.map((e) => e.toStringWithStack(s, line, col, workspace, file, rethrowErrors)).toList().toString();
     } else {
       if (v is Scope) {

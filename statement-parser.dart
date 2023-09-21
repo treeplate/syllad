@@ -832,7 +832,6 @@ MapEntry<List<Statement>, TypeValidator> parse(
           FunctionValueType(integerType, [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')], 'intrinsics'),
       'debug': FunctionValueType(stringType, [rootClassType], 'intrinsics'),
       'throw': FunctionValueType(nullType, [stringType], 'intrinsics'),
-      'cast': FunctionValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), [anythingType], 'intrinsics'),
       'pop':
           FunctionValueType(anythingType, [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')], 'intrinsics'),
       'substring': FunctionValueType(stringType, [stringType, integerType, integerType], 'intrinsics'),

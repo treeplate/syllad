@@ -174,27 +174,42 @@ Expression parseUnaryExpression(TokenConsumer source) {
   return result;
 }
 
-Expression parseExpressionMultiplication(TokenConsumer source) {
+Expression parseExpressionExponentiation(TokenConsumer source) {
   Expression result = parseUnaryExpression(source);
+  while (true) {
+    if (source.isNext(tt.AsteriskAsterisk)) {
+      source.expectPunctuation(tt.AsteriskAsterisk);
+      SourceLocation location = source.lastLocation();
+      Expression rhs = parseUnaryExpression(source);
+      result = OperatorExponentiationExpression(result, rhs, location);
+      continue;
+    }
+    break;
+  }
+  return result;
+}
+
+Expression parseExpressionMultiplication(TokenConsumer source) {
+  Expression result = parseExpressionExponentiation(source);
   while (true) {
     if (source.isNext(tt.Asterisk)) {
       source.expectPunctuation(tt.Asterisk);
       SourceLocation location = source.lastLocation();
-      Expression rhs = parseUnaryExpression(source);
+      Expression rhs = parseExpressionExponentiation(source);
       result = OperatorMultiplicationExpression(result, rhs, location);
       continue;
     }
     if (source.isNext(tt.Slash)) {
       source.expectPunctuation(tt.Slash);
       SourceLocation location = source.lastLocation();
-      Expression rhs = parseUnaryExpression(source);
+      Expression rhs = parseExpressionExponentiation(source);
       result = OperatorDivisionExpression(result, rhs, location);
       continue;
     }
     if (source.isNext(tt.Modulus)) {
       source.expectPunctuation(tt.Modulus);
       SourceLocation location = source.lastLocation();
-      Expression rhs = parseUnaryExpression(source);
+      Expression rhs = parseExpressionExponentiation(source);
       result = OperatorModulusExpression(result, rhs, location);
       continue;
     }
@@ -611,6 +626,13 @@ Statement _parseStatement(TokenConsumer source) {
     Expression initializer = parseExpression(source);
     source.expectPunctuation(tt.Semicolon);
     return AsteriskAssignmentStatement(expression as LValueExpression, initializer, location);
+  }
+  if (source.isNext(tt.AsteriskAsteriskEquals)) {
+    source.expectPunctuation(tt.AsteriskAsteriskEquals);
+    SourceLocation location = source.lastLocation();
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(tt.Semicolon);
+    return AsteriskAsteriskAssignmentStatement(expression as LValueExpression, initializer, location);
   }
   if (source.isNext(tt.SlashEquals)) {
     source.expectPunctuation(tt.SlashEquals);

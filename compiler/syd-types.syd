@@ -607,7 +607,7 @@ class IterableType extends Type {
 
   //#override
   Boolean isSubtypeOf(Type other) {
-    return (other is IterableType && elementType.isSubtypeOf(cast(cast(other).elementType)))
+    return (other is IterableType && elementType.isSubtypeOf((other as IterableType).elementType))
         || other is AnythingType
         || other is WhateverType
         || other is GarbageCollectableType
@@ -645,7 +645,7 @@ class IteratorType extends Type {
 
   //#override
   Boolean isSubtypeOf(Type other) {
-    return (other is IteratorType && elementType.isSubtypeOf(cast(cast(other).elementType)))
+    return (other is IteratorType && elementType.isSubtypeOf((other as IteratorType).elementType))
         || other is AnythingType
         || other is WhateverType
         || other is GarbageCollectableType

@@ -1232,6 +1232,18 @@ class OperatorSubtractionExpression extends NumericOperatorExpression {
   }
 }
 
+class OperatorExponentiationExpression extends NumericOperatorExpression {
+  //#override
+  String describeOperator() {
+    return '**';
+  }
+
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(SignedExponentiationInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, LazyComment('result of binary ** operator')));
+  }
+}
+
 class OperatorMultiplicationExpression extends NumericOperatorExpression {
   //#override
   String describeOperator() {
@@ -2578,6 +2590,18 @@ class AsteriskAssignmentStatement extends NumericOperatorAssignmentStatement {
   //#override
   Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
     return scope.compute(SignedMultiplyInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, comment()));
+  }
+}
+
+class AsteriskAsteriskAssignmentStatement extends NumericOperatorAssignmentStatement {
+  //#override
+  String describeOperator() {
+    return '**=';
+  }
+
+  //#override
+  Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
+    return scope.compute(SignedExponentiationInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, comment()));
   }
 }
 
