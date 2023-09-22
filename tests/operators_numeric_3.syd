@@ -1,0 +1,17 @@
+// expected output: 262144
+// expected output: 162
+// expected output: 32
+// expected output: 24
+// expected output: 2
+// expected output: 5
+// expected output: 15
+// expected output: 2
+
+println(4 ** 3 ** 2);
+println(2 * 3 ** 4);
+println(2 ** 3 * 4);
+println(2 * 3 * 4);
+println(3 * 4 / 5);
+println(4 / 3 * 5);
+println(3 % 4 * 5);
+println(3 * 4 % 5);

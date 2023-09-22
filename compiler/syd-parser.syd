@@ -176,15 +176,11 @@ Expression parseUnaryExpression(TokenConsumer source) {
 
 Expression parseExpressionExponentiation(TokenConsumer source) {
   Expression result = parseUnaryExpression(source);
-  while (true) {
-    if (source.isNext(tt.AsteriskAsterisk)) {
-      source.expectPunctuation(tt.AsteriskAsterisk);
-      SourceLocation location = source.lastLocation();
-      Expression rhs = parseUnaryExpression(source);
-      result = OperatorExponentiationExpression(result, rhs, location);
-      continue;
-    }
-    break;
+  if (source.isNext(tt.AsteriskAsterisk)) {
+    source.expectPunctuation(tt.AsteriskAsterisk);
+    SourceLocation location = source.lastLocation();
+    Expression rhs = parseExpressionExponentiation(source);
+    result = OperatorExponentiationExpression(result, rhs, location);
   }
   return result;
 }

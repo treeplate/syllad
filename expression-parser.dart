@@ -356,12 +356,12 @@ Expression parseExpression(TokenIterator tokens, TypeValidator scope) {
   return expr;
 }
 
-Expression parseMulDivRem(TokenIterator tokens, TypeValidator scope) {
+Expression parseExponentiation(TokenIterator tokens, TypeValidator scope) {
   Expression operandA = parseNots(tokens, scope);
   if (tokens.current is CharToken) {
     if (tokens.currentChar == TokenType.starStar) {
       tokens.moveNext();
-      Expression operandB = parseMulDivRem(tokens, scope);
+      Expression operandB = parseExponentiation(tokens, scope);
       return PowExpression(
         operandA,
         operandB,
@@ -370,10 +370,18 @@ Expression parseMulDivRem(TokenIterator tokens, TypeValidator scope) {
         tokens.workspace,
         tokens.file,
       );
-    } else if (tokens.currentChar == TokenType.star) {
+    }
+  }
+  return operandA;
+}
+
+Expression parseMulDivRem(TokenIterator tokens, TypeValidator scope) {
+  Expression operandA = parseExponentiation(tokens, scope);
+  while (tokens.current is CharToken) {
+    if (tokens.currentChar == TokenType.star) {
       tokens.moveNext();
-      Expression operandB = parseMulDivRem(tokens, scope);
-      return MultiplyExpression(
+      Expression operandB = parseExponentiation(tokens, scope);
+      operandA = MultiplyExpression(
         operandA,
         operandB,
         tokens.current.line,
@@ -383,8 +391,8 @@ Expression parseMulDivRem(TokenIterator tokens, TypeValidator scope) {
       );
     } else if (tokens.currentChar == TokenType.divide) {
       tokens.moveNext();
-      Expression operandB = parseMulDivRem(tokens, scope);
-      return DivideExpression(
+      Expression operandB = parseExponentiation(tokens, scope);
+      operandA = DivideExpression(
         operandA,
         operandB,
         tokens.current.line,
@@ -394,8 +402,8 @@ Expression parseMulDivRem(TokenIterator tokens, TypeValidator scope) {
       );
     } else if (tokens.currentChar == TokenType.remainder) {
       tokens.moveNext();
-      Expression operandB = parseMulDivRem(tokens, scope);
-      return RemainderExpression(
+      Expression operandB = parseExponentiation(tokens, scope);
+      operandA = RemainderExpression(
         operandA,
         operandB,
         tokens.current.line,
@@ -403,6 +411,8 @@ Expression parseMulDivRem(TokenIterator tokens, TypeValidator scope) {
         tokens.workspace,
         tokens.file,
       );
+    } else {
+      break;
     }
   }
   return operandA;
