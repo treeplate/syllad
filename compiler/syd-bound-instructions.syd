@@ -1920,7 +1920,7 @@ class UnsignedModulusInstruction extends ComputationBoundInstruction {
   }
 }
 
-class ShiftLeftInstruction extends ComputationBoundInstruction {
+class ShiftInstruction extends ComputationBoundInstruction {
   Bucket lhs;
   Bucket rhs;
 
@@ -1929,13 +1929,29 @@ class ShiftLeftInstruction extends ComputationBoundInstruction {
     return [lhs, rhs]:Bucket;
   }
 
+  PseudoComputation shiftInstruction() {
+    abstract();
+  }
+
   //#override
   PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
     assert(lhs.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
     assert(rhs.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
     assert(target.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
     PseudoInstructionList output = []:PseudoInstruction;
-    Datum result = compute(output, ShiftLeft(lhs.currentValueDatum(), rhs.currentValueDatum(), concat('shift ', lhs.commentName(), ' left by ', rhs.commentName()), target.commentName()));
+    LocalDatum result = LocalDatum('bit shift result');
+    PseudoInstructionList computeShiftBlock = []:PseudoInstruction;
+    Datum computedResult = compute(computeShiftBlock, shiftInstruction());
+    append(computeShiftBlock, Mov(result, computedResult, 'store shifted value'));
+    append(output, If(
+      compute(output, Cmp(rhs.currentValueDatum(), IntegerDatum(64, 'max range of shift'), Comparison.GreaterThanOrEqual, 'check range of bit shift operand', 'bit shift range check')),
+      [Mov(result, IntegerDatum(0, 'zero'), 'shifted out of range')]:PseudoInstruction,
+      computeShiftBlock,
+      scopeLabel.deriveWith('shiftRangeCheck'),
+      Map(),
+      concat('shift operand out of range; assume zero'),
+      concat('shift operand in range'),
+    ));
     target.assignDatums(result, TypeCodeDatum(target.staticType));
     context.didCreateBucket(target);
     return output;
@@ -1948,31 +1964,17 @@ class ShiftLeftInstruction extends ComputationBoundInstruction {
   }
 }
 
-class ShiftRightInstruction extends ComputationBoundInstruction {
-  Bucket lhs;
-  Bucket rhs;
-
+class ShiftLeftInstruction extends ShiftInstruction {
   //#override
-  BucketList bucketsUsed() {
-    return [lhs, rhs]:Bucket;
+  PseudoComputation shiftInstruction() {
+    return ShiftLeft(lhs.currentValueDatum(), rhs.currentValueDatum(), concat('shift ', lhs.commentName(), ' left by ', rhs.commentName()), target.commentName());
   }
+}
 
+class ShiftRightInstruction extends ShiftInstruction {
   //#override
-  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
-    assert(lhs.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
-    assert(rhs.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
-    assert(target.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
-    PseudoInstructionList output = []:PseudoInstruction;
-    Datum result = compute(output, ShiftRight(lhs.currentValueDatum(), rhs.currentValueDatum(), concat('shift ', lhs.commentName(), ' right by ', rhs.commentName()), target.commentName()));
-    target.assignDatums(result, TypeCodeDatum(target.staticType));
-    context.didCreateBucket(target);
-    return output;
-  }
-
-  Null constructor(Bucket lhsArg, Bucket rhsArg, IntegerType staticTypeArg, LazyComment resultComment) {
-    super.constructor(staticTypeArg, resultComment);
-    lhs = lhsArg;
-    rhs = rhsArg;
+  PseudoComputation shiftInstruction() {
+    return ShiftRight(lhs.currentValueDatum(), rhs.currentValueDatum(), concat('shift ', lhs.commentName(), ' right by ', rhs.commentName()), target.commentName());
   }
 }
 

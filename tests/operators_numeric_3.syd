@@ -6,6 +6,13 @@
 // expected output: 5
 // expected output: 15
 // expected output: 2
+// expected output: -4
+// expected output: 6
+// expected output: 32
+// expected output: 131072
+// expected output: 64
+// expected output: 0
+// expected output: 2
 
 println(4 ** 3 ** 2);
 println(2 * 3 ** 4);
@@ -15,3 +22,10 @@ println(3 * 4 / 5);
 println(4 / 3 * 5);
 println(3 % 4 * 5);
 println(3 * 4 % 5);
+println(4 - 3 - 5);
+println(4 - 3 + 5);
+println(1 << 2 << 3);
+println(65536 >> 2 << 3);
+println(1 << 8 >> 2);
+println(128 >> 64 >> 5);
+println(64 >> 3 >> 2);

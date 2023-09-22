@@ -520,11 +520,11 @@ Expression parseAddSub(TokenIterator tokens, TypeValidator scope) {
 
 Expression parseBitShifts(TokenIterator tokens, TypeValidator scope) {
   Expression operandA = parseAddSub(tokens, scope);
-  if (tokens.current is CharToken) {
+  while (tokens.current is CharToken) {
     if (tokens.currentChar == TokenType.leftShift) {
       tokens.moveNext();
-      Expression operandB = parseBitShifts(tokens, scope);
-      return ShiftLeftExpression(
+      Expression operandB = parseAddSub(tokens, scope);
+      operandA = ShiftLeftExpression(
         operandA,
         operandB,
         tokens.current.line,
@@ -534,8 +534,8 @@ Expression parseBitShifts(TokenIterator tokens, TypeValidator scope) {
       );
     } else if (tokens.currentChar == TokenType.rightShift) {
       tokens.moveNext();
-      Expression operandB = parseBitShifts(tokens, scope);
-      return ShiftRightExpression(
+      Expression operandB = parseAddSub(tokens, scope);
+      operandA = ShiftRightExpression(
         operandA,
         operandB,
         tokens.current.line,
@@ -543,6 +543,8 @@ Expression parseBitShifts(TokenIterator tokens, TypeValidator scope) {
         tokens.workspace,
         tokens.file,
       );
+    } else {
+      break;
     }
   }
   return operandA;
