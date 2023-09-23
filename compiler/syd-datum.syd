@@ -2,6 +2,21 @@ import 'syd-types.syd';
 
 enum ow { Byte Word DWord QWord }
 
+// includes a space suffix
+Integer bytesFor(ow size) {
+  if (size == ow.Byte) {
+    return 1;
+  } else if (size == ow.Word) {
+    return 2;
+  } else if (size == ow.DWord) {
+    return 4;
+  } else if (size == ow.QWord) {
+    return 8;
+  } else {
+    assert(false, 'contract violation');
+  }
+}
+
 class Datum extends Object {
   String commentName;
   

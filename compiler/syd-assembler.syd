@@ -35,7 +35,6 @@ class Assembler extends Object {
   ConstantList const = []:Constant;
 
   Null addConst(Constant section) {
-    // TODO: make sure the result is 64-bit aligned
     append(const, section);
   }
 

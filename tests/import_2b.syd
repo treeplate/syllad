@@ -1,0 +1,6 @@
+// expected error: unknown identifier "A"
+// unexpected output: FAIL
+
+A a;
+
+println('FAIL');

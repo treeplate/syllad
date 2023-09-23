@@ -1,0 +1,15 @@
+// expected output: PASS
+
+IntegerList a = copy(scalarValues('ABC'));
+assert(len(a) == 3, 'FAIL 1');
+assert(a[0] == 0x41, 'FAIL 2');
+assert(a[1] == 0x42, 'FAIL 3');
+assert(a[2] == 0x43, 'FAIL 4');
+
+StringList b = copy(charsOf('ABC'));
+assert(len(b) == 3, 'FAIL 5');
+assert(b[0] == 'A', 'FAIL 6');
+assert(b[1] == 'B', 'FAIL 7');
+assert(b[2] == 'C', 'FAIL 8');
+
+println('PASS');

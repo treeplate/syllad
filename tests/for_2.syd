@@ -1,0 +1,13 @@
+// expected output: hello
+
+class Foo { 
+  Null test() {
+    println('hello');
+  }
+}
+
+FooList foo = [Foo()];
+
+for (q in foo) {
+  q.test();
+}

@@ -207,15 +207,6 @@ class CompilationEnvironment extends TypeRegistry {
       append(lines, ConstantPart(ow.QWord, [IntegerDatum(length, concat('length ', length))]:ImmediateDatum, 'Length'));
       if (value != '') {
         append(lines, ConstantPart(ow.Byte, [StringDatum(value, 'part of string')]:ImmediateDatum, comment));
-        Integer padding = 8 - len(scalarValues(value)) % 8;
-        if (padding > 0) {
-          ImmediateDatumList buffer = []:ImmediateDatum;
-          while (padding > 0) {
-            append(buffer, IntegerDatum(0, 'buffer zero'));
-            padding -= 1;
-          }
-          append(lines, ConstantPart(ow.Byte, buffer, 'padding to align to 8-byte boundary'));
-        }
       }
       maybeConstant = StringConstant(label, value, lines, null, commentName);
       stringAtomTable.set(value, maybeConstant);

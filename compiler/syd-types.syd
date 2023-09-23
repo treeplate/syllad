@@ -1,4 +1,5 @@
 import 'core.syd';
+import 'syd-utils.syd';
 
 fwdclass TypeRegistry extends Object;
 fwdclass Type(TypeRegistry, String) extends Object;

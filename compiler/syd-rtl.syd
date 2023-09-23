@@ -946,25 +946,46 @@ String chr(Integer code) {
   return resultPointer __as__ String;
 }
 
-StringList scalarValues(String value) {
+// Returns the integer representation of the Unicode Scalar Values in a String
+IntegerList scalarValues(String value) {
   // This should decode UTF-8.
   // For now we only support 8-bit character encodings.
-  StringList result = []:String;
+  IntegerList result = []:Integer;
   Integer length = _stringByteLength(value);
   Integer cursor = value __as__ Integer + 16;
+  assert(cursor % 8 == 0, 'string is misaligned');
   Integer end = cursor + length;
   while (cursor < end) {
     Integer code = __readFromAddress(cursor);
-    append(result, chr(code));
-    cursor += 1;
+    Integer shift = 0;
+    while (shift < 64 && cursor < end) {
+      append(result, (code >> shift) & 0xFF);
+      cursor += 1;
+      shift += 8;
+    }
   }
   return result;
 }
 
+// Returns the string representation of each extended grapheme cluster in a String
 StringList charsOf(String value) {
   // This should use ICU's BreakIterator.
-  // For now we just return Unicode Scalar Values since we only support 8-bit encodings anyway.
-  return scalarValues(value);
+  // For now we just return the string representation of each Unicode Scalar Value since we only support 8-bit encodings anyway.
+  StringList result = []:String;
+  Integer length = _stringByteLength(value);
+  Integer cursor = value __as__ Integer + 16;
+  assert(cursor % 8 == 0, 'string is misaligned');
+  Integer end = cursor + length;
+  while (cursor < end) {
+    Integer code = __readFromAddress(cursor);
+    Integer shift = 0;
+    while (shift < 64 && cursor < end) {
+      append(result, chr((code >> shift) & 0xFF));
+      cursor += 1;
+      shift += 8;
+    }
+  }
+  return result;
 }
 
 

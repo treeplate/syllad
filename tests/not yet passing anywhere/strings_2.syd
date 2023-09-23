@@ -1,0 +1,6 @@
+// expected error: type error (it's an Iterable not a List)
+// unexpected output: FAIL
+
+println('FAIL');
+
+StringList b = charsOf('ABC');

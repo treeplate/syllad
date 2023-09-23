@@ -1,10 +1,32 @@
 import 'core.syd';
 import 'syd-datum.syd';
 
+// This is useful only for data blocks, not operands for instructions.
+class StringDatum extends ImmediateDatum {
+  String value;
+
+  Null constructor(String valueArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    value = valueArg;
+  }
+}
+
 class ConstantPart extends Object {
   ow width;
   ImmediateDatumList data;
   StringNullable comment;
+
+  Integer length() {
+    Integer result = 0;
+    for (datum in data) {
+      if (datum is StringDatum) {
+        result += len(scalarValues((datum as StringDatum).value)); // TODO: this is not correct for non-ASCII strings
+      } else {
+        result += len(data) * bytesFor(width);
+      }
+    }
+    return result;
+  }
 
   Null constructor(ow widthArg, ImmediateDatumList dataArg, StringNullable commentArg) {
     assert(len(dataArg) > 0, 'empty data');
@@ -22,6 +44,14 @@ class Constant extends Object {
   StringNullable suffixComment; // description in the definition of the constant in the assembler
   String commentName; // string used to represent this string in the assembler when it is referenced
 
+  Integer length() {
+    Integer result = 0;
+    for (part in data) {
+      result += part.length();
+    }
+    return result;
+  }
+
   Null constructor(AssemblerLabel labelArg, ConstantPartList dataArg, StringNullable suffixCommentArg, String commentNameArg) {
     assert(len(dataArg) > 0, 'empty data');
     super.constructor();
@@ -29,6 +59,17 @@ class Constant extends Object {
     data = dataArg;
     suffixComment = suffixCommentArg;
     commentName = commentNameArg;
+    Integer padding = 8 - length() % 8;
+    if (padding < 8) {
+      assert(padding != 0, 'invariant violation');
+      ImmediateDatumList buffer = []:ImmediateDatum;
+      while (padding > 0) {
+        append(buffer, IntegerDatum(0, 'buffer zero'));
+        padding -= 1;
+      }
+      append(data, ConstantPart(ow.Byte, buffer, 'padding to align to 8-byte boundary'));
+    }
+
   }
 }
 
@@ -107,15 +148,5 @@ class ConstantDatum extends ImmediateDatum {
   Null constructor(Constant constantArg, String commentNameArg) {
     super.constructor(commentNameArg);
     constant = constantArg;
-  }
-}
-
-// This is useful only for data blocks, not operands for instructions.
-class StringDatum extends ImmediateDatum {
-  String value;
-
-  Null constructor(String valueArg, String commentNameArg) {
-    super.constructor(commentNameArg);
-    value = valueArg;
   }
 }

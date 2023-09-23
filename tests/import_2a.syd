@@ -1,0 +1,6 @@
+// expected output: 2A
+
+class A { }
+
+println('2A');
+A();

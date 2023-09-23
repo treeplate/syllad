@@ -2863,7 +2863,7 @@ class WhileStatement extends Statement {
 }
 
 class ForStatement extends Statement {
-  String variable;
+  String variableName;
   Expression iterable;
   StatementBlock block;
   
@@ -2871,7 +2871,7 @@ class ForStatement extends Statement {
   String toStringIndent(Integer indent) {
     return concat(
       'for (',
-      variable,
+      variableName,
       ' in ',
       iterable.toStringIndent(indent),
       ') {\n',
@@ -2915,6 +2915,8 @@ class ForStatement extends Statement {
     Type variableType;
     if (iterableBucket.staticType is IterableType) {
       variableType = (iterableBucket.staticType as IterableType).elementType;
+    } else if (iterableBucket.staticType is AbstractListType) {
+      variableType = (iterableBucket.staticType as AbstractListType).elementType;
     } else {
       variableType = environment.coreWhateverType;
     }
@@ -2922,15 +2924,15 @@ class ForStatement extends Statement {
     Bucket currentValue = loopScope.emitIntrinsicCall(
       environment.currentIntrinsicName,
       [ iteratorBucket ]:Bucket,
-    );
-    loopScope.registerImmutableValue(variable, currentValue);
+    ).asType(variableType);
+    loopScope.registerImmutableValue(variableName, currentValue);
     block.generateInstructions(loopScope);
     scope.emit(LoopScopeInstruction(loopScope));
   }
 
-  Null constructor(String variableArg, Expression iterableArg, StatementBlock blockArg, SourceLocation sourceLocationArg) {
+  Null constructor(String variableNameArg, Expression iterableArg, StatementBlock blockArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
-    variable = variableArg;
+    variableName = variableNameArg;
     iterable = iterableArg;
     block = blockArg;
   }

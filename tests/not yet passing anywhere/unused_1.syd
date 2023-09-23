@@ -1,0 +1,5 @@
+// expected error: unused variable
+// expected exit code is 0
+
+Integer variable;
+variable = 1;
