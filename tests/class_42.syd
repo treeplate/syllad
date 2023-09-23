@@ -1,0 +1,13 @@
+// expected error: redeclared constructor
+// unexpected output: FAIL
+
+println('FAIL');
+
+class Test {
+  Null constructor(String foo) {
+    println('A', foo);
+  }
+  Null constructor(String foo) {
+    println('B', foo);
+  }
+}

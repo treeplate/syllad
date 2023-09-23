@@ -3,8 +3,6 @@ import 'syd-tokenizer.syd';
 import 'syd-utils.syd';
 import 'syd-compiler.syd';
 
-String kConstructor = 'constructor';
-
 class TypeIdentifier extends AstNode {
   String name;
   
@@ -243,7 +241,7 @@ class VariableExpression extends LValueExpression {
     if (result == null) {
       throw(concat('Identifier "', name, '" not known at ', sourceLocation));
     }
-    if (!result!.isDefined()) {
+    if (!result!.isDeclared()) {
       // for compatibility with the interpreter
       throw(concat('Identifier "', name, '" has not yet been defined at ', sourceLocation));
     }
@@ -380,7 +378,7 @@ class MemberAccessExpression extends LValueExpression {
     if (lBucket.staticType is ClassType) {
       ClassType class = lBucket.staticType as ClassType;
       MemberDescriptionNullable memberDescription = class.getMember(member);
-      if (memberDescription != null && memberDescription!.isDefined()) {
+      if (memberDescription != null && memberDescription!.isDeclared()) {
         return class.createIdentifierEntity(scope, lBucket, member).forRead(scope);
       }
       throw(concat('Class "', class.name, '" does not have a member "', member, '", as used at ', sourceLocation));
@@ -536,7 +534,7 @@ class VariableSubroutineCallExpression extends Expression {
     if (entity == null) {
       throw(concat('Identifier "', name, '" not known at ', sourceLocation));
     }
-    if (!entity!.isDefined()) {
+    if (!entity!.isDeclared()) {
       // for compatibility with the interpreter
       throw(concat('Identifier "', name, '" has not yet been defined at ', sourceLocation));
     }
@@ -580,7 +578,7 @@ class MemberAccessSubroutineCallExpression extends Expression {
     if (lBucket.staticType is ClassType) {
       ClassType class = lBucket.staticType as ClassType;
       MemberDescriptionNullable memberDescription = class.getMember(member);
-      if (memberDescription != null && memberDescription!.isDefined()) {
+      if (memberDescription != null && memberDescription!.isDeclared()) {
         return class.createIdentifierEntity(scope, lBucket, member).emitCall(scope, arguments, this, sourceLocation);
       }
       throw(concat('nonexistent member ', member, ' at ', sourceLocation));
@@ -1666,7 +1664,7 @@ class FieldDeclarationStatement extends DeclarationStatement {
 
   Null declare(ClassType classType, CompiledScope scope) {
     staticType = type.generateInstructions(scope);
-    MemberDescriptionNullable inheritedMember = classType.getMember(identifier);
+    MemberDescriptionNullable inheritedMember = classType.getRealMember(identifier);
     if (inheritedMember != null) {
       if (inheritedMember!.isInherited) {
         if (!staticType.isSubtypeOf(inheritedMember!.staticType)) {
@@ -1677,7 +1675,7 @@ class FieldDeclarationStatement extends DeclarationStatement {
         throw(concat('Identifier ', identifier, ' redeclared at ', sourceLocation));
       }
     }
-    classType.registerMember(identifier, staticType, true, generateInitializerInstructions);
+    classType.registerMember(identifier, staticType, true, generateInitializerInstructions, sourceLocation);
   }
   
   //#override
@@ -1688,7 +1686,8 @@ class FieldDeclarationStatement extends DeclarationStatement {
       throw(concat('Identifier "', identifier, '" is an invalid name for a field at ', sourceLocation));
     }
     generateInitializerInstructions(scope);
-    (scope as CompiledSubroutine).parentClass!.getMember(identifier)!.define();
+    (scope as CompiledSubroutine).parentClass!.getMember(identifier)!.markDeclared();
+    (scope as CompiledSubroutine).parentClass!.getMember(identifier)!.markDefined();
   }
 
   Null constructor(TypeIdentifier typeArg, String identifierArg, ExpressionNullable rValueArg, SourceLocation sourceLocationArg) {
@@ -1838,10 +1837,10 @@ class MethodDeclarationStatement extends AbstractSubroutineDeclarationStatement 
 
   Null declare(ClassType classType, CompiledScope scope) {
     generateStaticType(scope);
-    MemberDescriptionNullable inheritedMember = classType.getMember(identifier);
+    MemberDescriptionNullable inheritedMember = classType.getRealMember(identifier);
     if (inheritedMember != null) {
       if (inheritedMember!.isInherited) {
-        if (!staticType.isSubtypeOf(inheritedMember!.staticType)) {
+        if (inheritedMember!.name != kConstructor && !staticType.isSubtypeOf(inheritedMember!.staticType)) {
           throw(concat('Inherited ', identifier, ' has type ', inheritedMember!.staticType.name,
                        ', but is overridden with incompatible type ', staticType.name, ' at ', sourceLocation));
         }
@@ -1849,7 +1848,7 @@ class MethodDeclarationStatement extends AbstractSubroutineDeclarationStatement 
         throw(concat('Identifier ', identifier, ' redeclared at ', sourceLocation));
       }
     }
-    classType.registerMember(identifier, staticType, false, null);
+    classType.registerMember(identifier, staticType, false, null, sourceLocation);
     parentClass = classType;
   }
 
@@ -1862,7 +1861,8 @@ class MethodDeclarationStatement extends AbstractSubroutineDeclarationStatement 
   Null registerSubroutine(CompiledScope scope, CompiledSubroutine subroutine) {
     scope.registerNestedScope(subroutine);
     MemberDescription member = parentClass.getMember(identifier)!;
-    member.define();
+    member.markDeclared();
+    member.markDefined();
     member.setMethodImplementation(subroutine);
     scope.environment().addSubroutine(subroutine);
   }
@@ -2160,8 +2160,10 @@ class ClassDeclaration extends AbstractClassDeclaration {
         }
       }
     }
-    (staticType as ClassType).markAsDefined();
-    if (!(staticType as ClassType).supertype.isDefined) {
+    ClassType classType = (staticType as ClassType);
+    classType.inheritMembersFromSupertype();
+    classType.markAsDefined();
+    if (!classType.supertype.isDefined) {
       if (superclassName == null) {
         throw(concat('Class defined before __Object is defined at ', sourceLocation));
       }
@@ -2169,7 +2171,6 @@ class ClassDeclaration extends AbstractClassDeclaration {
       throw(concat('Cannot extend a class that has not yet been defined at ', superclassName!.sourceLocation));
     }
     // register members on the class type
-    (staticType as ClassType).inheritMembersFromSupertype();
     for (member in members) {
       if (member is FieldDeclarationStatement) {
         (member as FieldDeclarationStatement).declare(staticType as ClassType, scope);
@@ -2179,6 +2180,7 @@ class ClassDeclaration extends AbstractClassDeclaration {
         assert(false, concat('unexpected declaration statement (', member.className, ') in class at ', member.sourceLocation));
       }
     }
+    classType.checkForMissingForwardDeclaredMembers(sourceLocation);
     DeclarationStatementNullable constructorMember = null;
     for (member in members) {
       if (member.identifier == kConstructor) {
@@ -2255,7 +2257,6 @@ class ClassDeclaration extends AbstractClassDeclaration {
     generatedConstructorScope.setThisPointer(thisPointer);
     // call initializers
     ClassTypeList classHierarchy = []:ClassType;
-    ClassType classType = staticType as ClassType;
     while (classType.supertype != classType) {
       classType = classType.supertype;
       append(classHierarchy, classType);
@@ -2299,9 +2300,20 @@ class ForwardClassPropertyDeclaration extends DeclarationStatement {
 
   //#override
   Null generateInstructions(CompiledScope scope) {
-    // TODO: declare the property on the class
-    // TODO: must set this.staticType (from DeclarationStatement)
-    // TODO: add tests for forward property declarations
+    TypeNullable existingStaticType = hostClass.generateInstructions(scope);
+    if (existingStaticType == null) {
+      throw(concat('nonexistent class ', hostClass.name, ' at ', sourceLocation));
+    }
+    if (!(existingStaticType is ClassType)) {
+      throw(concat('type ', hostClass.name, ' is not a class at ', sourceLocation));
+    }
+    ClassType classType = existingStaticType as ClassType;
+    if (classType.isDefined) {
+      throw(concat('type ', hostClass.name, ' is already defined and cannot have a forward-declared property at ', sourceLocation));
+    }
+    staticType = propertyType.generateInstructions(scope);
+    classType.registerForwardMember(identifier, staticType, sourceLocation);
+
   }
 
   Null constructor(TypeIdentifier hostClassArg, TypeIdentifier propertyTypeArg, String identifierArg, SourceLocation sourceLocationArg) {
@@ -2934,7 +2946,7 @@ class Library extends StatementBlock {
 
   // TODO: this should be split into "declaration" and "definition" phases
   //       the "declaration" phase does declareType-type stuff, setIsAmbiguous-type stuff, etc.
-  //       the "definition" phase actually generates scopes and instructions, sets isDefined, calls forRead, etc.
+  //       the "definition" phase actually generates scopes and instructions, sets isDeclared, calls forRead, etc.
   //       this would fix class_16.syd
   CompiledLibrary generateScopes(CompilationEnvironment compilationEnvironmentArg) { 
     CompiledLibrary result = CompiledLibrary(compilationEnvironmentArg, name);

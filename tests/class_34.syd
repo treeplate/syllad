@@ -1,0 +1,8 @@
+// expected error: too late for fwdclassprop
+// unexpected output: FAIL
+
+class A { }
+
+fwdclassprop Integer A.foo;
+
+println('FAIL');

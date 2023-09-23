@@ -1,0 +1,20 @@
+// expected output: A
+// expected output: 42
+// expected output: B
+
+fwdclass A;
+fwdclassprop IntegerFunction A.test;
+
+Integer foo(A a) {
+  return a.test(42);
+}
+
+class A {
+  Integer test(Integer i) {
+    return i;
+  }
+}
+
+println('A');
+println(foo(A()));
+println('B');

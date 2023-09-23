@@ -385,17 +385,6 @@ class LocalVariable extends DynamicBucket {
   }
 }
 
-class NamedLocalVariable extends LocalVariable {
-  Boolean isDefined() {
-    // TODO: remove this entire class if this method really always returns a constant
-    return true;
-  }
-
-  Null constructor(String nameArg, Type staticTypeArg, SentinelBucket sentinelBucketArg) {
-    super.constructor(staticTypeArg, sentinelBucketArg, nameArg);
-  }
-}
-
 class GlobalVariable extends DynamicBucket {
   String name;
 

@@ -1,0 +1,25 @@
+// expected error: runtime type error
+// expected output: A 1
+// expected output: A 2
+// expected output: B 3
+// expected output: B 4
+// expected output: B 5
+// unexpected output: FAIL
+
+class A {
+  Null constructor(String foo) {
+    println('A', foo);
+  }
+}
+
+class B extends A {
+  Null constructor(Integer bar) {
+    println('B', bar);
+  }
+}
+
+A('1').constructor('2');
+B(3).constructor(4);
+A five = B(5);
+five.constructor('6');
+println('FAIL');

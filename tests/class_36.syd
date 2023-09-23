@@ -1,0 +1,22 @@
+// expected output: PASS B
+// expected output: PASS A
+// expected output: PASS B
+// unexpected output: FAIL
+
+class A { }
+class B extends A { }
+
+class X {
+  Null foo(B b) { println('FAIL'); }
+}
+
+class Y extends X {
+  //#override
+  Null foo(A a) { println('PASS', a.className); }
+}
+
+Y().foo(B());
+Y().foo(A());
+
+X x = Y();
+x.foo(B());

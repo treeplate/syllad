@@ -1,0 +1,10 @@
+// expected output: PASS
+
+fwdclass A;
+fwdclass B() extends A;
+
+class A { }
+class B extends A { }
+
+println('PASS');
+B();

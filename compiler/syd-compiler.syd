@@ -74,7 +74,7 @@ fwdclass CompiledGeneratedConstructorSubroutine extends CompiledSubroutine;
 fwdclass BuiltInSubroutine(CompiledScopeNullable, AbstractSubroutineTypeWithSpecificParameters, String, ClassTypeNullable) extends CompiledSubroutineWithSpecificParameters;
 fwdclass BuiltInLenSubroutine(CompiledIntrinsicsLibrary) extends BuiltInSubroutine;
 fwdclass BuiltInDebuggerSubroutine(CompiledIntrinsicsLibrary) extends BuiltInSubroutine;
-fwdclass MemberDescription(ClassType, String, Type, Boolean) extends Object;
+fwdclass MemberDescription(ClassType, String, Type, Boolean, SourceLocation) extends Object;
 fwdclass BuiltInGetterMethod(CompiledIntrinsicsLibrary, ClassType, MemberDescription) extends BuiltInSubroutine;
 fwdclass BuiltInSetterMethod(CompiledIntrinsicsLibrary, ClassType, MemberDescription) extends BuiltInSubroutine;
 fwdclass CompilerIntrinsic(CompiledScopeNullable, AbstractSubroutineTypeWithSpecificParameters, String, ClassTypeNullable) extends BuiltInSubroutine;
@@ -150,7 +150,7 @@ fwdclassprop Boolean MemberDescription.needsMethods;
 fwdclassprop IntegerNullable MemberDescription.fieldIndex;
 fwdclassprop IntegerNullable MemberDescription.methodsIndex;
 fwdclassprop CompiledSubroutineNullable MemberDescription.methodImplementation;
-fwdclassprop BooleanFunction MemberDescription.isDefined;
+fwdclassprop BooleanFunction MemberDescription.isDeclared;
 fwdclassprop CompiledSubroutineNullable MemberDescription.getter;
 fwdclassprop CompiledSubroutineNullable MemberDescription.setter;
 
@@ -167,6 +167,8 @@ fwdclassprop EnumPropertyType ReifiedEnumType.propertyType;
 // ============================================================================
 // COMPILATION ENVIRONMENT
 // ============================================================================
+
+String kConstructor = 'constructor';
 
 // Library State
 enum ls { Unknown Declared Defined }
@@ -896,7 +898,15 @@ Bucket generateInstructionsForSubroutineCallExpression(CompiledScope scope, ForC
       return inlined!;
     }
   }
-  return scope.emitCodePointerCall(target.subroutineType as AbstractSubroutineTypeWithSpecificParameters, target.codePointer, null, target.thisPointer, argumentValues, sourceLocation, sourceLocations);
+  return scope.emitCodePointerCall(
+    target.subroutineType as AbstractSubroutineTypeWithSpecificParameters,
+    target.codePointer,
+    null,
+    target.thisPointer,
+    argumentValues,
+    sourceLocation,
+    sourceLocations,
+  );
 }
 
 // ============================================================================
@@ -967,16 +977,16 @@ class SubroutinePointerBucket extends ConstantBucket {
     return subroutine.name;
   }
 
-  Boolean _isDefined = false;
+  Boolean _isDeclared = false;
   Boolean _isConstructor;
 
-  Boolean isDefined() {
-    return _isDefined || !_isConstructor;
+  Boolean isDeclared() {
+    return _isDeclared || !_isConstructor;
   }
 
   Null markAsDefined() {
     assert(_isConstructor, 'cannot mark non-constructor as defined, those are always defined on declaration');
-    _isDefined = true;
+    _isDeclared = true;
   }
 
 
@@ -1070,7 +1080,7 @@ class FieldPointerBucket extends Bucket {
 // ============================================================================
 
 class IdentifierEntity extends Object {
-  Boolean isDefined() { abstract(); }
+  Boolean isDeclared() { abstract(); }
 
   Type staticType() { abstract(); }
 
@@ -1098,17 +1108,17 @@ class IdentifierEntity extends Object {
 }
 
 class LocalVariableIdentifierEntity extends IdentifierEntity {
-  NamedLocalVariable namedLocalVariable;
+  LocalVariable localVariable;
 
   //#override
-  Boolean isDefined() { return namedLocalVariable.isDefined(); }
+  Boolean isDeclared() { return true; }
 
   //#override
-  Type staticType() { return namedLocalVariable.staticType; }
+  Type staticType() { return localVariable.staticType; }
 
   //#override
   Bucket forRead(CompiledScope scope) { 
-    return scope.emitCopy(namedLocalVariable);
+    return scope.emitCopy(localVariable);
   }
 
   //#override
@@ -1116,12 +1126,12 @@ class LocalVariableIdentifierEntity extends IdentifierEntity {
 
   //#override
   Null write(CompiledScope scope, Bucket value) { 
-    scope.emit(UpdateVariableInstruction(namedLocalVariable, value));
+    scope.emit(UpdateVariableInstruction(localVariable, value));
   }
 
-  Null constructor(NamedLocalVariable namedLocalVariableArg) {
+  Null constructor(LocalVariable localVariableArg) {
     super.constructor();
-    namedLocalVariable = namedLocalVariableArg;
+    localVariable = localVariableArg;
   }
 }
 
@@ -1129,7 +1139,7 @@ class GlobalVariableIdentifierEntity extends IdentifierEntity {
   GlobalVariable globalVariable;
 
   //#override
-  Boolean isDefined() { return true; }
+  Boolean isDeclared() { return true; }
 
   //#override
   Type staticType() { return globalVariable.staticType; }
@@ -1157,7 +1167,7 @@ class VarArgsIdentifierEntity extends IdentifierEntity {
   VarArgsParameterBucket value;
 
   //#override
-  Boolean isDefined() { return true; }
+  Boolean isDeclared() { return true; }
 
   //#override
   Type staticType() { return value.staticType; }
@@ -1178,7 +1188,7 @@ class ImmutableVariableIdentifierEntity extends IdentifierEntity {
   Bucket variable;
 
   //#override
-  Boolean isDefined() { return true; }
+  Boolean isDeclared() { return true; }
 
   //#override
   Type staticType() { return variable.staticType; }
@@ -1196,7 +1206,7 @@ class ConstantIdentifierEntity extends IdentifierEntity {
   ConstantBucket constant;
 
   //#override
-  Boolean isDefined() { return true; }
+  Boolean isDeclared() { return true; }
 
   //#override
   Type staticType() { return constant.staticType; }
@@ -1214,7 +1224,7 @@ class SubroutineIdentifierEntity extends IdentifierEntity {
   SubroutinePointerBucket subroutinePointer;
 
   //#override
-  Boolean isDefined() { return subroutinePointer.isDefined(); }
+  Boolean isDeclared() { return subroutinePointer.isDeclared(); }
 
   //#override
   Type staticType() { return subroutinePointer.staticType; }
@@ -1244,7 +1254,7 @@ class MemberIdentifierEntity extends IdentifierEntity {
   String debugName;
 
   //#override
-  Boolean isDefined() { return member.isDefined(); }
+  Boolean isDeclared() { return member.isDeclared(); }
 
   //#override
   Type staticType() { return member.staticType; }
@@ -1387,10 +1397,11 @@ class AmbiguousMemberIdentifierEntity extends MemberIdentifierEntity {
 }
 
 class MemberDescription extends Object {
+  SourceLocation sourceLocation;
   ClassType classType;
   String name;
   Type staticType;
-  Boolean isInherited;
+  Boolean isInherited; // this is just a copy of the inherited version, we have not overridden it or introduced it
   Boolean hasSuperclassMember = false;
   Boolean isField; // whether this class specifically has a method or a field with this name
   Boolean needsField = false; // this member needs storage in this class OR a superclass
@@ -1463,52 +1474,83 @@ class MemberDescription extends Object {
   Null setMethodImplementation(CompiledSubroutine subroutineArg) {
     methodImplementation = subroutineArg;
   }
+   
+  Boolean _isDeclared = false; 
+
+  Boolean isDeclared() {
+    return isInherited || hasSuperclassMember || _isDeclared;
+  }
+
+  Null markDeclared() {
+    assert(!isInherited, concat('use override() before declare() for reintroduced inherited members'));
+    // isDeclared could be true if this is a forward-declared member
+    _isDeclared = true;
+  }
 
   Boolean _isDefined = false;
 
   Boolean isDefined() {
-    return isInherited || hasSuperclassMember || _isDefined;
+    return  _isDefined;
   }
 
-  Null define() {
-    assert(!isInherited, concat('use override() before define() for reintroduced inherited members'));
-    assert(!_isDefined, concat('tried to mark member ', name, ' as defined twice'));
+  Null markDefined() {
+    assert(!isInherited, concat('use override() before markDefined() for reintroduced inherited members'));
+    assert(!_isDefined, concat('tried to define member ', name, ' twice'));
     _isDefined = true;
   }
 
-  Null override(Type staticTypeArg) {
+  // indicate that this is a new implementation of an inherited member
+  Null override(Type staticTypeArg, SourceLocation sourceLocationArg) {
     assert(!_isDefined, concat('tried to mark member ', name, ' as defined twice'));
-    assert(staticTypeArg.isSubtypeOf(staticType), 'type mismatch');
+    assert(name == kConstructor || staticTypeArg.isSubtypeOf(staticType), 'type mismatch');
     staticType = staticTypeArg;
     isInherited = false;
     hasSuperclassMember = true;
     getter = null;
     setter = null;
     methodImplementation = null;
+    sourceLocation = sourceLocationArg;
   }
 
-  MemberDescription inherit(ClassType subclass) {
-    MemberDescription result = MemberDescription(subclass, name, staticType, true);
-    if (needsField) {
-      result.setNeedsField();
+  // indicate that this is a brand new member, not inherited
+  Null introduce(Type typeArg, SourceLocation sourceLocationArg) {
+    assert(!isInherited, 'cannot call introduce on inherited members');
+    sourceLocation = sourceLocationArg;
+    staticType = typeArg;
+  }
+
+  // used when creating the actual inherited copy of the member description.
+  // if this is an override, call override() afterwards.
+  Null adoptFrom(MemberDescription source) {
+    if (source.needsField) {
+      setNeedsField();
     }
-    if (needsMethods) {
-      result.setNeedsMethods();
+    if (source.needsMethods) {
+      setNeedsMethods();
     }
-    if (isField) {
-      result.setIsField();
+    if (source.isField) {
+      setIsField();
     } else {
-      result.setIsMethod();
+      setIsMethod();
     }
-    if (getter != null) {
-      result.setGetter(getter!);
+    if (source.getter != null) {
+      setGetter(source.getter!);
     }
-    if (setter != null) {
-      result.setSetter(setter!);
+    if (source.setter != null) {
+      setSetter(source.setter!);
     }
-    if (methodImplementation != null) {
-      result.setMethodImplementation(methodImplementation!);
+    if (source.methodImplementation != null) {
+      setMethodImplementation(source.methodImplementation!);
     }
+    assert(staticType.isSubtypeOf(source.staticType), 'invariant violation');
+    staticType = source.staticType;
+    isInherited = true;
+  }
+
+  // create a copy of this member that has the isInherited flag set.
+  MemberDescription inherit(ClassType subclass) {
+    MemberDescription result = MemberDescription(subclass, name, staticType, true, sourceLocation);
+    result.adoptFrom(this);
     return result;
   }
 
@@ -1517,12 +1559,13 @@ class MemberDescription extends Object {
     return concat('MemberDescription: ', staticType, ' ', name, ' (methodsIndex=', methodsIndex, '; fieldIndex=', fieldIndex, ')');
   }
 
-  Null constructor(ClassType classTypeArg, String nameArg, Type staticTypeArg, Boolean isInheritedArg) {
+  Null constructor(ClassType classTypeArg, String nameArg, Type staticTypeArg, Boolean isInheritedArg, SourceLocation sourceLocationArg) {
     super.constructor();
     classType = classTypeArg;
     name = nameArg;
     staticType = staticTypeArg;
     isInherited = isInheritedArg;
+    sourceLocation = sourceLocationArg;
   }
 }
 
@@ -1539,6 +1582,7 @@ class ClassType extends Type {
 
   Set subtypes = Set();
 
+  Map forwardDeclaredMembers = Map(); // name to MemberDescription
   Map members = Map(); // name to MemberDescription
   Boolean isConstructedOrSubclassIsConstructed = false;
 
@@ -1559,10 +1603,52 @@ class ClassType extends Type {
     constructorSubroutine = constructorSubroutineArg;
   }
 
+  Null registerForwardMember(String name, Type type, SourceLocation sourceLocation) {
+    assert(!isDefined, 'registerForwardMember must be called before markAsDefined');
+    assert(forwardDeclaredMembers.get(name) == null, 'forward declared member already existed');
+    MemberDescription member = MemberDescription(this, name, type, false /* isInherited -- forward declarations get fixed up later */, sourceLocation);
+    member.setIsAmbiguous(); // we don't know yet whether this is a field or a method
+    member.markDeclared();
+    forwardDeclaredMembers.set(name, member);
+  }
+
   Null inheritMembersFromSupertype() {
+    assert(!isDefined, 'inheritMembersFromSupertype must be called before markAsDefined');
     assert(members.length == 0, 'cannot inherit members twice');
-    for (member in supertype.members.values()) {
-      members.set((member as MemberDescription).name, (member as MemberDescription).inherit(this));
+    for (member in supertype.members.values() as MemberDescriptionList) {
+      MemberDescriptionNullable forwardDeclaredMember = forwardDeclaredMembers.get(member.name) as MemberDescriptionNullable;
+      if (forwardDeclaredMember != null) {
+        if (!forwardDeclaredMember!.staticType.isSubtypeOf(member.staticType)) {
+          throw(concat(
+            'Forward declared property ', member.name, 
+            ' has type ', forwardDeclaredMember!.staticType, 
+            ' at ', forwardDeclaredMember!.sourceLocation, 
+            ' which is not a subtype of inherited type ', member.staticType,
+            ' as defined at ', member.sourceLocation,
+            '.'
+          ));
+        }
+        forwardDeclaredMember!.adoptFrom(member);
+        members.set(member.name, forwardDeclaredMember!);
+      } else {
+        members.set(member.name, member.inherit(this));
+      }
+    }
+  }
+
+  Null checkForMissingForwardDeclaredMembers(SourceLocation classSourceLocation) {
+    for (forwardDeclaredMember in forwardDeclaredMembers.values() as MemberDescriptionList) {
+      if (members.get(forwardDeclaredMember.name) != forwardDeclaredMember) {
+        throw(concat(
+          'Forward declared property ', forwardDeclaredMember.name, 
+          ' has type ', forwardDeclaredMember.staticType, 
+          ' at ', forwardDeclaredMember.sourceLocation, 
+          ' but is not defined in ', name,
+          ' at ', classSourceLocation,
+          '.'
+        ));
+      }
+      assert(members.get(forwardDeclaredMember.name) == forwardDeclaredMember, 'inconsistent forward declaration status');
     }
   }
 
@@ -1575,20 +1661,34 @@ class ClassType extends Type {
     }
   }
 
+  // when we create the generated constructor, we inline all of these
   NullFunctionList initializers = []:NullFunction;
 
-  Null registerMember(String name, Type type, Boolean isField, NullFunctionNullable initializer) {
-    assert(supertype.members.get(name) == null || type.isSubtypeOf((supertype.members.get(name) as MemberDescription).staticType),
+  // called when defining the member (not forward declaring it)
+  // this is called during the class setup, before we actually compile the members. because
+  // we don't want methods and initializers to be able to refer to members defined after them
+  // (unless forward declared), we do not mark them as declared here, we only mark them as
+  // declared when we actually compile them.
+  Null registerMember(String name, Type type, Boolean isField, NullFunctionNullable initializer, SourceLocation sourceLocation) {
+    assert(isDefined, 'registerMember must be called after markAsDefined');
+    assert(name == kConstructor || supertype.members.get(name) == null || type.isSubtypeOf((supertype.members.get(name) as MemberDescription).staticType),
            'tried to register overriding member with broader type than inherited type');
     MemberDescriptionNullable inheritedMember = members.get(name) as MemberDescriptionNullable;
     MemberDescription member;
+    MemberDescriptionNullable forwardDeclaredMember = forwardDeclaredMembers.get(name) as MemberDescriptionNullable;
+    assert(inheritedMember == null || inheritedMember!.isInherited, 'inconsistent inheritance status');
+    assert(inheritedMember == null || forwardDeclaredMember == null || inheritedMember == forwardDeclaredMember, 'inconsistent forward declaration status');
     Boolean isInherited = inheritedMember != null;
-    assert(inheritedMember == null || inheritedMember!.isInherited == true, 'inconsistent inheritance status');
     if (isInherited) {
-      inheritedMember!.override(type);
       member = inheritedMember!;
+      member.override(type, sourceLocation);
     } else {
-      member = MemberDescription(this, name, type, false);
+      if (forwardDeclaredMember == null) {
+        member = MemberDescription(this, name, type, false, sourceLocation);
+      } else {
+        member = forwardDeclaredMember!;
+        member.introduce(type, sourceLocation);
+      }
       members.set(name, member);
     }
     if (isField) {
@@ -1620,6 +1720,14 @@ class ClassType extends Type {
   }
 
   MemberDescriptionNullable getMember(String name) {
+    MemberDescriptionNullable forwardDeclaredMember = forwardDeclaredMembers.get(name) as MemberDescriptionNullable;
+    if (forwardDeclaredMember != null) {
+      return forwardDeclaredMember;
+    }
+    return members.get(name) as MemberDescriptionNullable;
+  }
+
+  MemberDescriptionNullable getRealMember(String name) {
     return members.get(name) as MemberDescriptionNullable;
   }
 
@@ -1692,6 +1800,7 @@ class ClassType extends Type {
   IdentifierEntity createIdentifierEntity(CompiledScope scope, Bucket thisPointer, String name) {
     MemberDescription member = getMember(name)!;
     if (member.isAmbiguous) {
+      // TODO: if this was just a forward declaration, this is inefficient
       return AmbiguousMemberIdentifierEntity(thisPointer, member, concat(this.name, '.', name));
     }
     if (member.isField) {
@@ -2015,7 +2124,7 @@ class CompiledScope extends Object {
   // Libraries override this to register global variables.
   IdentifierEntity registerVariable(String name, Type type) {
     assert(!isIdentifierDeclaredInLocalScope(name), concat('tried to redeclare an identifier (', name, ') within a scope'));
-    NamedLocalVariable variable = NamedLocalVariable(name, type, environment().coreSentinel);
+    LocalVariable variable = LocalVariable(type, environment().coreSentinel, name,);
     IdentifierEntity result = LocalVariableIdentifierEntity(variable);
     identifiers.set(name, result);
     emit(VariableDeclarationInstruction(variable));
@@ -2324,7 +2433,7 @@ class CompiledSubroutine extends CompiledStackFrameScope {
     IdentifierEntityNullable value = super.localLookupIdentifier(name);
     if (value == null && parentClass != null) { // explicitly _not_ using isMethod(), we don't know the runtime type!
       MemberDescriptionNullable member = parentClass!.getMember(name);
-      if (member != null && member!.isDefined()) {
+      if (member != null && member!.isDeclared()) {
         // We are in a method calling another method on the same object
         // so the thisPointer of the call is the same as ours.
         return parentClass!.createIdentifierEntity(this, thisPointer, name);

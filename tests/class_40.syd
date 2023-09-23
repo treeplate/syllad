@@ -1,0 +1,20 @@
+// expected error: no such property
+// unexpected output: A
+
+fwdclass A;
+
+Integer foo(A a) {
+  return a.test(42);
+}
+
+fwdclassprop IntegerFunction A.test;
+
+class A {
+  Integer test(Integer i) {
+    return i;
+  }
+}
+
+println('A');
+println(foo(A()));
+println('B');

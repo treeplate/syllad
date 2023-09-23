@@ -151,25 +151,21 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
   if (hasFwdDecl) {
     for (MapEntry<Variable, TVProp> value in fwdProps.types.entries) {
       if (value.key == constructorVariable) {
-        if (newScope.igv(value.key, false, -2, 0, '', '', true, false, false) != value.value.type) {
+        if ((newScope.igv(value.key, false, -2, 0, '', '', true, false, false) ?? FunctionValueType(nullType, [], 'xxx')) != value.value.type) {
           throw BSCException(
-              "${name.name}'s constructor (${newScope.igv(value.key, false, -2, 0, '', '', true, false, false)}) does not match forward declaration (${value.value.type}) ${formatCursorPositionFromTokens(tokens)}",
+              "${name.name}'s constructor (${newScope.igv(value.key, false, -2, 0, '', '', true, false, false) ?? FunctionValueType(nullType, [], 'xxx')}) does not match forward declaration (${value.value.type}) ${formatCursorPositionFromTokens(tokens)}",
               scope);
         }
-      }
-      if (newScope.igv(value.key, false, -2, 0, '', '', true, false, false) == null) {
-        throw BSCException(
-            "${name.name}.${value.key.name} (nonexistent) does not match forward declaration (a ${value.value.type}) ${formatCursorPositionFromTokens(tokens)}",
-            scope);
-      }
-      if (newScope.igv(value.key, false, -2, 0, '', '', true, false, false) != value.value.type) {
-        if (!(value.value is GenericFunctionValueType &&
-            value.value is! FunctionValueType &&
-            newScope.igv(value.key, false) is FunctionValueType &&
-            (newScope.igv(value.key, false) as GenericFunctionValueType).returnType == (value.value as GenericFunctionValueType).returnType)) {
-          throw BSCException(
-              "${name.name}.${value.key.name} (a ${newScope.igv(value.key, false)}) does not match forward declaration (a ${value.value.type}) ${formatCursorPositionFromTokens(tokens)}",
-              scope);
+      } else {
+        if (newScope.igv(value.key, false, -2, 0, '', '', true, false, false) != value.value.type) {
+          if (!(value.value is GenericFunctionValueType &&
+              value.value is! FunctionValueType &&
+              newScope.igv(value.key, false) is FunctionValueType &&
+              (newScope.igv(value.key, false) as GenericFunctionValueType).returnType == (value.value as GenericFunctionValueType).returnType)) {
+            throw BSCException(
+                "${name.name}.${value.key.name} (a ${newScope.igv(value.key, false)}) does not match forward declaration (a ${value.value.type}) ${formatCursorPositionFromTokens(tokens)}",
+                scope);
+          }
         }
       }
     }
@@ -727,9 +723,6 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   if (isVararg && params.length > 1) {
     throw BSCException("$ident2 had ${params.length - 1} regular arguments and a vararg ${formatCursorPositionFromTokens(tokens)}", scope);
   }
-  //if (params.isEmpty && ident2.name == 'constructor') {
-  //print('no constructor args :( ${scope.debugName}');
-  //}
   if (isVararg) {
     params = InfiniteIterable(params.single);
   }
@@ -1046,8 +1039,16 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       return NopStatement();
     case fwdclasspropVariable:
       ValueType type = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
-      ClassValueType cl =
-          (ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file) as ClassValueType);
+      ValueType reciever = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
+      if (reciever is! ClassValueType) {
+        throw BSCException('fwdclassprops should only be defined on classes ${formatCursorPositionFromTokens(tokens)}', scope);
+      }
+      if (!reciever.fwdDeclared) {
+        throw BSCException(
+            'fwdclassprops should only be defined on forward-declared classes, before the real class is created ${formatCursorPositionFromTokens(tokens)}',
+            scope);
+      }
+      ClassValueType cl = reciever;
       tokens..moveNext();
       tokens.expectChar(TokenType.period);
       if (overriden) {

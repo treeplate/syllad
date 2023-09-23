@@ -1,0 +1,15 @@
+// expected error: type error, inherited member foo is not a valid override of supertype's foo
+// unexpected output: FAIL
+
+println('FAIL');
+
+class A { }
+class B { }
+
+class X {
+  Integer foo(A a) { }
+}
+
+class Y extends X {
+  Integer foo(B b) { }
+}

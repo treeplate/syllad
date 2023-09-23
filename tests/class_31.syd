@@ -1,0 +1,15 @@
+// expected output: hello
+
+fwdclass A;
+fwdclass B extends A;
+fwdclassprop StringFunction B.test;
+
+class A {
+  String test(String s) {
+    return s;
+  }
+}
+
+class B extends A {}
+
+println(B().test('hello'));

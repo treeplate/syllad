@@ -1208,7 +1208,7 @@ class InfiniteIterable<E> implements Iterable<E> {
   @override
   E lastWhere(bool Function(E element) test, {E Function()? orElse}) {
     if (!test(value)) {
-      // xxx should we call for all elements or is just one fine?
+      // should we call for all elements or is just one fine?
       return (orElse == null
           ? () {
               throw Exception("No orElse, but test() returned false on $this");

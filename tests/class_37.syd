@@ -1,0 +1,21 @@
+// expected error: type error
+// unexpected output: PASS
+// unexpected output: FAIL
+
+class A { }
+class B extends A { }
+
+class X {
+  Integer foo(B b) { println('FAIL'); }
+}
+
+class Y extends X {
+  Integer foo(A a) { println('PASS', a.className); }
+}
+
+Y().foo(B());
+Y().foo(A());
+
+X x = Y();
+x.foo(B());
+x.foo(A());

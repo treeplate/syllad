@@ -1,0 +1,8 @@
+// expected error: undeclared class A
+// unexpected output: FAIL
+
+fwdclassprop Boolean A.test;
+
+class A { Boolean test; }
+
+println('FAIL');
