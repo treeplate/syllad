@@ -427,7 +427,7 @@ CompiledSubroutine evaluateSuper(CompiledScope scope, String method, SourceLocat
   if (memberDescription == null) {
     throw(concat('Superclass does not have a method "', method, '" as referenced at ', sourceLocation));
   }
-  assert(memberDescription!.isDefined(), 'superclass methods not all defined');
+  assert(memberDescription!.isDefined(), concat('superclass method ', method, ' not defined'));
   while (memberDescription!.isField) {
     if (superclass.supertype == superclass) {
       throw(concat('Superclass member "', method, '" is a field, not a method, but was referenced in super expression at ', sourceLocation));

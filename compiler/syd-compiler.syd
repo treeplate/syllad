@@ -1486,13 +1486,12 @@ class MemberDescription extends Object {
 
   Null markDefined() {
     assert(!isInherited, concat('use override() before markDefined() for reintroduced inherited members'));
-    assert(!_isDefined, concat('tried to define member ', name, ' twice'));
+    // _isDefined could be true if this is an inherited method
     _isDefined = true;
   }
 
   // indicate that this is a new implementation of an inherited member
   Null override(Type staticTypeArg, SourceLocation sourceLocationArg) {
-    assert(!_isDefined, concat('tried to mark member ', name, ' as defined twice'));
     assert(name == kConstructor || staticTypeArg.isSubtypeOf(staticType), 'type mismatch');
     staticType = staticTypeArg;
     isInherited = false;
@@ -1536,6 +1535,7 @@ class MemberDescription extends Object {
     assert(staticType.isSubtypeOf(source.staticType), 'invariant violation');
     staticType = source.staticType;
     isInherited = true;
+    _isDefined = true;
   }
 
   // create a copy of this member that has the isInherited flag set.

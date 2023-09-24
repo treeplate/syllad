@@ -1,0 +1,18 @@
+// expected output: A.foo
+
+class A {
+  Null foo() {
+    println('A.foo');
+  }
+}
+
+class B extends A { }
+
+class C extends B {
+  //#override
+  Null foo() {
+    super.foo();
+  }
+}
+
+C().foo();
