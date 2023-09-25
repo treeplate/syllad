@@ -1,0 +1,13 @@
+// expected output: 7
+// expected output: 1
+
+Integer x = 1;
+
+Integer test() {
+  Integer x = x + 2;
+  x += 4;
+  return x;
+}
+
+println(test());
+println(x);

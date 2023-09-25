@@ -3,6 +3,14 @@
 // do not add calls to concat to this test as that will wildly change the allocation count
 // similarly do not add calls to println or stderr that would result in any stringification
 
+Boolean assertsEnabled = false;
+Boolean test() { assertsEnabled = true; return true; }
+assert(test(), 'control');
+if (!assertsEnabled) {
+  println('FAIL: asserts not enabled');
+  exit(1);
+}
+
 _gcLocked += 1;
 if (true) {
   if (true) {

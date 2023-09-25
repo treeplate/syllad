@@ -110,6 +110,7 @@ class TypeCodeDatum extends CompileTimeNumericDatum {
 
   //#override
   IntegerNullable numericValue() {
+    assert(type.code != null, concat('type ', type.name, ' was never assigned a code'));
     return type.code!;
   }
 

@@ -1,0 +1,22 @@
+// expected output: true
+// expected output: 1
+// expected output: true
+// expected output: 2
+// expected output: true
+// expected output: 3
+// expected output: false
+
+AnythingIterator x;
+
+Null test(Anything... args) {
+  x = iterator(args);
+}
+
+test(1, 2, 3);
+println(next(x));
+println(current(x));
+println(next(x));
+println(current(x));
+println(next(x));
+println(current(x));
+println(next(x));

@@ -1,5 +1,13 @@
 // expected exit code is 0
 
+Boolean assertsEnabled = false;
+Boolean test() { assertsEnabled = true; return true; }
+assert(test(), 'control');
+if (!assertsEnabled) {
+  println('FAIL: asserts not enabled');
+  exit(1);
+}
+
 Boolean b = false;
 assert(!b, 'fail');
 b ||= false;

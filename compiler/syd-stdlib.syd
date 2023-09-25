@@ -4,12 +4,21 @@
 // LISTS
 
 //#ignore_unused
-WhateverList filledList(Integer length, Whatever value) {
-  // TODO: use a fixed-size list constructor ("sizedList")
-  WhateverList result = [];
+AnythingList addLists(WhateverList... lists) {
+  Integer length = 0;
   Integer index = 0;
-  while (index < length) {
-    append(result, value);
+  while (index < len(lists)) {
+    length += len(lists[index]);
+    index += 1;
+  }
+  AnythingList result = filledList(length, null);
+  index = 0;
+  Integer targetIndex = 0;
+  while (index < len(lists)) {
+    for (value in lists[index]) {
+      result[targetIndex] = value;
+      targetIndex += 1;
+    }
     index += 1;
   }
   return result;

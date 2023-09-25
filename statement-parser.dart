@@ -678,11 +678,12 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   if (!static) {
     if ((!scope.isClass && !scope.isClassOf) || scope.igv(ident2, false, -3, 0, '', '', true, false, false) == null) {
       if (overriden) {
-        stderr.writeln('(lint) ${ident2.name} incorrectly defined as override ${formatCursorPositionFromTokens(tokens)}');
+        throw BSCException('${ident2.name} incorrectly defined as override ${formatCursorPositionFromTokens(tokens)}', scope);
       }
     } else if (!overriden && ident2 != constructorVariable) {
-      stderr.writeln(
-          '(lint) ${ident2.name} should be defined as override (write //#override before the function declaration) ${formatCursorPositionFromTokens(tokens)}');
+      throw BSCException(
+          '${ident2.name} should be defined as override (write //#override before the function declaration) ${formatCursorPositionFromTokens(tokens)}',
+          scope);
     }
   }
   bool isVararg = false;
@@ -694,10 +695,10 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     if (tokens.current is CharToken && tokens.currentChar == TokenType.ellipsis) {
       tokens.moveNext();
       if (isVararg) {
-        throw BSCException("$ident2 had 2 varargs ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException("${ident2.name} had 2 varargs ${formatCursorPositionFromTokens(tokens)}", scope);
       }
       if (isNormal) {
-        throw BSCException("$ident2 had regular arguments before a vararg ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException("${ident2.name} had regular arguments before a vararg ${formatCursorPositionFromTokens(tokens)}", scope);
       }
       isVararg = true;
     } else {
@@ -705,7 +706,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     }
     Variable name = tokens.currentIdent;
     if (debugParams.contains(name)) {
-      throw BSCException("$ident2 had duplicate parameter ${name.name} ${formatCursorPositionFromTokens(tokens)}", scope);
+      throw BSCException("${ident2.name} had duplicate parameter ${name.name} ${formatCursorPositionFromTokens(tokens)}", scope);
     }
     debugParams.add(name);
     tokens.moveNext();
@@ -721,7 +722,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         name);
   });
   if (isVararg && params.length > 1) {
-    throw BSCException("$ident2 had ${params.length - 1} regular arguments and a vararg ${formatCursorPositionFromTokens(tokens)}", scope);
+    throw BSCException("${ident2.name} had ${params.length - 1} regular arguments and a vararg ${formatCursorPositionFromTokens(tokens)}", scope);
   }
   if (isVararg) {
     params = InfiniteIterable(params.single);
@@ -792,28 +793,45 @@ MapEntry<List<Statement>, TypeValidator> parse(
       "true": booleanType,
       "false": booleanType,
       "null": nullType,
-      "args": ListValueType(stringType, 'intrinsics'),
+      "args": ListValueType<ValueWrapper<String>>(stringType, 'intrinsics'),
       "print": FunctionValueType(integerType, InfiniteIterable(anythingType), 'intrinsics'),
       "stderr": FunctionValueType(integerType, InfiniteIterable(anythingType), 'intrinsics'),
       "concat": FunctionValueType(stringType, InfiniteIterable(anythingType), 'intrinsics'),
       "parseInt": FunctionValueType(integerType, [stringType], 'intrinsics'),
       'addLists': FunctionValueType(ListValueType(anythingType, 'intrinsics'),
-          InfiniteIterable(ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')), 'intrinsics'),
-      'charsOf': FunctionValueType(IterableValueType(stringType, 'intrinsics'), [stringType], 'intrinsics'),
-      'scalarValues': FunctionValueType(IterableValueType(integerType, 'intrinsics'), [stringType], 'intrinsics'),
+          InfiniteIterable(ListValueType<ValueWrapper>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')), 'intrinsics'),
+      'charsOf':
+          FunctionValueType(IterableValueType<ValueWrapper<String>, Iterable<ValueWrapper<String>>>(stringType, 'intrinsics'), [stringType], 'intrinsics'),
+      'scalarValues':
+          FunctionValueType(IterableValueType<ValueWrapper<int>, Iterable<ValueWrapper<int>>>(integerType, 'intrinsics'), [stringType], 'intrinsics'),
       'split': FunctionValueType(ListValueType(stringType, 'intrinsics'), [stringType, stringType], 'intrinsics'),
       'len': FunctionValueType(
-          integerType, [IterableValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')], 'intrinsics'),
+          integerType,
+          [
+            IterableValueType<ValueWrapper<dynamic>, Iterable<ValueWrapper<dynamic>>>(
+                ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')
+          ],
+          'intrinsics'),
       'input': FunctionValueType(stringType, [], 'intrinsics'),
       'append': FunctionValueType(
           anythingType, [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics'), anythingType], 'intrinsics'),
-      'iterator': FunctionValueType(IteratorValueType(anythingType, 'intrinsics'),
-          [IterableValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')], 'intrinsics'),
+      'iterator': FunctionValueType(
+          IteratorValueType(anythingType, 'intrinsics'),
+          [
+            IterableValueType<ValueWrapper<dynamic>, Iterable<ValueWrapper<dynamic>>>(
+                ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')
+          ],
+          'intrinsics'),
       'next': FunctionValueType(booleanType, [IteratorValueType(anythingType, 'intrinsics')], 'intrinsics'),
       'current': FunctionValueType(anythingType, [IteratorValueType(anythingType, 'intrinsics')], 'intrinsics'),
       'stringTimes': FunctionValueType(stringType, [stringType, integerType], 'intrinsics'),
-      'copy': FunctionValueType(ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics'),
-          [IterableValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')], 'intrinsics'),
+      'copy': FunctionValueType(
+          ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics'),
+          [
+            IterableValueType<ValueWrapper<dynamic>, Iterable<ValueWrapper<dynamic>>>(
+                ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')
+          ],
+          'intrinsics'),
       'hex': FunctionValueType(stringType, [integerType], 'intrinsics'),
       'chr': FunctionValueType(stringType, [integerType], 'intrinsics'),
       'exit': FunctionValueType(nullType, [integerType], 'intrinsics'),
@@ -830,6 +848,10 @@ MapEntry<List<Statement>, TypeValidator> parse(
       'substring': FunctionValueType(stringType, [stringType, integerType, integerType], 'intrinsics'),
       'sublist': FunctionValueType(ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics'),
           [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics'), integerType, integerType], 'intrinsics'),
+      'filledList': FunctionValueType(
+          ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics'), [integerType, anythingType], 'intrinsics'),
+      'sizedList':
+          FunctionValueType(ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics'), [integerType], 'intrinsics'),
       'stackTrace': FunctionValueType(stringType, [], 'intrinsics'),
       'debugName': FunctionValueType(stringType, [rootClassType], 'intrinsics'),
       'createStringBuffer': FunctionValueType(stringBufferType, [], 'intrinsics'),
@@ -1012,18 +1034,22 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       }
       ClassValueType x = ClassValueType(cln, spt, props, tokens.file, true);
       FunctionValueType? constructorType;
+      if (spt?.properties.types[constructorVariable] != null) {
+        constructorType = spt!.properties.types[constructorVariable]!.type as FunctionValueType;
+      } else {
+        constructorType = FunctionValueType(nullType, [], tokens.file);
+      }
       if (parameters != null) {
         constructorType = FunctionValueType(nullType, parameters.map((e) => e.toVT()), tokens.file);
       }
-      if (constructorType != null) {
-        props.types[constructorVariable] = TVProp(true, constructorType, false);
-      }
+
+      props.types[constructorVariable] = TVProp(true, constructorType, false);
       spt?.subtypes.add(x);
 
       x.properties.types[thisVariable] = TVProp(true, x, false);
       scope.newVar(
         cln,
-        (constructorType ?? spt?.properties.types[constructorVariable]?.type ?? FunctionValueType(nullType, [], tokens.file)).withReturnType(x, tokens.file),
+        (constructorType).withReturnType(x, tokens.file),
         tokens.current.line,
         tokens.current.col,
         tokens.workspace,
@@ -1053,6 +1079,9 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens.expectChar(TokenType.period);
       if (overriden) {
         stderr.writeln('fwdclassprops should never be defined as override ${formatCursorPositionFromTokens(tokens)}');
+      }
+      if (cl.properties.types[tokens.currentIdent] != null) {
+        throw BSCException('fwdclassprops should only be defined once per class ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       cl.properties.types[tokens.currentIdent] = TVProp(true, type, false);
       if (ignoreUnused) {

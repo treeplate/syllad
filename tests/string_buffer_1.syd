@@ -1,5 +1,13 @@
 // expected output: AB
 
+Boolean assertsEnabled = false;
+Boolean test() { assertsEnabled = true; return true; }
+assert(test(), 'control');
+if (!assertsEnabled) {
+  println('FAIL: asserts not enabled');
+  exit(1);
+}
+
 StringBuffer buffer = createStringBuffer();
 writeStringBuffer(buffer, 'A');
 writeStringBuffer(buffer, 'B');

@@ -606,7 +606,7 @@ class X64DerefOpcode extends X64Instruction {
   String toString() {
     Integer i = -1;
     String addSquareBrackets(Operand arg) {
-      i++;
+      i += 1;
       if (i == derefIndex) {
         return concat('[', arg, ']');
       }
@@ -848,7 +848,7 @@ PlaceholderOperand convertToWritableX64Operand(X64Context context, LocalDatum da
     placeholder = PlaceholderOperand(datum.commentName);
     context.assignedDatums.set(datum, placeholder);
   }
-  return placeholder;
+  return placeholder!;
 }
 
 Operand convertToStackX64Operand(X64Context context, StackDatum datum) {
@@ -857,7 +857,7 @@ Operand convertToStackX64Operand(X64Context context, StackDatum datum) {
     placeholder = PlaceholderStackOperand(datum.commentName);
     context.assignedDatums.set(datum, placeholder);
   }
-  return placeholder;
+  return placeholder!;
 }
 
 Operand _convertToX64Operand(X64Context context, Datum datum) {
@@ -898,7 +898,7 @@ Operand _convertToX64Operand(X64Context context, Datum datum) {
     return context.getParameter((datum as ParameterDatum).index);
   } 
   if (datum is VarArgsBaseAddressDatum) {
-    return context.varArgsBaseAddress;
+    return context.varArgsBaseAddress!;
   } 
   if (datum is DereferenceDatum) {
     return dereferenceDatums(context, 'mov', datum as DereferenceDatum);
@@ -1138,7 +1138,7 @@ Null convertToX64(X64Context context, PseudoInstruction instruction) {
   } else if (instruction is StoreByte) {
     Operand source = convertToX64Operand(context, (instruction as StoreByte).source);
     Operand result = convertToX64Operand(context, (instruction as StoreByte).targetPointer);
-    X64DerefOpcode instruction = X64DerefOpcode(context.indent, 'mov', 0, [result, source], concat((instruction as StoreByte).comment, '!!11'), /*offset:*/ 0);
+    X64DerefOpcode instruction = X64DerefOpcode(context.indent, 'mov', 0, [result, source], concat((instruction as StoreByte).comment, ''), /*offset:*/ 0);
     instruction.setAllOperandWidths(ow.Byte);
     append(context.output, instruction);
   } else if (instruction is StoreQuad) {
@@ -1445,7 +1445,7 @@ class X64Assembler extends Assembler {
   }
 
   Null addCode(Integer indent, String opcode, OperandList operands, StringNullable comment) {
-    assert(!contains(charsOf(opcode), ':'), 'use addLabel to add a label');
+    assert(!contains(copy(charsOf(opcode)), ':'), 'use addLabel to add a label');
     addLine(indent, concat(opcode, ' ', join(map(operands, serializeOperand) as StringList, ', ')), comment, true);
   }
 

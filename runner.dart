@@ -73,6 +73,12 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
             'scalarValues rtv',
           );
         },
+        'filledList': (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          return ValueWrapper<List<ValueWrapper>>(ListValueType<ValueWrapper>(anythingType, 'intrinsics'), List.filled(l.first.valueC<int>(null, s, -2, 0, 'interr', 'interr'), l.last, growable: true), 'filledList rtv');
+        },
+        'sizedList': (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          return ValueWrapper<List<ValueWrapper>>(ListValueType<ValueWrapper>(anythingType, 'intrinsics'), List.filled(l.first.valueC(null, s, -2, 0, 'interr', 'interr'), ValueWrapper<String>(ValueType.internal(null, variables['Sentinel'] ??= Variable('Sentinel'), 'idk', false), "sizedList sentinel value", 'sizedList sentinel'), growable: true), 'sizedList rtv');
+        },
         "len": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           if (l.single.typeC(null, s, -2, 0, 'interr', 'interr') is! IterableValueType) {
             throw BSCException(

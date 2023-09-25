@@ -644,7 +644,7 @@ class ValueType<T extends Object?> {
         file,
       );
       if (iterableOrNull == null) return null;
-      return IterableValueType(
+      return IterableValueType<ValueWrapper, Iterable<ValueWrapper>>(
         iterableOrNull,
         file,
       );
@@ -668,7 +668,7 @@ class ValueType<T extends Object?> {
         file,
       );
       if (listOrNull == null) return null;
-      return ListValueType(
+      return ListValueType<ValueWrapper>(
         listOrNull,
         file,
       );
@@ -775,7 +775,7 @@ class GenericFunctionValueType<T> extends ValueType<SydFunction<T>> {
   }
 }
 
-class IterableValueType<T, RT extends Iterable<T>> extends ValueType<RT> {
+class IterableValueType<T extends ValueWrapper, RT extends Iterable<T>> extends ValueType<RT> {
   IterableValueType.internal(this.genericParameter, String file)
       : super.internal(anythingType, variables["${genericParameter}Iterable"] ??= Variable("${genericParameter}Iterable"), file, false);
   factory IterableValueType(ValueType genericParameter, String file) {
@@ -785,11 +785,11 @@ class IterableValueType<T, RT extends Iterable<T>> extends ValueType<RT> {
   final ValueType genericParameter;
   @override
   bool isSubtypeOf(ValueType possibleParent) {
-    return super.isSubtypeOf(possibleParent) || (possibleParent is IterableValueType && genericParameter.isSubtypeOf(possibleParent.genericParameter));
+    return super.isSubtypeOf(possibleParent) || (possibleParent is! ListValueType && possibleParent is IterableValueType && genericParameter.isSubtypeOf(possibleParent.genericParameter));
   }
 }
 
-class IteratorValueType<T> extends ValueType<Iterator<T>> {
+class IteratorValueType<T extends ValueWrapper> extends ValueType<Iterator<T>> {
   IteratorValueType.internal(this.genericParameter, String file)
       : super.internal(anythingType, variables["${genericParameter}Iterator"] ??= Variable("${genericParameter}Iterator"), file, false);
   factory IteratorValueType(ValueType genericParameter, String file) {
@@ -803,8 +803,8 @@ class IteratorValueType<T> extends ValueType<Iterator<T>> {
   }
 }
 
-class ListValueType<T> extends IterableValueType<T, List<T>> {
-  ListValueType.internal(this.genericParameter, String file) : super.internal(IterableValueType(genericParameter, file), file);
+class ListValueType<T extends ValueWrapper> extends IterableValueType<T, List<T>> {
+  ListValueType.internal(this.genericParameter, String file) : super.internal(IterableValueType<T, Iterable<T>>(genericParameter, file), file);
   late Variable name = variables["${genericParameter}List"] ??= Variable("${genericParameter}List");
   factory ListValueType(ValueType genericParameter, String file) {
     return ValueType.types[variables["${genericParameter}List"] ??= Variable("${genericParameter}List")] as ListValueType<T>? ??

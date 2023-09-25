@@ -2,6 +2,14 @@
 
 import '../../../compiler/core.syd';
 
+Boolean assertsEnabled = false;
+Boolean test() { assertsEnabled = true; return true; }
+assert(test(), 'control');
+if (!assertsEnabled) {
+  println('FAIL: asserts not enabled');
+  exit(1);
+}
+
 Null testSort(WhateverList list, IntegerFunction comparator, WhateverList correct) {
   WhateverList original = copy(list);  
   assert(len(list) == len(correct), 'length mismatch');

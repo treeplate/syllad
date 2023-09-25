@@ -1,0 +1,11 @@
+// expected output: PASS
+
+Null foo1() { }
+Null foo2(Integer a) { }
+Null foo3(Integer a,) { }
+Null foo4(Integer a, Integer b) { }
+Null foo5(Integer a, Integer b,) { }
+Null foo6(Integer... a) { }
+Null foo7(Integer... a,) { }
+
+println('PASS');

@@ -12,6 +12,14 @@
 // expected output: ONE: 1
 // expected output: SIX: 6
 
+Boolean assertsEnabled = false;
+Boolean test() { assertsEnabled = true; return true; }
+assert(test(), 'control');
+if (!assertsEnabled) {
+  println('FAIL: asserts not enabled');
+  exit(1);
+}
+
 class Object {
   Null constructor() {}
 }
@@ -37,13 +45,13 @@ println('FIELD:', Test().field);
 println('METHOD:', Test().method());
 println('CLASSNAME:', Test().className);
 
-Test test = Test();
-println('FIELD:', test.field);
-println('METHOD:', test.method());
-println('CLASSNAME:', test.className);
+Test obj = Test();
+println('FIELD:', obj.field);
+println('METHOD:', obj.method());
+println('CLASSNAME:', obj.className);
 
-test.mutateField('CARROT');
-println('FIELD (should now be CARROT):', test.field);
+obj.mutateField('CARROT');
+println('FIELD (should now be CARROT):', obj.field);
 
 Subclass subclass = Subclass('PEA');
 println('FIELD (should be PEA):', subclass.field);

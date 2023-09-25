@@ -70,7 +70,7 @@ fwdclass CompiledSubroutine(CompiledScopeNullable, AbstractSubroutineTypeWithSpe
 fwdclass CompiledLibrary(CompilationEnvironment, String) extends CompiledStackFrameScope;
 fwdclass CompiledIntrinsicsLibrary(CompilationEnvironment, String) extends CompiledLibrary;
 fwdclass CompiledSubroutineWithSpecificParameters(CompiledScopeNullable, AbstractSubroutineTypeWithSpecificParameters, String, ClassTypeNullable) extends CompiledSubroutine;
-fwdclass CompiledGeneratedConstructorSubroutine extends CompiledSubroutine;
+fwdclass CompiledGeneratedConstructorSubroutine(CompiledScopeNullable, AbstractSubroutineTypeWithSpecificParameters, String, ClassType) extends CompiledSubroutine;
 fwdclass BuiltInSubroutine(CompiledScopeNullable, AbstractSubroutineTypeWithSpecificParameters, String, ClassTypeNullable) extends CompiledSubroutineWithSpecificParameters;
 fwdclass BuiltInLenSubroutine(CompiledIntrinsicsLibrary) extends BuiltInSubroutine;
 fwdclass BuiltInDebuggerSubroutine(CompiledIntrinsicsLibrary) extends BuiltInSubroutine;
@@ -82,7 +82,7 @@ fwdclass BuiltInReadFromAddressIntrinsic(CompiledIntrinsicsLibrary) extends Comp
 fwdclass BuiltInWriteToAddressIntrinsic(CompiledIntrinsicsLibrary) extends CompilerIntrinsic;
 fwdclass CompiledVarArgsSubroutine extends CompiledSubroutine;
 fwdclass IdentifierEntity extends Object;
-fwdclass SubroutinePointerBucket extends ConstantBucket;
+fwdclass SubroutinePointerBucket(CompiledSubroutine, Boolean) extends ConstantBucket;
 fwdclass RootEnumPropertyType(TypeRegistry, String) extends NumericType;
 fwdclass EnumPropertyType(TypeRegistry, String) extends NumericType;
 fwdclass RootReifiedEnumType(TypeRegistry, String) extends NumericType;
@@ -292,6 +292,7 @@ class CompilationEnvironment extends TypeRegistry {
   String nextIntrinsicName = 'next';
   String createMethodPointerIntrinsicName = '_createMethodPointer';
   String dynamicLookupIntrinsicName = '_dynamicLookup';
+  String listCastIntrinsicName = 'listCast#';
 
   Map intrinsics = Map(); // String -> CompiledSubroutine
 
@@ -972,14 +973,13 @@ class SubroutinePointerBucket extends ConstantBucket {
   Boolean _isConstructor;
 
   Boolean isDeclared() {
-    return _isDeclared || !_isConstructor;
+    return !_isConstructor || _isDeclared;
   }
 
-  Null markAsDefined() {
+  Null markConstructorAsDeclared() {
     assert(_isConstructor, 'cannot mark non-constructor as defined, those are always defined on declaration');
     _isDeclared = true;
   }
-
 
   //#override
   Datum currentValueDatum() {
@@ -1596,7 +1596,11 @@ class ClassType extends Type {
 
   Null registerForwardMember(String name, Type type, SourceLocation sourceLocation) {
     assert(!isDefined, 'registerForwardMember must be called before markAsDefined');
-    assert(forwardDeclaredMembers.get(name) == null, 'forward declared member already existed');
+    MemberDescriptionNullable existingDeclaration = forwardDeclaredMembers.get(name) as MemberDescriptionNullable;
+    if (existingDeclaration != null) {
+      assert(sourceLocation != existingDeclaration!.sourceLocation, 'tried to call registerForwardMember twice for the same code');
+      throw(concat('member "', this.name, '.', name, '" already declared at ', existingDeclaration!.sourceLocation, ', cannot redeclare at ', sourceLocation, '.'));
+    }
     MemberDescription member = MemberDescription(this, name, type, false /* isInherited -- forward declarations get fixed up later */, sourceLocation);
     member.setIsAmbiguous(); // we don't know yet whether this is a field or a method
     member.markDeclared();
@@ -1862,7 +1866,7 @@ class ClassType extends Type {
             CodeLabelDatum((member as MemberDescription).getter!.label, concat('getter of ', name, '.', (member as MemberDescription).name)),
             methodValue,
           ]:ImmediateDatum, comment));
-          debugIndex++;
+          debugIndex += 1;
         }
       }
   
@@ -2206,6 +2210,7 @@ class CompiledScope extends Object {
       LazyComment('callee'),
     );
     // Extract closure and this from function pointer structure
+    environment.coreClosureType.markConstructed();
     Bucket closure = emitCopy(DereferenceWithStaticTypeBucket(
       target,
       environment.integer(_subroutineClosurePointer),
@@ -2595,7 +2600,6 @@ class CompiledVarArgsSubroutine extends CompiledSubroutine {
     assert(parameters == null, 'varargs subroutine expects to have only one parameter');
     ReadOnlyListType listType = createOrFindReadOnlyListType(environment(), type);
     listType.markConstructed();
-    assert(identifiers.length == 0, concat('varargs subroutine expects to have only one parameter, but we already have: ', identifiers));
     assert(!isIdentifierDeclaredInLocalScope(name), 'duplicate parameter name');
     parameters = VarArgsParameterBucket(listType, parameterCount);
     identifiers.set(name, VarArgsIdentifierEntity(parameters!));

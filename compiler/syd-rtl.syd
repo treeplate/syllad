@@ -75,14 +75,17 @@ NullFunction _garbageCollector;
 /// Allocates a block on the heap.
 ///
 /// Block must be freed with [_free].
+///
+/// Blocks are always 8-byte aligned.
 Integer _alloc(Integer size) {
-  Integer pointer = __heapAlloc(_heapHandle, 0x00, size);
+  Integer alignedSize = size + (size % 8);
+  Integer pointer = __heapAlloc(_heapHandle, 0x00, alignedSize);
   if (pointer > 0) {
     _blockCount += 1;
     return pointer;
   }
   _garbageCollector();
-  pointer = __heapAlloc(_heapHandle, 0x00, size);
+  pointer = __heapAlloc(_heapHandle, 0x00, alignedSize);
   if (pointer > 0) {
     _blockCount += 1;
     return pointer;
@@ -409,6 +412,26 @@ WhateverList copy(WhateverIterable iterable) {
     append(list, value);
   }
   return list;
+}
+
+WhateverList listCast#(WhateverList list, Integer type) __intrinsic {
+  for (value in list) {
+    if (!(value __dynamic_is__ type)) {
+      throw('type error in list cast');
+    }
+  }
+  return (list __dynamic_as__ type) as WhateverList;
+}
+
+//#ignore_unused
+WhateverList filledList(Integer length, Whatever value) {
+  AnythingList result = _listConstructor(__typeToCode AnythingList, length);
+  Integer index = 0;
+  while (index < length) {
+    result[index] = value;
+    index += 1;
+  }
+  return result;
 }
 
 
@@ -1007,5 +1030,105 @@ Integer pow#(Integer base, Integer exponent) __intrinsic {
     result *= base;
     index -= 1;
   }
+  return result;
+}
+
+
+// STRING MANIPULATION
+
+String substring(String string, Integer start, Integer end) {
+  Integer stringPointer = string __as__ Integer;
+  Integer stringLength = __readFromAddress(stringPointer + 8);
+  if (start < 0) {
+    throw('negative start index in substring');
+  }
+  if (end < 0) {
+    throw('negative end index in substring');
+  }
+  if (end > stringLength) {
+    throw('end index past end of string in substring');
+  }
+  if (start > end) {
+    throw('start index past end index in substring');
+  }
+  Integer length = end - start;
+  if (length == 0) {
+    return '';
+  }
+  Integer resultPointer = _alloc(16 + length);
+  __writeToAddress(resultPointer, 0); // ref count
+  __writeToAddress(resultPointer + 8, length);
+  _moveBytes(stringPointer + 16 + start, resultPointer + 16, length);
+  return resultPointer __as__ String;
+}
+
+Boolean substringMatch#(String string, String pattern, Integer index) {
+  Integer stringPointer = string __as__ Integer;
+  Integer stringLength = __readFromAddress(stringPointer + 8);
+  Integer patternPointer = pattern __as__ Integer;
+  Integer patternLength = __readFromAddress(patternPointer + 8);
+  if (patternLength == 0) {
+    return true;
+  }
+  if (patternLength > stringLength - index) {
+    return false;
+  }
+  Integer cursor = index;
+  Boolean match = true;
+  Integer patternCursor = 0;
+  while (patternCursor < patternLength) {
+    Integer inputPart = __readFromAddress(stringPointer + 16 + cursor + patternCursor);
+    Integer patternPart = __readFromAddress(patternPointer + 16 + patternCursor);
+    if (patternLength - patternCursor < 8) {
+      // the next character is the lowest byte on little-endian systems
+      // on big-endian systems this would need to shift the other way
+      Integer mask = 0xFFFFFFFFFFFFFFFF >> ((8 - (patternLength - patternCursor)) * 8);
+      inputPart &= mask;
+      patternPart &= mask;
+    }
+    if (inputPart != patternPart) {
+      return false;
+    }
+    patternCursor += 8;
+  }
+  return true;
+}
+
+Boolean containsString(String string, String pattern) {
+  // TODO: use a more efficient algorithm
+  Integer cursor = 0;
+  Integer end = _stringByteLength(string) - _stringByteLength(pattern) + 1;
+  while (cursor < end) {
+    if (substringMatch#(string, pattern, cursor)) {
+      return true;
+    }
+    cursor += 1;
+  }
+  return false;
+}
+
+//#ignore_unused
+StringList split(String input, String pattern) {
+  if (input == '') {
+    return ['']:String;
+  }
+  if (pattern == '') {
+    return copy(charsOf(input)) as StringList;
+  }
+  Integer length = _stringByteLength(input);
+  Integer patternLength = _stringByteLength(pattern);
+  StringList result = []:String;
+  Integer start = 0;
+  Integer index = 0;
+  while (index < length) {
+    if (substringMatch#(input, pattern, index)) {
+      append(result, substring(input, start, index));
+      index += patternLength;
+      start = index;
+    } else {
+      index += 1;
+    }
+  }
+  append(result, substring(input, start, index));
   return result;
 }

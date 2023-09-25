@@ -1,0 +1,13 @@
+// expected output: foo!
+
+fwdclass A;
+fwdclass B extends A;
+
+B test() {
+  return B();
+}
+
+class A { Null foo() { println('foo!'); } }
+class B extends A { }
+
+test().foo();

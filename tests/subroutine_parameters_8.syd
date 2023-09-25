@@ -1,0 +1,25 @@
+// expected error: parse error
+// unexpected output: FAIL
+
+println('FAIL');
+
+Null foo1(Boolean recurse) {
+  if (recurse) {
+    foo1(false);
+  }
+  println('a');
+}
+
+foo1(true);
+
+NullFunction foo1Original = foo1;
+
+Null foo1(Boolean recurse) {
+  if (recurse) {
+    foo1(false);
+  }
+  println('b');
+}
+
+foo1(true);
+foo1Original(true);

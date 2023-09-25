@@ -1,4 +1,13 @@
 // expected exit code is 0
+
+Boolean assertsEnabled = false;
+Boolean test() { assertsEnabled = true; return true; }
+assert(test(), 'control');
+if (!assertsEnabled) {
+  println('FAIL: asserts not enabled');
+  exit(1);
+}
+
 _gcLocked += 1;
 
 Null test1() {

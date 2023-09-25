@@ -1,0 +1,25 @@
+// expected error: compile time error: constructor does not match forward-declared arguments
+// unexpected output: FAIL
+
+fwdclass A(String);
+fwdclass B extends A;
+
+println('FAIL');
+
+B test() {
+  return B('2');
+}
+
+class A {
+  Null constructor(String test) {
+    print(test);
+  }
+}
+
+class B extends A {
+  Null constructor(Integer test) {
+    super.constructor(concat(test));
+  }
+}
+
+test();

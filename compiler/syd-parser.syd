@@ -425,6 +425,38 @@ IfStatement parseIfStatement(TokenConsumer source) {
   return IfStatement(expression, block, elseClause, location);
 }
 
+Boolean parseParameters(TokenConsumer source, AnythingListList parameters) {
+  source.expectPunctuation(tt.OpenParen);
+  Boolean isVarArgs = false;
+  while (true) {
+    if (len(parameters) > 0) {
+      if (source.isNext(tt.Comma)) {
+        source.expectPunctuation(tt.Comma);
+      } else {
+        break;
+      }
+      if (isVarArgs) {
+        break;
+      }
+    }
+    if (source.isNext(tt.CloseParen)) {
+      break;
+    }
+    String parameterTypeName = source.readIdentifier();
+    TypeIdentifier parameterType = TypeIdentifier(parameterTypeName, source.lastLocation());
+    if (len(parameters) == 0) {
+      if (source.isNext(tt.Ellipsis)) {
+        source.expectPunctuation(tt.Ellipsis);
+        isVarArgs = true;
+      }
+    }
+    String parameterName = source.readIdentifier();
+    append(parameters, [ parameterType, parameterName ]);
+  }
+  source.expectPunctuation(tt.CloseParen);
+  return isVarArgs;
+}
+
 Statement parseDeclaration(TokenConsumer source) {
   String typeName = source.readIdentifier();
   TypeIdentifier type = TypeIdentifier(typeName, source.lastLocation());
@@ -438,25 +470,8 @@ Statement parseDeclaration(TokenConsumer source) {
   }
   if (source.isNext(tt.OpenParen)) {
     SourceLocation location = source.lastLocation();
-    source.expectPunctuation(tt.OpenParen);
     AnythingListList parameters = []:AnythingList;
-    Boolean isVarArgs = false;
-    while (!source.isNext(tt.CloseParen) && !isVarArgs) {
-      if (len(parameters) > 0) {
-        source.expectPunctuation(tt.Comma);
-      }
-      String parameterTypeName = source.readIdentifier();
-      TypeIdentifier parameterType = TypeIdentifier(parameterTypeName, source.lastLocation());
-      if (len(parameters) == 0) {
-        if (source.isNext(tt.Ellipsis)) {
-          source.expectPunctuation(tt.Ellipsis);
-          isVarArgs = true;
-        }
-      }
-      String parameterName = source.readIdentifier();
-      append(parameters, [ parameterType, parameterName ]);
-    }
-    source.expectPunctuation(tt.CloseParen);
+    Boolean isVarArgs = parseParameters(source, parameters);
     Boolean isIntrinsic = false;
     if (source.isNextIdentifier('__intrinsic')) {
       source.expectIdentifier('__intrinsic');
@@ -496,25 +511,8 @@ Statement parseClassMemberDeclaration(TokenConsumer source) {
   }
   if (source.isNext(tt.OpenParen)) {
     SourceLocation location = source.lastLocation();
-    source.expectPunctuation(tt.OpenParen);
     AnythingListList parameters = []:AnythingList;
-    Boolean isVarArgs = false;
-    while (!source.isNext(tt.CloseParen) && !isVarArgs) {
-      if (len(parameters) > 0) {
-        source.expectPunctuation(tt.Comma);
-      }
-      String parameterTypeName = source.readIdentifier();
-      TypeIdentifier parameterType = TypeIdentifier(parameterTypeName, source.lastLocation());
-      if (len(parameters) == 0) {
-        if (source.isNext(tt.Ellipsis)) {
-          source.expectPunctuation(tt.Ellipsis);
-          isVarArgs = true;
-        }
-      }
-      String parameterName = source.readIdentifier();
-      append(parameters, [ parameterType, parameterName ]);
-    }
-    source.expectPunctuation(tt.CloseParen);
+    Boolean isVarArgs = parseParameters(source, parameters);
     StatementBlock block = parseBlock(source);
     return MethodDeclarationStatement(type, identifier, parameters, isVarArgs, block, location);
   }

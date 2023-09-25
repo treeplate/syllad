@@ -1,0 +1,12 @@
+// expected error: compile time error: class not yet fully defined and constructor not forward-declared
+// unexpected output: FAIL
+
+println('FAIL');
+
+class A {
+  Null constructor() { }
+
+  Null foo() {
+    A();
+  }
+}

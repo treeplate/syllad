@@ -398,7 +398,7 @@ class ForStatement extends Statement {
     ValueWrapper listVal = list.eval(scope);
     if (!listVal
         .typeC(scope, scope.stack, line, col, workspace, file)
-        .isSubtypeOf(IterableValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'TODO FORS'))) {
+        .isSubtypeOf(IterableValueType<ValueWrapper<dynamic>, Iterable<ValueWrapper<dynamic>>>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'TODO FORS'))) {
       throw BSCException(
           "$listVal ($list) is not a list - is a ${listVal.typeC(scope, scope.stack, line, col, workspace, file)} (tried to do a for statement) ${formatCursorPosition(line, col, workspace, file)}",
           scope);

@@ -382,7 +382,7 @@ class AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineTyp
   }
 }
 
-fwdclass SubroutineTypeWithSpecificParameters extends AbstractSubroutineTypeWithSpecificParameters;
+fwdclass SubroutineTypeWithSpecificParameters(TypeRegistry, Type, TypeList) extends AbstractSubroutineTypeWithSpecificParameters;
 fwdclassprop TypeList SubroutineTypeWithSpecificParameters.parameterTypes;
 
 class SubroutineTypeWithVarArgs extends AbstractSubroutineTypeWithSpecificParameters {

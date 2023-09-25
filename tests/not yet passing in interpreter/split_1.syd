@@ -1,0 +1,19 @@
+// expected output: 1
+// expected output: 1
+// expected output: [a, b, c]
+// expected output: [, bc]
+// expected output: [a, c]
+// expected output: [ab, ]
+// expected output: [, c]
+// expected output: [a, ]
+// expected output: PASS
+
+println(len(split('', '')));
+println(len(split('', 'a')));
+println(concat(split('abc', '')));
+println(concat(split('abc', 'a')));
+println(concat(split('abc', 'b')));
+println(concat(split('abc', 'c')));
+println(concat(split('abc', 'ab')));
+println(concat(split('abc', 'bc')));
+println('PASS');

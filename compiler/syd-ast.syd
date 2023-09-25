@@ -536,7 +536,7 @@ class VariableSubroutineCallExpression extends Expression {
     }
     if (!entity!.isDeclared()) {
       // for compatibility with the interpreter
-      throw(concat('Identifier "', name, '" has not yet been defined at ', sourceLocation));
+      throw(concat('Identifier "', name, '" is known but has not yet been declared at ', sourceLocation));
     }
     return entity;
   }
@@ -717,17 +717,26 @@ class AsOperatorExpression extends Expression {
   Bucket generateInstructions(CompiledScope scope) {
     Bucket exprBucket = expression.generateInstructions(scope);
     Type rhs = type.generateInstructions(scope);
-    if (!rhs.isSubtypeOf(exprBucket.staticType)) {
-      throw(concat('Cannot cast ', exprBucket.staticType.name, ' to ', rhs.name, ' at ', sourceLocation));
+    if (rhs.isSubtypeOf(exprBucket.staticType)) {
+      scope.emit(TypeCheckInstruction(
+        exprBucket, 
+        rhs, 
+        'tried to cast but type mismatch (x as y)', 
+        true, 
+        LazyComment('check as operator cast is valid'),
+      ));
+      return exprBucket.asType(rhs);
     }
-    scope.emit(TypeCheckInstruction(
-      exprBucket, 
-      rhs, 
-      'tried to cast but type mismatch (x as y)', 
-      true, 
-      LazyComment('check as operator cast is valid'),
-    ));
-    return exprBucket.asType(rhs);
+    if (rhs is AbstractListType) {
+      return scope.emitIntrinsicCall(
+        scope.environment().listCastIntrinsicName,
+        [
+          exprBucket,
+          TypeCodeBucket(rhs, scope.environment().coreIntegerType),
+        ]:Bucket,
+      ).asType(rhs);
+    }
+    throw(concat('Cannot cast ', exprBucket.staticType.name, ' to ', rhs.name, ' at ', sourceLocation));
   }
 
   Null constructor(Expression expressionArg, TypeIdentifier typeArg, SourceLocation sourceLocationArg) {
@@ -1715,11 +1724,14 @@ class VariableDeclarationStatement extends DeclarationStatement {
     if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
       throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
     }
+    Bucket rhs;
+    if (rValue != null) {
+      // TODO: for literals assigned to globals, instead of doing it this way, we should put the initialized value in the .data section
+      rhs = rValue!.generateInstructions(scope);
+    }
     IdentifierEntity lhs = scope.registerVariable(identifier, staticType);
     assert(lhs.writeable(), 'variable is not writeable');
     if (rValue != null) {
-      // TODO: for globals, instead of doing it this way, we should put them in the .data section
-      Bucket rhs = rValue!.generateInstructions(scope);
       if (!rhs.staticType.isSubtypeOf(lhs.staticType())) {
         throw(concat('Cannot assign ', rhs.staticType.name, ' to variable of type ', lhs.staticType().name, ' at ', sourceLocation));
       }
@@ -2040,7 +2052,7 @@ class AbstractClassDeclaration extends DeclarationStatement {
     }
   }
 
-  Null declareConstructor(CompiledScope scope, TypeList parameters, Boolean isVarArgs) {
+  Null createGeneratedConstructor(CompiledScope scope, TypeList parameters, Boolean isVarArgs) {
     if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
       throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
     }
@@ -2076,9 +2088,21 @@ class ForwardClassDeclaration extends AbstractClassDeclaration {
   
   //#override
   String toStringIndent(Integer indent) {
-    StringList buffer = ['fwdclass ', identifier, ' '];
+    StringList buffer = ['fwdclass ', identifier];
+    if (constructorParameterTypes != null) {
+      append(buffer, '(');
+      Integer index = 0;
+      while (index < len(constructorParameterTypes!)) {
+        if (index > 0) {
+          append(buffer, ', ');
+        }
+        append(buffer, constructorParameterTypes![index].toStringIndent(indent));
+        index += 1;
+      }
+      append(buffer, ')');
+    }
     if (superclassName != null) {
-      append(buffer, 'extends ');
+      append(buffer, ' extends ');
       append(buffer, superclassName!.toStringIndent(indent));
     }
     append(buffer, ';\n');
@@ -2094,17 +2118,18 @@ class ForwardClassDeclaration extends AbstractClassDeclaration {
         append(parameterTypes, identifier.generateInstructions(scope));
       }
       assert(!isVarArgs || len(parameterTypes) == 1, 'varargs must have one parameter in their list');
-      declareConstructor(scope, parameterTypes, isVarArgs);
+      createGeneratedConstructor(scope, parameterTypes, isVarArgs);
     } else {
       assert((staticType as ClassType).supertype != scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName), 'parser failed to give empty list of arguments');
       // If no parameters are given on the fwdclass declaration, but the declaration
       // has a superclass, then the arguments from the superclass constructor are implied.
-      declareConstructor(
+      createGeneratedConstructor(
         scope,
         ((staticType as ClassType).supertype.constructorSubroutine.staticType as SubroutineTypeWithSpecificParameters).parameterTypes,
         (staticType as ClassType).supertype.constructorSubroutine.staticType is SubroutineTypeWithVarArgs,
       );
     }
+    (staticType as ClassType).constructorSubroutine.markConstructorAsDeclared();
   }
 
   Null constructor(String classNameArg, TypeIdentifierListNullable constructorParameterTypesArg, Boolean isVarArgsArg, TypeIdentifierNullable superclassNameArg, Boolean isIntrinsicArg, SourceLocation sourceLocationArg) {
@@ -2160,7 +2185,7 @@ class ClassDeclaration extends AbstractClassDeclaration {
         }
       }
     }
-    ClassType classType = (staticType as ClassType);
+    ClassType classType = staticType as ClassType;
     classType.inheritMembersFromSupertype();
     classType.markAsDefined();
     if (!classType.supertype.isDefined) {
@@ -2244,14 +2269,13 @@ class ClassDeclaration extends AbstractClassDeclaration {
               constructorParameters,
               typesEquivalent,
              )) {
-          throw(concat('Forward class declaration constructor signature did not match constructor declaration at ', constructorMember!.sourceLocation));
+          throw(concat('Forward class declaration constructor signature for class ', staticType.name, ' did not match constructor declaration at ', constructorMember!.sourceLocation));
         }
       }
     } else {
-      declareConstructor(scope, constructorParameters, constructorIsVarArgs);
+      createGeneratedConstructor(scope, constructorParameters, constructorIsVarArgs);
     }
     SubroutinePointerBucket generatedConstructorBucket = (staticType as ClassType).constructorSubroutine;
-    generatedConstructorBucket.markAsDefined();
     CompiledGeneratedConstructorSubroutine generatedConstructorScope = generatedConstructorBucket.subroutine as CompiledGeneratedConstructorSubroutine;
     Bucket thisPointer = generatedConstructorScope.emitIntrinsicCall(scope.environment().classAllocatorIntrinsicName, [ VmtPointerBucket(scope.environment(), staticType as ClassType) ]:Bucket);
     generatedConstructorScope.setThisPointer(thisPointer);
@@ -2271,6 +2295,7 @@ class ClassDeclaration extends AbstractClassDeclaration {
     for (member in members) {
       member.generateInstructions(generatedConstructorScope);
     }
+    generatedConstructorBucket.markConstructorAsDeclared();
     // userConstructor should never be null, because the base class must have a constructor
     // userConstructor should never be a field, because we prevent properties from being declared with the name kConstructor
     CompiledSubroutine userConstructor = (staticType as ClassType).getMember(kConstructor)!.methodImplementation!;
@@ -2313,7 +2338,6 @@ class ForwardClassPropertyDeclaration extends DeclarationStatement {
     }
     staticType = propertyType.generateInstructions(scope);
     classType.registerForwardMember(identifier, staticType, sourceLocation);
-
   }
 
   Null constructor(TypeIdentifier hostClassArg, TypeIdentifier propertyTypeArg, String identifierArg, SourceLocation sourceLocationArg) {
@@ -2894,6 +2918,9 @@ class ForStatement extends Statement {
       true, 
       LazyComment('verify type of for loop iterable'), // TODO: better error messages
     ));
+    assert(!(iterableBucket is VarArgsParameterBucket), 'iteration on varargs list not yet supported');
+    // TODO: for varargs, instead of calling iteratorIntrinsicName, we call varargsIteratorIntrinsicName
+    // and pass it the number of arguments and a pointer to the first entry on the stack
     Bucket iteratorBucket = scope.emitIntrinsicCall(
       environment.iteratorIntrinsicName,
       [ iterableBucket ]:Bucket,

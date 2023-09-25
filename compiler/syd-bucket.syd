@@ -6,7 +6,7 @@ import 'syd-assembler.syd';
 fwdclass Bucket(Type) extends Object;
 fwdclass DynamicBucket(Type) extends Bucket;
 fwdclass StaticCastBucket(Bucket, Type) extends Bucket;
-fwdclass VarArgsParameterBucket extends Bucket;
+fwdclass VarArgsParameterBucket(Type, Bucket) extends Bucket;
 fwdclass SentinelBucket(SentinelType) extends DynamicBucket;
 
 fwdclassprop StringFunction Bucket.commentName;

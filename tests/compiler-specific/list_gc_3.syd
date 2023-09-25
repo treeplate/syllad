@@ -1,5 +1,13 @@
 // expected output: PASS
 
+Boolean assertsEnabled = false;
+Boolean test() { assertsEnabled = true; return true; }
+assert(test(), 'control');
+if (!assertsEnabled) {
+  println('FAIL: asserts not enabled');
+  exit(1);
+}
+
 class Foo {
   Null x() {}
 }

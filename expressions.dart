@@ -42,7 +42,7 @@ class AssertExpression extends Expression {
     ValueWrapper conditionEval = condition.eval(scope);
     if (!conditionEval.typeC(scope, scope.stack, line, col, workspace, file).isSubtypeOf(booleanType)) {
       throw BSCException(
-        "argument 0 of assert, $conditionEval ($condition), of wrong type (${conditionEval.typeC(scope, scope.stack, line, col, workspace, file)}) expected boolean ${formatCursorPosition(line, col, workspace, file)}\n${scope.stack.reversed.join('\n')}",
+        "argument 0 of assert, ${conditionEval.toStringWithStack(scope.stack, line, col, workspace, file, false)} ($condition), of wrong type (${conditionEval.typeC(scope, scope.stack, line, col, workspace, file)}) expected boolean ${formatCursorPosition(line, col, workspace, file)}\n${scope.stack.reversed.join('\n')}",
         scope,
       );
     }

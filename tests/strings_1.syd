@@ -1,12 +1,20 @@
 // expected output: PASS
 
-IntegerList a = copy(scalarValues('ABC'));
+Boolean assertsEnabled = false;
+Boolean test() { assertsEnabled = true; return true; }
+assert(test(), 'control');
+if (!assertsEnabled) {
+  println('FAIL: asserts not enabled');
+  exit(1);
+}
+
+IntegerList a = copy(scalarValues('ABC')) as IntegerList;
 assert(len(a) == 3, 'FAIL 1');
 assert(a[0] == 0x41, 'FAIL 2');
 assert(a[1] == 0x42, 'FAIL 3');
 assert(a[2] == 0x43, 'FAIL 4');
 
-StringList b = copy(charsOf('ABC'));
+StringList b = copy(charsOf('ABC')) as StringList;
 assert(len(b) == 3, 'FAIL 5');
 assert(b[0] == 'A', 'FAIL 6');
 assert(b[1] == 'B', 'FAIL 7');

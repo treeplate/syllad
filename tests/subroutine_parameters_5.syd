@@ -1,0 +1,6 @@
+// expected error: parse error
+// unexpected output: FAIL
+
+Null foo1(,) { }
+
+println('FAIL');

@@ -1,5 +1,6 @@
 import 'syd-utils.syd';
 import 'syd-datum.syd';
+import 'syd-structured-data.syd';
 
 enum Comparison { Equal NotEqual LessThan LessThanOrEqual GreaterThanOrEqual GreaterThan }
 
@@ -424,7 +425,7 @@ class Call extends PseudoComputation {
     Integer i = 0;
     for (argument in arguments) {
       arguments[i] = f(argument);
-      i++;
+      i += 1;
     }
   }
 
@@ -446,7 +447,7 @@ class CallSystem extends PseudoComputation {
     Integer i = 0;
     for (argument in arguments) {
       arguments[i] = f(argument);
-      i++;
+      i += 1;
     }
   }
 

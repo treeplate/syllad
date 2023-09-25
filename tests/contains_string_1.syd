@@ -1,0 +1,49 @@
+// expected output: PASS
+
+Boolean assertsEnabled = false;
+Boolean test() { assertsEnabled = true; return true; }
+assert(test(), 'control');
+if (!assertsEnabled) {
+  println('FAIL: asserts not enabled');
+  exit(1);
+}
+
+assert(containsString('', ''), 'fail 1');
+assert(!containsString('', 'a'), 'fail 2');
+assert(containsString('a', ''), 'fail 3');
+assert(containsString('a', 'a'), 'fail 4');
+
+assert(containsString('abc', 'a'), 'fail 5');
+assert(containsString('bac', 'a'), 'fail 6');
+assert(containsString('bca', 'a'), 'fail 7');
+assert(containsString('12345678a', 'a'), 'fail 8');
+
+assert(!containsString('123456789', 'abcdefghi'), 'fail (no common parts)');
+assert(containsString('123456789abcdefghi', 'abcdefghi'), 'fail');
+assert(containsString('23456789abcdefghi', 'abcdefghi'), 'fail');
+assert(containsString('3456789abcdefghi', 'abcdefghi'), 'fail');
+assert(containsString('456789abcdefghi', 'abcdefghi'), 'fail');
+assert(containsString('56789abcdefghi', 'abcdefghi'), 'fail');
+assert(containsString('6789abcdefghi', 'abcdefghi'), 'fail');
+assert(containsString('789abcdefghi', 'abcdefghi'), 'fail');
+assert(containsString('89abcdefghi', 'abcdefghi'), 'fail');
+assert(containsString('9abcdefghi', 'abcdefghi'), 'fail');
+assert(containsString('123456789abcdefghijk', 'abcdefghi'), 'fail');
+assert(containsString('23456789abcdefghijk', 'abcdefghi'), 'fail');
+assert(containsString('3456789abcdefghijk', 'abcdefghi'), 'fail');
+assert(containsString('456789abcdefghijk', 'abcdefghi'), 'fail');
+assert(containsString('56789abcdefghijk', 'abcdefghi'), 'fail');
+assert(containsString('6789abcdefghijk', 'abcdefghi'), 'fail');
+assert(containsString('789abcdefghijk', 'abcdefghi'), 'fail');
+assert(containsString('89abcdefghijk', 'abcdefghi'), 'fail');
+assert(containsString('9abcdefghijk', 'abcdefghi'), 'fail');
+assert(!containsString('123456789abcdefghjk', 'abcdefghi'), 'fail');
+assert(!containsString('23456789abcdefghjk', 'abcdefghi'), 'fail');
+assert(!containsString('3456789abcdefghjk', 'abcdefghi'), 'fail');
+assert(!containsString('456789abcdefghjk', 'abcdefghi'), 'fail');
+assert(!containsString('56789abcdefghjk', 'abcdefghi'), 'fail');
+assert(!containsString('6789abcdefghjk', 'abcdefghi'), 'fail');
+assert(!containsString('789abcdefghjk', 'abcdefghi'), 'fail');
+assert(!containsString('89abcdefghjk', 'abcdefghi'), 'fail');
+assert(!containsString('9abcdefghjk', 'abcdefghi'), 'fail');
+println('PASS');

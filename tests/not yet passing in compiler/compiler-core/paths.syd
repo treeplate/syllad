@@ -3,6 +3,14 @@
 
 import '../../../compiler/core.syd';
 
+Boolean assertsEnabled = false;
+Boolean test() { assertsEnabled = true; return true; }
+assert(test(), 'control');
+if (!assertsEnabled) {
+  println('FAIL: asserts not enabled');
+  exit(1);
+}
+
 assert(pathJoin(pathSplit('')) == '', 'FAIL');
 assert(pathJoin(pathSplit('/')) == '/', 'FAIL');
 assert(pathJoin(pathSplit('a')) == 'a', 'FAIL');

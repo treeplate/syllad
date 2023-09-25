@@ -1,0 +1,10 @@
+// expected error: compile time error: duplicate forward class property declaration
+// unexpected output: FAIL
+
+println('FAIL');
+
+fwdclass A;
+fwdclassprop Null A.a;
+fwdclassprop Null A.a;
+
+class A { Null a; }
