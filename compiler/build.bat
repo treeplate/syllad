@@ -10,7 +10,7 @@ ECHO COMPILING...
 SET TEMPFILE=%TEMP%\%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%%TIME:~9,2%.$$$
 SET TEMPFILE=%TEMPFILE: =0%
 REM add --observe to profile
-CALL "C:\dev\flutter\bin\dart.bat" run ..\main.dart --debug syd.syd %1 > %TEMPFILE%
+CALL "..\main.exe" --debug syd.syd %1 > %TEMPFILE%
 IF NOT !ERRORLEVEL! == 0 (
     ECHO Compilation failed with exit code %ERRORLEVEL%
     IF !ERRORLEVEL! == -1073741510 ECHO "0xC000013A: STATUS_CONTROL_C_EXIT"

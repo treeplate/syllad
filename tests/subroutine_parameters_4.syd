@@ -1,11 +1,18 @@
 // expected output: PASS
 
+//#ignore_unused
 Null foo1() { }
+//#ignore_unused
 Null foo2(Integer a) { }
+//#ignore_unused
 Null foo3(Integer a,) { }
+//#ignore_unused
 Null foo4(Integer a, Integer b) { }
+//#ignore_unused
 Null foo5(Integer a, Integer b,) { }
+//#ignore_unused
 Null foo6(Integer... a) { }
+//#ignore_unused
 Null foo7(Integer... a,) { }
 
 println('PASS');

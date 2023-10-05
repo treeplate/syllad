@@ -1,8 +1,0 @@
-// expected output: PASS
-
-println('PASS');
-
-// //#ignore_unused
-// StringList split(String input, String pattern) {
-// 
-// }

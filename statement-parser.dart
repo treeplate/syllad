@@ -35,6 +35,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
           tokens.current.col,
           tokens.workspace,
           tokens.file,
+          scope,
         );
   if (superclass != null && !scope.classes.containsKey(superclass)) {
     throw BSCException("${superclass.name} nonexistent while trying to have ${name.name} extend it. ${formatCursorPositionFromTokens(tokens)}", scope);
@@ -43,7 +44,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
       ? TypeValidator([scope], ConcatenateLazyString(NotLazyString('root class '), VariableLazyString(name)), true, false, false, scope.rtl)
       : TypeValidator(
           [scope.classes[superclass]!, scope], ConcatenateLazyString(NotLazyString('subclass '), VariableLazyString(name)), true, false, false, scope.rtl);
-  ClassValueType type = ClassValueType(name, supertype as ClassValueType?, newScope, tokens.file, false);
+  ClassValueType type = ClassValueType(name, supertype as ClassValueType?, newScope, tokens.file, false, scope);
   if (newScope != type.properties) {
     if (supertype != type.supertype) {
       throw BSCException(
@@ -121,7 +122,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
       );
     }
   }
-  if (!(newScope.igv(constructorVariable, true)?.isSubtypeOf(GenericFunctionValueType(nullType, tokens.file)) ?? true)) {
+  if (!(newScope.igv(constructorVariable, true)?.isSubtypeOf(GenericFunctionValueType(nullType, tokens.file, scope)) ?? true)) {
     throw BSCException('Bad constructor type: ${newScope.igv(constructorVariable, true)} ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   if (!hasFwdDecl) {
@@ -151,9 +152,9 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
   if (hasFwdDecl) {
     for (MapEntry<Variable, TVProp> value in fwdProps.types.entries) {
       if (value.key == constructorVariable) {
-        if ((newScope.igv(value.key, false, -2, 0, '', '', true, false, false) ?? FunctionValueType(nullType, [], 'xxx')) != value.value.type) {
+        if ((newScope.igv(value.key, false, -2, 0, '', '', true, false, false) ?? FunctionValueType(nullType, [], 'xxx', scope)) != value.value.type) {
           throw BSCException(
-              "${name.name}'s constructor (${newScope.igv(value.key, false, -2, 0, '', '', true, false, false) ?? FunctionValueType(nullType, [], 'xxx')}) does not match forward declaration (${value.value.type}) ${formatCursorPositionFromTokens(tokens)}",
+              "${name.name}'s constructor (${newScope.igv(value.key, false, -2, 0, '', '', true, false, false) ?? FunctionValueType(nullType, [], 'xxx', scope)}) does not match forward declaration (${value.value.type}) ${formatCursorPositionFromTokens(tokens)}",
               scope);
         }
       } else {
@@ -175,13 +176,14 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
     scope.directVars.remove(name); // will be re-added in a few lines
   }
   GenericFunctionValueType constructorType = type.recursiveLookup(constructorVariable)?.key is FunctionValueType?
-      ? FunctionValueType(type, (type.recursiveLookup(constructorVariable)?.key as FunctionValueType?)?.parameters ?? [], tokens.file)
-      : GenericFunctionValueType(type, tokens.file);
+      ? FunctionValueType(type, (type.recursiveLookup(constructorVariable)?.key as FunctionValueType?)?.parameters ?? [], tokens.file, scope)
+      : GenericFunctionValueType(type, tokens.file, scope);
   ClassOfValueType classOfType = ClassOfValueType(
     type,
     staticMembers,
     constructorType,
     tokens.file,
+    scope,
   );
   scope.newVar(
     name,
@@ -196,7 +198,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
   }
   scope.nonconst.remove(name);
   tokens.expectChar(TokenType.closeBrace);
-  return ClassStatement(name, superclass, block, type, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, classOfType);
+  return ClassStatement(name, superclass, block, type, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, classOfType, scope);
 }
 
 Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
@@ -241,7 +243,13 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     static = true;
     tokens.moveNext();
   }
-  Expression expr = parseExpression(tokens, scope);
+  Expression expr;
+  if (tokens.current is IdentToken && scope.igv(tokens.currentIdent, false) != null && !scope.usedVars.contains(tokens.currentIdent)) {
+    expr = parseExpression(tokens, scope);
+    scope.usedVars.remove(expr is GetExpr ? expr.name : null);
+  } else {
+    expr = parseExpression(tokens, scope);
+  }
   if (tokens.current is CharToken && tokens.currentChar == TokenType.endOfStatement) {
     if (overriden || ignoreUnused)
       stderr.writeln("Comment features are currently pointless for expression statements ${formatCursorPositionFromTokens(tokens)}");
@@ -655,7 +663,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     if (static) {
       return StaticFieldStatement(ident2, expr2, line, col, false);
     }
-    return NewVarStatement(ident2, expr2, line, col, tokens.workspace, tokens.file, false, expr.asType);
+    return NewVarStatement(ident2, expr2, line, col, tokens.workspace, tokens.file, false, expr.asType, scope);
   }
   if (tokens.currentChar == TokenType.endOfStatement) {
     tokens.expectChar(TokenType.endOfStatement);
@@ -673,7 +681,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     if (static) {
       throw BSCException("static declarations must have values ${formatCursorPositionFromTokens(tokens)}", scope);
     }
-    return NewVarStatement(ident2, null, line, col, tokens.workspace, tokens.file, false, expr.asType);
+    return NewVarStatement(ident2, null, line, col, tokens.workspace, tokens.file, false, expr.asType, scope);
   }
   if (!static) {
     if ((!scope.isClass && !scope.isClassOf) || scope.igv(ident2, false, -3, 0, '', '', true, false, false) == null) {
@@ -682,8 +690,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       }
     } else if (!overriden && ident2 != constructorVariable) {
       throw BSCException(
-          '${ident2.name} should be defined as override (write //#override before the function declaration) ${formatCursorPositionFromTokens(tokens)}',
-          scope);
+          '${ident2.name} should be defined as override (write //#override before the function declaration) ${formatCursorPositionFromTokens(tokens)}', scope);
     }
   }
   bool isVararg = false;
@@ -718,6 +725,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           col,
           tokens.workspace,
           tokens.file,
+          scope,
         ),
         name);
   });
@@ -731,17 +739,20 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   Iterable<ValueType> typeParams = isVararg ? InfiniteIterable(params.first.type) : params.map((e) => e.type);
   TypeValidator tv = TypeValidator([scope], ConcatenateLazyString(NotLazyString('function '), VariableLazyString(ident2)), false, false, static, scope.rtl)
     ..types.addAll(isVararg
-        ? {params.first.name: TVProp(false, ListValueType(params.first.type, 'internal'), false)}
+        ? {params.first.name: TVProp(false, ListValueType(params.first.type, 'internal', scope), false)}
         : Map.fromEntries(params.map((e) => MapEntry(e.name, TVProp(false, e.type, false)))))
     ..types[ident2] = TVProp(
-        false,
-        FunctionValueType(
-          expr.asType,
-          typeParams,
-          tokens.file,
-        ),
-        false /* it's a function, but super.ident2 shouldn't get to THIS TVProp, but the one in the main scope */)
+      false,
+      FunctionValueType(
+        expr.asType,
+        typeParams,
+        tokens.file,
+        scope,
+      ),
+      false /* it's a function, but super.ident2 shouldn't get to THIS TVProp, but the one in the main scope */,
+    )
     ..directVars.addAll([ident2, if (isVararg) params.first.name, if (!isVararg) ...params.map((e) => e.name)]);
+  tv.returnType = expr.asType;
   List<Statement> body = parseBlock(tokens, tv);
   List<String> unusedFuncVars = tv.types.keys
       .where((element) => !tv.usedVars.contains(element) && element != ident2 && !params.any((e) => element == e.name))
@@ -751,7 +762,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     stderr.writeln("Unused vars for ${tv.debugName}:\n  ${unusedFuncVars.join('\n  ')}");
   }
   tokens.expectChar(TokenType.closeBrace);
-  ValueType type = FunctionValueType(expr.asType, typeParams, tokens.file);
+  ValueType type = FunctionValueType(expr.asType, typeParams, tokens.file, scope);
   if (!static) {
     scope.newVar(
       ident2,
@@ -769,18 +780,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     scope.igv(ident2, true);
   }
   scope.nonconst.remove(ident2);
-  return FunctionStatement(
-    expr.asType,
-    ident2,
-    params,
-    body,
-    line,
-    col,
-    tokens.workspace,
-    tokens.file,
-    static,
-    type,
-  );
+  return FunctionStatement(expr.asType, ident2, params, body, line, col, tokens.workspace, tokens.file, static, type, scope);
 }
 
 MapEntry<List<Statement>, TypeValidator> parse(
@@ -788,81 +788,134 @@ MapEntry<List<Statement>, TypeValidator> parse(
   TokenIterator tokens = TokenIterator(rtokens.iterator, workspace, file);
 
   tokens.moveNext();
-  TypeValidator intrinsics = TypeValidator([], NotLazyString('intrinsics'), false, false, false, rtl)
-    ..types = <String, ValueType>{
-      "true": booleanType,
-      "false": booleanType,
-      "null": nullType,
-      "args": ListValueType<ValueWrapper<String>>(stringType, 'intrinsics'),
-      "print": FunctionValueType(integerType, InfiniteIterable(anythingType), 'intrinsics'),
-      "stderr": FunctionValueType(integerType, InfiniteIterable(anythingType), 'intrinsics'),
-      "concat": FunctionValueType(stringType, InfiniteIterable(anythingType), 'intrinsics'),
-      "parseInt": FunctionValueType(integerType, [stringType], 'intrinsics'),
-      'addLists': FunctionValueType(ListValueType(anythingType, 'intrinsics'),
-          InfiniteIterable(ListValueType<ValueWrapper>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')), 'intrinsics'),
-      'charsOf':
-          FunctionValueType(IterableValueType<ValueWrapper<String>, Iterable<ValueWrapper<String>>>(stringType, 'intrinsics'), [stringType], 'intrinsics'),
-      'scalarValues':
-          FunctionValueType(IterableValueType<ValueWrapper<int>, Iterable<ValueWrapper<int>>>(integerType, 'intrinsics'), [stringType], 'intrinsics'),
-      'split': FunctionValueType(ListValueType(stringType, 'intrinsics'), [stringType, stringType], 'intrinsics'),
-      'len': FunctionValueType(
+  TypeValidator intrinsics = TypeValidator([], NotLazyString('intrinsics'), false, false, false, rtl);
+  if (rtl == null) {
+    try {
+      anythingType;
+    } catch (e) {
+      anythingType = ValueType.internal(null, variables['Anything']!, 'intrinsics', false, intrinsics);
+      integerType = ValueType.internal(anythingType, variables['Integer']!, 'intrinsics', false, intrinsics);
+      stringType = ValueType.internal(anythingType, variables['String']!, 'intrinsics', false, intrinsics);
+      booleanType = ValueType.internal(anythingType, variables['Boolean']!, 'intrinsics', false, intrinsics);
+      nullType = ValueType.internal(anythingType, variables['Null']!, 'intrinsics', false, intrinsics);
+      rootClassType = ValueType.internal(anythingType, variables['~root_class']!, 'intrinsics', false, intrinsics);
+      stringBufferType = ValueType.internal(anythingType, variables['StringBuffer']!, 'intrinsics', false, intrinsics);
+    }
+  }
+  intrinsics.types = <String, ValueType>{
+    "true": booleanType,
+    "false": booleanType,
+    "null": nullType,
+    "args": ListValueType<ValueWrapper<String>>(stringType, 'intrinsics', intrinsics),
+    "print": FunctionValueType(integerType, InfiniteIterable(anythingType), 'intrinsics', intrinsics),
+    "stderr": FunctionValueType(integerType, InfiniteIterable(anythingType), 'intrinsics', intrinsics),
+    "concat": FunctionValueType(stringType, InfiniteIterable(anythingType), 'intrinsics', intrinsics),
+    "parseInt": FunctionValueType(integerType, [stringType], 'intrinsics', intrinsics),
+    'addLists': FunctionValueType(
+        ListValueType(anythingType, 'intrinsics', intrinsics),
+        InfiniteIterable(
+            ListValueType<ValueWrapper>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)),
+        'intrinsics',
+        intrinsics),
+    'charsOf': FunctionValueType(
+        IterableValueType<ValueWrapper<String>, Iterable<ValueWrapper<String>>>(stringType, 'intrinsics', intrinsics), [stringType], 'intrinsics', intrinsics),
+    'scalarValues': FunctionValueType(
+        IterableValueType<ValueWrapper<int>, Iterable<ValueWrapper<int>>>(integerType, 'intrinsics', intrinsics), [stringType], 'intrinsics', intrinsics),
+    'split': FunctionValueType(ListValueType(stringType, 'intrinsics', intrinsics), [stringType, stringType], 'intrinsics', intrinsics),
+    'len': FunctionValueType(
+        integerType,
+        [
+          IterableValueType<ValueWrapper<dynamic>, Iterable<ValueWrapper<dynamic>>>(
+              ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)
+        ],
+        'intrinsics',
+        intrinsics),
+    'input': FunctionValueType(stringType, [], 'intrinsics', intrinsics),
+    'append': FunctionValueType(
+        anythingType,
+        [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics), anythingType],
+        'intrinsics',
+        intrinsics),
+    'iterator': FunctionValueType(
+        IteratorValueType(anythingType, 'intrinsics', intrinsics),
+        [
+          IterableValueType<ValueWrapper<dynamic>, Iterable<ValueWrapper<dynamic>>>(
+              ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)
+        ],
+        'intrinsics',
+        intrinsics),
+    'next': FunctionValueType(booleanType, [IteratorValueType(anythingType, 'intrinsics', intrinsics)], 'intrinsics', intrinsics),
+    'current': FunctionValueType(anythingType, [IteratorValueType(anythingType, 'intrinsics', intrinsics)], 'intrinsics', intrinsics),
+    'stringTimes': FunctionValueType(stringType, [stringType, integerType], 'intrinsics', intrinsics),
+    'copy': FunctionValueType(
+        ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics),
+        [
+          IterableValueType<ValueWrapper<dynamic>, Iterable<ValueWrapper<dynamic>>>(
+              ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)
+        ],
+        'intrinsics',
+        intrinsics),
+    'hex': FunctionValueType(stringType, [integerType], 'intrinsics', intrinsics),
+    'chr': FunctionValueType(stringType, [integerType], 'intrinsics', intrinsics),
+    'exit': FunctionValueType(nullType, [integerType], 'intrinsics', intrinsics),
+    'readFile': FunctionValueType(stringType, [stringType], 'intrinsics', intrinsics),
+    'readFileBytes': FunctionValueType(ListValueType(integerType, 'intrinsics', intrinsics), [stringType], 'intrinsics', intrinsics),
+    'containsString': FunctionValueType(booleanType, [stringType, stringType], 'intrinsics', intrinsics),
+    'println': FunctionValueType(integerType, InfiniteIterable(anythingType), 'intrinsics', intrinsics),
+    'clear': FunctionValueType(
+        integerType,
+        [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)],
+        'intrinsics',
+        intrinsics),
+    'debug': FunctionValueType(stringType, [rootClassType], 'intrinsics', intrinsics),
+    'throw': FunctionValueType(nullType, [stringType], 'intrinsics', intrinsics),
+    'pop': FunctionValueType(
+        anythingType,
+        [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)],
+        'intrinsics',
+        intrinsics),
+    'substring': FunctionValueType(stringType, [stringType, integerType, integerType], 'intrinsics', intrinsics),
+    'sublist': FunctionValueType(
+        ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics),
+        [
+          ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics),
           integerType,
-          [
-            IterableValueType<ValueWrapper<dynamic>, Iterable<ValueWrapper<dynamic>>>(
-                ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')
-          ],
-          'intrinsics'),
-      'input': FunctionValueType(stringType, [], 'intrinsics'),
-      'append': FunctionValueType(
-          anythingType, [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics'), anythingType], 'intrinsics'),
-      'iterator': FunctionValueType(
-          IteratorValueType(anythingType, 'intrinsics'),
-          [
-            IterableValueType<ValueWrapper<dynamic>, Iterable<ValueWrapper<dynamic>>>(
-                ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')
-          ],
-          'intrinsics'),
-      'next': FunctionValueType(booleanType, [IteratorValueType(anythingType, 'intrinsics')], 'intrinsics'),
-      'current': FunctionValueType(anythingType, [IteratorValueType(anythingType, 'intrinsics')], 'intrinsics'),
-      'stringTimes': FunctionValueType(stringType, [stringType, integerType], 'intrinsics'),
-      'copy': FunctionValueType(
-          ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics'),
-          [
-            IterableValueType<ValueWrapper<dynamic>, Iterable<ValueWrapper<dynamic>>>(
-                ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')
-          ],
-          'intrinsics'),
-      'hex': FunctionValueType(stringType, [integerType], 'intrinsics'),
-      'chr': FunctionValueType(stringType, [integerType], 'intrinsics'),
-      'exit': FunctionValueType(nullType, [integerType], 'intrinsics'),
-      'readFile': FunctionValueType(stringType, [stringType], 'intrinsics'),
-      'readFileBytes': FunctionValueType(ListValueType(integerType, 'intrinsics'), [stringType], 'intrinsics'),
-      'containsString': FunctionValueType(booleanType, [stringType, stringType], 'intrinsics'),
-      'println': FunctionValueType(integerType, InfiniteIterable(anythingType), 'intrinsics'),
-      'clear':
-          FunctionValueType(integerType, [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')], 'intrinsics'),
-      'debug': FunctionValueType(stringType, [rootClassType], 'intrinsics'),
-      'throw': FunctionValueType(nullType, [stringType], 'intrinsics'),
-      'pop':
-          FunctionValueType(anythingType, [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics')], 'intrinsics'),
-      'substring': FunctionValueType(stringType, [stringType, integerType, integerType], 'intrinsics'),
-      'sublist': FunctionValueType(ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics'),
-          [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics'), integerType, integerType], 'intrinsics'),
-      'filledList': FunctionValueType(
-          ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics'), [integerType, anythingType], 'intrinsics'),
-      'sizedList':
-          FunctionValueType(ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'intrinsics'), [integerType], 'intrinsics'),
-      'stackTrace': FunctionValueType(stringType, [], 'intrinsics'),
-      'debugName': FunctionValueType(stringType, [rootClassType], 'intrinsics'),
-      'createStringBuffer': FunctionValueType(stringBufferType, [], 'intrinsics'),
-      'writeStringBuffer': FunctionValueType(nullType, [stringBufferType, stringType], 'intrinsics'),
-      'readStringBuffer': FunctionValueType(stringType, [stringBufferType], 'intrinsics'),
-    }.map(
-      (key, value) => MapEntry(
-        variables[key] ??= Variable(key),
-        TVProp(false, value, false /* none of them are methods */),
-      ),
-    );
+          integerType
+        ],
+        'intrinsics',
+        intrinsics),
+    'filledList': FunctionValueType(
+        ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics),
+        [integerType, anythingType],
+        'intrinsics',
+        intrinsics),
+    'sizedList': FunctionValueType(ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics),
+        [integerType], 'intrinsics', intrinsics),
+    'stackTrace': FunctionValueType(stringType, [], 'intrinsics', intrinsics),
+    'debugName': FunctionValueType(stringType, [rootClassType], 'intrinsics', intrinsics),
+    'createStringBuffer': FunctionValueType(stringBufferType, [], 'intrinsics', intrinsics),
+    'writeStringBuffer': FunctionValueType(nullType, [stringBufferType, stringType], 'intrinsics', intrinsics),
+    'readStringBuffer': FunctionValueType(stringType, [stringBufferType], 'intrinsics', intrinsics),
+  }.map(
+    (key, value) => MapEntry(
+      variables[key] ??= Variable(key),
+      TVProp(false, value, false /* none of them are methods */),
+    ),
+  );
+  String v = '~type${anythingType.name.name}';
+  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, anythingType, false);
+  v = '~type${integerType.name.name}';
+  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, integerType, false);
+  v = '~type${stringType.name.name}';
+  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, stringType, false);
+  v = '~type${booleanType.name.name}';
+  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, booleanType, false);
+  v = '~type${nullType.name.name}';
+  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, nullType, false);
+  v = '~type${rootClassType.name.name}';
+  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, rootClassType, false);
+  v = '~type${stringBufferType.name.name}';
+  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, stringBufferType, false);
   intrinsics.directVars.addAll(intrinsics.types.keys);
 
   TypeValidator validator = TypeValidator([intrinsics], ConcatenateLazyString(NotLazyString('file '), NotLazyString(file)), false, false, false, rtl);
@@ -966,8 +1019,8 @@ class ValueTypePlaceholder {
   @override
   String toString() => 'VTP($name)';
 
-  ValueType toVT() {
-    return ValueType.create(parent, name, line, col, workspace, file);
+  ValueType toVT(TypeValidator scope) {
+    return ValueType.create(parent, name, line, col, workspace, file, scope);
   }
 }
 
@@ -991,6 +1044,9 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens.doneImports = true;
       return parseNonKeywordStatement(tokens, scope);
     }
+  }
+  if (tokens.current is CharToken && tokens.currentChar == TokenType.endOfFile) {
+    throw BSCException('comment feature at end of file ${tokens.file}', scope);
   }
   if (tokens.current is! IdentToken) {
     tokens.getPrevious();
@@ -1023,8 +1079,8 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       ClassValueType? spt;
       TypeValidator props;
       if (tokens.current is IdentToken && tokens.currentIdent == variables['extends']) {
-        spt =
-            ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file) as ClassValueType;
+        spt = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope)
+            as ClassValueType;
         props = TypeValidator(
             [spt.properties], ConcatenateLazyString(NotLazyString('forward-declared subclass '), VariableLazyString(cln)), true, false, false, scope.rtl);
         tokens.moveNext();
@@ -1032,15 +1088,15 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
         props = TypeValidator(
             [scope], ConcatenateLazyString(NotLazyString('forward-declared root class '), VariableLazyString(cln)), true, false, false, scope.rtl);
       }
-      ClassValueType x = ClassValueType(cln, spt, props, tokens.file, true);
+      ClassValueType x = ClassValueType(cln, spt, props, tokens.file, true, scope);
       FunctionValueType? constructorType;
       if (spt?.properties.types[constructorVariable] != null) {
         constructorType = spt!.properties.types[constructorVariable]!.type as FunctionValueType;
       } else {
-        constructorType = FunctionValueType(nullType, [], tokens.file);
+        constructorType = FunctionValueType(nullType, [], tokens.file, scope);
       }
       if (parameters != null) {
-        constructorType = FunctionValueType(nullType, parameters.map((e) => e.toVT()), tokens.file);
+        constructorType = FunctionValueType(nullType, parameters.map((e) => e.toVT(scope)), tokens.file, scope);
       }
 
       props.types[constructorVariable] = TVProp(true, constructorType, false);
@@ -1064,8 +1120,9 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       scope.classes[cln] = x.properties;
       return NopStatement();
     case fwdclasspropVariable:
-      ValueType type = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
-      ValueType reciever = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
+      ValueType type = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+      ValueType reciever =
+          ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
       if (reciever is! ClassValueType) {
         throw BSCException('fwdclassprops should only be defined on classes ${formatCursorPositionFromTokens(tokens)}', scope);
       }
@@ -1097,9 +1154,10 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens.expectChar(TokenType.endOfStatement);
       return NopStatement();
     case fwdstaticpropVariable:
-      ValueType type = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
+      ValueType type = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
       ClassValueType cl =
-          (ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file) as ClassValueType);
+          (ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope)
+              as ClassValueType);
       tokens..moveNext();
       tokens.expectChar(TokenType.period);
       if (overriden) {
@@ -1222,7 +1280,7 @@ Statement parseConst(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
     tokens.moveNext();
     static = true;
   }
-  ValueType type = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
+  ValueType type = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
   tokens.moveNext();
   Variable name = tokens.currentIdent;
   tokens.moveNext();
@@ -1243,7 +1301,7 @@ Statement parseConst(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
   if (static) {
     return StaticFieldStatement(name, expr, tokens.current.line, tokens.current.col, true);
   }
-  return NewVarStatement(name, expr, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, true, type);
+  return NewVarStatement(name, expr, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, true, type, scope);
 }
 
 Statement parseNamespace(TokenIterator tokens, TypeValidator scope) {
@@ -1284,7 +1342,7 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
     scope,
   );
   if (!iterable.type.isSubtypeOf(ValueType.create(
-      null, variables["WhateverIterable"] ??= Variable("WhateverIterable"), tokens.current.line, tokens.current.col, tokens.workspace, tokens.file))) {
+      null, variables["WhateverIterable"] ??= Variable("WhateverIterable"), tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope))) {
     throw BSCException("tried to for loop over non-iterable (iterated over ${iterable.type}) ${formatCursorPositionFromTokens(tokens)}", scope);
   }
   TypeValidator innerScope = TypeValidator([scope], NotLazyString('for loop'), false, false, false, scope.rtl);
@@ -1315,6 +1373,7 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
     currentName,
     tokens.workspace,
     tokens.file,
+    scope,
   );
 }
 
@@ -1324,11 +1383,8 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
   tokens.moveNext();
   List<Variable> body = [];
   TypeValidator tv = TypeValidator([], ConcatenateLazyString(VariableLazyString(name), NotLazyString('-enum')), false, false, false, scope.rtl);
-  EnumPropertyValueType propType = EnumPropertyValueType(
-    name,
-    tokens.file,
-  );
-  EnumValueType type = EnumValueType(name, tv, tokens.file, propType);
+  EnumPropertyValueType propType = EnumPropertyValueType(name, tokens.file, scope);
+  EnumValueType type = EnumValueType(name, tv, tokens.file, propType, scope);
   tokens.expectChar(TokenType.openBrace);
   while (tokens.current is! CharToken || tokens.currentChar != TokenType.closeBrace) {
     tv.newVar(
@@ -1361,6 +1417,7 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
     tokens.current.col,
     tokens.workspace,
     tokens.file,
+    scope,
   );
 }
 

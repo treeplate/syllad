@@ -8,7 +8,6 @@ fwdclass DynamicBucket(Type) extends Bucket;
 fwdclass StaticCastBucket(Bucket, Type) extends Bucket;
 fwdclass VarArgsParameterBucket(Type, Bucket) extends Bucket;
 fwdclass SentinelBucket(SentinelType) extends DynamicBucket;
-
 fwdclassprop StringFunction Bucket.commentName;
 
 fwdclass TypeInference() extends Object;

@@ -269,7 +269,7 @@ class CompilationEnvironment extends TypeRegistry {
 
   CompiledLibrary getLibrary(String filename) { 
     assert(getLibraryState(filename) == ls.Defined, 'getLibrary called for undefined library');
-    return libraries.get(filename);
+    return libraries.get(filename) as CompiledLibrary;
   }
 
   Null setRuntimeLibrary(CompiledLibrary runtimeLibraryArg) { 
@@ -707,10 +707,10 @@ class CompilationEnvironment extends TypeRegistry {
         return typeTablePointer.currentValueDatum();
       }
       if (original is TypeBitDatum) {
-        return IntegerDatum(((original as TypeBitDatum).value.code - typeTableOffset) % 8, original.commentName);
+        return IntegerDatum(((original as TypeBitDatum).value.code! - typeTableOffset) % 8, original.commentName);
       }
       if (original is TypeByteDatum) {
-        return IntegerDatum(((original as TypeByteDatum).value.code - typeTableOffset) / 8, original.commentName);
+        return IntegerDatum(((original as TypeByteDatum).value.code! - typeTableOffset) / 8, original.commentName);
       }
       return original;
     }
@@ -950,7 +950,7 @@ class VmtMemberBucket extends ConstantBucket {
   //#override
   IntegerDatum currentValueDatum() {
     // header + method offset + member property 
-    Integer offset = vmtHeaderFieldCount * 8 + member.methodsIndex * 4 * 8 + propertyIndex() * 8;
+    Integer offset = vmtHeaderFieldCount * 8 + member.methodsIndex! * 4 * 8 + propertyIndex() * 8;
     return IntegerDatum(offset, hexH(offset));
   }
 
@@ -1015,12 +1015,12 @@ class FieldBucket extends Bucket {
 
   //#override
   Datum currentValueDatum() {
-    return DereferenceDatum(thisBucket.currentValueDatum(), IntegerDatum(_gcBlockData + member.fieldIndex * 16 + 8, concat('offset to ', member.classType, '.', member.name)), ow.QWord, commentName());
+    return DereferenceDatum(thisBucket.currentValueDatum(), IntegerDatum(_gcBlockData + member.fieldIndex! * 16 + 8, concat('offset to ', member.classType, '.', member.name)), ow.QWord, commentName());
   }
 
   //#override
   Datum currentTypeDatum() {
-    return DereferenceDatum(thisBucket.currentValueDatum(), IntegerDatum(_gcBlockData + member.fieldIndex * 16, concat('offset to type of ', member.classType, '.', member.name)), ow.QWord, concat('type of ', commentName()));
+    return DereferenceDatum(thisBucket.currentValueDatum(), IntegerDatum(_gcBlockData + member.fieldIndex! * 16, concat('offset to type of ', member.classType, '.', member.name)), ow.QWord, concat('type of ', commentName()));
   }
 
   Null constructor(Bucket thisBucketArg, MemberDescription memberArg) {
@@ -1051,7 +1051,7 @@ class FieldPointerBucket extends Bucket {
 
   //#override
   Datum currentValueDatum() {
-    return ReferenceDatum(thisBucket.currentValueDatum(), IntegerDatum(_gcBlockData + member.fieldIndex * 16, concat('offset to ', member.classType, '.', member.name)), ow.QWord, commentName());
+    return ReferenceDatum(thisBucket.currentValueDatum(), IntegerDatum(_gcBlockData + member.fieldIndex! * 16, concat('offset to ', member.classType, '.', member.name)), ow.QWord, commentName());
   }
 
   //#override
@@ -1840,7 +1840,7 @@ class ClassType extends Type {
         }
       }
       Integer indexComparator(MemberDescription a, MemberDescription b) {
-        return a.methodsIndex! - b.methodsIndex;
+        return a.methodsIndex! - b.methodsIndex!;
       }
       sortWithComparator(sortedMethods, indexComparator);
       Integer debugIndex = 0;
@@ -1888,7 +1888,7 @@ class ClassType extends Type {
       for (member in sortedMembers) {
         append(ddtLines, ConstantPart(ow.DWord, [
           IntegerDatum(environment.atomizeForDynamicDispatch(member.name), concat('atom for ', member.name)), // low bits, member identifier
-          IntegerDatum(vmtHeaderFieldCount * 8 + member.methodsIndex * 4 * 8 + 16, concat('offset into ', name, ', VMT for ', member.name, ' getter')), // high bits, offset into vmt to getter function, from vmt pointer
+          IntegerDatum(vmtHeaderFieldCount * 8 + member.methodsIndex! * 4 * 8 + 16, concat('offset into ', name, ', VMT for ', member.name, ' getter')), // high bits, offset into vmt to getter function, from vmt pointer
         ]:ImmediateDatum, concat('dynamic dispatch data for ', name, '.', member.name)));
       } 
       assembler.addConst(Constant(ddtLabel, ddtLines, null, concat('DDT for ', name)));
@@ -2076,8 +2076,7 @@ class CompiledScope extends Object {
 
   CompiledStackFrameScope stackFrame() { 
     assert(parent != null, 'compiled scope chain failure');
-    CompiledScope result = parent!.stackFrame() as CompiledScope;
-    return result;
+    return parent!.stackFrame();
   }
 
   CompilationEnvironment environment() {
@@ -2545,7 +2544,7 @@ class CompiledSubroutineWithSpecificParameters extends CompiledSubroutine {
 
   ParameterBucket registerParameter(String name, Type type, Integer position) {
     assert(!isIdentifierDeclaredInLocalScope(name), 'duplicate parameter names');
-    Bucket result = ParameterBucket(type, position, name);
+    ParameterBucket result = ParameterBucket(type, position, name);
     append(parameters, result);
     identifiers.set(name, ImmutableVariableIdentifierEntity(result));
     return result;
@@ -2598,12 +2597,12 @@ class CompiledVarArgsSubroutine extends CompiledSubroutine {
 
   VarArgsParameterBucket registerVarArgsParameter(String name, Type type) {
     assert(parameters == null, 'varargs subroutine expects to have only one parameter');
-    ReadOnlyListType listType = createOrFindReadOnlyListType(environment(), type);
+    ArrayType listType = createOrFindArrayType(environment(), type);
     listType.markConstructed();
     assert(!isIdentifierDeclaredInLocalScope(name), 'duplicate parameter name');
     parameters = VarArgsParameterBucket(listType, parameterCount);
     identifiers.set(name, VarArgsIdentifierEntity(parameters!));
-    return parameters;
+    return parameters!;
   }
 
   //#override
@@ -2770,8 +2769,8 @@ class BuiltInGetterMethod extends BuiltInSubroutine {
         this, 
         DereferenceWithOffsetsBucket(
           thisPointer, 
-          environment().integer(_gcBlockData + member.fieldIndex * 16 + 8), 
-          environment().integer(_gcBlockData + member.fieldIndex * 16),  
+          environment().integer(_gcBlockData + member.fieldIndex! * 16 + 8), 
+          environment().integer(_gcBlockData + member.fieldIndex! * 16),  
           ow.QWord,
           member.staticType,
           LazyComment(member.classType.name, '.', member.name),
@@ -2890,7 +2889,7 @@ class BuiltInLenSubroutine extends BuiltInSubroutine {
       createOrFindSubroutineTypeWithSpecificParameters(
         parentArg.environment(),
         parentArg.environment().coreIntegerType,
-        [ createOrFindReadOnlyListType(parentArg.environment(), parentArg.environment().coreWhateverType) ]:Type,
+        [ createOrFindArrayType(parentArg.environment(), parentArg.environment().coreWhateverType) ]:Type,
       ),
       'len',
       null /* parentClass */,
@@ -3061,7 +3060,6 @@ class CompiledLibrary extends CompiledStackFrameScope {
 
   //#override
   CompilationEnvironment environment() {
-    assert(compilationEnvironment != null, 'compilation environment was not set');
     return compilationEnvironment;
   }
 

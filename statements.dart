@@ -55,9 +55,11 @@ class NewVarStatement extends Statement {
   final String workspace;
   final String file;
 
+  final TypeValidator tv;
+
   String toString() => "var $name = $val";
 
-  NewVarStatement(this.name, this.val, int line, int col, this.workspace, this.file, this.isConstant, this.type) : super(line, col);
+  NewVarStatement(this.name, this.val, int line, int col, this.workspace, this.file, this.isConstant, this.type, this.tv) : super(line, col);
 
   @override
   StatementResult run(Scope scope) {
@@ -72,8 +74,7 @@ class NewVarStatement extends Statement {
     scope.values[name] = MaybeConstantValueWrapper(
         eval ??
             ValueWrapper(
-                ValueType.createNullable(null, variables['Sentinel'] ??= Variable('Sentinel'), 'iddk') ??
-                    ValueType.internal(null, variables['Sentinel'] ??= Variable('Sentinel'), 'idk', false),
+                ValueType.createNullable(null, variables['Sentinel'] ??= Variable('Sentinel'), 'iddk', tv)!,
                 "Sentinull",
                 VariableLazyString(name),
                 false),
@@ -118,6 +119,7 @@ class FunctionStatement extends Statement {
     this.file,
     this.static,
     this.type,
+    this.tv
   ) : super(line, col);
   final ValueType returnType;
   final Variable name;
@@ -127,6 +129,7 @@ class FunctionStatement extends Statement {
   final List<Statement> body;
   final bool static;
   final ValueType type;
+  final TypeValidator tv;
   @override
   StatementResult run(Scope scope) {
     SydFunction<Object?> _value = (List<ValueWrapper> a, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
@@ -183,7 +186,7 @@ class FunctionStatement extends Statement {
       } else {
         funscope.values[params.first.name] = MaybeConstantValueWrapper(
             ValueWrapper(
-              ListValueType(params.first.type, 'internal'),
+              ListValueType(params.first.type, 'internal', tv),
               List<ValueWrapper>.unmodifiable(a),
               'varargs',
             ),
@@ -223,7 +226,7 @@ class FunctionStatement extends Statement {
     };
     scope.values[name] = MaybeConstantValueWrapper(
         ValueWrapper<SydFunction<Object?>>(
-            FunctionValueType(returnType, params.map((e) => e.type), file), _value, LazyInterpolatorSpace(VariableLazyString(name), 'function')),
+            FunctionValueType(returnType, params.map((e) => e.type), file, tv), _value, LazyInterpolatorSpace(VariableLazyString(name), 'function')),
         true);
     return StatementResult(StatementResultType.nothing);
   }
@@ -386,19 +389,19 @@ class IfStatement extends Statement {
 }
 
 class ForStatement extends Statement {
-  ForStatement(this.list, this.body, int line, int col, this.ident, this.workspace, this.file, [this.catchBreakContinue = true]) : super(line, col);
+  ForStatement(this.list, this.body, int line, int col, this.ident, this.workspace, this.file, this.tv, [this.catchBreakContinue = true]) : super(line, col);
   final Expression list;
   final Variable ident;
   final List<Statement> body;
   final bool catchBreakContinue;
   final String file;
   final String workspace;
+  final TypeValidator tv;
   @override
   StatementResult run(Scope scope) {
     ValueWrapper listVal = list.eval(scope);
-    if (!listVal
-        .typeC(scope, scope.stack, line, col, workspace, file)
-        .isSubtypeOf(IterableValueType<ValueWrapper<dynamic>, Iterable<ValueWrapper<dynamic>>>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics'), 'TODO FORS'))) {
+    if (!listVal.typeC(scope, scope.stack, line, col, workspace, file).isSubtypeOf(IterableValueType<ValueWrapper<dynamic>, Iterable<ValueWrapper<dynamic>>>(
+        ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', tv), 'TODO FORS', tv))) {
       throw BSCException(
           "$listVal ($list) is not a list - is a ${listVal.typeC(scope, scope.stack, line, col, workspace, file)} (tried to do a for statement) ${formatCursorPosition(line, col, workspace, file)}",
           scope);
@@ -500,6 +503,10 @@ class ReturnStatement extends Statement {
       );
     }
     Expression expr = parseExpression(tokens, scope);
+    if (!expr.type
+        .isSubtypeOf(scope.returnType ?? (throw BSCException('Cannot return from outside a function ${formatCursorPositionFromTokens(tokens)}', scope)))) {
+      throw BSCException('Cannot return a ${expr.type} from a function that returns a ${scope.returnType} ${formatCursorPositionFromTokens(tokens)}', scope);
+    }
     tokens.expectChar(TokenType.endOfStatement);
     return ReturnStatement(
       expr,
@@ -515,8 +522,9 @@ class EnumStatement extends Statement {
   final List<Variable> fields;
   final String workspace;
   final String file;
+  final TypeValidator tv;
 
-  EnumStatement(this.name, this.fields, this.type, super.line, super.col, this.file, this.workspace);
+  EnumStatement(this.name, this.fields, this.type, super.line, super.col, this.file, this.workspace, this.tv);
 
   @override
   StatementResult run(Scope scope) {
@@ -546,7 +554,7 @@ class EnumStatement extends Statement {
     for (Variable field in fields) {
       newScope.values[field] = MaybeConstantValueWrapper(
         ValueWrapper(
-          ValueType.create(null, name, -2, 0, 'interr', "_internal"),
+          ValueType.create(null, name, -2, 0, 'interr', "_internal",tv ),
           LazyInterpolatorNoSpace(VariableLazyString(name), LazyInterpolatorNoSpace('.', field.name)),
           LazyInterpolatorSpace('enum field', VariableLazyString(field)),
         ),
@@ -577,7 +585,8 @@ class ClassStatement extends Statement {
   final String workspace;
   final String file;
   final ClassOfValueType classOfType;
-  ClassStatement(this.name, this.superclass, this.block, this.type, int line, int col, this.workspace, this.file, this.classOfType) : super(line, col);
+  final TypeValidator tv;
+  ClassStatement(this.name, this.superclass, this.block, this.type, int line, int col, this.workspace, this.file, this.classOfType,this.tv) : super(line, col);
 
   @override
   StatementResult run(Scope scope) {
@@ -623,7 +632,7 @@ class ClassStatement extends Statement {
     }
     scope.values[variables['~${name.name}~methods'] ??= Variable('~${name.name}~methods')] = MaybeConstantValueWrapper(
       ValueWrapper(
-        ValueType.create(null, classMethodsVariable, -2, 0, 'interr', "_internal"),
+        ValueType.create(null, classMethodsVariable, -2, 0, 'interr', "_internal", tv),
         methods,
         'internal',
       ),
@@ -653,7 +662,7 @@ class ClassStatement extends Statement {
       }
       if (superclass == null) {
         methods.values[constructorVariable] = MaybeConstantValueWrapper(
-            ValueWrapper(FunctionValueType(type, [], file), (List<ValueWrapper> args, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
+            ValueWrapper(FunctionValueType(type, [], file, tv), (List<ValueWrapper> args, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
               if (args.length != 0) {
                 throwWithStack(
                   scope,
@@ -678,7 +687,7 @@ class ClassStatement extends Statement {
       }
     }
     scope.values[variables['~${name.name}'] ??= Variable('~${name.name}')] = MaybeConstantValueWrapper(
-        ValueWrapper(FunctionValueType(type, [], file), (List<ValueWrapper> args, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
+        ValueWrapper(FunctionValueType(type, [], file, tv), (List<ValueWrapper> args, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
           if (superclass != null) {
             scope.getVar(variables['~${superclass!.name}'] ??= Variable('~${superclass!.name}'), line, col, workspace, 'TODO', null).valueC<SydFunction>(
                 scope, scope.stack, line, col, workspace, file)(<ValueWrapper>[], stack + [NotLazyString('~${superclass!.name}')], thisScope, thisType);
@@ -732,7 +741,7 @@ class ClassStatement extends Statement {
                                     .internal_getVar(constructorVariable)
                                     ?.typeC(scope, scope.stack, line, col, workspace, file) as FunctionValueType)
                                 .parameters,
-                    file),
+                    file, tv),
                 (List<ValueWrapper> args, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
                   Scope thisScope = Scope(
                     true,

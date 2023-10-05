@@ -1,0 +1,19 @@
+// expected output: [1, 2, 3]
+// expected error: runtime error, cannot modify read-only list
+
+AnythingList x;
+
+Null subtest() {
+  append(x, 'HAHA I AM IN YOUR READ-ONLY LIST');
+  x[0] = 'HELLO';
+}
+
+Null test(Anything... args) {
+  x = args;
+  println(args);
+  subtest();
+  println(args);
+}
+
+test(1, 2, 3);
+println(x);

@@ -18,3 +18,4 @@ error-dump.txt
 compiler/syd.asm
 compiler/syd.exe
 compiler/temp.syd
+main.exe

@@ -100,9 +100,9 @@ class GetExpr extends Expression {
   }
 
   @override
-  ValueType get asType => ValueType.create(anythingType, name, line, col, workspace, file);
+  ValueType get asType => ValueType.create(anythingType, name, line, col, workspace, file, typeValidator);
   @override
-  late final ValueType type = typeValidator.getVar(name, line, col, workspace, file, 'when getting the type', false);
+  late final ValueType type = typeValidator.igv(name, false, ) ?? (throw BSCException('unknown variable ${name.name} ${formatCursorPosition(line, col, workspace, file)}', typeValidator));
 
   @override
   eval(Scope scope) {
@@ -197,10 +197,11 @@ class SubscriptExpression extends Expression {
 
   bool isLValue(TypeValidator scope) => true;
   ValueType get type =>
-      a.type.name == whateverVariable ? ValueType.create(null, whateverVariable, -2, 0, 'interr', '_') : (a.type as ListValueType).genericParameter;
+      a.type.name == whateverVariable ? ValueType.create(null, whateverVariable, -2, 0, 'interr', '_', typeValidator) : (a.type as ListValueType).genericParameter;
   String toString() => "$a[$b]";
 
-  SubscriptExpression(this.a, this.b, int line, col, String workspace, file) : super(line, col, workspace, file);
+  TypeValidator typeValidator;
+  SubscriptExpression(this.a, this.b, int line, col, String workspace, file, this.typeValidator) : super(line, col, workspace, file);
   @override
   eval(Scope scope) {
     ValueWrapper list = a.eval(scope);
@@ -595,7 +596,7 @@ class SuperExpression extends Expression {
 
   @override
   ValueType get type => static
-      ? ValueType.create(null, whateverVariable, 0, 0, '', '')
+      ? ValueType.create(null, whateverVariable, 0, 0, '', '', tv)
       : (tv.currentClassType.parent is ClassValueType
               ? tv.currentClassType.parent as ClassValueType
               : (throw BSCException("${tv.currentClassType} has no supertype ${formatCursorPosition(line, col, workspace, file)}", tv)))
@@ -679,7 +680,7 @@ class FunctionCallExpr extends Expression {
     //print("calling $a...");
     ValueWrapper aEval = a.eval(scope);
     ValueType type2 = aEval.typeC(scope, scope.stack, line, col, workspace, file);
-    if (!type2.isSubtypeOf(GenericFunctionValueType(anythingType, '__test')) && !(type2 is ClassOfValueType)) {
+    if (!type2.isSubtypeOf(GenericFunctionValueType(anythingType, '__test', validator)) && !(type2 is ClassOfValueType)) {
       throw BSCException('tried to call non-function: $aEval, ${formatCursorPosition(line, col, workspace, file)}\n${scope.stack.reversed.join('\n')}', scope);
     }
     List<ValueWrapper> args = b.map((x) => x.eval(scope)).toList();
@@ -708,10 +709,11 @@ class FunctionCallExpr extends Expression {
 }
 
 class ListLiteralExpression extends Expression {
-  ListLiteralExpression(this.n, this.genParam, int line, int col, String workspace, file) : super(line, col, workspace, file);
+  final TypeValidator tv;
+  ListLiteralExpression(this.n, this.genParam, int line, int col, String workspace, file, this.tv) : super(line, col, workspace, file);
   final List<Expression> n;
   final ValueType genParam;
-  ValueType get type => ListValueType(genParam, file);
+  ValueType get type => ListValueType(genParam, file, tv);
   String toString() => "$n:$genParam";
   bool isLValue(TypeValidator scope) => false;
   ValueWrapper eval(Scope scope) {
@@ -723,7 +725,7 @@ class ListLiteralExpression extends Expression {
             scope);
       }
     }
-    return ValueWrapper(ListValueType(genParam, file), params, 'literal');
+    return ValueWrapper(ListValueType(genParam, file,tv), params, 'literal');
   }
 }
 

@@ -16,7 +16,7 @@ class TypeIdentifier extends AstNode {
     if (result == null) {
       throw(concat('Type "', name, '" not known at ', sourceLocation));
     }
-    return result;
+    return result!;
   }
 
   Null constructor(String nameArg, SourceLocation sourceLocationArg) {
@@ -387,7 +387,7 @@ class MemberAccessExpression extends LValueExpression {
       ReifiedEnumType enum = lBucket.staticType as ReifiedEnumType;
       BucketNullable result = enum.values.get(member) as BucketNullable;
       if (result != null) {
-        return result;
+        return result!;
       }
       throw(concat('Enum "', enum.name, '" does not have a value "', member, '", as used at ', sourceLocation));
     }
@@ -538,7 +538,7 @@ class VariableSubroutineCallExpression extends Expression {
       // for compatibility with the interpreter
       throw(concat('Identifier "', name, '" is known but has not yet been declared at ', sourceLocation));
     }
-    return entity;
+    return entity!;
   }
 
   //#override
@@ -1797,7 +1797,6 @@ class AbstractSubroutineDeclarationStatement extends DeclarationStatement {
 
   //#override
   Null generateInstructions(CompiledScope scope) {
-    assert(staticType != null, 'call generateStaticType before generateInstructions');
     if (isVarArgs) {
       subroutine = CompiledVarArgsSubroutine(scope, staticType as SubroutineTypeWithVarArgs, identifier, receiverType());
       String name = parameters[0][1] as String;
@@ -2035,7 +2034,10 @@ class AbstractClassDeclaration extends DeclarationStatement {
   
   Null declareType(CompiledScope scope) {
     TypeNullable superclass;
-    if (isIntrinsic && identifier == scope.environment().coreClassTypeIntrinsicName) {
+    if (isIntrinsic) {
+      if (identifier != scope.environment().coreClassTypeIntrinsicName) {
+        throw(concat('Class "', identifier, '" is not a valid intrinsic class (only "', scope.environment().coreClassTypeIntrinsicName, '" can be intrinsic).'));
+      }
       if (superclassName != null) {
         throw(concat('Intrinsic class cannot have a superclass as ', sourceLocation));
       }
@@ -2164,7 +2166,6 @@ class ClassDeclaration extends AbstractClassDeclaration {
     TypeNullable existingStaticType = scope.globalScope().lookupType(identifier);
     if (existingStaticType == null) {
       declareType(scope);
-      assert(staticType != null, 'invariant violation');
       assert(scope.globalScope().lookupType(identifier) == staticType, 'invariant violation');
     } else {
       staticType = existingStaticType!;
@@ -2475,8 +2476,8 @@ class ImportStatement extends Statement {
 
   //#override
   Null generateInstructions(CompiledScope scope) {
-    assert(scope.environment().getLibraryState(resolvedPath) == ls.Defined, concat('tried to import library "', path, '" before it was compiled'));
     assert(scope is CompiledLibrary, 'found import outside global scope');
+    assert(scope.environment().getLibraryState(resolvedPath) == ls.Defined, concat('tried to import library "', path, '" before it was compiled'));
     (scope as CompiledLibrary).importLibrary(scope.environment().getLibrary(resolvedPath) as CompiledLibrary);
   }
 

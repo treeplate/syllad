@@ -1,0 +1,16 @@
+// expected output: 1
+
+fwdclass A;
+fwdclass B extends A;
+
+class A {
+  Integer foo = 1;
+}
+
+Integer test(B b) {
+  return b.foo;
+}
+
+class B extends A { }
+
+println(test(B()));

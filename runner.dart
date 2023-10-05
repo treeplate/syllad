@@ -36,7 +36,7 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
           return ValueWrapper(stringType, l.map((x) => x.toStringWithStack(s, -2, 0, 'interr', 'todo', true)).join(''), 'concat rtv');
         },
         "addLists": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          return ValueWrapper(ListValueType(anythingType, 'intrinsics'),
+          return ValueWrapper(ListValueType(anythingType, 'intrinsics', tv),
               l.expand<ValueWrapper>((element) => element.valueC(null, s, -2, 0, 'interr', 'interr')).toList(), 'addLists rtv');
         },
         "parseInt": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
@@ -47,8 +47,11 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
           );
         },
         "split": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          if (l.first.valueC(null, s, -2, 0, 'interr', 'interr') == '') {
+            return ValueWrapper(ListValueType(stringType, 'intrinsics', tv), [l.first], 'split rtv special case');
+          }
           return ValueWrapper(
-            ListValueType(stringType, 'intrinsics'),
+            ListValueType(stringType, 'intrinsics', tv),
             l.first
                 .valueC<String>(null, s, -2, 0, 'interr', 'interr')
                 .split(
@@ -61,23 +64,31 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
         },
         "charsOf": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           return ValueWrapper(
-            IterableValueType(stringType, 'intrinsics'),
+            IterableValueType(stringType, 'intrinsics', tv),
             (l.single.valueC(null, s, -2, 0, 'interr', 'interr') as String).characters.map((e) => ValueWrapper(stringType, e, 'charsOf char')),
             'charsOf rtv',
           );
         },
         "scalarValues": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           return ValueWrapper(
-            IterableValueType(integerType, 'intrinsics'),
+            IterableValueType(integerType, 'intrinsics', tv),
             l.single.valueC<String>(null, s, -2, 0, 'interr', 'interr').runes.map((e) => ValueWrapper(integerType, e, 'scalarValues char')),
             'scalarValues rtv',
           );
         },
         'filledList': (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          return ValueWrapper<List<ValueWrapper>>(ListValueType<ValueWrapper>(anythingType, 'intrinsics'), List.filled(l.first.valueC<int>(null, s, -2, 0, 'interr', 'interr'), l.last, growable: true), 'filledList rtv');
+          return ValueWrapper<List<ValueWrapper>>(ListValueType<ValueWrapper>(anythingType, 'intrinsics', tv),
+              List.filled(l.first.valueC<int>(null, s, -2, 0, 'interr', 'interr'), l.last, growable: true), 'filledList rtv');
         },
         'sizedList': (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          return ValueWrapper<List<ValueWrapper>>(ListValueType<ValueWrapper>(anythingType, 'intrinsics'), List.filled(l.first.valueC(null, s, -2, 0, 'interr', 'interr'), ValueWrapper<String>(ValueType.internal(null, variables['Sentinel'] ??= Variable('Sentinel'), 'idk', false), "sizedList sentinel value", 'sizedList sentinel'), growable: true), 'sizedList rtv');
+          return ValueWrapper<List<ValueWrapper>>(
+              ListValueType<ValueWrapper>(anythingType, 'intrinsics', tv),
+              List.filled(
+                  l.first.valueC(null, s, -2, 0, 'interr', 'interr'),
+                  ValueWrapper<String>(
+                      ValueType.types[variables['Sentinel'] ??= Variable('Sentinel')] as ValueType<String>, "sizedList sentinel value", 'sizedList sentinel'),
+                  growable: true),
+              'sizedList rtv');
         },
         "len": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           if (l.single.typeC(null, s, -2, 0, 'interr', 'interr') is! IterableValueType) {
@@ -109,7 +120,7 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
         },
         "iterator": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           return ValueWrapper(
-              IteratorValueType(anythingType, 'intrinsics'), l.single.valueC<Iterable>(null, s, -2, 0, 'interr', 'interr').iterator, 'iterator rtv');
+              IteratorValueType(anythingType, 'intrinsics', tv), l.single.valueC<Iterable>(null, s, -2, 0, 'interr', 'interr').iterator, 'iterator rtv');
         },
         "next": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           return ValueWrapper(booleanType, l.single.valueC<Iterator>(null, s, -2, 0, 'interr', 'interr').moveNext(), 'next rtv');
@@ -126,7 +137,7 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
         },
         "copy": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           return ValueWrapper(
-            ListValueType(anythingType, 'intrinsics'),
+            ListValueType(anythingType, 'intrinsics', tv),
             l.single.valueC<Iterable<ValueWrapper>>(null, s, -2, 0, 'interr', 'interr').toList(),
             'copy rtv',
           );
@@ -145,11 +156,11 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
           exit(l.single.valueC(null, s, -2, 0, 'interr', 'interr'));
         },
         "readFile": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          
           try {
-            File file =  File('${l.single.valueC(null, s, -2, 0, 'interr', 'interr')}');
-            if(!file.existsSync()) {
-              throw BSCException("${l.single.toStringWithStack(s, -2, 0, 'interr', 'interr', false)} is not a existing file\n${s.reversed.join('\n')}", StringVariableGroup('$workspace'));
+            File file = File('${l.single.valueC(null, s, -2, 0, 'interr', 'interr')}');
+            if (!file.existsSync()) {
+              throw BSCException("${l.single.toStringWithStack(s, -2, 0, 'interr', 'interr', false)} is not a existing file\n${s.reversed.join('\n')}",
+                  StringVariableGroup('$workspace'));
             }
             return ValueWrapper(stringType, file.readAsStringSync(), 'readFile rtv');
           } on PathNotFoundException catch (e) {

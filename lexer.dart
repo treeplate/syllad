@@ -134,7 +134,6 @@ enum _LexerState {
   periodperiod,
   exclamationPoint,
   comment,
-  commentBackslash,
   slash,
   plus,
   minus,
@@ -142,7 +141,6 @@ enum _LexerState {
   stringDqBackslash,
   stringSqBackslash,
   multiLineComment,
-  multiLineCommentBackslash,
   multiLineCommentStar,
   commentHash,
 }
@@ -435,9 +433,6 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           col = 0;
           state = _LexerState.top;
         }
-        if (rune == 0x5c) {
-          state = _LexerState.commentBackslash;
-        }
         if (rune == 0x23) {
           state = _LexerState.commentHash;
         }
@@ -484,9 +479,6 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
         if (rune == 0x2a) {
           state = _LexerState.multiLineCommentStar;
         }
-        if (rune == 0x5c) {
-          state = _LexerState.multiLineCommentBackslash;
-        }
         if (rune == 0xa) {
           line++;
           col = 0;
@@ -501,20 +493,6 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
         if (rune == 0xa) {
           line++;
           col = 0;
-        }
-
-      case _LexerState.commentBackslash:
-        if (rune == 0x40) {
-          state = _LexerState.top;
-        } else {
-          state = _LexerState.comment;
-        }
-
-      case _LexerState.multiLineCommentBackslash:
-        if (rune == 0x40) {
-          state = _LexerState.top;
-        } else {
-          state = _LexerState.multiLineComment;
         }
 
       case _LexerState.period:
@@ -563,8 +541,6 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
             state = _LexerState.commentHash;
           } else if (rune == 0xa) {
             state = _LexerState.top;
-          } else if (rune == 0x5c) {
-            state = _LexerState.commentBackslash;
           } else {
             state = _LexerState.comment;
           }
@@ -706,8 +682,6 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
     case _LexerState.exclamationPoint:
       yield CharToken(TokenType.bang, line, col);
 
-    case _LexerState.commentBackslash:
-      break;
     case _LexerState.slash:
       yield CharToken(TokenType.divide, line, col);
 
@@ -715,7 +689,6 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
       throw BSCException("Unterminated double-quoted string ending in backslash '${buffer.toString()}'", NoDataVG());
     case _LexerState.stringSqBackslash:
       throw BSCException("Unterminated single-quoted string ending in backslash '${buffer.toString()}'", NoDataVG());
-    case _LexerState.multiLineCommentBackslash:
     case _LexerState.multiLineCommentStar:
       break;
     case _LexerState.star:

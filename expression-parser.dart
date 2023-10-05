@@ -125,7 +125,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         tokens.moveNext();
         if (tokens.current is CharToken && tokens.currentChar == TokenType.colon) {
           tokens.moveNext();
-          ValueType t = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
+          ValueType t = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
           for (Expression expr in elements) {
             if (!expr.type.isSubtypeOf(t)) {
               throw BSCException(
@@ -143,7 +143,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           tokens.current.line,
           tokens.current.col,
           tokens.workspace,
-          tokens.file,
+          tokens.file,scope,
         );
       }
       if (tokens.currentChar == TokenType.openParen) {
@@ -232,7 +232,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             throw BSCException("Attempted to subscript using non-integer index: $operandB. ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           tokens.expectChar(TokenType.closeSquare);
-          if (!result.type.isSubtypeOf(ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'internal'), 'internal'))) {
+          if (!result.type.isSubtypeOf(ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'internal', scope), 'internal', scope))) {
             throw BSCException("tried to subscript ${result.type} ($result) ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           result = SubscriptExpression(
@@ -241,7 +241,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             tokens.current.line,
             tokens.current.col,
             tokens.workspace,
-            tokens.file,
+            tokens.file,scope,
           );
         } else if (tokens.currentChar == TokenType.period) {
           if (!result.type.memberAccesible()) {
@@ -292,7 +292,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             tokens.file,
           );
         } else {
-          if (result.type is! ClassOfValueType && !result.type.isSubtypeOf(GenericFunctionValueType(anythingType, tokens.file))) {
+          if (result.type is! ClassOfValueType && !result.type.isSubtypeOf(GenericFunctionValueType(anythingType, tokens.file, scope))) {
             throw BSCException("tried to call ${result.type} ($result) ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           tokens.moveNext();
@@ -303,7 +303,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
           } else if (result.type is GenericFunctionValueType) {
             funType = result.type as GenericFunctionValueType;
           } else {
-            funType = ValueType.create(anythingType, variables['AnythingFunction']!, 0, 0, '', '') as GenericFunctionValueType;
+            funType = ValueType.create(anythingType, variables['AnythingFunction']!, 0, 0, '', '', scope) as GenericFunctionValueType;
           }
           while (tokens.current is! CharToken || tokens.currentChar != TokenType.closeParen) {
             if ((funType is FunctionValueType) && funType.parameters is! InfiniteIterable && funType.parameters.length <= arguments.length) {
@@ -459,7 +459,7 @@ Expression parseNots(TokenIterator tokens, TypeValidator scope) {
   Expression operand = parseFunCalls(tokens, scope);
   if (tokens.current is CharToken && tokens.currentChar == TokenType.isIdent) {
     tokens.moveNext();
-    ValueType type = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
+    ValueType type = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
     tokens.moveNext();
     return IsExpr(
       operand,
@@ -472,7 +472,7 @@ Expression parseNots(TokenIterator tokens, TypeValidator scope) {
   }
   if (tokens.current is CharToken && tokens.currentChar == TokenType.asIdent) {
     tokens.moveNext();
-    ValueType type = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
+    ValueType type = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
     tokens.moveNext();
     return AsExpr(
       operand,

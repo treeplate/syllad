@@ -132,6 +132,9 @@ void main(List<String> args) {
     File('error-dump.txt').writeAsStringSync(e.toString() + '\n\n' + e.scope.dump());
     stderr.writeln("done");
     exit(e.exitCode);
+  } on UnsupportedError catch (e) {
+    stderr.writeln("Tried to write to unmodifiable list ($e)");
+    exit(-2);
   } on StackOverflowError catch (e, st) {
     stderr.writeln("(somehow a StackOverflow got past my try..on) $e\n$st");
     exit(-1);

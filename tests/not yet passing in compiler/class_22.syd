@@ -1,5 +1,5 @@
 // expected error: extraneous override annotation
-// expected output: START
+// unexpected output: START
 
 println('START');
 

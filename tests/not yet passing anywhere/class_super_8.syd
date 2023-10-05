@@ -1,0 +1,26 @@
+// expected output: 1
+// expected output: 2
+
+fwdclass A;
+fwdclass B extends A;
+fwdclassprop Integer A.foo;
+
+Integer test1(B b) {
+  return b.foo;
+}
+
+fwdclassprop Integer A.bar;
+
+Integer test2(B b) {
+  return b.bar;
+}
+
+class A {
+  Integer foo = 1;
+  Integer bar = 2;
+}
+
+class B extends A { }
+
+println(test1(B()));
+println(test2(B()));

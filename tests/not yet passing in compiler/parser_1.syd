@@ -1,0 +1,9 @@
+// expected error: ignore_unused at end of file
+// unexpected output: FAIL
+
+println('FAIL');
+
+// //#ignore_unused
+// StringList split(String input, String pattern) {
+// 
+// }

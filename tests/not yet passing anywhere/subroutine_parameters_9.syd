@@ -1,0 +1,10 @@
+// expected error: syntax error, "foo" declared twice
+// unexpected output: FAIL
+
+println('FAIL');
+
+Whatever foo(Integer foo) {
+  return foo;
+}
+
+println(foo(1));

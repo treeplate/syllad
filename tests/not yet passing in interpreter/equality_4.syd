@@ -1,0 +1,6 @@
+// unexpected output: FAIL
+// expected error: type mismatch (a cannot not be null)
+
+println('FAIL');
+Integer a = 1;
+if (a != null) { }

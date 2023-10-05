@@ -9,7 +9,7 @@ fwdclass AbstractSubroutineType(TypeRegistry, Type) extends Type;
 fwdclass SubroutineTypeWithAnyArguments extends AbstractSubroutineType;
 fwdclass AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineType;
 fwdclass AbstractListType(TypeRegistry, String, Type) extends Type;
-fwdclass ReadOnlyListType(TypeRegistry, Type) extends AbstractListType;
+fwdclass ArrayType(TypeRegistry, Type) extends AbstractListType;
 fwdclass ListType(TypeRegistry, Type) extends AbstractListType;
 fwdclass IterableType(TypeRegistry, Type) extends Type;
 fwdclass IteratorType(TypeRegistry, Type) extends Type;
@@ -22,7 +22,7 @@ fwdclassprop TypeNullableFunction TypeRegistry.parseType;
 fwdclassprop NullableTypeList TypeRegistry.typesOfNullables;
 fwdclassprop SubroutineTypeWithAnyArgumentsList TypeRegistry.typesOfSubroutinesWithAnyArguments;
 fwdclassprop AbstractSubroutineTypeWithSpecificParametersList TypeRegistry.typesOfSubroutinesWithSpecificParameters;
-fwdclassprop ReadOnlyListTypeList TypeRegistry.typesOfReadOnlyLists;
+fwdclassprop ArrayTypeList TypeRegistry.typesOfArrays;
 fwdclassprop ListTypeList TypeRegistry.typesOfLists;
 fwdclassprop IterableTypeList TypeRegistry.typesOfIterables;
 fwdclassprop IteratorTypeList TypeRegistry.typesOfIterators;
@@ -614,12 +614,12 @@ ListType createOrFindListType(TypeRegistry typeRegistry, Type elementType) {
   return result;
 }
 
-class ReadOnlyListType extends AbstractListType {
+class ArrayType extends AbstractListType {
   // used by varargs and by copies of varargs
 
   //#override
   Boolean isSubtypeOf(Type other) {
-    return (other is ReadOnlyListType && elementType.isSubtypeOf((other as ReadOnlyListType).elementType))
+    return (other is ArrayType && elementType.isSubtypeOf((other as ArrayType).elementType))
         || (other is IterableType &&
             elementType.isSubtypeOf((other as IterableType).elementType) &&
             (other as IterableType).elementType.isSubtypeOf(elementType))
@@ -631,19 +631,19 @@ class ReadOnlyListType extends AbstractListType {
   }
 
   Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
-    super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'ReadOnlyList'), elementTypeArg);
-    append(typeRegistryArg.typesOfReadOnlyLists, this);
+    super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'Array'), elementTypeArg);
+    append(typeRegistryArg.typesOfArrays, this);
   }
 }
 
-ReadOnlyListType createOrFindReadOnlyListType(TypeRegistry typeRegistry, Type elementType) {
-  for (entry in typeRegistry.typesOfReadOnlyLists) {
+ArrayType createOrFindArrayType(TypeRegistry typeRegistry, Type elementType) {
+  for (entry in typeRegistry.typesOfArrays) {
     if (entry.elementType == elementType) {
       return entry;
     }
   }
-  ReadOnlyListType result = ReadOnlyListType(typeRegistry, elementType);
-  append(typeRegistry.typesOfReadOnlyLists, result);
+  ArrayType result = ArrayType(typeRegistry, elementType);
+  append(typeRegistry.typesOfArrays, result);
   return result;
 }
 
@@ -830,17 +830,17 @@ class TypeRegistry extends Object {
     coreListDataType = ListDataType(this);
     coreClosureType = ClosureType(this);
     coreSubroutineType = createOrFindSubroutineTypeWithAnyArgs(this, coreAnythingType);
-    coreSubscriptableType = createOrFindReadOnlyListType(this, coreWhateverType);
+    coreSubscriptableType = createOrFindArrayType(this, coreWhateverType);
     coreIterableType = createOrFindIterableType(this, coreWhateverType);
   }
 
-  // These are used by createOrFindSubroutineType(), createOrFindReadOnlyListType(), et al.
+  // These are used by createOrFindSubroutineType(), createOrFindArrayType(), et al.
   // TODO: right now managing this is O(N), could be made faster
   // e.g. keep the lists sorted and binary search.
   NullableTypeList typesOfNullables = []:NullableType;
   AbstractSubroutineTypeWithSpecificParametersList typesOfSubroutinesWithSpecificParameters = []:AbstractSubroutineTypeWithSpecificParameters;
   SubroutineTypeWithAnyArgumentsList typesOfSubroutinesWithAnyArguments = []:SubroutineTypeWithAnyArguments;
-  ReadOnlyListTypeList typesOfReadOnlyLists = []:ReadOnlyListType;
+  ArrayTypeList typesOfArrays = []:ArrayType;
   ListTypeList typesOfLists = []:ListType;
   IterableTypeList typesOfIterables = []:IterableType;
   IteratorTypeList typesOfIterators = []:IteratorType;
@@ -888,6 +888,7 @@ class TypeRegistry extends Object {
     return hasSuffix(name, 'Nullable')
         || hasSuffix(name, 'Function')
         || hasSuffix(name, 'List')
+        || hasSuffix(name, 'Array')
         || hasSuffix(name, 'Iterable');
   }
 
@@ -913,6 +914,10 @@ class TypeRegistry extends Object {
     prefix = getPrefix(name, 'List', lookupType);
     if (prefix != null) {
       return createOrFindListType(this, prefix!);
+    }
+    prefix = getPrefix(name, 'Array', lookupType);
+    if (prefix != null) {
+      return createOrFindArrayType(this, prefix!);
     }
     prefix = getPrefix(name, 'Iterable', lookupType);
     if (prefix != null) {

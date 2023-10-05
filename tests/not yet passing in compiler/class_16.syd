@@ -17,6 +17,7 @@ class A {
 }
 
 class B extends A {
+  //#override
   Integer foo() { return 2; }
 }
 
