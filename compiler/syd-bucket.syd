@@ -38,11 +38,11 @@ class TypeInference extends Object {
 }
 
 class LazyComment extends Object {
-  AnythingList parts;
+  AnythingArray parts;
 
   String flatten() {
     StringList result = []:String;
-    for ( part in parts) {
+    for (part in parts) {
       if (part is String) {
         append(result, part);
       } else if (part is Integer) {

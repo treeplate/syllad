@@ -656,7 +656,7 @@ class ValueType<T extends Object?> {
         tv,
       );
       if (iterableOrNull == null) return null;
-      return IterableValueType<ValueWrapper, Iterable<ValueWrapper>>(
+      return IterableValueType<ValueWrapper>(
         iterableOrNull,
         file,
         tv,
@@ -686,6 +686,20 @@ class ValueType<T extends Object?> {
       if (listOrNull == null) return null;
       return ListValueType<ValueWrapper>(
         listOrNull,
+        file,
+        tv,
+      );
+    }
+    if (name.name.endsWith('Array')) {
+      var arrayOrNull = ValueType.createNullable(
+        anythingType,
+        variables[name.name.substring(0, name.name.length - 5)] ??= Variable(name.name.substring(0, name.name.length - 5)),
+        file,
+        tv,
+      );
+      if (arrayOrNull == null) return null;
+      return ArrayValueType<ValueWrapper>(
+        arrayOrNull,
         file,
         tv,
       );
@@ -816,18 +830,18 @@ class GenericFunctionValueType<T> extends ValueType<SydFunction<T>> {
   }
 }
 
-class IterableValueType<T extends ValueWrapper, RT extends Iterable<T>> extends ValueType<RT> {
+class IterableValueType<T extends ValueWrapper> extends ValueType<Iterable<T>> {
   IterableValueType.internal(this.genericParameter, String file, TypeValidator tv)
       : super.internal(anythingType, variables["${genericParameter}Iterable"] ??= Variable("${genericParameter}Iterable"), file, false, tv);
   factory IterableValueType(ValueType genericParameter, String file, TypeValidator tv) {
-    return ValueType.types[variables["${genericParameter}Iterable"] ??= Variable("${genericParameter}Iterable")] as IterableValueType<T, RT>? ??
-        IterableValueType<T, RT>.internal(genericParameter, file, tv);
+    return ValueType.types[variables["${genericParameter}Iterable"] ??= Variable("${genericParameter}Iterable")] as IterableValueType<T>? ??
+        IterableValueType<T>.internal(genericParameter, file, tv);
   }
   final ValueType genericParameter;
   @override
   bool isSubtypeOf(ValueType possibleParent) {
     return super.isSubtypeOf(possibleParent) ||
-        (possibleParent is! ListValueType && possibleParent is IterableValueType && genericParameter.isSubtypeOf(possibleParent.genericParameter));
+        (possibleParent is IterableValueType && genericParameter.isSubtypeOf(possibleParent.genericParameter));
   }
 }
 
@@ -845,9 +859,9 @@ class IteratorValueType<T extends ValueWrapper> extends ValueType<Iterator<T>> {
   }
 }
 
-class ListValueType<T extends ValueWrapper> extends IterableValueType<T, List<T>> {
+class ListValueType<T extends ValueWrapper> extends ValueType<List<T>> {
   ListValueType.internal(this.genericParameter, String file, TypeValidator tv)
-      : super.internal(IterableValueType<T, Iterable<T>>(genericParameter, file, tv), file, tv);
+      : super.internal(anythingType, variables["${genericParameter}List"] ??= Variable("${genericParameter}List"), file, false, tv);
   late Variable name = variables["${genericParameter}List"] ??= Variable("${genericParameter}List");
   factory ListValueType(ValueType genericParameter, String file, TypeValidator tv) {
     return ValueType.types[variables["${genericParameter}List"] ??= Variable("${genericParameter}List")] as ListValueType<T>? ??
@@ -859,6 +873,27 @@ class ListValueType<T extends ValueWrapper> extends IterableValueType<T, List<T>
     return name == possibleParent.name ||
         (parent != null && parent!.isSubtypeOf(possibleParent)) ||
         (possibleParent is IterableValueType && genericParameter == possibleParent.genericParameter) ||
+        (possibleParent is ArrayValueType && genericParameter == possibleParent.genericParameter) ||
+        (possibleParent is ListValueType && genericParameter == possibleParent.genericParameter) ||
+        (possibleParent is NullableValueType && isSubtypeOf(possibleParent.genericParam));
+  }
+}
+
+class ArrayValueType<T extends ValueWrapper> extends ValueType<List<T>> {
+  ArrayValueType.internal(this.genericParameter, String file, TypeValidator tv)
+      : super.internal(anythingType, variables["${genericParameter}Array"] ??= Variable("${genericParameter}Array"), file, false, tv);
+  late Variable name = variables["${genericParameter}Array"] ??= Variable("${genericParameter}Array");
+  factory ArrayValueType(ValueType genericParameter, String file, TypeValidator tv) {
+    return ValueType.types[variables["${genericParameter}Array"] ??= Variable("${genericParameter}Array")] as ArrayValueType<T>? ??
+        ArrayValueType<T>.internal(genericParameter, file, tv);
+  }
+  final ValueType genericParameter;
+  @override
+  bool isSubtypeOf(ValueType possibleParent) {
+    return name == possibleParent.name ||
+        (parent != null && parent!.isSubtypeOf(possibleParent)) ||
+        (possibleParent is IterableValueType && genericParameter == possibleParent.genericParameter) ||
+        (possibleParent is ArrayValueType && genericParameter == possibleParent.genericParameter) ||
         (possibleParent is NullableValueType && isSubtypeOf(possibleParent.genericParam));
   }
 }

@@ -91,7 +91,7 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
               'sizedList rtv');
         },
         "len": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          if (l.single.typeC(null, s, -2, 0, 'interr', 'interr') is! IterableValueType) {
+          if (!l.single.typeC(null, s, -2, 0, 'interr', 'interr').isSubtypeOf(IterableValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', tv), 'intrinsics', tv))) {
             throw BSCException(
                 'len() takes a list as its argument, not a ${l.single.typeC(null, s, -2, 0, 'interr', 'interr')} ${s.reversed.join('\n')}', NoDataVG());
           }

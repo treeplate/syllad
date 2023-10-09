@@ -232,7 +232,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             throw BSCException("Attempted to subscript using non-integer index: $operandB. ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           tokens.expectChar(TokenType.closeSquare);
-          if (!result.type.isSubtypeOf(ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'internal', scope), 'internal', scope))) {
+          if (!result.type.isSubtypeOf(ArrayValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'internal', scope), 'internal', scope))) {
             throw BSCException("tried to subscript ${result.type} ($result) ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           result = SubscriptExpression(

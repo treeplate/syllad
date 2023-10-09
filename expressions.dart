@@ -197,7 +197,7 @@ class SubscriptExpression extends Expression {
 
   bool isLValue(TypeValidator scope) => true;
   ValueType get type =>
-      a.type.name == whateverVariable ? ValueType.create(null, whateverVariable, -2, 0, 'interr', '_', typeValidator) : (a.type as ListValueType).genericParameter;
+      a.type.name == whateverVariable ? ValueType.create(null, whateverVariable, -2, 0, 'interr', '_', typeValidator) : a.type is ListValueType ? (a.type as ListValueType).genericParameter : (a.type as ArrayValueType).genericParameter;
   String toString() => "$a[$b]";
 
   TypeValidator typeValidator;
@@ -225,11 +225,19 @@ class SubscriptExpression extends Expression {
       );
     int index = iV.valueC(scope, scope.stack, line, col, workspace, file);
     Object? listValue = list.valueC(scope, scope.stack, line, col, workspace, file);
+    Object? listType = list.typeC(scope, scope.stack, line, col, workspace, file);
     if (listValue is! List) {
       throw BSCException(
-        "$a is not list ${formatCursorPosition(line, col, workspace, file)}",
+        "$a is not a list ${formatCursorPosition(line, col, workspace, file)}\n${scope.stack.reversed.join('\n')}",
         scope,
       );
+    }
+    if(listType is ArrayValueType) {
+      throw BSCException(
+        "$a is an array which cannot be modified ${formatCursorPosition(line, col, workspace, file)}\n${scope.stack.reversed.join('\n')}",
+        scope,
+      );
+    
     }
     if (listValue.length <= index || index < 0) {
       throw BSCException(
@@ -333,6 +341,7 @@ class AsExpr extends Expression {
   ValueWrapper eval(Scope scope) {
     ValueWrapper op = operand.eval(scope);
     ValueType possibleChildType = op.typeC(scope, scope.stack, line, col, workspace, file);
+    // TODO: factor out code
     if (possibleChildType is IterableValueType && isType is IterableValueType && !possibleChildType.isSubtypeOf(isType)) {
       for (ValueWrapper x in op.valueC(scope, scope.stack, line, col, workspace, file)) {
         if (!x.typeC(scope, scope.stack, line, col, workspace, file).isSubtypeOf((isType as IterableValueType).genericParameter)) {
@@ -342,7 +351,29 @@ class AsExpr extends Expression {
           );
         }
       }
+      return ValueWrapper(isType, op.valueC(scope, scope.stack, line, col, workspace, file), 'as (iterable.cast style)');
+    }
+    if (possibleChildType is ListValueType && isType is ListValueType && !possibleChildType.isSubtypeOf(isType)) {
+      for (ValueWrapper x in op.valueC(scope, scope.stack, line, col, workspace, file)) {
+        if (!x.typeC(scope, scope.stack, line, col, workspace, file).isSubtypeOf((isType as ListValueType).genericParameter)) {
+          throw BSCException(
+            "${operand.type} as ${isType} had invalid element type; expected ${(isType as ListValueType).genericParameter} got $x (a ${x.typeC(scope, scope.stack, line, col, workspace, file)}) ${formatCursorPosition(line, col, workspace, file)}",
+            scope,
+          );
+        }
+      }
       return ValueWrapper(isType, op.valueC(scope, scope.stack, line, col, workspace, file), 'as (list.cast style)');
+    }
+    if (possibleChildType is ArrayValueType && isType is ArrayValueType && !possibleChildType.isSubtypeOf(isType)) {
+      for (ValueWrapper x in op.valueC(scope, scope.stack, line, col, workspace, file)) {
+        if (!x.typeC(scope, scope.stack, line, col, workspace, file).isSubtypeOf((isType as ArrayValueType).genericParameter)) {
+          throw BSCException(
+            "${operand.type} as ${isType} had invalid element type; expected ${(isType as ArrayValueType).genericParameter} got $x (a ${x.typeC(scope, scope.stack, line, col, workspace, file)}) ${formatCursorPosition(line, col, workspace, file)}",
+            scope,
+          );
+        }
+      }
+      return ValueWrapper(isType, op.valueC(scope, scope.stack, line, col, workspace, file), 'as (array.cast style)');
     }
     if (!possibleChildType.isSubtypeOf(isType)) {
       throw BSCException(

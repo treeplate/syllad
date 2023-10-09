@@ -186,7 +186,7 @@ class FunctionStatement extends Statement {
       } else {
         funscope.values[params.first.name] = MaybeConstantValueWrapper(
             ValueWrapper(
-              ListValueType(params.first.type, 'internal', tv),
+              ArrayValueType(params.first.type, 'internal', tv),
               List<ValueWrapper>.unmodifiable(a),
               'varargs',
             ),
@@ -400,7 +400,7 @@ class ForStatement extends Statement {
   @override
   StatementResult run(Scope scope) {
     ValueWrapper listVal = list.eval(scope);
-    if (!listVal.typeC(scope, scope.stack, line, col, workspace, file).isSubtypeOf(IterableValueType<ValueWrapper<dynamic>, Iterable<ValueWrapper<dynamic>>>(
+    if (!listVal.typeC(scope, scope.stack, line, col, workspace, file).isSubtypeOf(IterableValueType<ValueWrapper<dynamic>>(
         ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', tv), 'TODO FORS', tv))) {
       throw BSCException(
           "$listVal ($list) is not a list - is a ${listVal.typeC(scope, scope.stack, line, col, workspace, file)} (tried to do a for statement) ${formatCursorPosition(line, col, workspace, file)}",

@@ -250,6 +250,9 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   } else {
     expr = parseExpression(tokens, scope);
   }
+  if (expr is SubscriptExpression && expr.a.type is ArrayValueType  && tokens.currentChar != TokenType.endOfStatement) {
+    throw BSCException('Tried to modify array ${formatCursorPositionFromTokens(tokens)}', scope);
+  }
   if (tokens.current is CharToken && tokens.currentChar == TokenType.endOfStatement) {
     if (overriden || ignoreUnused)
       stderr.writeln("Comment features are currently pointless for expression statements ${formatCursorPositionFromTokens(tokens)}");
@@ -814,18 +817,18 @@ MapEntry<List<Statement>, TypeValidator> parse(
     'addLists': FunctionValueType(
         ListValueType(anythingType, 'intrinsics', intrinsics),
         InfiniteIterable(
-            ListValueType<ValueWrapper>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)),
+            ArrayValueType<ValueWrapper>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)),
         'intrinsics',
         intrinsics),
     'charsOf': FunctionValueType(
-        IterableValueType<ValueWrapper<String>, Iterable<ValueWrapper<String>>>(stringType, 'intrinsics', intrinsics), [stringType], 'intrinsics', intrinsics),
+        IterableValueType<ValueWrapper<String>>(stringType, 'intrinsics', intrinsics), [stringType], 'intrinsics', intrinsics),
     'scalarValues': FunctionValueType(
-        IterableValueType<ValueWrapper<int>, Iterable<ValueWrapper<int>>>(integerType, 'intrinsics', intrinsics), [stringType], 'intrinsics', intrinsics),
+        IterableValueType<ValueWrapper<int>>(integerType, 'intrinsics', intrinsics), [stringType], 'intrinsics', intrinsics),
     'split': FunctionValueType(ListValueType(stringType, 'intrinsics', intrinsics), [stringType, stringType], 'intrinsics', intrinsics),
     'len': FunctionValueType(
         integerType,
         [
-          IterableValueType<ValueWrapper<dynamic>, Iterable<ValueWrapper<dynamic>>>(
+          IterableValueType<ValueWrapper<dynamic>>(
               ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)
         ],
         'intrinsics',
@@ -839,7 +842,7 @@ MapEntry<List<Statement>, TypeValidator> parse(
     'iterator': FunctionValueType(
         IteratorValueType(anythingType, 'intrinsics', intrinsics),
         [
-          IterableValueType<ValueWrapper<dynamic>, Iterable<ValueWrapper<dynamic>>>(
+          IterableValueType<ValueWrapper<dynamic>>(
               ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)
         ],
         'intrinsics',
@@ -850,7 +853,7 @@ MapEntry<List<Statement>, TypeValidator> parse(
     'copy': FunctionValueType(
         ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics),
         [
-          IterableValueType<ValueWrapper<dynamic>, Iterable<ValueWrapper<dynamic>>>(
+          IterableValueType<ValueWrapper<dynamic>>(
               ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)
         ],
         'intrinsics',
@@ -878,7 +881,7 @@ MapEntry<List<Statement>, TypeValidator> parse(
     'sublist': FunctionValueType(
         ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics),
         [
-          ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics),
+          ArrayValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics),
           integerType,
           integerType
         ],
@@ -1348,7 +1351,7 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
   TypeValidator innerScope = TypeValidator([scope], NotLazyString('for loop'), false, false, false, scope.rtl);
   innerScope.newVar(
     currentName,
-    iterable.type is IterableValueType ? (iterable.type as IterableValueType).genericParameter : anythingType,
+    iterable.type is IterableValueType ? (iterable.type as IterableValueType).genericParameter : iterable.type is ListValueType ? (iterable.type as ListValueType).genericParameter : iterable.type is ArrayValueType ? (iterable.type as ArrayValueType).genericParameter : anythingType,
     tokens.current.line,
     tokens.current.col,
     tokens.workspace,
