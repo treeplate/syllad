@@ -27,6 +27,12 @@ Expression parseExpressionLeaves(TokenConsumer source) {
         return SuperSubroutineCallExpression(identifier, parseArguments(source), source.lastLocation());
       }
       return SuperExpression(identifier, source.lastLocation());
+    } else if (identifier == 'LINE') {
+      return SourceLocationLineIntegerLiteralExpression(source.lastLocation());
+    } else if (identifier == 'COL') {
+      return SourceLocationColumnIntegerLiteralExpression(source.lastLocation());
+    } else if (identifier == 'FILE') {
+      return SourceLocationFileStringLiteralExpression(source.lastLocation());
     } else if (source.isNext(tt.OpenParen)) {
       return VariableSubroutineCallExpression(identifier, parseArguments(source), source.lastLocation());
     }

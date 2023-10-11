@@ -1,0 +1,16 @@
+// expected error: unnecessary !
+// unexpected output: FAIL
+
+println('FAIL');
+
+class A {
+  IntegerNullable foo() { return null; }
+}
+
+class B extends A {
+  //#override
+  Integer foo() { return 1; }
+  Integer bar() { return foo()!; } // compiler _should_ complain about ! here
+}
+
+println(B().bar());

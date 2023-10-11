@@ -1,0 +1,9 @@
+// expected error: Cannot assign to "FILE".
+
+class SOURCE {
+  Integer FILE;
+
+  Null constructor() {
+    FILE = 1000;
+  }
+}

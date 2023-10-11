@@ -1,0 +1,9 @@
+// expected error: Cannot assign to "COL".
+
+class SOURCE {
+  Integer COL;
+
+  Null constructor() {
+    COL = 1000;
+  }
+}

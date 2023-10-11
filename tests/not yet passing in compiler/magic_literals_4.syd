@@ -1,0 +1,9 @@
+// expected error: Cannot assign to "LINE".
+
+class SOURCE {
+  Integer LINE;
+
+  Null constructor() {
+    LINE = 1000;
+  }
+}

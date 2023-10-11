@@ -250,7 +250,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   } else {
     expr = parseExpression(tokens, scope);
   }
-  if (expr is SubscriptExpression && expr.a.type is ArrayValueType  && tokens.currentChar != TokenType.endOfStatement) {
+  if (expr is SubscriptExpression && expr.a.type is ArrayValueType && tokens.currentChar != TokenType.endOfStatement) {
     throw BSCException('Tried to modify array ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   if (tokens.current is CharToken && tokens.currentChar == TokenType.endOfStatement) {
@@ -258,6 +258,9 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       stderr.writeln("Comment features are currently pointless for expression statements ${formatCursorPositionFromTokens(tokens)}");
     if (static) {
       throw BSCException("static expression statements make no sense ${formatCursorPositionFromTokens(tokens)}", scope);
+    }
+    if (expr is GetExpr) {
+      scope.usedVars.add(expr.name);
     }
     tokens.expectChar(TokenType.endOfStatement);
     return ExpressionStatement(expr, line, col);
@@ -744,17 +747,20 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     ..types.addAll(isVararg
         ? {params.first.name: TVProp(false, ListValueType(params.first.type, 'internal', scope), false)}
         : Map.fromEntries(params.map((e) => MapEntry(e.name, TVProp(false, e.type, false)))))
-    ..types[ident2] = TVProp(
-      false,
+    ..directVars.addAll([if (isVararg) params.first.name, if (!isVararg) ...params.map((e) => e.name)])
+    ..newVar(
+      ident2,
       FunctionValueType(
         expr.asType,
         typeParams,
         tokens.file,
         scope,
       ),
-      false /* it's a function, but super.ident2 shouldn't get to THIS TVProp, but the one in the main scope */,
-    )
-    ..directVars.addAll([ident2, if (isVararg) params.first.name, if (!isVararg) ...params.map((e) => e.name)]);
+      line,
+      col,
+      tokens.workspace,
+      tokens.file,
+    );
   tv.returnType = expr.asType;
   List<Statement> body = parseBlock(tokens, tv);
   List<String> unusedFuncVars = tv.types.keys
@@ -820,10 +826,8 @@ MapEntry<List<Statement>, TypeValidator> parse(
             ArrayValueType<ValueWrapper>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)),
         'intrinsics',
         intrinsics),
-    'charsOf': FunctionValueType(
-        IterableValueType<ValueWrapper<String>>(stringType, 'intrinsics', intrinsics), [stringType], 'intrinsics', intrinsics),
-    'scalarValues': FunctionValueType(
-        IterableValueType<ValueWrapper<int>>(integerType, 'intrinsics', intrinsics), [stringType], 'intrinsics', intrinsics),
+    'charsOf': FunctionValueType(IterableValueType<ValueWrapper<String>>(stringType, 'intrinsics', intrinsics), [stringType], 'intrinsics', intrinsics),
+    'scalarValues': FunctionValueType(IterableValueType<ValueWrapper<int>>(integerType, 'intrinsics', intrinsics), [stringType], 'intrinsics', intrinsics),
     'split': FunctionValueType(ListValueType(stringType, 'intrinsics', intrinsics), [stringType, stringType], 'intrinsics', intrinsics),
     'len': FunctionValueType(
         integerType,
@@ -1147,12 +1151,6 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       if (ignoreUnused) {
         cl.properties.igv(tokens.currentIdent, true);
       }
-      for (ClassValueType cvt in cl.allDescendants) {
-        cvt.properties.types[tokens.currentIdent] = TVProp(true, type, false);
-        if (ignoreUnused) {
-          cvt.properties.igv(tokens.currentIdent, true);
-        }
-      }
       tokens.moveNext();
       tokens.expectChar(TokenType.endOfStatement);
       return NopStatement();
@@ -1351,7 +1349,13 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
   TypeValidator innerScope = TypeValidator([scope], NotLazyString('for loop'), false, false, false, scope.rtl);
   innerScope.newVar(
     currentName,
-    iterable.type is IterableValueType ? (iterable.type as IterableValueType).genericParameter : iterable.type is ListValueType ? (iterable.type as ListValueType).genericParameter : iterable.type is ArrayValueType ? (iterable.type as ArrayValueType).genericParameter : anythingType,
+    iterable.type is IterableValueType
+        ? (iterable.type as IterableValueType).genericParameter
+        : iterable.type is ListValueType
+            ? (iterable.type as ListValueType).genericParameter
+            : iterable.type is ArrayValueType
+                ? (iterable.type as ArrayValueType).genericParameter
+                : anythingType,
     tokens.current.line,
     tokens.current.col,
     tokens.workspace,

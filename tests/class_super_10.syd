@@ -1,0 +1,13 @@
+// expected output: 1
+
+class A {
+  IntegerNullable foo() { return null; }
+}
+
+class B extends A {
+  Integer bar() { return foo()!; } // compiler should _not_ complain about ! here
+  //#override
+  Integer foo() { return 1; }
+}
+
+println(B().bar());

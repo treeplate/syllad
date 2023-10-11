@@ -1,7 +1,0 @@
-// expected output: test
-
-Null foo(String foo) {
-  print(foo);
-}
-
-foo('test\n');

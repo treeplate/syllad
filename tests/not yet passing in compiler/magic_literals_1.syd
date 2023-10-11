@@ -1,0 +1,7 @@
+// expected output: 5
+// expected output: 9
+// expected output: true
+
+println(LINE);
+println(COL);
+println(containsString(FILE, 'magic_literals_1.syd'));

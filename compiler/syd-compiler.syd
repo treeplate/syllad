@@ -95,7 +95,6 @@ fwdclassprop AssemblerLabel CompiledScope.classesLabel;
 fwdclassprop AssemblerLabel CompiledScope.subroutinesLabel;
 fwdclassprop CompiledScopeNullable CompiledScope.parent;
 fwdclassprop String CompiledScope.name;
-fwdclassprop Set CompiledScope.subscopes;
 fwdclassprop CompilationEnvironmentFunction CompiledScope.environment;
 fwdclassprop CompiledStackFrameScopeFunction CompiledScope.stackFrame;
 fwdclassprop CompiledLibraryFunction CompiledScope.globalScope;
@@ -106,7 +105,6 @@ fwdclassprop SubroutinePointerBucketFunction CompiledScope.registerSubroutine;
 fwdclassprop BucketFunction CompiledScope.emitCodePointerCall;
 fwdclassprop BucketFunction CompiledScope.emitSubroutinePointerCall;
 fwdclassprop BucketFunction CompiledScope.emitIntrinsicCall;
-fwdclassprop NullFunction CompiledScope.registerNestedScope;
 fwdclassprop NullFunction CompiledScope.extractInstructionsInto;
 fwdclassprop BucketFunction CompiledScope.emitCopy;
 
@@ -139,6 +137,7 @@ fwdclassprop NullFunction ClassType.generateVmt;
 fwdclassprop AssemblerLabel ClassType.vmtLabel;
 fwdclassprop Set ClassType.subtypes;
 fwdclassprop SubroutinePointerBucket ClassType.constructorSubroutine;
+fwdclassprop MemberDescriptionNullableFunction ClassType.getMember;
 
 // MemberDescription
 fwdclassprop ClassType MemberDescription.classType;
@@ -1594,6 +1593,15 @@ class ClassType extends Type {
     constructorSubroutine = constructorSubroutineArg;
   }
 
+  // This is where the initializers are kept; this must be called in the constructorSubroutine
+  // (including calling the superclass ones).
+  CompiledSubroutineNullable initializerSubroutine = null;
+
+  Null setInitializerSubroutine(CompiledSubroutine initializerSubroutineArg) {
+    assert(initializerSubroutine == null, 'cannot set initializerSubroutine twice');
+    initializerSubroutine = initializerSubroutineArg;
+  }
+
   Null registerForwardMember(String name, Type type, SourceLocation sourceLocation) {
     assert(!isDefined, 'registerForwardMember must be called before markAsDefined');
     MemberDescriptionNullable existingDeclaration = forwardDeclaredMembers.get(name) as MemberDescriptionNullable;
@@ -1656,15 +1664,12 @@ class ClassType extends Type {
     }
   }
 
-  // when we create the generated constructor, we inline all of these
-  NullFunctionList initializers = []:NullFunction;
-
   // called when defining the member (not forward declaring it)
   // this is called during the class setup, before we actually compile the members. because
   // we don't want methods and initializers to be able to refer to members defined after them
   // (unless forward declared), we do not mark them as declared here, we only mark them as
   // declared when we actually compile them.
-  Null registerMember(String name, Type type, Boolean isField, NullFunctionNullable initializer, SourceLocation sourceLocation) {
+  Null registerMember(String name, Type type, Boolean isField, SourceLocation sourceLocation) {
     assert(isDefined, 'registerMember must be called after markAsDefined');
     assert(name == kConstructor || supertype.members.get(name) == null || type.isSubtypeOf((supertype.members.get(name) as MemberDescription).staticType),
            'tried to register overriding member with broader type than inherited type');
@@ -1695,9 +1700,7 @@ class ClassType extends Type {
         }
       }
       member.setIsField();
-      append(initializers, initializer);
     } else {
-      assert(initializer == null, 'Initializers can only be used with fields.');
       if (member.setNeedsMethods()) {
         if (isInherited) {  
           // also require methods for it in the rest of the class hierarchy
@@ -1719,7 +1722,17 @@ class ClassType extends Type {
     if (forwardDeclaredMember != null) {
       return forwardDeclaredMember;
     }
-    return members.get(name) as MemberDescriptionNullable;
+    MemberDescriptionNullable localMember = members.get(name) as MemberDescriptionNullable;
+    if (localMember != null) {
+      return localMember;
+    }
+    if (!isDefined && supertype != this) {
+      MemberDescriptionNullable inheritedMember = supertype.getMember(name);
+      if (inheritedMember != null) {
+        return inheritedMember;
+      }
+    }
+    return null;
   }
 
   MemberDescriptionNullable getRealMember(String name) {
@@ -2106,12 +2119,6 @@ class CompiledScope extends Object {
       value = parent!.internalLookupIdentifier(name);
     }
     return value;
-  }
-
-  Set subscopes = Set(); // CompiledScope
-
-  Null registerNestedScope(CompiledScope nestedScope) {
-    subscopes.add(nestedScope);
   }
 
   // Caller must incref variable if appropriate.
@@ -2525,7 +2532,7 @@ class CompiledSubroutine extends CompiledStackFrameScope {
       label.deriveWith('annotation'),
       name,
       environment().coreStringType, 
-      concat('annotation for ', name, '(line ', __LINE__, ' col ', __COL__, ' in ', __FILE__, ')'),
+      concat('annotation for ', name, '(line ', LINE, ' col ', COL, ' in ', FILE, ')'),
       concat('"', name, '"'),
     );
   }

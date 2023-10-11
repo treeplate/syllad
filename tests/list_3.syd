@@ -1,0 +1,3 @@
+// expected error: type error
+
+[1]:String;

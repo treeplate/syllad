@@ -3,14 +3,15 @@ import 'parser-core.dart';
 import 'expressions.dart';
 
 Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
+  Token current = tokens.current;
   switch (tokens.current.runtimeType) {
     case IntToken:
       int i = tokens.integer;
       tokens.moveNext();
       return IntLiteralExpression(
         i,
-        tokens.current.line,
-        tokens.current.col,
+        current.line,
+        current.col,
         tokens.workspace,
         tokens.file,
       );
@@ -29,15 +30,15 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           return SuperExpression(
             member,
             scope,
-            tokens.current.line,
-            tokens.current.col,
+            current.line,
+            current.col,
             tokens.workspace,
             tokens.file,
             true,
           );
         }
         TypeValidator props = superclass.properties;
-        if (props.igv(member, true, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, true, false, false, true) == null) {
+        if (props.igv(member, true, current.line, current.col, tokens.workspace, tokens.file, true, false, false, true) == null) {
           throw BSCException(
             '${scope.currentClassType.name.name}\'s superclass (${superclass.name.name}) has no member ${member.name}; attempted \'super.${member.name}\' ${formatCursorPositionFromTokens(tokens)}',
             scope,
@@ -47,8 +48,8 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         return SuperExpression(
           member,
           scope,
-          tokens.current.line,
-          tokens.current.col,
+          current.line,
+          current.col,
           tokens.workspace,
           tokens.file,
           false,
@@ -66,26 +67,26 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         return AssertExpression(
           condition,
           comment,
-          tokens.current.line,
-          tokens.current.col,
+          current.line,
+          current.col,
           tokens.workspace,
           tokens.file,
         );
-      } else if (tokens.currentIdent == variables['__LINE__']) {
+      } else if (tokens.currentIdent == variables['LINE']) {
         tokens.moveNext();
-        return IntLiteralExpression(tokens.current.line, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
-      } else if (tokens.currentIdent == variables['__COL__']) {
+        return IntLiteralExpression(current.line, current.line, current.col, tokens.workspace, tokens.file);
+      } else if (tokens.currentIdent == variables['COL']) {
         tokens.moveNext();
-        return IntLiteralExpression(tokens.current.col, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
-      } else if (tokens.currentIdent == variables['__FILE__']) {
+        return IntLiteralExpression(current.col, current.line, current.col, tokens.workspace, tokens.file);
+      } else if (tokens.currentIdent == variables['FILE']) {
         tokens.moveNext();
-        return StringLiteralExpression(tokens.file, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
+        return StringLiteralExpression(tokens.file, current.line, current.col, tokens.workspace, tokens.file);
       }
       Expression e = GetExpr(
         tokens.currentIdent,
         scope,
-        tokens.current.line,
-        tokens.current.col,
+        current.line,
+        current.col,
         tokens.workspace,
         tokens.file,
       );
@@ -94,7 +95,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
     case StringToken:
       String s = tokens.string;
       tokens.moveNext();
-      return StringLiteralExpression(s, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
+      return StringLiteralExpression(s, current.line, current.col, tokens.workspace, tokens.file);
     case CommentFeatureToken:
       throw BSCException(
         'Unexpected comment feature, remove please. ${formatCursorPositionFromTokens(tokens)}',
@@ -125,7 +126,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         tokens.moveNext();
         if (tokens.current is CharToken && tokens.currentChar == TokenType.colon) {
           tokens.moveNext();
-          ValueType t = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+          ValueType t = ValueType.create(null, tokens.currentIdent, current.line, current.col, tokens.workspace, tokens.file, scope);
           for (Expression expr in elements) {
             if (!expr.type.isSubtypeOf(t)) {
               throw BSCException(
@@ -140,8 +141,8 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         return ListLiteralExpression(
           elements,
           type,
-          tokens.current.line,
-          tokens.current.col,
+          current.line,
+          current.col,
           tokens.workspace,
           tokens.file,scope,
         );
@@ -677,6 +678,12 @@ Expression parseEqNeq(TokenIterator tokens, TypeValidator scope) {
     } else if (tokens.currentChar == TokenType.notEquals) {
       tokens.moveNext();
       Expression operandB = parseEqNeq(tokens, scope);
+      if (!operandA.type.isSubtypeOf(operandB.type) && !operandB.type.isSubtypeOf(operandA.type)) {
+        throw BSCException(
+          "lhs and rhs of != are not compatible types (lhs is $operandA, a ${operandA.type}, rhs is $operandB, a ${operandB.type}) ${formatCursorPositionFromTokens(tokens)}}",
+          scope,
+        );
+      }
       return NotExpression(
         EqualsExpression(
           operandA,

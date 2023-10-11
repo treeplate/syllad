@@ -271,7 +271,7 @@ class TypeValidator extends VariableGroup {
       bool acceptFwd = true,
       bool forSuper = false]) {
     assert(!checkParent || escapeClass || isClass || isClassOf, '${this.debugName}');
-    if (addToUsedVars) {
+    if (addToUsedVars && !usedVars.contains(name)) {
       usedVars.add(name);
     }
     assert(!parents.contains(this));

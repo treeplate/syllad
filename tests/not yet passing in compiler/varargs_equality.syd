@@ -1,7 +1,7 @@
 // expected output: true
 
 Null foo(String... args) {
-    StringList a = args;
+    StringArray a = args;
     print(a == args);
 }
 

@@ -1,0 +1,5 @@
+// expected output: 5
+// expected output: 14
+
+println(LINE + 1);
+println(COL + LINE);

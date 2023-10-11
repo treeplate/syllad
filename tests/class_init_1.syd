@@ -1,0 +1,34 @@
+// expected output: --1
+// expected output: a
+// expected output: --2
+// expected output: a
+// expected output: b
+// expected output: --3
+// expected output: a
+// expected output: b
+// expected output: c.a
+// expected output: c.b
+// expected output: --4
+
+class A { 
+  //#ignore_unused
+  Whatever a = println('a');
+}
+
+class B extends A { 
+  //#ignore_unused
+  Whatever b = println('b');
+}
+
+class C extends B { 
+  Whatever a = println('c.a');
+  Whatever b = println('c.b');
+}
+
+println('--1');
+A();
+println('--2');
+B();
+println('--3');
+C();
+println('--4');

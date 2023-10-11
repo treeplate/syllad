@@ -1,6 +1,3 @@
-
-// TODO: add a test for [1]:String
-
 import 'syd-tokenizer.syd';
 import 'syd-assembler.syd';
 import 'syd-x64-instructions.syd';

@@ -59,7 +59,7 @@ Whatever single(WhateverIterable iterable) {
 // STRINGS
 
 //#ignore_unused
-String joinList(WhateverList args) {
+String joinList(WhateverArray args) {
   StringBuffer result = createStringBuffer();
   for (arg in args) {
     writeStringBuffer(result, concat(arg));

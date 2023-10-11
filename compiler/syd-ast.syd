@@ -82,6 +82,24 @@ class StringLiteralExpression extends Expression {
   }
 }
 
+class SourceLocationFileStringLiteralExpression extends Expression {
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    return scope.environment().registerStringConstant(
+      scope.label.deriveWith('file'),
+      sourceLocation.filename,
+      scope.environment().coreStringType,
+      concat(sourceLocation),
+      commentNameForString('FILE'),
+    );
+  }
+
+  //#override
+  String toStringIndent(Integer indent) {
+    return 'FILE';
+  }
+}
+
 class IntegerLiteralExpression extends Expression {
   Integer value;
 
@@ -105,6 +123,32 @@ class IntegerLiteralExpression extends Expression {
   Null constructor(Integer valueArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     value = valueArg;
+  }
+}
+
+class SourceLocationLineIntegerLiteralExpression extends Expression {
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    scope.environment().coreIntegerType.markConstructed();
+    return scope.environment().integer(sourceLocation.lineNo);
+  }
+
+  //#override
+  String toStringIndent(Integer indent) {
+    return 'LINE';
+  }
+}
+
+class SourceLocationColumnIntegerLiteralExpression extends Expression {
+  //#override
+  Bucket generateInstructions(CompiledScope scope) {
+    scope.environment().coreIntegerType.markConstructed();
+    return scope.environment().integer(sourceLocation.colNo);
+  }
+
+  //#override
+  String toStringIndent(Integer indent) {
+    return 'COL';
   }
 }
 
@@ -1638,7 +1682,12 @@ class DeclarationStatement extends Statement {
 class FieldDeclarationStatement extends DeclarationStatement {
   TypeIdentifier type;
   ExpressionNullable rValue;
-  
+  ClassType parentClass;
+
+  Null setParentClass(ClassType parentClassArg) {
+    parentClass = parentClassArg;
+  }
+
   //#override
   String toStringIndent(Integer indent) {
     if (rValue == null) {
@@ -1670,10 +1719,11 @@ class FieldDeclarationStatement extends DeclarationStatement {
       }
     }
   }
-
-  Null declare(ClassType classType, CompiledScope scope) {
+  
+  //#override
+  Null generateInstructions(CompiledScope scope) {
     staticType = type.generateInstructions(scope);
-    MemberDescriptionNullable inheritedMember = classType.getRealMember(identifier);
+    MemberDescriptionNullable inheritedMember = parentClass.getRealMember(identifier);
     if (inheritedMember != null) {
       if (inheritedMember!.isInherited) {
         if (!staticType.isSubtypeOf(inheritedMember!.staticType)) {
@@ -1684,19 +1734,13 @@ class FieldDeclarationStatement extends DeclarationStatement {
         throw(concat('Identifier ', identifier, ' redeclared at ', sourceLocation));
       }
     }
-    classType.registerMember(identifier, staticType, true, generateInitializerInstructions, sourceLocation);
-  }
-  
-  //#override
-  Null generateInstructions(CompiledScope scope) {
-    assert(scope is CompiledSubroutine, 'FieldDeclarationStatement compiled outside of class constructor');
-    assert((scope as CompiledSubroutine).parentClass != null, 'FieldDeclarationStatement compiled outside of class');
     if (identifier == kConstructor) {
       throw(concat('Identifier "', identifier, '" is an invalid name for a field at ', sourceLocation));
     }
+    parentClass.registerMember(identifier, staticType, true, sourceLocation);
     generateInitializerInstructions(scope);
-    (scope as CompiledSubroutine).parentClass!.getMember(identifier)!.markDeclared();
-    (scope as CompiledSubroutine).parentClass!.getMember(identifier)!.markDefined();
+    parentClass.getMember(identifier)!.markDeclared();
+    parentClass.getMember(identifier)!.markDefined();
   }
 
   Null constructor(TypeIdentifier typeArg, String identifierArg, ExpressionNullable rValueArg, SourceLocation sourceLocationArg) {
@@ -1846,9 +1890,14 @@ class AbstractSubroutineDeclarationStatement extends DeclarationStatement {
 class MethodDeclarationStatement extends AbstractSubroutineDeclarationStatement {
   ClassType parentClass;
 
-  Null declare(ClassType classType, CompiledScope scope) {
+  Null setParentClass(ClassType parentClassArg) {
+    parentClass = parentClassArg;
+  }
+
+  //#override
+  Null generateInstructions(CompiledScope scope) {
     generateStaticType(scope);
-    MemberDescriptionNullable inheritedMember = classType.getRealMember(identifier);
+    MemberDescriptionNullable inheritedMember = parentClass.getRealMember(identifier);
     if (inheritedMember != null) {
       if (inheritedMember!.isInherited) {
         if (inheritedMember!.name != kConstructor && !staticType.isSubtypeOf(inheritedMember!.staticType)) {
@@ -1859,8 +1908,8 @@ class MethodDeclarationStatement extends AbstractSubroutineDeclarationStatement 
         throw(concat('Identifier ', identifier, ' redeclared at ', sourceLocation));
       }
     }
-    classType.registerMember(identifier, staticType, false, null, sourceLocation);
-    parentClass = classType;
+    parentClass.registerMember(identifier, staticType, false, sourceLocation);
+    super.generateInstructions(scope);
   }
 
   //#override
@@ -1870,7 +1919,6 @@ class MethodDeclarationStatement extends AbstractSubroutineDeclarationStatement 
 
   //#override
   Null registerSubroutine(CompiledScope scope, CompiledSubroutine subroutine) {
-    scope.registerNestedScope(subroutine);
     MemberDescription member = parentClass.getMember(identifier)!;
     member.markDeclared();
     member.markDefined();
@@ -2164,6 +2212,7 @@ class ClassDeclaration extends AbstractClassDeclaration {
   //#override
   Null generateInstructions(CompiledScope scope) {
     TypeNullable existingStaticType = scope.globalScope().lookupType(identifier);
+    CompilationEnvironment environment = scope.environment();
     if (existingStaticType == null) {
       declareType(scope);
       assert(scope.globalScope().lookupType(identifier) == staticType, 'invariant violation');
@@ -2196,18 +2245,32 @@ class ClassDeclaration extends AbstractClassDeclaration {
       assert(superclassName != null, 'we were not defined');
       throw(concat('Cannot extend a class that has not yet been defined at ', superclassName!.sourceLocation));
     }
+    CompiledSubroutineNullable initializer = null;
     // register members on the class type
     for (member in members) {
       if (member is FieldDeclarationStatement) {
-        (member as FieldDeclarationStatement).declare(staticType as ClassType, scope);
+        (member as FieldDeclarationStatement).setParentClass(staticType as ClassType);
+        if (initializer == null) {
+          initializer = CompiledSubroutineWithSpecificParameters(
+            scope,
+            createOrFindSubroutineTypeWithSpecificParameters(environment, environment.coreNullType, []:Type),
+            concat(classType.name, '.initializer#'),
+            classType,
+          );
+          classType.setInitializerSubroutine(initializer!);
+          scope.registerSubroutine(initializer!, false);
+        }
+        member.generateInstructions(initializer!);
       } else if (member is MethodDeclarationStatement) {
-        (member as MethodDeclarationStatement).declare(staticType as ClassType, scope);
+        (member as MethodDeclarationStatement).setParentClass(staticType as ClassType);
+        member.generateInstructions(scope);
       } else {
         assert(false, concat('unexpected declaration statement (', member.className, ') in class at ', member.sourceLocation));
       }
     }
     classType.checkForMissingForwardDeclaredMembers(sourceLocation);
     DeclarationStatementNullable constructorMember = null;
+    // look for the constructor
     for (member in members) {
       if (member.identifier == kConstructor) {
         // we found it!
@@ -2219,7 +2282,7 @@ class ClassDeclaration extends AbstractClassDeclaration {
     Boolean constructorIsVarArgs;
     if (constructorMember != null) {
       // we have an explicit constructor
-      if (!constructorMember!.staticType.isSubtypeOf(createOrFindSubroutineTypeWithAnyArgs(scope.environment(), scope.environment().coreNullType))) {
+      if (!constructorMember!.staticType.isSubtypeOf(createOrFindSubroutineTypeWithAnyArgs(environment, environment.coreNullType))) {
         throw(concat('Constructor must be a NullFunction, but is declared as a ', constructorMember!.staticType.name, ' at ', constructorMember!.sourceLocation));
       }
       if (constructorMember is AbstractSubroutineDeclarationStatement) {
@@ -2238,35 +2301,37 @@ class ClassDeclaration extends AbstractClassDeclaration {
       } else {
         // constructor was probably declared as a property on this class (grr!)
         assert(constructorMember!.staticType is SubroutineTypeWithAnyArguments, 'unexpected subroutine type');
-        constructorParameters = [scope.environment().coreAnythingType]:Type;
+        constructorParameters = [environment.coreAnythingType]:Type;
         constructorIsVarArgs = true;
       }
-    } else if ((staticType as ClassType).supertype == staticType) {
+    } else if (classType.supertype == staticType) {
       // this must be the __Object definition
       throw(concat('Base class must have an explicit constructor but has none at ', sourceLocation));
     } else {
       // we did not have an explicit constructor, so our constructor just defers to the superclass constructor
-      if ((staticType as ClassType).supertype.constructorSubroutine.staticType is SubroutineTypeWithVarArgs) {
-        constructorParameters = [((staticType as ClassType).supertype.constructorSubroutine.staticType as SubroutineTypeWithVarArgs).parameterType]:Type;
+      if (classType.supertype.constructorSubroutine.staticType is SubroutineTypeWithVarArgs) {
+        constructorParameters = [(classType.supertype.constructorSubroutine.staticType as SubroutineTypeWithVarArgs).parameterType]:Type;
         constructorIsVarArgs = true;
       } else {
-        assert((staticType as ClassType).supertype.constructorSubroutine.staticType is SubroutineTypeWithSpecificParameters, 'unexpected subroutine type');
-        constructorParameters = ((staticType as ClassType).supertype.constructorSubroutine.staticType as SubroutineTypeWithSpecificParameters).parameterTypes;
+        assert(classType.supertype.constructorSubroutine.staticType is SubroutineTypeWithSpecificParameters, 'unexpected subroutine type');
+        constructorParameters = (classType.supertype.constructorSubroutine.staticType as SubroutineTypeWithSpecificParameters).parameterTypes;
         constructorIsVarArgs = false;
       }
     }
+    SubroutinePointerBucket generatedConstructorBucket;
     if (existingStaticType != null) {
+      generatedConstructorBucket = classType.constructorSubroutine;
       // we must have had a forward class declaration; check that what we are going to define matches it
       if (constructorIsVarArgs) {
         assert(len(constructorParameters) == 1, 'internal inconsistency');
-        if (!((staticType as ClassType).constructorSubroutine.staticType is SubroutineTypeWithVarArgs) ||
-             ((staticType as ClassType).constructorSubroutine.staticType as SubroutineTypeWithVarArgs).parameterType != constructorParameters[0]) {
+        if (!(generatedConstructorBucket.staticType is SubroutineTypeWithVarArgs) ||
+             (generatedConstructorBucket.staticType as SubroutineTypeWithVarArgs).parameterType != constructorParameters[0]) {
           throw(concat('Forward class declaration constructor signature did not match constructor declaration at ', constructorMember!.sourceLocation));
         }
       } else {
-        if (!((staticType as ClassType).constructorSubroutine.staticType is SubroutineTypeWithSpecificParameters) ||
+        if (!(generatedConstructorBucket.staticType is SubroutineTypeWithSpecificParameters) ||
             !listEqualsWithComparator(
-              ((staticType as ClassType).constructorSubroutine.staticType as SubroutineTypeWithSpecificParameters).parameterTypes,
+              (generatedConstructorBucket.staticType as SubroutineTypeWithSpecificParameters).parameterTypes,
               constructorParameters,
               typesEquivalent,
              )) {
@@ -2275,31 +2340,37 @@ class ClassDeclaration extends AbstractClassDeclaration {
       }
     } else {
       createGeneratedConstructor(scope, constructorParameters, constructorIsVarArgs);
+      generatedConstructorBucket = classType.constructorSubroutine;
     }
-    SubroutinePointerBucket generatedConstructorBucket = (staticType as ClassType).constructorSubroutine;
     CompiledGeneratedConstructorSubroutine generatedConstructorScope = generatedConstructorBucket.subroutine as CompiledGeneratedConstructorSubroutine;
-    Bucket thisPointer = generatedConstructorScope.emitIntrinsicCall(scope.environment().classAllocatorIntrinsicName, [ VmtPointerBucket(scope.environment(), staticType as ClassType) ]:Bucket);
+    Bucket thisPointer = generatedConstructorScope.emitIntrinsicCall(environment.classAllocatorIntrinsicName, [ VmtPointerBucket(environment, staticType as ClassType) ]:Bucket);
     generatedConstructorScope.setThisPointer(thisPointer);
     // call initializers
-    ClassTypeList classHierarchy = []:ClassType;
-    while (classType.supertype != classType) {
-      classType = classType.supertype;
-      append(classHierarchy, classType);
+    ClassType ancestorClassType = classType;
+    ClassTypeList classHierarchy = [classType]:ClassType;
+    while (ancestorClassType.supertype != ancestorClassType) {
+      ancestorClassType = ancestorClassType.supertype;
+      append(classHierarchy, ancestorClassType);
     }
     Integer index = len(classHierarchy) - 1;
     while (index >= 0) {
-      for (initializer in classHierarchy[index].initializers) {
-        initializer(generatedConstructorScope);
+      CompiledSubroutineNullable initializer = classHierarchy[index].initializerSubroutine;
+      if (initializer != null) {
+        generatedConstructorScope.emitCodePointerCall(
+          initializer!.type as AbstractSubroutineTypeWithSpecificParameters,
+          initializer!.codePointer,
+          null,
+          thisPointer,
+          []:Bucket,
+          null, null, // source locations
+        );
       }
       index -= 1;
-    }
-    for (member in members) {
-      member.generateInstructions(generatedConstructorScope);
     }
     generatedConstructorBucket.markConstructorAsDeclared();
     // userConstructor should never be null, because the base class must have a constructor
     // userConstructor should never be a field, because we prevent properties from being declared with the name kConstructor
-    CompiledSubroutine userConstructor = (staticType as ClassType).getMember(kConstructor)!.methodImplementation!;
+    CompiledSubroutine userConstructor = classType.getMember(kConstructor)!.methodImplementation!;
     generatedConstructorScope.setActualConstructor(userConstructor);
     // Finally, we set the generated constructor's return type and value to the
     // newly allocated thisPointer. The CompiledGeneratedConstructorSubroutine logic

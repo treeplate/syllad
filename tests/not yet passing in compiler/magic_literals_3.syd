@@ -1,0 +1,25 @@
+// expected output: 17
+// expected output: 11 19 true
+// expected output: 100 200 three hundred
+
+class SOURCE {
+  Integer LINE = 100;
+  Integer COL = 200;
+  String FILE = 'three hundred';
+
+  Null a() {
+    println(LINE, COL, containsString('magic_literals', FILE));
+    println(this.LINE, this.COL, this.FILE);
+  }
+
+  Integer test(Integer LINE) {
+    return LINE + 1;
+  }
+}
+
+SOURCE s = SOURCE();
+println(s.test(123));
+s.a();
+
+//#ignore_unused
+Integer COL = 456;
