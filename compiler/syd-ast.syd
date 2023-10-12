@@ -130,7 +130,7 @@ class SourceLocationLineIntegerLiteralExpression extends Expression {
   //#override
   Bucket generateInstructions(CompiledScope scope) {
     scope.environment().coreIntegerType.markConstructed();
-    return scope.environment().integer(sourceLocation.lineNo);
+    return scope.environment().integer(sourceLocation.startLineNo);
   }
 
   //#override
@@ -143,7 +143,7 @@ class SourceLocationColumnIntegerLiteralExpression extends Expression {
   //#override
   Bucket generateInstructions(CompiledScope scope) {
     scope.environment().coreIntegerType.markConstructed();
-    return scope.environment().integer(sourceLocation.colNo);
+    return scope.environment().integer(sourceLocation.startColNo);
   }
 
   //#override

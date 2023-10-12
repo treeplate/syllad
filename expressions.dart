@@ -102,7 +102,11 @@ class GetExpr extends Expression {
   @override
   ValueType get asType => ValueType.create(anythingType, name, line, col, workspace, file, typeValidator);
   @override
-  late final ValueType type = typeValidator.igv(name, false, ) ?? (throw BSCException('unknown variable ${name.name} ${formatCursorPosition(line, col, workspace, file)}', typeValidator));
+  late final ValueType type = typeValidator.igv(
+        name,
+        false,
+      ) ??
+      (throw BSCException('unknown variable ${name.name} ${formatCursorPosition(line, col, workspace, file)}', typeValidator));
 
   @override
   eval(Scope scope) {
@@ -196,8 +200,11 @@ class SubscriptExpression extends Expression {
   final Expression b;
 
   bool isLValue(TypeValidator scope) => true;
-  ValueType get type =>
-      a.type.name == whateverVariable ? ValueType.create(null, whateverVariable, -2, 0, 'interr', '_', typeValidator) : a.type is ListValueType ? (a.type as ListValueType).genericParameter : (a.type as ArrayValueType).genericParameter;
+  ValueType get type => a.type.name == whateverVariable
+      ? ValueType.create(null, whateverVariable, -2, 0, 'interr', '_', typeValidator)
+      : a.type is ListValueType
+          ? (a.type as ListValueType).genericParameter
+          : (a.type as ArrayValueType).genericParameter;
   String toString() => "$a[$b]";
 
   TypeValidator typeValidator;
@@ -232,12 +239,11 @@ class SubscriptExpression extends Expression {
         scope,
       );
     }
-    if(listType is ArrayValueType) {
+    if (listType is ArrayValueType) {
       throw BSCException(
         "$a is an array which cannot be modified ${formatCursorPosition(line, col, workspace, file)}\n${scope.stack.reversed.join('\n')}",
         scope,
       );
-    
     }
     if (listValue.length <= index || index < 0) {
       throw BSCException(
@@ -337,51 +343,40 @@ class AsExpr extends Expression {
 
   late ValueType type = isType;
 
+  ValueWrapper? iterableCast<T extends ValueType<Iterable<ValueWrapper>>>(Scope scope, ValueType possibleChildType, Object? possibleChildValue) {
+    if (possibleChildType is T && isType is T && !possibleChildType.isSubtypeOf(isType)) {
+      ValueType genericParameter = (isType as dynamic).genericParameter;
+      for (ValueWrapper x in possibleChildValue as Iterable) {
+        ValueType xType = x.typeC(scope, scope.stack, line, col, workspace, file);
+        if (!xType.isSubtypeOf(genericParameter)) {
+          throw BSCException(
+            "$this had invalid element type; expected $genericParameter got $x (a $xType) ${formatCursorPosition(line, col, workspace, file)}",
+            scope,
+          );
+        }
+      }
+      return ValueWrapper(isType, possibleChildValue, 'as (iterable.cast style)');
+    }
+    return null;
+  }
+
   @override
   ValueWrapper eval(Scope scope) {
     ValueWrapper op = operand.eval(scope);
     ValueType possibleChildType = op.typeC(scope, scope.stack, line, col, workspace, file);
-    // TODO: factor out code
-    if (possibleChildType is IterableValueType && isType is IterableValueType && !possibleChildType.isSubtypeOf(isType)) {
-      for (ValueWrapper x in op.valueC(scope, scope.stack, line, col, workspace, file)) {
-        if (!x.typeC(scope, scope.stack, line, col, workspace, file).isSubtypeOf((isType as IterableValueType).genericParameter)) {
-          throw BSCException(
-            "${operand.type} as ${isType} had invalid element type; expected ${(isType as IterableValueType).genericParameter} got $x (a ${x.typeC(scope, scope.stack, line, col, workspace, file)}) ${formatCursorPosition(line, col, workspace, file)}",
-            scope,
-          );
-        }
-      }
-      return ValueWrapper(isType, op.valueC(scope, scope.stack, line, col, workspace, file), 'as (iterable.cast style)');
-    }
-    if (possibleChildType is ListValueType && isType is ListValueType && !possibleChildType.isSubtypeOf(isType)) {
-      for (ValueWrapper x in op.valueC(scope, scope.stack, line, col, workspace, file)) {
-        if (!x.typeC(scope, scope.stack, line, col, workspace, file).isSubtypeOf((isType as ListValueType).genericParameter)) {
-          throw BSCException(
-            "${operand.type} as ${isType} had invalid element type; expected ${(isType as ListValueType).genericParameter} got $x (a ${x.typeC(scope, scope.stack, line, col, workspace, file)}) ${formatCursorPosition(line, col, workspace, file)}",
-            scope,
-          );
-        }
-      }
-      return ValueWrapper(isType, op.valueC(scope, scope.stack, line, col, workspace, file), 'as (list.cast style)');
-    }
-    if (possibleChildType is ArrayValueType && isType is ArrayValueType && !possibleChildType.isSubtypeOf(isType)) {
-      for (ValueWrapper x in op.valueC(scope, scope.stack, line, col, workspace, file)) {
-        if (!x.typeC(scope, scope.stack, line, col, workspace, file).isSubtypeOf((isType as ArrayValueType).genericParameter)) {
-          throw BSCException(
-            "${operand.type} as ${isType} had invalid element type; expected ${(isType as ArrayValueType).genericParameter} got $x (a ${x.typeC(scope, scope.stack, line, col, workspace, file)}) ${formatCursorPosition(line, col, workspace, file)}",
-            scope,
-          );
-        }
-      }
-      return ValueWrapper(isType, op.valueC(scope, scope.stack, line, col, workspace, file), 'as (array.cast style)');
-    }
-    if (!possibleChildType.isSubtypeOf(isType)) {
-      throw BSCException(
-        "as failed; expected $isType got ${op.toStringWithStack(scope.stack, line, col, workspace, file, false)} (a $possibleChildType) \n${formatCursorPosition(line, col, workspace, file)} ${scope.stack.reversed.join('\n')}",
-        scope,
-      );
-    }
-    return op;
+    Object? possibleChildValue = op.valueC(scope, scope.stack, line, col, workspace, file);
+    return iterableCast<IterableValueType>(scope, possibleChildType, possibleChildValue) ??
+        iterableCast<ListValueType>(scope, possibleChildType, possibleChildValue) ??
+        iterableCast<ArrayValueType>(scope, possibleChildType, possibleChildValue) ??
+        () {
+          if (!possibleChildType.isSubtypeOf(isType)) {
+            throw BSCException(
+              "as failed; expected $isType got ${op.toStringWithStack(scope.stack, line, col, workspace, file, false)} (a $possibleChildType) \n${formatCursorPosition(line, col, workspace, file)} ${scope.stack.reversed.join('\n')}",
+              scope,
+            );
+          }
+          return op;
+        }();
   }
 }
 
@@ -756,7 +751,7 @@ class ListLiteralExpression extends Expression {
             scope);
       }
     }
-    return ValueWrapper(ListValueType(genParam, file,tv), params, 'literal');
+    return ValueWrapper(ListValueType(genParam, file, tv), params, 'literal');
   }
 }
 

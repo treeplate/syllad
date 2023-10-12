@@ -270,8 +270,25 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
   stderr(concat('tokenizing "', filename, '"...'));
   Integer lineNo = 1;
   Integer colNo = 0;
-  Integer lastInterestingLineNo = -1;
-  Integer lastInterestingColNo = -1;
+  Integer startLineNo = -1;
+  Integer startColNo = -1;
+
+  Token createToken(tt typeArg, Anything dataArg) {
+    return Token(
+      typeArg, 
+      SourceLocation(startLineNo, startColNo, lineNo, colNo, filename),
+      dataArg,
+    );
+  }
+
+  Token createTokenWithBacktrack(tt typeArg, Anything dataArg) {
+    return Token(
+      typeArg, 
+      SourceLocation(startLineNo, startColNo, lineNo, colNo - 1, filename),
+      dataArg,
+    );
+  }
+
   ts state = ts.Top;
   Anything buffer;
   TokenList tokens = []:Token;
@@ -279,6 +296,8 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
     colNo += 1;
     while (true) {
       if (state == ts.Top) {
+        startLineNo = lineNo;
+        startColNo = colNo;
         if (ch == 0x0a) { // LF
           lineNo += 1;
           colNo = 0;
@@ -294,8 +313,6 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
         } else if (ch == 0x22) { // "
           state = ts.DoubleQuoteString;
           buffer = []:String;
-          lastInterestingLineNo = lineNo;
-          lastInterestingColNo = colNo;
           break;
         } else if (ch == 0x25) { // %
           state = ts.Modulus;
@@ -306,14 +323,12 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
         } else if (ch == 0x27) { // '
           state = ts.SingleQuoteString;
           buffer = []:String;
-          lastInterestingLineNo = lineNo;
-          lastInterestingColNo = colNo;
           break;
         } else if (ch == 0x28) { // (
-          append(tokens, Token(tt.OpenParen, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.OpenParen, null));
           break;
         } else if (ch == 0x29) { // )
-          append(tokens, Token(tt.CloseParen, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.CloseParen, null));
           break;
         } else if (ch == 0x2a) { // *
           state = ts.Asterisk;
@@ -322,7 +337,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           state = ts.Plus;
           break;
         } else if (ch == 0x2c) { // ,
-          append(tokens, Token(tt.Comma, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.Comma, null));
           break;
         } else if (ch == 0x2d) { // -
           state = ts.Minus;
@@ -341,10 +356,10 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           buffer = ch - 0x30;
           break;
         } else if (ch == 0x3a) { // :
-          append(tokens, Token(tt.Colon, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.Colon, null));
           break;
         } else if (ch == 0x3b) { // ;
-          append(tokens, Token(tt.Semicolon, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.Semicolon, null));
           break;
         } else if (ch == 0x3c) { // <
           state = ts.LessThan;
@@ -362,28 +377,28 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           buffer = [chr(ch)];
           break;
         } else if (ch == 0x5b) { // [
-          append(tokens, Token(tt.OpenBracket, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.OpenBracket, null));
           break;
         } else if (ch == 0x5d) { // ]
-          append(tokens, Token(tt.CloseBracket, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.CloseBracket, null));
           break;
         } else if (ch == 0x5e) { // ^
           state = ts.Caret;
           break;
         } else if (ch == 0x7b) { // {
-          append(tokens, Token(tt.OpenBrace, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.OpenBrace, null));
           break;
         } else if (ch == 0x7c) { // |
           state = ts.VerticalBar;
           break;
         } else if (ch == 0x7d) { // }
-          append(tokens, Token(tt.CloseBrace, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.CloseBrace, null));
           break;
         } else if (ch == 0x7e) { // ~
-          append(tokens, Token(tt.Tilde, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.Tilde, null));
           break;
         } else {
-          throw(concat('unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', SourceLocation(lineNo, colNo, filename), ': ', chr(ch)));
+          throw(concat('unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', ': ', chr(ch)));
           break;
         }
       } else if (state == ts.Identifier) {
@@ -395,16 +410,14 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           append(buffer as StringList, chr(ch));
           break;
         } else {
-          append(tokens, Token(tt.Identifier, SourceLocation(lineNo, colNo - 1, filename), joinList(buffer as StringList)));
+          append(tokens, createTokenWithBacktrack(tt.Identifier, joinList(buffer as StringList)));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
       } else if (state == ts.SingleQuoteString) {
         if (ch == 0x27) { // '
-          append(tokens, Token(tt.String, SourceLocation(lineNo, colNo, filename), joinList(buffer as StringList)));
+          append(tokens, createToken(tt.String, joinList(buffer as StringList)));
           state = ts.Top; 
-          lastInterestingLineNo = -1;
-          lastInterestingColNo = -1;
           break;
         } else if (ch == 0x5c) { // \
           state = ts.SingleQuoteStringEscape;
@@ -448,10 +461,8 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
         }
       } else if (state == ts.DoubleQuoteString) {
         if (ch == 0x22) { // "
-          append(tokens, Token(tt.String, SourceLocation(lineNo, colNo, filename), joinList(buffer as StringList)));
+          append(tokens, createToken(tt.String, joinList(buffer as StringList)));
           state = ts.Top;
-          lastInterestingLineNo = -1;
-          lastInterestingColNo = -1;
           break;
         } else if (ch == 0x5c) { // \
           state = ts.DoubleQuoteStringEscape;
@@ -502,7 +513,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           state = ts.HexStart;
           break;
         } else {
-          append(tokens, Token(tt.Integer, SourceLocation(lineNo, colNo - 1, filename), 0));
+          append(tokens, createTokenWithBacktrack(tt.Integer, 0));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
@@ -511,7 +522,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           buffer = buffer as Integer * 10 + ch - 0x30;
           break;
         } else {
-          append(tokens, Token(tt.Integer, SourceLocation(lineNo, colNo - 1, filename), buffer));
+          append(tokens, createTokenWithBacktrack(tt.Integer, buffer));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
@@ -523,7 +534,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           buffer = 0;
           // no break, reprocess in ts.Hex
         } else {
-          throw(concat('unexpected character ', padLeft(hex(ch), 4, "0"), ' in hex literal at ', SourceLocation(lineNo, colNo, filename), ': ', chr(ch)));
+          throw(concat('unexpected character ', padLeft(hex(ch), 4, "0"), ' in hex literal at ', ': ', chr(ch)));
         }
       } else if (state == ts.Hex) {
         if (ch >= 0x30 && ch <= 0x39) { // 0-9
@@ -536,7 +547,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           buffer = (buffer as Integer * 0x10 + ch - 0x61) + 10;
           break;
         } else {
-          append(tokens, Token(tt.Integer, SourceLocation(lineNo, colNo - 1, filename), buffer));
+          append(tokens, createTokenWithBacktrack(tt.Integer, buffer));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
@@ -546,36 +557,36 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           state = ts.PeriodPeriod;
           break;
         } else {
-          append(tokens, Token(tt.Period, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.Period, null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
       } else if (state == ts.PeriodPeriod) {
         if (ch == 0x2e) { // .
-          append(tokens, Token(tt.Ellipsis, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.Ellipsis, null));
           state = ts.Top;
           break;
         } else {
-          throw(concat('unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', SourceLocation(lineNo, colNo, filename), ': ', chr(ch)));
+          throw(concat('unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', ': ', chr(ch)));
         }
 
       } else if (state == ts.Plus) {
         if (ch == 0x3d) { // =
-          append(tokens, Token(tt.PlusEquals, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.PlusEquals, null));
           state = ts.Top;
           break;
         } else {
-          append(tokens, Token(tt.Plus, SourceLocation(lineNo, colNo - 1, filename), null));
+          append(tokens, createTokenWithBacktrack(tt.Plus, null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
       } else if (state == ts.Minus) {
         if (ch == 0x3d) { // =
-          append(tokens, Token(tt.MinusEquals, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.MinusEquals, null));
           state = ts.Top;
           break;
         } else {
-          append(tokens, Token(tt.Minus, SourceLocation(lineNo, colNo - 1, filename), null));
+          append(tokens, createTokenWithBacktrack(tt.Minus, null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
@@ -584,97 +595,95 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           state = ts.AsteriskAsterisk;
           break;
         } else if (ch == 0x3d) { // =
-          append(tokens, Token(tt.AsteriskEquals, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.AsteriskEquals, null));
           state = ts.Top;
           break;
         } else {
-          append(tokens, Token(tt.Asterisk, SourceLocation(lineNo, colNo - 1, filename), null));
+          append(tokens, createTokenWithBacktrack(tt.Asterisk, null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
       } else if (state == ts.AsteriskAsterisk) {
         if (ch == 0x3d) { // =
-          append(tokens, Token(tt.AsteriskAsteriskEquals, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.AsteriskAsteriskEquals, null));
           state = ts.Top;
           break;
         } else {
-          append(tokens, Token(tt.AsteriskAsterisk, SourceLocation(lineNo, colNo - 1, filename), null));
+          append(tokens, createTokenWithBacktrack(tt.AsteriskAsterisk, null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
       } else if (state == ts.Slash) {
         if (ch == 0x2a) { // *
-          lastInterestingLineNo = lineNo;
-          lastInterestingColNo = colNo;
           state = ts.BlockComment;
           break;
         } else if (ch == 0x2f) { // /
           state = ts.LineComment;
           break;
         } else if (ch == 0x3d) { // =
-          append(tokens, Token(tt.SlashEquals, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.SlashEquals, null));
           state = ts.Top;
           break;
         } else {
-          append(tokens, Token(tt.Slash, SourceLocation(lineNo, colNo - 1, filename), null));
+          append(tokens, createTokenWithBacktrack(tt.Slash, null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
       } else if (state == ts.Modulus) {
         if (ch == 0x3d) { // =
-          append(tokens, Token(tt.ModulusEquals, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.ModulusEquals, null));
           state = ts.Top;
           break;
         } else {
-          append(tokens, Token(tt.Modulus, SourceLocation(lineNo, colNo - 1, filename), null));
+          append(tokens, createTokenWithBacktrack(tt.Modulus, null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
       } else if (state == ts.Equals) {
         if (ch == 0x3d) { // =
-          append(tokens, Token(tt.EqualsEquals, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.EqualsEquals, null));
           state = ts.Top;
           break;
         } else {
-          append(tokens, Token(tt.Equals, SourceLocation(lineNo, colNo - 1, filename), null));
+          append(tokens, createTokenWithBacktrack(tt.Equals, null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
       } else if (state == ts.Bang) {
         if (ch == 0x3d) { // =
-          append(tokens, Token(tt.BangEquals, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.BangEquals, null));
           state = ts.Top;
           break;
         } else {
-          append(tokens, Token(tt.Bang, SourceLocation(lineNo, colNo - 1, filename), null));
+          append(tokens, createTokenWithBacktrack(tt.Bang, null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
       } else if (state == ts.LessThan) {
         if (ch == 0x3c) { // <
-          append(tokens, Token(tt.LessThanLessThan, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.LessThanLessThan, null));
           state = ts.Top;
           break;
         } else if (ch == 0x3d) { // =
-          append(tokens, Token(tt.LessThanEquals, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.LessThanEquals, null));
           state = ts.Top;
           break;
         } else {
-          append(tokens, Token(tt.LessThan, SourceLocation(lineNo, colNo - 1, filename), null));
+          append(tokens, createTokenWithBacktrack(tt.LessThan, null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
       } else if (state == ts.GreaterThan) {
         if (ch == 0x3d) { // =
-          append(tokens, Token(tt.GreaterThanEquals, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.GreaterThanEquals, null));
           state = ts.Top;
           break;
         } else if (ch == 0x3e) { // >
-          append(tokens, Token(tt.GreaterThanGreaterThan, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.GreaterThanGreaterThan, null));
           state = ts.Top;
           break;
         } else {
-          append(tokens, Token(tt.GreaterThan, SourceLocation(lineNo, colNo - 1, filename), null));
+          append(tokens, createTokenWithBacktrack(tt.GreaterThan, null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
@@ -683,31 +692,31 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           state = ts.AmpersandAmpersand;
           break;
         } else if (ch == 0x3d) { // =
-          append(tokens, Token(tt.AmpersandEquals, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.AmpersandEquals, null));
           state = ts.Top;
           break;
         } else {
-          append(tokens, Token(tt.Ampersand, SourceLocation(lineNo, colNo - 1, filename), null));
+          append(tokens, createTokenWithBacktrack(tt.Ampersand, null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
       } else if (state == ts.AmpersandAmpersand) {
         if (ch == 0x3d) { // =
-          append(tokens, Token(tt.AmpersandAmpersandEquals, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.AmpersandAmpersandEquals, null));
           state = ts.Top;
           break;
         } else {
-          append(tokens, Token(tt.AmpersandAmpersand, SourceLocation(lineNo, colNo - 1, filename), null));
+          append(tokens, createTokenWithBacktrack(tt.AmpersandAmpersand, null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
       } else if (state == ts.Caret) {
         if (ch == 0x3d) { // =
-          append(tokens, Token(tt.CaretEquals, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.CaretEquals, null));
           state = ts.Top;
           break;
         } else {
-          append(tokens, Token(tt.Caret, SourceLocation(lineNo, colNo - 1, filename), null));
+          append(tokens, createTokenWithBacktrack(tt.Caret, null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
@@ -716,21 +725,21 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           state = ts.VerticalBarVerticalBar;
           break;
         } else if (ch == 0x3d) { // =
-          append(tokens, Token(tt.VerticalBarEquals, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.VerticalBarEquals, null));
           state = ts.Top;
           break;
         } else {
-          append(tokens, Token(tt.VerticalBar, SourceLocation(lineNo, colNo - 1, filename), null));
+          append(tokens, createTokenWithBacktrack(tt.VerticalBar, null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
       } else if (state == ts.VerticalBarVerticalBar) {
         if (ch == 0x3d) { // =
-          append(tokens, Token(tt.VerticalBarVerticalBarEquals, SourceLocation(lineNo, colNo, filename), null));
+          append(tokens, createToken(tt.VerticalBarVerticalBarEquals, null));
           state = ts.Top;
           break;
         } else {
-          append(tokens, Token(tt.VerticalBarVerticalBar, SourceLocation(lineNo, colNo - 1, filename), null));
+          append(tokens, createTokenWithBacktrack(tt.VerticalBarVerticalBar, null));
           state = ts.Top;
           // no break, reprocess in ts.Top
         }
@@ -791,78 +800,78 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
   if (state == ts.Top) {
     // no effect
   } else if (state == ts.Identifier) {
-    append(tokens, Token(tt.Identifier, SourceLocation(lineNo, colNo, filename), joinList(buffer as WhateverList)));
+    append(tokens, createToken(tt.Identifier, joinList(buffer as WhateverList)));
   } else if (state == ts.SingleQuoteString) {
-    throw(concat('unterminated string at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
+    throw(concat('unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.SingleQuoteStringCR) {
-    throw(concat('unterminated string at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
+    throw(concat('unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.SingleQuoteStringEscape) {
-    throw(concat('unterminated string at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
+    throw(concat('unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.DoubleQuoteString) {
-    throw(concat('unterminated string at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
+    throw(concat('unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.DoubleQuoteStringCR) {
-    throw(concat('unterminated string at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
+    throw(concat('unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.DoubleQuoteStringEscape) {
-    throw(concat('unterminated string at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
+    throw(concat('unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.Zero) {
-    append(tokens, Token(tt.Integer, SourceLocation(lineNo, colNo, filename), 0));
+    append(tokens, createToken(tt.Integer, 0));
   } else if (state == ts.Integer) {
-    append(tokens, Token(tt.Integer, SourceLocation(lineNo, colNo, filename), buffer));
+    append(tokens, createToken(tt.Integer, buffer));
   } else if (state == ts.HexStart) {
     throw(concat('incomplete hex literal at end of ', filename));
   } else if (state == ts.Hex) {
-    append(tokens, Token(tt.Integer, SourceLocation(lineNo, colNo, filename), buffer));
+    append(tokens, createToken(tt.Integer, buffer));
 
   } else if (state == ts.Period) {
-    append(tokens, Token(tt.Period, SourceLocation(lineNo, colNo, filename), null));
+    append(tokens, createToken(tt.Period, null));
   } else if (state == ts.PeriodPeriod) {
     throw(concat('incomplete ellipsis at end of ', filename));
 
   } else if (state == ts.Plus) {
-    append(tokens, Token(tt.Plus, SourceLocation(lineNo, colNo, filename), null));
+    append(tokens, createToken(tt.Plus, null));
   } else if (state == ts.Minus) {
-    append(tokens, Token(tt.Minus, SourceLocation(lineNo, colNo, filename), null));
+    append(tokens, createToken(tt.Minus, null));
   } else if (state == ts.Asterisk) {
-    append(tokens, Token(tt.Asterisk, SourceLocation(lineNo, colNo, filename), null));
+    append(tokens, createToken(tt.Asterisk, null));
   } else if (state == ts.AsteriskAsterisk) {
-    append(tokens, Token(tt.AsteriskAsterisk, SourceLocation(lineNo, colNo, filename), null));
+    append(tokens, createToken(tt.AsteriskAsterisk, null));
   } else if (state == ts.Slash) {
-    append(tokens, Token(tt.Slash, SourceLocation(lineNo, colNo, filename), null));
+    append(tokens, createToken(tt.Slash, null));
   } else if (state == ts.Modulus) {
-    append(tokens, Token(tt.Modulus, SourceLocation(lineNo, colNo, filename), null));
+    append(tokens, createToken(tt.Modulus, null));
   } else if (state == ts.Equals) {
-    append(tokens, Token(tt.Equals, SourceLocation(lineNo, colNo, filename), null));
+    append(tokens, createToken(tt.Equals, null));
   } else if (state == ts.Bang) {
-    append(tokens, Token(tt.Bang, SourceLocation(lineNo, colNo, filename), null));
+    append(tokens, createToken(tt.Bang, null));
   } else if (state == ts.LessThan) {
-    append(tokens, Token(tt.LessThan, SourceLocation(lineNo, colNo, filename), null));
+    append(tokens, createToken(tt.LessThan, null));
   } else if (state == ts.GreaterThan) {
-    append(tokens, Token(tt.GreaterThan, SourceLocation(lineNo, colNo, filename), null));
+    append(tokens, createToken(tt.GreaterThan, null));
   } else if (state == ts.Ampersand) {
-    append(tokens, Token(tt.Ampersand, SourceLocation(lineNo, colNo, filename), null));
+    append(tokens, createToken(tt.Ampersand, null));
   } else if (state == ts.AmpersandAmpersand) {
-    append(tokens, Token(tt.AmpersandAmpersand, SourceLocation(lineNo, colNo, filename), null));
+    append(tokens, createToken(tt.AmpersandAmpersand, null));
   } else if (state == ts.Caret) {
-    append(tokens, Token(tt.Caret, SourceLocation(lineNo, colNo, filename), null));
+    append(tokens, createToken(tt.Caret, null));
   } else if (state == ts.VerticalBar) {
-    append(tokens, Token(tt.VerticalBar, SourceLocation(lineNo, colNo, filename), null));
+    append(tokens, createToken(tt.VerticalBar, null));
   } else if (state == ts.VerticalBarVerticalBar) {
-    append(tokens, Token(tt.VerticalBarVerticalBar, SourceLocation(lineNo, colNo, filename), null));
+    append(tokens, createToken(tt.VerticalBarVerticalBar, null));
 
   } else if (state == ts.LineComment) {
     // file terminated with line comment
   } else if (state == ts.BlockComment) {
-    throw(concat('unterminated block comment at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
+    throw(concat('unterminated block comment at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.BlockCommentCR) {
-    throw(concat('unterminated block comment at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
+    throw(concat('unterminated block comment at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.BlockCommentAsterisk) {
-    throw(concat('unterminated block comment at end of file started on ', SourceLocation(lastInterestingLineNo, lastInterestingColNo, filename)));
+    throw(concat('unterminated block comment at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.CR) {
     // file terminated with newline
   } else {
     throw(concat('unknown state ', state));
   }
-  append(tokens, Token(tt.Eof, SourceLocation(lineNo, colNo, filename), null));
+  append(tokens, createToken(tt.Eof, null));
   return tokens;
 }
 
@@ -936,7 +945,7 @@ class TokenConsumer extends Object {
   
   Null expectPunctuation(tt punctuation) {
     if (!isNext(punctuation)) {
-      throw(concat(expected(concat(Token(punctuation, SourceLocation(-1, -1, ''), null)))));
+      throw(concat(expected(concat(Token(punctuation, SourceLocation(-1, -1, -1, -1, ''), null)))));
     }
     index = index + 1;
   }

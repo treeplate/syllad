@@ -118,12 +118,16 @@ String commentNameForString(String value) {
 }
 
 class SourceLocation extends Object {
+  Integer startLineNo;
+  Integer startColNo;
   Integer lineNo;
   Integer colNo;
   String filename;
 
-  Null constructor(Integer lineNoArg, Integer colNoArg, String filenameArg) {
+  Null constructor(Integer startLineNoArg, Integer startColNoArg, Integer lineNoArg, Integer colNoArg, String filenameArg) {
     super.constructor();
+    startLineNo = startLineNoArg;
+    startColNo = startColNoArg;
     lineNo = lineNoArg;
     colNo = colNoArg;
     filename = filenameArg;

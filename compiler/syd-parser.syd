@@ -789,7 +789,7 @@ Library parseTokens(TokenList tokens, String name, Boolean isProgram) {
     append(statements, parseTopLevelStatement(source));
   }
   if (isProgram) {
-    return Program(statements, name, SourceLocation(0, 0, name));
+    return Program(statements, name, SourceLocation(0, 0, 0, 0, name));
   }
-  return Library(statements, name, SourceLocation(0, 0, name));
+  return Library(statements, name, SourceLocation(0, 0, 0, 0, name));
 }

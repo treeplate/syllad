@@ -8,7 +8,7 @@ class SOURCE {
   String FILE = 'three hundred';
 
   Null a() {
-    println(LINE, COL, containsString('magic_literals', FILE));
+    println(LINE, COL, containsString(FILE, 'magic_literals'));
     println(this.LINE, this.COL, this.FILE);
   }
 
