@@ -448,6 +448,10 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           append(buffer as StringList, '\r');
           state = ts.SingleQuoteString;
           break;
+        } else if (ch == 0x30) { // 0
+          append(buffer as StringList, '\0');
+          state = ts.SingleQuoteString;
+          break;
         } else {
           append(buffer as StringList, chr(ch));
           state = ts.SingleQuoteString;
@@ -491,6 +495,10 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           break;
         } else if (ch == 0x72) { // r
           append(buffer as StringList, '\r');
+          state = ts.DoubleQuoteString;
+          break;
+        } else if (ch == 0x30) { // 0
+          append(buffer as StringList, '\0');
           state = ts.DoubleQuoteString;
           break;
         } else {

@@ -18,32 +18,33 @@ IF NOT !ERRORLEVEL! == 0 (
     ECHO compiler exit code: %ERRORLEVEL%
     EXIT /B 0
 ) ELSE (
-    MOVE /Y %TEMPFILE% syd.asm > NUL
+    MOVE /Y %TEMPFILE% "%~1.asm" > NUL
     IF NOT !ERRORLEVEL! == 0 (
-        ECHO Could not update syd.asm, error %ERRORLEVEL%
+        ECHO Could not update "%~1.asm", error %ERRORLEVEL%
         ECHO == FAILED ==
         EXIT /B %ERRORLEVEL%
     )
     ECHO ASSEMBLING AND LINKING...
-    IF EXIST "syd.exe" (
-        DEL syd.exe
+    IF EXIST "%~1.exe" (
+        DEL "%~1.exe"
         IF NOT !ERRORLEVEL! == 0 (
-            ECHO Could not delete syd.exe, error %ERRORLEVEL%
+            ECHO Could not delete "%~1.exe", error %ERRORLEVEL%
             ECHO == FAILED ==
             EXIT /B %ERRORLEVEL%
         )
     )
-    ML64 /Zd /Zi syd.asm
+    ECHO ML64 /Zd /Zi /Fo "%~1.obj" /Fe "%~1.exe" "%~1.asm"
+    ML64 /Zd /Zi /Fo "%~1.obj" /Fe "%~1.exe" "%~1.asm"
     IF NOT !ERRORLEVEL! == 0 (
-        ECHO Could not assemble syd.asm, error %ERRORLEVEL%
+        ECHO Could not assemble "%~1.asm", error %ERRORLEVEL%
         ECHO == FAILED ==
         EXIT /B %ERRORLEVEL%
     )
-    IF EXIST "syd.exe" (
+    IF EXIST "%~1.exe" (
         ECHO EXECUTING...
         ECHO = START STDOUT =================
         ECHO = START STDERR =================1>&2
-        syd.exe
+        "%~1.exe"
         ECHO = END STDOUT ===================
         ECHO = END STDERR ===================1>&2
         ECHO test exit code: !ERRORLEVEL!
@@ -53,9 +54,19 @@ IF NOT !ERRORLEVEL! == 0 (
         IF !ERRORLEVEL! == -1073741571 ECHO "0xC00000FD: Stack overflow"
         IF !ERRORLEVEL! == -1073740972 ECHO "0xC0000354: STATUS_DEBUGGER_INACTIVE"
         ECHO DONE
+        IF EXIST "%~1.asm" MOVE /Y "%~1.asm" syd.asm > NUL
+        IF EXIST "%~1.exe" MOVE /Y "%~1.exe" syd.exe > NUL
+        IF EXIST "%~1.ilk" MOVE /Y "%~1.ilk" syd.ilk > NUL
+        IF EXIST "%~1.pdb" MOVE /Y "%~1.pdb" syd.pdb > NUL
+        IF EXIST "%~1.obj" DEL "%~1.obj" > NUL
         EXIT /B 0
     ) ELSE (
         ECHO == FAILED ==
+        IF EXIST "%~1.asm" MOVE /Y "%~1.asm" syd.asm > NUL
+        IF EXIST "%~1.exe" MOVE /Y "%~1.exe" syd.exe > NUL
+        IF EXIST "%~1.ilk" MOVE /Y "%~1.ilk" syd.ilk > NUL
+        IF EXIST "%~1.pdb" MOVE /Y "%~1.pdb" syd.pdb > NUL
+        IF EXIST "%~1.obj" DEL "%~1.obj" > NUL
         EXIT /B 1
     )
 )

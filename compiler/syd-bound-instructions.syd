@@ -1120,6 +1120,7 @@ class IfBlockInstruction extends BoundInstruction {
       variable.setCurrentValueDatum(variableValues.get(variable) as Datum);
       variable.setCurrentTypeDatum(variableTypes.get(variable) as Datum);
       typeInferenceAfter1.set(variable, variable.typeInference.copy());
+      assert(typeInferenceBefore.get(variable) != null, 'closures not yet implemented');
       variable.typeInference.resetFrom(typeInferenceBefore.get(variable) as TypeInference);
     }
     for (instruction in block2) {

@@ -613,6 +613,8 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           buffer.write("\r");
         } else if (rune == 0x74) {
           buffer.write("\t");
+        } else if (rune == 0x30) {
+          buffer.write("\x00");
         } else {
           buffer.writeCharCode(rune);
         }
@@ -627,6 +629,8 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           buffer.write("\r");
         } else if (rune == 0x74) {
           buffer.write("\t");
+        } else if (rune == 0x30) {
+          buffer.write("\x00");
         } else {
           buffer.writeCharCode(rune);
         }

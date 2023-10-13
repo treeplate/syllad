@@ -101,7 +101,7 @@ Integer __heapFree(Integer hHeap, Integer dwFlags, Integer lpMem) __extern 'kern
 Null _free(Integer pointer) __intrinsic {
   _blockCount -= 1;
   if (__heapFree(_heapHandle, 0x00, pointer) == 0) {
-    stderr('failed to free pointer, error code: ', __getLastError());
+    stderr('failed to free pointer, error code:', __getLastError());
     exit(1);
   }
 }
@@ -607,13 +607,84 @@ Whatever _dynamicLookup(Anything receiver, Integer methodId) __intrinsic {
 // I/O
 
 Integer __getStdHandle(Integer handle) __extern 'kernel32.lib' 'GetStdHandle';
+Integer __createFile(Integer lpFileName, Integer dwDesiredAccess, Integer dwShareMode, Integer lpSecurityAttributes, Integer dwCreationDisposition, Integer dwFlagsAndAttributes, Integer hTemplateFile) __extern 'kernel32.lib' 'CreateFileA';
+// access mode
+Integer __GENERIC_READ = 0x80000000;
+Integer __GENERIC_WRITE = 0x40000000;
+// share mode
+Integer __FILE_SHARE_READ = 0x00000001;
+Integer __FILE_SHARE_WRITE = 0x00000002;
+// create mode
+Integer __CREATE_NEW = 1; // create, fail if already exists
+Integer __CREATE_ALWAYS = 2; // create or truncate
+Integer __OPEN_EXISTING = 3; // open, fail if does not exist
+Integer __OPEN_ALWAYS = 4; // open, create if does not exist
+Integer __TRUNCATE_EXISTING = 5; // truncate, fail if does not exist
+
+Boolean __getFileSize(Integer hFile, Integer lpFileSize) __extern 'kernel32.lib' 'GetFileSizeEx';
+Boolean __readFile(Integer hFile, Integer lpBuffer, Integer nNumberOfBytesToRead, Integer lpNumberOfBytesRead, Integer lpOverlapped) __extern 'kernel32.lib' 'ReadFile';
 Integer __writeFile(Integer hFile, Integer lpBuffer, Integer nNumberOfBytesToWrite, Integer lpNumberOfBytesWritten, Integer lpOverlapped) __extern 'kernel32.lib' 'WriteFile';
 Integer __STD_OUTPUT_HANDLE = -11;
 Integer __STD_ERROR_HANDLE = -12;
-Integer _scratch = _alloc(8); // used for lpNumberOfBytesWritten
+Integer _scratch = _alloc(8); // used as scratch space for out parameters of Win32 API functions
 
-Null __writeToHandle(Integer handle, String message) {
-  __writeFile(__getStdHandle(handle), (message __as__ Integer) + 16, _stringByteLength(message), _scratch, 0);
+// createMode is one of the create mode constants defined above
+Integer __openFile(String filename, Boolean enableRead, Boolean enableWrite, Integer createMode) {
+  assert(enableRead || enableWrite, 'at least one of enableRead and enableWrite must be set');
+  String filenameNullTerminated = concat(filename, '\0');
+  Integer accessMode = 0x00;
+  Integer shareMode = __FILE_SHARE_READ;
+  if (enableRead) {
+    accessMode |= __GENERIC_READ;
+  }
+  if (enableWrite) {
+    accessMode |= __GENERIC_WRITE;
+    shareMode = 0; // reset share mode to exclusive access
+  }
+  Integer result = __createFile(filenameNullTerminated __as__ Integer + 16, accessMode, shareMode, 0, createMode, 0x80 /* FILE_ATTRIBUTE_NORMAL */, 0);
+  if (result == -1) {
+    Integer rawError = __getLastError();
+    String error = concat('error code: ', rawError);
+    if (rawError == 2) {
+      error = 'file not found';
+    }
+    if (rawError == 123) {
+      error = 'file path invalid';
+    }
+    stderr(concat('failed to open file \'', filenameNullTerminated, '\', ', error));
+    exit(1);
+  }
+  return result;
+}
+
+Integer __getFileSizeFromHandle(Integer hFile) {
+  if (!__getFileSize(hFile, _scratch)) {
+    stderr('failed to get file size, error code:', __getLastError());
+    exit(1);
+  }
+  return __readFromAddress(_scratch);
+}
+
+String __readStringFromHandle(Integer handle, Integer bytesToRead) {
+  Integer resultPointer = _alloc(16 + bytesToRead);
+  __writeToAddress(resultPointer, 0); // ref count
+  if (!__readFile(handle, resultPointer + 16, bytesToRead, _scratch, 0)) {
+    stderr('failed to read file, error code:', __getLastError());
+    exit(1);
+  }
+  __writeToAddress(resultPointer + 8, __readFromAddress(_scratch));
+  // TODO: check that data is valid UTF-8, throw if not
+  return resultPointer __as__ String;
+}
+
+Null __writeStringToHandle(Integer handle, String message) {
+  __writeFile(handle, (message __as__ Integer) + 16, _stringByteLength(message), _scratch, 0);
+}
+
+String readFile(String filename) {
+  Integer handle = __openFile(filename, true, false, __OPEN_EXISTING);
+  Integer size = __getFileSizeFromHandle(handle);
+  return __readStringFromHandle(handle, size);
 }
 
 Null print(Anything... parts) { 
@@ -621,9 +692,9 @@ Null print(Anything... parts) {
   Integer index = 0;
   while (index < len(parts)) {
     if (first == false) {
-      __writeToHandle(__STD_OUTPUT_HANDLE, ' ');
+      __writeStringToHandle(__getStdHandle(__STD_OUTPUT_HANDLE), ' ');
     }
-    __writeToHandle(__STD_OUTPUT_HANDLE, _stringify(parts[index]));
+    __writeStringToHandle(__getStdHandle(__STD_OUTPUT_HANDLE), _stringify(parts[index]));
     first = false;
     index += 1;
   }
@@ -634,13 +705,13 @@ Null println(Anything... parts) {
   Integer index = 0;
   while (index < len(parts)) {
     if (first == false) {
-      __writeToHandle(__STD_OUTPUT_HANDLE, ' ');
+      __writeStringToHandle(__getStdHandle(__STD_OUTPUT_HANDLE), ' ');
     }
-    __writeToHandle(__STD_OUTPUT_HANDLE, _stringify(parts[index]));
+    __writeStringToHandle(__getStdHandle(__STD_OUTPUT_HANDLE), _stringify(parts[index]));
     first = false;
     index += 1;
   }
-  __writeToHandle(__STD_OUTPUT_HANDLE, '\n');
+  __writeStringToHandle(__getStdHandle(__STD_OUTPUT_HANDLE), '\n');
 }
 
 Null _stderr(Anything... parts) {
@@ -648,13 +719,13 @@ Null _stderr(Anything... parts) {
   Integer index = 0;
   while (index < len(parts)) {
     if (first == false) {
-      __writeToHandle(__STD_ERROR_HANDLE, ' ');
+      __writeStringToHandle(__getStdHandle(__STD_ERROR_HANDLE), ' ');
     }
-    __writeToHandle(__STD_ERROR_HANDLE, _stringify(parts[index]));
+    __writeStringToHandle(__getStdHandle(__STD_ERROR_HANDLE), _stringify(parts[index]));
     first = false;
     index += 1;
   }
-  __writeToHandle(__STD_ERROR_HANDLE, '\n');
+  __writeStringToHandle(__getStdHandle(__STD_ERROR_HANDLE), '\n');
 }
 stderr = _stderr;
 
@@ -1132,3 +1203,51 @@ StringList split(String input, String pattern) {
   append(result, substring(input, start, index));
   return result;
 }
+
+
+// ARGUMENTS
+
+Integer __getCommandLineW() __extern 'kernel32.lib' 'GetCommandLineW';
+Integer __commandLineToArgvW(Integer lpCmdLine, Integer pNumArgs) __extern 'shell32.lib' 'CommandLineToArgvW';
+Integer __localFree(Integer hMem) __extern 'kernel32.lib' 'LocalFree';
+Integer __wideCharToMultiByte(
+  Integer codePage,
+  Integer dwFlags,
+  Integer lpWideCharStr,
+  Integer cchWideChar,
+  Integer lpMultiByteStr,
+  Integer cbMultiByte,
+  Integer lpDefaultChar,
+  Integer lpUsedDefaultChar
+) __extern 'kernel32.lib' 'WideCharToMultiByte';
+Integer __CP_UTF8 = 65001;
+
+// buffer must be a pointer to a null-terminated UTF-16 string.
+String _wideStringToString(Integer buffer) {
+  assert(buffer != 0, 'invalid buffer');
+  Integer newLength = __wideCharToMultiByte(__CP_UTF8, 0, buffer, -1 /* string is null terminated */, 0, 0 /* measure output buffer */, 0, 0);
+  Integer resultPointer = _alloc(16 + newLength);
+  __writeToAddress(resultPointer, 0); // ref count
+  __writeToAddress(resultPointer + 8, newLength - 1);
+  Integer conversionResult = __wideCharToMultiByte(__CP_UTF8, 0, buffer, -1 /* string is null terminated */, resultPointer + 16, newLength, 0, 0);
+  if (conversionResult == 0) {
+    stderr('failed Unicode conversion, error code:', __getLastError(), 'buffer=',buffer, 'resultPointer+16=', resultPointer + 16, 'newLength=', newLength);
+    exit(1);
+  }
+  return resultPointer __as__ String;
+}
+
+StringList _getCommandLineArguments() {
+  Integer arrayPointer = __commandLineToArgvW(__getCommandLineW(), _scratch);
+  Integer count = __readFromAddress(_scratch) & 0x00000000FFFFFFFF; // return value is a 32 bit value, not 64 bit
+  StringList result = []:String;
+  Integer index = 0;
+  while (index < count) {
+    append(result, _wideStringToString(__readFromAddress(arrayPointer + index * 8)));
+    index += 1;
+  }
+  __localFree(arrayPointer);
+  return result;
+}
+
+StringList args = _getCommandLineArguments();
