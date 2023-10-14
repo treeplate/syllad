@@ -1,3 +1,4 @@
+// expected output: test
 // expected output: 2
 // expected error: cannot reassign foo, a constant (runtime error)
 
@@ -9,6 +10,7 @@ class A {
   }
 
   Null test() {
+    println('test');
     println(foo());
     foo = original; // should throw
     println(foo);
