@@ -90,77 +90,73 @@ fwdclass ReifiedEnumType(TypeRegistry, AssemblerLabel, StringBucket, EnumPropert
 fwdclass ReifiedEnumBucket(ReifiedEnumType) extends DataLabelBucket;
 
 // CompiledScope
-fwdclassprop AssemblerLabel CompiledScope.label;
-fwdclassprop AssemblerLabel CompiledScope.classesLabel;
-fwdclassprop AssemblerLabel CompiledScope.subroutinesLabel;
-fwdclassprop CompiledScopeNullable CompiledScope.parent;
-fwdclassprop String CompiledScope.name;
-fwdclassprop CompilationEnvironmentFunction CompiledScope.environment;
-fwdclassprop CompiledStackFrameScopeFunction CompiledScope.stackFrame;
-fwdclassprop CompiledLibraryFunction CompiledScope.globalScope;
-fwdclassprop IdentifierEntityNullableFunction CompiledScope.internalLookupIdentifier;
-fwdclassprop NullFunction CompiledScope.finalizeInstructions;
-fwdclassprop NullFunction CompiledScope.emit;
-fwdclassprop SubroutinePointerBucketFunction CompiledScope.registerSubroutine;
-fwdclassprop BucketFunction CompiledScope.emitCodePointerCall;
-fwdclassprop BucketFunction CompiledScope.emitSubroutinePointerCall;
-fwdclassprop BucketFunction CompiledScope.emitIntrinsicCall;
-fwdclassprop NullFunction CompiledScope.extractInstructionsInto;
-fwdclassprop BucketFunction CompiledScope.emitCopy;
+fwdclassfield AssemblerLabel CompiledScope.label;
+fwdclassfield AssemblerLabel CompiledScope.classesLabel;
+fwdclassfield AssemblerLabel CompiledScope.subroutinesLabel;
+fwdclassfield CompiledScopeNullable CompiledScope.parent;
+fwdclassfield String CompiledScope.name;
+fwdclassmethod CompilationEnvironment CompiledScope.environment();
+fwdclassmethod CompiledStackFrameScope CompiledScope.stackFrame();
+fwdclassmethod CompiledLibrary CompiledScope.globalScope();
+fwdclassmethod IdentifierEntityNullable CompiledScope.internalLookupIdentifier(String);
+fwdclassmethod Null CompiledScope.finalizeInstructions(Assembler);
+fwdclassmethod Null CompiledScope.emit(BoundInstruction);
+fwdclassmethod Bucket CompiledScope.emitCodePointerCall(AbstractSubroutineTypeWithSpecificParameters, Bucket, BucketNullable, BucketNullable, BucketList, SourceLocationNullable, SourceLocationListNullable);
+fwdclassmethod Bucket CompiledScope.emitSubroutinePointerCall(Bucket, BucketList, SourceLocationNullable, SourceLocationListNullable);
+fwdclassmethod Bucket CompiledScope.emitIntrinsicCall(String, BucketList);
+fwdclassmethod Null CompiledScope.extractInstructionsInto(BoundInstructionList);
+fwdclassmethod Bucket CompiledScope.emitCopy(Bucket);
 
 // CompiledSubroutine
-fwdclassprop AssemblerLabel CompiledSubroutine.functionPointerLabel;
-fwdclassprop Bucket CompiledSubroutine.codePointer;
-fwdclassprop AbstractSubroutineTypeWithSpecificParameters CompiledSubroutine.type;
-fwdclassprop BucketNullableFunction CompiledSubroutine.inline;
-fwdclassprop NullFunction CompiledSubroutine.adoptBucket;
+fwdclassfield AssemblerLabel CompiledSubroutine.functionPointerLabel;
+fwdclassfield Bucket CompiledSubroutine.codePointer;
+fwdclassfield AbstractSubroutineTypeWithSpecificParameters CompiledSubroutine.type;
+fwdclassmethod BucketNullable CompiledSubroutine.inline(CompiledScope, BucketList);
+fwdclassmethod Null CompiledSubroutine.adoptBucket(SubroutinePointerBucket);
 
 // CompiledLibrary
-fwdclassprop CompilationEnvironment CompiledLibrary.compilationEnvironment;
-fwdclassprop TypeNullableFunction CompiledLibrary.lookupType;
+fwdclassfield CompilationEnvironment CompiledLibrary.compilationEnvironment;
+fwdclassmethod TypeNullable CompiledLibrary.lookupType(String);
 
 // CompiledIntrinsicsLibrary
-fwdclassprop NullFunction CompiledIntrinsicsLibrary.generateScopes;
-
-// CompilationEnvironment
-fwdclassprop BucketFunction CompilationEnvironment.integer;
+fwdclassmethod Null CompiledIntrinsicsLibrary.generateScopes();
 
 // SubroutinePointerBucket
-fwdclassprop CompiledSubroutine SubroutinePointerBucket.subroutine;
+fwdclassfield CompiledSubroutine SubroutinePointerBucket.subroutine;
 
 // ClassType
-fwdclassprop NullFunction ClassType.propagateNeedsMethodsFor;
-fwdclassprop NullFunction ClassType.assignIndicies;
-fwdclassprop NullFunction ClassType.populateMembers;
-fwdclassprop Map ClassType.members;
-fwdclassprop NullFunction ClassType.generateVmt;
-fwdclassprop AssemblerLabel ClassType.vmtLabel;
-fwdclassprop Set ClassType.subtypes;
-fwdclassprop SubroutinePointerBucket ClassType.constructorSubroutine;
-fwdclassprop MemberDescriptionNullableFunction ClassType.getMember;
+fwdclassmethod Null ClassType.propagateNeedsMethodsFor(String);
+fwdclassmethod Null ClassType.assignIndicies(CompilationEnvironment, Integer, Integer);
+fwdclassmethod Null ClassType.populateMembers(CompilationEnvironment);
+fwdclassfield Map ClassType.members;
+fwdclassmethod Null ClassType.generateVmt(CompilationEnvironment, Assembler);
+fwdclassfield AssemblerLabel ClassType.vmtLabel;
+fwdclassfield Set ClassType.subtypes;
+fwdclassfield SubroutinePointerBucket ClassType.constructorSubroutine;
+fwdclassmethod MemberDescriptionNullable ClassType.getMember(String);
 
 // MemberDescription
-fwdclassprop ClassType MemberDescription.classType;
-fwdclassprop String MemberDescription.name;
-fwdclassprop Type MemberDescription.staticType;
-fwdclassprop Boolean MemberDescription.isField;
-fwdclassprop Boolean MemberDescription.needsField;
-fwdclassprop Boolean MemberDescription.needsMethods;
-fwdclassprop IntegerNullable MemberDescription.fieldIndex;
-fwdclassprop IntegerNullable MemberDescription.methodsIndex;
-fwdclassprop CompiledSubroutineNullable MemberDescription.methodImplementation;
-fwdclassprop BooleanFunction MemberDescription.isDeclared;
-fwdclassprop CompiledSubroutineNullable MemberDescription.getter;
-fwdclassprop CompiledSubroutineNullable MemberDescription.setter;
+fwdclassfield ClassType MemberDescription.classType;
+fwdclassfield String MemberDescription.name;
+fwdclassfield Type MemberDescription.staticType;
+fwdclassfield Boolean MemberDescription.isField;
+fwdclassfield Boolean MemberDescription.needsField;
+fwdclassfield Boolean MemberDescription.needsMethods;
+fwdclassfield IntegerNullable MemberDescription.fieldIndex;
+fwdclassfield IntegerNullable MemberDescription.methodsIndex;
+fwdclassfield CompiledSubroutineNullable MemberDescription.methodImplementation;
+fwdclassmethod Boolean MemberDescription.isDeclared();
+fwdclassfield CompiledSubroutineNullable MemberDescription.getter;
+fwdclassfield CompiledSubroutineNullable MemberDescription.setter;
 
 // IdentifierEntity
-fwdclassprop BucketNullableFunction IdentifierEntity.inline;
+fwdclassmethod BucketNullable IdentifierEntity.inline(CompiledScope, BucketList);
 
 // ReifiedEnumType
-fwdclassprop StringBucket ReifiedEnumType.nameBucket;
-fwdclassprop AssemblerLabel ReifiedEnumType.label;
-fwdclassprop Map ReifiedEnumType.values;
-fwdclassprop EnumPropertyType ReifiedEnumType.propertyType;
+fwdclassfield StringBucket ReifiedEnumType.nameBucket;
+fwdclassfield AssemblerLabel ReifiedEnumType.label;
+fwdclassfield Map ReifiedEnumType.values;
+fwdclassfield EnumPropertyType ReifiedEnumType.propertyType;
 
 
 // ============================================================================
@@ -925,6 +921,7 @@ class VmtPointerBucket extends ConstantBucket {
 
 enum MemberProperty { Type Getter Setter MethodImplementation }
 
+// Only for members whose needsMethods is true.
 class VmtMemberBucket extends ConstantBucket {
   MemberDescription member;
   MemberProperty property;
@@ -948,6 +945,7 @@ class VmtMemberBucket extends ConstantBucket {
 
   //#override
   IntegerDatum currentValueDatum() {
+    assert(member.needsMethods, concat('Member ', member.classType.name, '.', member.name, ' did not need methods but was passed to VmtMemberBucket'));
     // header + method offset + member property 
     Integer offset = vmtHeaderFieldCount * 8 + member.methodsIndex! * 4 * 8 + propertyIndex() * 8;
     return IntegerDatum(offset, hexH(offset));
@@ -1326,6 +1324,7 @@ class MethodIdentifierEntity extends MemberIdentifierEntity {
 }
 
 // Ambiguous as in could be a field or a method.
+// member.needsMethods must be true.
 class AmbiguousMemberIdentifierEntity extends MemberIdentifierEntity {
   //#override
   Bucket forRead(CompiledScope scope) {
@@ -1366,7 +1365,7 @@ class AmbiguousMemberIdentifierEntity extends MemberIdentifierEntity {
         DereferenceWithOffsetsBucket(
           thisBucket,
           scope.environment().integer(_fieldVmt + 8),
-          scope.environment().integer(_fieldVmt), 
+          scope.environment().integer(_fieldVmt),
           ow.QWord, 
           scope.environment().coreIntegerType,
           LazyComment(member.classType.name, '.', member.name),
@@ -1383,6 +1382,28 @@ class AmbiguousMemberIdentifierEntity extends MemberIdentifierEntity {
       null,
     );
     scope.emit(HeapUpdateInstruction(FieldPointerBucket(thisBucket, member, scope.environment().coreIntegerType), value, member.staticType));
+  }
+}
+
+class ForwardDeclaredMemberIdentifierEntity extends IdentifierEntity {
+  Bucket thisBucket;
+  MemberDescription member;
+  String debugName;
+
+  //#override
+  Boolean isDeclared() { return member.isDeclared(); }
+
+  //#override
+  Type staticType() { return member.staticType; }
+
+  Null debugCheckInvariants() { }
+
+  Null constructor(Bucket thisBucketArg, MemberDescription memberArg, String debugNameArg) {
+    super.constructor();
+    thisBucket = thisBucketArg;
+    member = memberArg;
+    debugName = debugNameArg;
+    debugCheckInvariants();
   }
 }
 
@@ -1431,6 +1452,7 @@ class MemberDescription extends Object {
     isField = false;
   }
 
+  // is both a field and a method in different places in this class hierarchy
   Null setIsAmbiguous() {
     isAmbiguous = true;
   }
@@ -1602,17 +1624,29 @@ class ClassType extends Type {
     initializerSubroutine = initializerSubroutineArg;
   }
 
-  Null registerForwardMember(String name, Type type, SourceLocation sourceLocation) {
-    assert(!isDefined, 'registerForwardMember must be called before markAsDefined');
+  MemberDescription registerForwardedMember(String name, Type type, SourceLocation sourceLocation) {
+    assert(!isDefined, 'registerForwardedMember must be called before markAsDefined');
     MemberDescriptionNullable existingDeclaration = forwardDeclaredMembers.get(name) as MemberDescriptionNullable;
     if (existingDeclaration != null) {
-      assert(sourceLocation != existingDeclaration!.sourceLocation, 'tried to call registerForwardMember twice for the same code');
+      assert(sourceLocation != existingDeclaration!.sourceLocation, 'tried to call registerForwardedMember twice for the same code');
       throw(concat('member "', this.name, '.', name, '" already declared at ', existingDeclaration!.sourceLocation, ', cannot redeclare at ', sourceLocation, '.'));
     }
     MemberDescription member = MemberDescription(this, name, type, false /* isInherited -- forward declarations get fixed up later */, sourceLocation);
-    member.setIsAmbiguous(); // we don't know yet whether this is a field or a method
     member.markDeclared();
     forwardDeclaredMembers.set(name, member);
+    return member;
+  }
+
+  Null registerForwardField(String name, Type type, SourceLocation sourceLocation) {
+    MemberDescription member = registerForwardedMember(name, type, sourceLocation);
+    member.setNeedsField();
+    member.setIsField();
+  }
+
+  Null registerForwardMethod(String name, Type type, SourceLocation sourceLocation) {
+    MemberDescription member = registerForwardedMember(name, type, sourceLocation);
+    member.setNeedsMethods();
+    member.setIsMethod();
   }
 
   Null inheritMembersFromSupertype() {
@@ -1808,7 +1842,6 @@ class ClassType extends Type {
   IdentifierEntity createIdentifierEntity(CompiledScope scope, Bucket thisPointer, String name) {
     MemberDescription member = getMember(name)!;
     if (member.isAmbiguous) {
-      // TODO: if this was just a forward declaration, this is inefficient
       return AmbiguousMemberIdentifierEntity(thisPointer, member, concat(this.name, '.', name));
     }
     if (member.isField) {

@@ -34,7 +34,7 @@ Expression parseExpressionLeaves(TokenConsumer source) {
     } else if (identifier == 'FILE') {
       return SourceLocationFileStringLiteralExpression(source.lastLocation());
     } else if (source.isNext(tt.OpenParen)) {
-      return VariableSubroutineCallExpression(identifier, parseArguments(source), source.lastLocation());
+      return IdentifierSubroutineCallExpression(identifier, parseArguments(source), source.lastLocation());
     }
     return VariableExpression(identifier, source.lastLocation());
   }
@@ -431,7 +431,7 @@ IfStatement parseIfStatement(TokenConsumer source) {
   return IfStatement(expression, block, elseClause, location);
 }
 
-Boolean parseParameters(TokenConsumer source, AnythingListList parameters) {
+Boolean parseParameters(TokenConsumer source, AnythingListList parameters, Boolean expectNames) {
   source.expectPunctuation(tt.OpenParen);
   Boolean isVarArgs = false;
   while (true) {
@@ -456,8 +456,12 @@ Boolean parseParameters(TokenConsumer source, AnythingListList parameters) {
         isVarArgs = true;
       }
     }
-    String parameterName = source.readIdentifier();
-    append(parameters, [ parameterType, parameterName ]);
+    if (expectNames) {
+      String parameterName = source.readIdentifier();
+      append(parameters, [ parameterType, parameterName ]);
+    } else {
+      append(parameters, [ parameterType ]:Anything);
+    }
   }
   source.expectPunctuation(tt.CloseParen);
   return isVarArgs;
@@ -477,7 +481,7 @@ Statement parseDeclaration(TokenConsumer source) {
   if (source.isNext(tt.OpenParen)) {
     SourceLocation location = source.lastLocation();
     AnythingListList parameters = []:AnythingList;
-    Boolean isVarArgs = parseParameters(source, parameters);
+    Boolean isVarArgs = parseParameters(source, parameters, true);
     Boolean isIntrinsic = false;
     if (source.isNextIdentifier('__intrinsic')) {
       source.expectIdentifier('__intrinsic');
@@ -518,7 +522,7 @@ Statement parseClassMemberDeclaration(TokenConsumer source) {
   if (source.isNext(tt.OpenParen)) {
     SourceLocation location = source.lastLocation();
     AnythingListList parameters = []:AnythingList;
-    Boolean isVarArgs = parseParameters(source, parameters);
+    Boolean isVarArgs = parseParameters(source, parameters, true);
     StatementBlock block = parseBlock(source);
     return MethodDeclarationStatement(type, identifier, parameters, isVarArgs, block, location);
   }
@@ -760,15 +764,27 @@ Statement parseTopLevelStatement(TokenConsumer source) {
     source.expectPunctuation(tt.Semicolon);
     return ForwardClassDeclaration(className, constructorParameterTypes, isVarArgs, superclassName, isIntrinsic, location);
   }
-  if (source.isNextIdentifier('fwdclassprop')) {
-    source.expectIdentifier('fwdclassprop');
+  if (source.isNextIdentifier('fwdclassfield')) {
+    source.expectIdentifier('fwdclassfield');
     TypeIdentifier propertyType = TypeIdentifier(source.readIdentifier(), source.lastLocation());
     TypeIdentifier hostClass = TypeIdentifier(source.readIdentifier(), source.lastLocation());
     source.expectPunctuation(tt.Period);
     String propertyName = source.readIdentifier();
     SourceLocation location = source.lastLocation();
     source.expectPunctuation(tt.Semicolon);
-    return ForwardClassPropertyDeclaration(hostClass, propertyType, propertyName, location);
+    return ForwardClassFieldDeclaration(hostClass, propertyType, propertyName, location);
+  }
+  if (source.isNextIdentifier('fwdclassmethod')) {
+    source.expectIdentifier('fwdclassmethod');
+    TypeIdentifier returnType = TypeIdentifier(source.readIdentifier(), source.lastLocation());
+    TypeIdentifier hostClass = TypeIdentifier(source.readIdentifier(), source.lastLocation());
+    source.expectPunctuation(tt.Period);
+    String methodName = source.readIdentifier();
+    AnythingListList parameters = []:AnythingList;
+    Boolean isVarArgs = parseParameters(source, parameters, false);
+    SourceLocation location = source.lastLocation();
+    source.expectPunctuation(tt.Semicolon);
+    return ForwardClassMethodDeclaration(hostClass, returnType, methodName, parameters, isVarArgs, location);
   }
   if (source.isNextIdentifier('typedef#')) {
     source.expectIdentifier('typedef#');

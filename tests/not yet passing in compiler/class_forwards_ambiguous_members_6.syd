@@ -1,0 +1,24 @@
+// expected output: PASS
+
+Null func() { 
+  println('PASS');
+}
+
+fwdclassmethod Null A.f();
+
+class A {
+  Null f() { 
+    println('FAIL');
+  }
+}
+
+class B extends A {
+  NullFunction f;
+
+  Null constructor() {
+    f = func;
+  }
+}
+
+A b = B();
+b.f();

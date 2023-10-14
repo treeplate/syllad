@@ -14,18 +14,18 @@ fwdclass ListType(TypeRegistry, Type) extends AbstractListType;
 fwdclass IterableType(TypeRegistry, Type) extends Type;
 fwdclass IteratorType(TypeRegistry, Type) extends Type;
 
-fwdclassprop Type NullableType.subtype;
-fwdclassprop Type IterableType.elementType;
-fwdclassprop NullFunction TypeRegistry.registerType;
-fwdclassprop TypeNullableFunction TypeRegistry.parseType;
+fwdclassfield Type NullableType.subtype;
+fwdclassfield Type IterableType.elementType;
+fwdclassmethod Null TypeRegistry.registerType(Type);
+fwdclassmethod TypeNullable TypeRegistry.parseType(String, TypeNullableFunction);
 
-fwdclassprop NullableTypeList TypeRegistry.typesOfNullables;
-fwdclassprop SubroutineTypeWithAnyArgumentsList TypeRegistry.typesOfSubroutinesWithAnyArguments;
-fwdclassprop AbstractSubroutineTypeWithSpecificParametersList TypeRegistry.typesOfSubroutinesWithSpecificParameters;
-fwdclassprop ArrayTypeList TypeRegistry.typesOfArrays;
-fwdclassprop ListTypeList TypeRegistry.typesOfLists;
-fwdclassprop IterableTypeList TypeRegistry.typesOfIterables;
-fwdclassprop IteratorTypeList TypeRegistry.typesOfIterators;
+fwdclassfield NullableTypeList TypeRegistry.typesOfNullables;
+fwdclassfield SubroutineTypeWithAnyArgumentsList TypeRegistry.typesOfSubroutinesWithAnyArguments;
+fwdclassfield AbstractSubroutineTypeWithSpecificParametersList TypeRegistry.typesOfSubroutinesWithSpecificParameters;
+fwdclassfield ArrayTypeList TypeRegistry.typesOfArrays;
+fwdclassfield ListTypeList TypeRegistry.typesOfLists;
+fwdclassfield IterableTypeList TypeRegistry.typesOfIterables;
+fwdclassfield IteratorTypeList TypeRegistry.typesOfIterators;
 
 class Type extends Object {
   IntegerNullable code = null;
@@ -383,7 +383,7 @@ class AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineTyp
 }
 
 fwdclass SubroutineTypeWithSpecificParameters(TypeRegistry, Type, TypeList) extends AbstractSubroutineTypeWithSpecificParameters;
-fwdclassprop TypeList SubroutineTypeWithSpecificParameters.parameterTypes;
+fwdclassfield TypeList SubroutineTypeWithSpecificParameters.parameterTypes;
 
 class SubroutineTypeWithVarArgs extends AbstractSubroutineTypeWithSpecificParameters {
   Type parameterType;

@@ -555,7 +555,7 @@ class SubroutineCallExpression extends Expression {
   }
 }
 
-class VariableSubroutineCallExpression extends Expression {
+class IdentifierSubroutineCallExpression extends Expression {
   String name;
   ExpressionList arguments;
 
@@ -2386,13 +2386,13 @@ class ClassDeclaration extends AbstractClassDeclaration {
   }
 }
 
-class ForwardClassPropertyDeclaration extends DeclarationStatement {
-  TypeIdentifier propertyType;
+class ForwardClassFieldDeclaration extends DeclarationStatement {
+  TypeIdentifier fieldType;
   TypeIdentifier hostClass;
   
   //#override
   String toStringIndent(Integer indent) {
-    return concat('fwdclassprop ', propertyType.toStringIndent(indent), ' ', hostClass.toStringIndent(indent), '.', identifier, ';\n');
+    return concat('fwdclassfield ', fieldType.toStringIndent(indent), ' ', hostClass.toStringIndent(indent), '.', identifier, ';\n');
   }
 
   //#override
@@ -2408,14 +2408,75 @@ class ForwardClassPropertyDeclaration extends DeclarationStatement {
     if (classType.isDefined) {
       throw(concat('type ', hostClass.name, ' is already defined and cannot have a forward-declared property at ', sourceLocation));
     }
-    staticType = propertyType.generateInstructions(scope);
-    classType.registerForwardMember(identifier, staticType, sourceLocation);
+    staticType = fieldType.generateInstructions(scope);
+    classType.registerForwardField(identifier, staticType, sourceLocation);
   }
 
-  Null constructor(TypeIdentifier hostClassArg, TypeIdentifier propertyTypeArg, String identifierArg, SourceLocation sourceLocationArg) {
+  Null constructor(TypeIdentifier hostClassArg, TypeIdentifier fieldTypeArg, String identifierArg, SourceLocation sourceLocationArg) {
     super.constructor(identifierArg, sourceLocationArg);
     hostClass = hostClassArg;
-    propertyType = propertyTypeArg;
+    fieldType = fieldTypeArg;
+  }
+}
+
+class ForwardClassMethodDeclaration extends DeclarationStatement {
+  TypeIdentifier returnType;
+  TypeIdentifier hostClass;
+  AnythingListList parameters; // example: [[String], [Integer]]
+  Boolean isVarArgs;
+  
+  //#override
+  String toStringIndent(Integer indent) {
+    StringList parametersList = []:String;
+    for (parameter in parameters) {
+      if (len(parametersList) > 0) {
+        append(parametersList, ', ');
+      }
+      append(parametersList, (parameter[0] as TypeIdentifier).toStringIndent(indent));
+    }
+    return concat('fwdclassmethod ', returnType.toStringIndent(indent), ' ', hostClass.toStringIndent(indent), '.', identifier, '(', joinList(parametersList), ');\n');
+  }
+
+  //#override
+  Null generateInstructions(CompiledScope scope) {
+    TypeNullable existingStaticType = hostClass.generateInstructions(scope);
+    if (existingStaticType == null) {
+      throw(concat('class ', hostClass.name, ' is not known at ', sourceLocation));
+    }
+    if (!(existingStaticType is ClassType)) {
+      throw(concat('type ', hostClass.name, ' is not a class at ', sourceLocation));
+    }
+    ClassType classType = existingStaticType as ClassType;
+    if (classType.isDefined) {
+      throw(concat('type ', hostClass.name, ' is already defined and cannot have a forward-declared method at ', sourceLocation));
+    }
+    TypeList compiledParameterTypes = []:Type;
+    for (parameter in parameters) {
+      append(compiledParameterTypes, (parameter[0] as TypeIdentifier).generateInstructions(scope));
+    }
+    Type returnType = returnType.generateInstructions(scope);
+    if (isVarArgs) {
+      staticType = createOrFindSubroutineTypeWithVarArgs(
+        scope.environment(),
+        returnType,
+        compiledParameterTypes,
+      );
+    } else {
+      staticType = createOrFindSubroutineTypeWithSpecificParameters(
+        scope.environment(),
+        returnType,
+        compiledParameterTypes,
+      ); 
+    }
+    classType.registerForwardMethod(identifier, staticType, sourceLocation);
+  }
+
+  Null constructor(TypeIdentifier hostClassArg, TypeIdentifier returnTypeArg, String identifierArg, AnythingListList parametersArg, Boolean isVarargsArg, SourceLocation sourceLocationArg) {
+    super.constructor(identifierArg, sourceLocationArg);
+    hostClass = hostClassArg;
+    returnType = returnTypeArg;
+    parameters = parametersArg;
+    isVarArgs = isVarargsArg;
   }
 }
 

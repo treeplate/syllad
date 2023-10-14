@@ -1,0 +1,10 @@
+// expected error: expected field but found method
+// unexpected output: FAIL
+
+println('FAIL');
+
+fwdclass A;
+fwdclass B extends A;
+fwdclassfield NullFunction B.a;
+class A { Null a() {} }
+class B extends A { }

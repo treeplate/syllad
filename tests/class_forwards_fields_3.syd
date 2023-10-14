@@ -1,0 +1,8 @@
+// expected error: too late for fwdclassfield
+// unexpected output: FAIL
+
+class A { }
+
+fwdclassfield Integer A.foo;
+
+println('FAIL');

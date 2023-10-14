@@ -7,13 +7,13 @@ import 'syd-x64-operands.syd';
 // stack values into registers just before we blow them away.
 
 fwdclass X64Assembler extends Assembler;
-fwdclassprop NullFunction X64Assembler.addBlankLine;
-fwdclassprop NullFunction X64Assembler.addCode;
-fwdclassprop NullFunction X64Assembler.addLabel;
-fwdclassprop NullFunction X64Assembler.addComment;
-fwdclassprop NullFunction X64Assembler.addPendingComment;
-fwdclassprop NullFunction X64Assembler.addIncludeLib;
-fwdclassprop AssemblerLabelFunction X64Assembler.addExternProc;
+fwdclassmethod Null X64Assembler.addBlankLine();
+fwdclassmethod Null X64Assembler.addCode(Integer, String, OperandList, StringNullable);
+fwdclassmethod Null X64Assembler.addLabel(Integer, AssemblerLabel, StringNullable);
+fwdclassmethod Null X64Assembler.addComment(Integer, String);
+fwdclassmethod Null X64Assembler.addPendingComment(Integer, String);
+fwdclassmethod Null X64Assembler.addIncludeLib(String);
+fwdclassmethod AssemblerLabel X64Assembler.addExternProc(String);
 
 class PlaceholderOperand extends Operand {
   OperandNullable actualOperand = null;

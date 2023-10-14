@@ -1,0 +1,16 @@
+// expected error: cannot assign to f
+// unexpected output: FAIL
+
+println('FAIL');
+
+Null func() { }
+
+fwdclassmethod Null A.f();
+
+class A {
+  Null test() {
+    f = func;
+  }
+
+  Null f() { }
+}

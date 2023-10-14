@@ -7,7 +7,7 @@ fwdclass Operand(String) extends Object;
 fwdclass ImmediateOperand(String) extends Operand;
 fwdclass RegisterOperand() extends Operand;
 fwdclass Register64Operand(String, String, String, String, Integer) extends RegisterOperand;
-fwdclassprop Integer Register64Operand.bit;
+fwdclassfield Integer Register64Operand.bit;
 fwdclass MemoryOperand(String) extends Operand;
 fwdclass RawAddressComputationOperand(RegisterOperandNullable, RegisterOperandNullable, Integer, Integer, ow, String) extends MemoryOperand;
 fwdclass DereferenceLabelOperand(AssemblerLabel, ow, String) extends MemoryOperand;
@@ -411,9 +411,9 @@ class RegisterOperand extends Operand {
   }
 }
 
-fwdclassprop String Register64Operand.r8;
-fwdclassprop String Register64Operand.r16;
-fwdclassprop String Register64Operand.r32;
+fwdclassfield String Register64Operand.r8;
+fwdclassfield String Register64Operand.r16;
+fwdclassfield String Register64Operand.r32;
 
 class Register8Operand extends RegisterOperand {
   Register64Operand register;

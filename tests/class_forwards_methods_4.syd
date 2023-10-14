@@ -7,7 +7,7 @@ Integer foo(A a) {
   return a.test(42);
 }
 
-fwdclassprop IntegerFunction A.test;
+fwdclassmethod Integer A.test(Integer);
 
 class A {
   Integer test(Integer i) {

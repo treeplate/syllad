@@ -158,15 +158,17 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
               scope);
         }
       } else {
-        if (newScope.igv(value.key, false, -2, 0, '', '', true, false, false) != value.value.type) {
-          if (!(value.value is GenericFunctionValueType &&
-              value.value is! FunctionValueType &&
-              newScope.igv(value.key, false) is FunctionValueType &&
-              (newScope.igv(value.key, false) as GenericFunctionValueType).returnType == (value.value as GenericFunctionValueType).returnType)) {
-            throw BSCException(
-                "${name.name}.${value.key.name} (a ${newScope.igv(value.key, false)}) does not match forward declaration (a ${value.value.type}) ${formatCursorPositionFromTokens(tokens)}",
-                scope);
-          }
+        ValueType? newType = newScope.igv(value.key, false, -2, 0, '', '', true, false, false);
+        if (newType != value.value.type) {
+          throw BSCException(
+              "${name.name}.${value.key.name} (a ${newScope.igv(value.key, false)}) does not match forward declaration (a ${value.value.type}) ${formatCursorPositionFromTokens(tokens)}",
+              scope);
+        } else if (newType is FunctionValueType && value.value.type is! FunctionValueType) {
+          // this will break when we get function types with arguments specifiable by fields
+          throw BSCException('${name.name}.${value.key.name} was forward-declared with a fwdclassfield but is a method ${formatCursorPositionFromTokens(tokens)}', scope);
+        } else if (newType is! FunctionValueType && value.value.type is FunctionValueType) {
+          // this will break when we get function types with arguments specifiable by fields
+          throw BSCException('${name.name}.${value.key.name} was forward-declared with a fwdclassmethod but is a field ${formatCursorPositionFromTokens(tokens)}', scope);
         }
       }
     }
@@ -1126,26 +1128,26 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens.expectChar(TokenType.endOfStatement);
       scope.classes[cln] = x.properties;
       return NopStatement();
-    case fwdclasspropVariable:
+    case fwdclassfieldVariable:
       ValueType type = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
       ValueType reciever =
           ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
       if (reciever is! ClassValueType) {
-        throw BSCException('fwdclassprops should only be defined on classes ${formatCursorPositionFromTokens(tokens)}', scope);
+        throw BSCException('fwdclassfields should only be defined on classes ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (!reciever.fwdDeclared) {
         throw BSCException(
-            'fwdclassprops should only be defined on forward-declared classes, before the real class is created ${formatCursorPositionFromTokens(tokens)}',
+            'fwdclassfields should only be defined on forward-declared classes, before the real class is created ${formatCursorPositionFromTokens(tokens)}',
             scope);
       }
       ClassValueType cl = reciever;
       tokens..moveNext();
       tokens.expectChar(TokenType.period);
       if (overriden) {
-        stderr.writeln('fwdclassprops should never be defined as override ${formatCursorPositionFromTokens(tokens)}');
+        stderr.writeln('fwdclassfields should never be defined as override ${formatCursorPositionFromTokens(tokens)}');
       }
       if (cl.properties.types[tokens.currentIdent] != null) {
-        throw BSCException('fwdclassprops should only be defined once per class ${formatCursorPositionFromTokens(tokens)}', scope);
+        throw BSCException('fwdclassfields should only be defined once per class ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       cl.properties.types[tokens.currentIdent] = TVProp(true, type, false);
       if (ignoreUnused) {
@@ -1154,7 +1156,43 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       tokens.expectChar(TokenType.endOfStatement);
       return NopStatement();
-    case fwdstaticpropVariable:
+    case fwdclassmethodVariable:
+      ValueType returnType =
+          ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+      ValueType reciever =
+          ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+      if (reciever is! ClassValueType) {
+        throw BSCException('fwdclassmethods should only be defined on classes ${formatCursorPositionFromTokens(tokens)}', scope);
+      }
+      if (!reciever.fwdDeclared) {
+        throw BSCException(
+            'fwdclassmethods should only be defined on forward-declared classes, before the real class is created ${formatCursorPositionFromTokens(tokens)}',
+            scope);
+      }
+      ClassValueType cl = reciever;
+      tokens..moveNext();
+      tokens.expectChar(TokenType.period);
+      if (overriden) {
+        stderr.writeln('fwdclassmethods should never be defined as override ${formatCursorPositionFromTokens(tokens)}');
+      }
+      if (cl.properties.types[tokens.currentIdent] != null) {
+        throw BSCException('fwdclassmethods should only be defined once per class ${formatCursorPositionFromTokens(tokens)}', scope);
+      }
+      Variable methodName = tokens.currentIdent;
+      tokens.moveNext();
+      List<ValueType> parameters = parseArgList(tokens, (tokens) {
+        Variable name = tokens.currentIdent;
+        tokens.moveNext();
+        return ValueType.create(null, name, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+      });
+      ValueType type = FunctionValueType(returnType, parameters, tokens.file, scope);
+      cl.properties.types[methodName] = TVProp(true, type, false);
+      if (ignoreUnused) {
+        cl.properties.igv(methodName, true);
+      }
+      tokens.expectChar(TokenType.endOfStatement);
+      return NopStatement();
+    case fwdstaticfieldVariable:
       ValueType type = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
       ClassValueType cl =
           (ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope)
@@ -1162,7 +1200,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens..moveNext();
       tokens.expectChar(TokenType.period);
       if (overriden) {
-        stderr.writeln('fwdstaticprops should never be defined as override ${formatCursorPositionFromTokens(tokens)}');
+        stderr.writeln('fwdstaticfields should never be defined as override ${formatCursorPositionFromTokens(tokens)}');
       }
       cl.properties.types[tokens.currentIdent] = TVProp(true, type, false);
       if (ignoreUnused) {
@@ -1172,6 +1210,38 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
         cvt.properties.types[tokens.currentIdent] = TVProp(true, type, false);
         if (ignoreUnused) {
           cvt.properties.igv(tokens.currentIdent, true);
+        }
+      }
+      tokens.moveNext();
+      tokens.expectChar(TokenType.endOfStatement);
+      return NopStatement();
+    case fwdstaticmethodVariable:
+      ValueType returnType =
+          ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+      ClassValueType cl =
+          (ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope)
+              as ClassValueType);
+      tokens..moveNext();
+      tokens.expectChar(TokenType.period);
+      if (overriden) {
+        stderr.writeln('fwdstaticmethods should never be defined as override ${formatCursorPositionFromTokens(tokens)}');
+      }
+      Variable methodName = tokens.currentIdent;
+      tokens.moveNext();
+      List<ValueType> parameters = parseArgList(tokens, (tokens) {
+        Variable name = tokens.currentIdent;
+        tokens.moveNext();
+        return ValueType.create(null, name, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+      });
+      ValueType type = FunctionValueType(returnType, parameters, tokens.file, scope);
+      cl.properties.types[methodName] = TVProp(true, type, false);
+      if (ignoreUnused) {
+        cl.properties.igv(methodName, true);
+      }
+      for (ClassValueType cvt in cl.allDescendants) {
+        cvt.properties.types[methodName] = TVProp(true, type, false);
+        if (ignoreUnused) {
+          cvt.properties.igv(methodName, true);
         }
       }
       tokens.moveNext();

@@ -4,15 +4,7 @@
 println('FAIL');
 
 fwdclass A;
-fwdclassprop NullFunction A.foo;
+fwdclassmethod Null A.foo();
 
 class A {
 }
-
-class B extends A {
-  Null foo() {
-    super.foo();
-  }
-}
-
-B;

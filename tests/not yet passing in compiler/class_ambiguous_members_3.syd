@@ -1,5 +1,5 @@
 // expected output: 2
-// expected error: cannot reassign foo, a constant
+// expected error: cannot reassign foo, a constant (runtime error)
 
 class A {
   IntegerFunction foo;

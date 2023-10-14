@@ -1,0 +1,20 @@
+// expected output: hello
+
+fwdclass A();
+fwdclassfield NullFunction A.x;
+
+Null test(A a) {
+  NullFunction f = a.x;
+  f();
+}
+
+class A { NullFunction x; }
+
+class B extends A {
+  //#override
+  Null x() {
+    println('hello');
+  }
+}
+
+test(B());

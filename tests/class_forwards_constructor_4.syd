@@ -3,7 +3,7 @@
 // expected output: B
 
 fwdclass A;
-fwdclassprop IntegerFunction A.test;
+fwdclassmethod Integer A.test(Integer);
 
 Integer foo(A a) {
   return a.test(42);

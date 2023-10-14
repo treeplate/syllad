@@ -56,7 +56,10 @@ void main(List<String> args) {
     handleVariable(whateverVariable);
     handleVariable(classMethodsVariable);
     handleVariable(fwdclassVariable);
-    handleVariable(fwdclasspropVariable);
+    handleVariable(fwdclassfieldVariable);
+    handleVariable(fwdstaticfieldVariable);
+    handleVariable(fwdstaticmethodVariable);
+    handleVariable(fwdclassmethodVariable);
     handleVariable(classVariable);
     handleVariable(namespaceVariable);
     handleVariable(importVariable);

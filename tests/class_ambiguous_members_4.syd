@@ -1,0 +1,20 @@
+// expected output: PASS
+
+Null test() { println('PASS'); }
+
+class A {
+  Null x() { println('FAIL'); }
+
+  Null f() { 
+    x();
+  }
+}
+
+class B extends A {
+  NullFunction x;
+  Null constructor() {
+    x = test;
+  }
+}
+
+B().f();

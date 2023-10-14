@@ -4,7 +4,7 @@
 println('FAIL');
 
 fwdclass A;
-fwdclassprop Null A.a;
-fwdclassprop Null A.a;
+fwdclassfield Null A.a;
+fwdclassfield Null A.a;
 
 class A { Null a; }

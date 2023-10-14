@@ -1,0 +1,22 @@
+// expected output: PASS
+
+fwdclass A();
+fwdclassmethod Null A.x();
+
+Null test(A a) {
+  a.x();
+}
+
+class A { Null x() { println('FAIL'); } }
+
+class B extends A {
+  NullFunction x;
+  Null setX(NullFunction xArg) {
+    x = xArg;
+  }
+}
+
+B b = B();
+Null y() { println('PASS'); }
+b.setX(y);
+test(b);

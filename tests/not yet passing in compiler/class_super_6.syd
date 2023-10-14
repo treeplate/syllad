@@ -2,7 +2,7 @@
 
 fwdclass A;
 fwdclass B extends A;
-fwdclassprop Integer A.foo;
+fwdclassfield Integer A.foo;
 
 Integer test(B b) {
   return b.foo;

@@ -1,0 +1,10 @@
+// expected error: expected field but found method
+// unexpected output: FAIL
+
+println('FAIL');
+
+fwdclass A;
+fwdclassfield NullFunction A.a;
+class A { 
+  Null a() {} 
+}

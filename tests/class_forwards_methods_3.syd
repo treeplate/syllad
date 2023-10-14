@@ -1,9 +1,8 @@
-// expected error: forward declared member doesn't match inherited member
-// unexpected output: hello
+// expected output: hello
 
 fwdclass A;
 fwdclass B extends A;
-fwdclassprop BooleanFunction B.test;
+fwdclassmethod String B.test(String);
 
 class A {
   String test(String s) {

@@ -1,6 +1,6 @@
 // expected error: syd does not support extension types
 // unexpected output: FAIL
 
-fwdclassprop Integer Integer.maxInt;
+fwdclassfield Integer Integer.maxInt;
 
 println('FAIL');
