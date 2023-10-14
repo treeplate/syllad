@@ -72,6 +72,11 @@ Integer _blockCount = 0;
 
 NullFunction _garbageCollector;
 
+// The number of times this file will call _alloc and not _free on startup 
+Integer _rtlInitialBlockCount = 3;
+// The number of GC blocks at the end of this file.
+Integer _rtlInitialLiveBlocks = 2;
+
 /// Allocates a block on the heap.
 ///
 /// Block must be freed with [_free].

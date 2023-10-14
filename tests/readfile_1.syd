@@ -1,4 +1,4 @@
-// Expected output: PASS
+// expected output: PASS
 
 StringList cwdParts = split(args[0], '\\');
 pop(cwdParts);

@@ -31,16 +31,15 @@ Null runGC() {
   _gcLocked += 1;
 }
 
-
-assert(_debugLiveBlocks == 0, 'started with unexpected allocations');
+assert(_debugLiveBlocks == _rtlInitialLiveBlocks, 'started with unexpected allocations');
 test1();
 runGC();
-assert(_debugLiveBlocks == 0, 'leaked memory 1');
+assert(_debugLiveBlocks == _rtlInitialLiveBlocks, 'leaked memory 1');
 
 test2();
 runGC();
-assert(_debugLiveBlocks == 0, 'leaked memory 2');
+assert(_debugLiveBlocks == _rtlInitialLiveBlocks, 'leaked memory 2');
 
 test3();
 runGC();
-assert(_debugLiveBlocks == 0, 'leaked memory 3');
+assert(_debugLiveBlocks == _rtlInitialLiveBlocks, 'leaked memory 3');

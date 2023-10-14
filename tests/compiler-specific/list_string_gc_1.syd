@@ -16,48 +16,48 @@ if (true) {
   if (true) {
     // by this point we've allocated two things: the block entry list, and some scratch space
     Integer count = _blockCount;
-    assert(count == 2, 'unexpected allocation count A');
+    assert(count == _rtlInitialBlockCount + 2, 'unexpected allocation count A');
   }
   AnythingList foo = []; // allocates a list header and a list data with unused space for one item
   if (true) {
     Integer count = _blockCount;
-    assert(count == 4, 'unexpected allocation count B');
+    assert(count == _rtlInitialBlockCount + 4, 'unexpected allocation count B');
   }
   if (true) {
     append(foo, concat('a', 'b')); // allocates a string, a list, a list data, and then a second list data, but the append should use the room in the original list data
   }
   if (true) {
     Integer count = _blockCount;
-    assert(count == 8, 'unexpected allocation count C');
+    assert(count == _rtlInitialBlockCount + 8, 'unexpected allocation count C');
   }
   _gcLocked -= 1;
   _garbageCollector(); // frees the list and list datas that concat used internally
   _gcLocked += 1;
   if (true) {
     Integer count = _blockCount;
-    assert(count == 5, 'unexpected allocation count D');
+    assert(count == _rtlInitialBlockCount + 5, 'unexpected allocation count D');
   }
   if (true) {
     foo[0] = null; // disconnects the string, which will be freed since it is not in the block list protected by _gcLocked
   }
   if (true) {
     Integer count = _blockCount;
-    assert(count == 4, 'unexpected allocation count E');
+    assert(count == _rtlInitialBlockCount + 4, 'unexpected allocation count E');
   }
   _gcLocked -= 1;
   _garbageCollector(); // should not free anything
   _gcLocked += 1;
   Integer count = _blockCount;
-  assert(count == 4, 'unexpected allocation count F');
+  assert(count == _rtlInitialBlockCount + 4, 'unexpected allocation count F');
   // at this point the list goes out of scope and is disconnected
 }
 if (true) {
   Integer count = _blockCount;
-  assert(count == 4, 'unexpected allocation count G');
+  assert(count == _rtlInitialBlockCount + 4, 'unexpected allocation count G');
 }
 _gcLocked -= 1;
 _garbageCollector(); // frees the list and its list data
 _gcLocked += 1;
 Integer count = _blockCount;
 // here we're back to the original set of allocations
-assert(count == 2, 'unexpected allocation count H');
+assert(count == _rtlInitialBlockCount + 2, 'unexpected allocation count H');
