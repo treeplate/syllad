@@ -1,12 +1,10 @@
 // expected output: PASS
 
+// see also class_forwards_ambiguous_members_6 which is identical but with forward declarations
+
 Null func() { 
   println('PASS');
 }
-
-// see also class_ambiguous_members_5 which is identical but without these two forwards:
-fwdclass A;
-fwdclassmethod Null A.f();
 
 class A {
   Null f() { 
