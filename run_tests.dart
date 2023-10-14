@@ -353,9 +353,10 @@ TestResult? runCompiler(File file) {
     return TestResult(normalizedStdout, normalizedStderr, result.exitCode,
         interpretation: resultCode); // failure is not set to true here because we might be expecting a failure
   }
-
-  List<String> asm = File('compiler/syd.asm').readAsLinesSync();
-  if (asm.isNotEmpty && asm.length < 1000) {
+  File assembly = File('../${file.path}.asm');
+  if (assembly.existsSync()) {
+    List<String> asm = assembly.readAsLinesSync();
+    assembly.deleteSync();
     return TestResult(normalizedStdout, '${normalizedStderr}\nsyd.asm contents:\n${asm.join('\n')}', result.exitCode, interpretation: ResultCode.executerError);
   }
   // STDOUT

@@ -54,19 +54,14 @@ IF NOT !ERRORLEVEL! == 0 (
         IF !ERRORLEVEL! == -1073741571 ECHO "0xC00000FD: Stack overflow"
         IF !ERRORLEVEL! == -1073740972 ECHO "0xC0000354: STATUS_DEBUGGER_INACTIVE"
         ECHO DONE
-        IF EXIST "%~1.asm" MOVE /Y "%~1.asm" syd.asm > NUL
-        IF EXIST "%~1.exe" MOVE /Y "%~1.exe" syd.exe > NUL
-        IF EXIST "%~1.ilk" MOVE /Y "%~1.ilk" syd.ilk > NUL
-        IF EXIST "%~1.pdb" MOVE /Y "%~1.pdb" syd.pdb > NUL
+        IF EXIST "%~1.asm" DEL "%~1.asm" > NUL
+        IF EXIST "%~1.exe" DEL "%~1.exe" > NUL
+        IF EXIST "%~1.ilk" DEL "%~1.ilk" > NUL
+        IF EXIST "%~1.pdb" DEL "%~1.pdb" > NUL
         IF EXIST "%~1.obj" DEL "%~1.obj" > NUL
         EXIT /B 0
     ) ELSE (
         ECHO == FAILED ==
-        IF EXIST "%~1.asm" MOVE /Y "%~1.asm" syd.asm > NUL
-        IF EXIST "%~1.exe" MOVE /Y "%~1.exe" syd.exe > NUL
-        IF EXIST "%~1.ilk" MOVE /Y "%~1.ilk" syd.ilk > NUL
-        IF EXIST "%~1.pdb" MOVE /Y "%~1.pdb" syd.pdb > NUL
-        IF EXIST "%~1.obj" DEL "%~1.obj" > NUL
         EXIT /B 1
     )
 )
