@@ -1,20 +1,19 @@
-// expected error: unknown member "B.bar".
-// unexpected output: 1
-// unexpected output: 2
+// expected output: 1
+// expected output: 2
 
-fwdclass A;
-fwdclass B extends A;
+fwdclass A();
+fwdclass B() extends A;
 fwdclassfield Integer A.foo;
 
 Integer test1(B b) {
   return b.foo;
 }
 
+fwdclassfield Integer A.bar;
+
 Integer test2(B b) {
   return b.bar;
 }
-
-fwdclassfield Integer A.bar;
 
 class A {
   Integer foo = 1;

@@ -392,7 +392,7 @@ class NotExpression extends Expression {
     ValueWrapper aEval = a.eval(scope);
     if (!aEval.typeC(scope, scope.stack, line, col, workspace, file).isSubtypeOf(booleanType)) {
       throw BSCException(
-        'Attempted !$a but $aEval was not a boolean (was ${aEval.typeC(scope, scope.stack, line, col, workspace, file)}) ${formatCursorPosition(line, col, workspace, file)}\n${scope.stack.reversed.join('\n')}}',
+        'Attempted !$a but ${aEval.toStringWithStack(scope.stack, line, col, workspace, file, false)} was not a boolean (was ${aEval.typeC(scope, scope.stack, line, col, workspace, file)}) ${formatCursorPosition(line, col, workspace, file)}\n${scope.stack.reversed.join('\n')}}',
         scope,
       );
     }
@@ -932,7 +932,7 @@ class OrExpression extends Expression {
     ValueWrapper bv = b.eval(scope);
     if (!bv.typeC(scope, scope.stack, line, col, workspace, file).isSubtypeOf(booleanType)) {
       throw BSCException(
-          "$bv ($b) is not an boolean; attempted $a||$b ${formatCursorPosition(line, col, workspace, file)}\n ${scope.stack.reversed.join('\n')}", scope);
+          "${bv.toStringWithStack(scope.stack, line, col, workspace, file, false)} ($b) is not an boolean; attempted $a||$b ${formatCursorPosition(line, col, workspace, file)}\n ${scope.stack.reversed.join('\n')}", scope);
     }
     return bv;
   }

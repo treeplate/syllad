@@ -3,8 +3,8 @@
 
 println('FAIL');
 
-fwdclass A;
-fwdclass B extends A;
+fwdclass A();
+fwdclass B() extends A;
 fwdclassmethod Null B.a();
 class A { NullFunction a; }
 class B extends A { }

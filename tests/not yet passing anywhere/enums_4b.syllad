@@ -1,0 +1,5 @@
+enum Happy { clap hands }
+
+Null b(Happy h) {
+  println(h);
+}

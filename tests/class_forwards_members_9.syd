@@ -1,7 +1,7 @@
 // expected output: 1
 
-fwdclass A;
-fwdclass B extends A;
+fwdclass A();
+fwdclass B() extends A;
 
 class A {
   Integer foo = 1;

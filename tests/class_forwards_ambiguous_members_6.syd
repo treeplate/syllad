@@ -5,7 +5,7 @@ Null func() {
 }
 
 // see also class_ambiguous_members_5 which is identical but without these two forwards:
-fwdclass A;
+fwdclass A();
 fwdclassmethod Null A.f();
 
 class A {

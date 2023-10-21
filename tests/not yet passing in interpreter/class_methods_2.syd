@@ -1,0 +1,14 @@
+// expected output: 0
+// expected output: 1
+// expected output: 2
+
+class Test {
+  Null method(Integer count, Test t) {
+    if (count > 0) {
+      t.method(count - 1, this);
+    }
+    println(count);
+  }
+}
+
+Test().method(2, Test());

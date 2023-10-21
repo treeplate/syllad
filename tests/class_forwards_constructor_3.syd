@@ -3,7 +3,7 @@
 
 println('FAIL');
 
-fwdclass A;
+fwdclass A(String);
 fwdclass B(String, Integer) extends A;
 class A { Null constructor(String foo) { } }
 class B extends A { }

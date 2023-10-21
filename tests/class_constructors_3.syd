@@ -1,0 +1,11 @@
+// expected output: A 1
+
+fwdclass A(String);
+
+class A {
+  Null constructor(String foo) {
+    println('A', foo);
+  }
+}
+
+A('1');

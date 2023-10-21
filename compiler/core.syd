@@ -223,7 +223,7 @@ Integer hashAnything(Anything data) {
   return hashString(concat(data));
 }
 
-fwdclass Map extends Object;
+fwdclass Map() extends Object;
 
 // Map has set, get, remove, keys, values
 // an implementation of .containsKey would be identical to get(n) != null, so just use that

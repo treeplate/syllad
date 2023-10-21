@@ -1,6 +1,6 @@
 // expected output: PASS
 
-fwdclass A;
+fwdclass A();
 fwdclass B() extends A;
 
 class A { }

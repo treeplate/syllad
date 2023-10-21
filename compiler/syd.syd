@@ -42,7 +42,6 @@ stderr('syllad self-hosting compiler');
 // P3 (nice-to-haves for which i've found workarounds):
 //   performance
 //   soundness in type system -- a variable being of type X should be a guarantee that it will have a value of type X
-//     - returns are "not really type safe"
 //     - functions without returns aren't statically checked
 //     - toString returning non-string isn't checked for either
 //   function types with signatures
@@ -57,40 +56,67 @@ stderr('syllad self-hosting compiler');
 //   detailed language reference
 //   [] could have its type inferred from context
 
-CompiledLibrary processFile(String filename, CompilationEnvironment compilationEnvironment, Boolean isProgram) {
-  assert(compilationEnvironment.getLibraryState(filename) == ls.Unknown, 'processFile has already processed this file');
-  Library ast = parseTokens(tokenize(scalarValues(readFile(filename)), filename, false), filename, isProgram);
-  compilationEnvironment.declareLibrary(filename);
+Library processFile(String filename, MapNullable librariesArg, Boolean isProgram, Boolean isInternal) {
+  Map libraries;
+  if (librariesArg == null) {
+    libraries = Map(); // path -> null, true, or Library
+  } else {
+    libraries = librariesArg!;
+  }
+  assert(libraries.get(filename) == null, concat('tried to process ', filename, ' twice'));
+  stderr(concat('  ', filename));
+  Library ast = parseTokens(tokenize(scalarValues(readFile(filename)), filename, isInternal), filename, isProgram);
+  libraries.set(filename, true);
   for (child in ast.children) {
     if (child is ImportStatement) {
       ImportStatement node = child as ImportStatement;
       node.setResolvedPath(pathResolve(filename, node.path));
-      ls childLibraryState = compilationEnvironment.getLibraryState(node.resolvedPath);
-      if (childLibraryState == ls.Declared) {
+      Anything sublibrary = libraries.get(node.resolvedPath);
+      if (sublibrary == true) {
         throw(concat('Import loop at ', child.sourceLocation));
-      } else if (childLibraryState == ls.Unknown) {
-        compilationEnvironment.defineLibrary(node.resolvedPath, processFile(node.resolvedPath, compilationEnvironment, false));
+      } else if (sublibrary == null) {
+        node.setResolvedLibrary(processFile(node.resolvedPath, libraries, false, isInternal));
+      } else {
+        node.setResolvedLibrary(sublibrary as Library);
       }
     } else {
       break;
     }
   }
-  stderr(concat('compiling "', filename, '"...'));
-  return ast.generateScopes(compilationEnvironment);
+  libraries.set(filename, ast);
+  return ast;
 }
 
 assert(len(args) > 1, 'no input file specified');
 String compilerPath = args[0];
 String mainProgramFileName = args[1];
+
+// parse everything
+stderr('parsing...');
+Library rtl = processFile(pathResolve(compilerPath, 'syd-rtl.syd'), null, false, true);
+Library stdlib = processFile(pathResolve(compilerPath, 'syd-stdlib.syd'), null, false, false);
+Library program = processFile(mainProgramFileName, null, true, false);
+
+stderr('generateLibraryScope...');
+LibraryList libraries = []:Library;
 CompilationEnvironment compilationEnvironment = CompilationEnvironment();
-compilationEnvironment.setRuntimeLibrary(
-  parseTokens(tokenize(scalarValues(readFile(pathResolve(compilerPath, 'syd-rtl.syd'))), 'runtime library', true), 'runtime library', false).generateScopes(compilationEnvironment)
-);
-compilationEnvironment.setStandardLibrary(
-  parseTokens(tokenize(scalarValues(readFile(pathResolve(compilerPath, 'syd-stdlib.syd'))), 'standard library', false), 'standard library', false).generateScopes(compilationEnvironment)
-);
-CompiledLibrary program = processFile(mainProgramFileName, compilationEnvironment, true); // this generates the root Program AST node
-compilationEnvironment.defineLibrary(mainProgramFileName, program);
+appendAll(libraries, rtl.generateLibraryScope(compilationEnvironment));
+compilationEnvironment.setRuntimeLibrary(rtl.library!);
+appendAll(libraries, stdlib.generateLibraryScope(compilationEnvironment));
+compilationEnvironment.setStandardLibrary(stdlib.library!);
+appendAll(libraries, program.generateLibraryScope(compilationEnvironment));
+
+stderr('declareTypes...');
+for (library in libraries) {
+  library.declareTypes(library.library!);
+}
+
+stderr('generateInstructions...');
+for (library in libraries) {
+  stderr(concat('  ', library.name));
+  library.generateInstructions(library.library!);
+}
+
 Assembler assembler = X64Assembler(compilationEnvironment.rootLabel);
 compilationEnvironment.compile(assembler);
 stderr('Compilation finished!');

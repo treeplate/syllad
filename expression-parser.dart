@@ -307,16 +307,16 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             funType = ValueType.create(anythingType, variables['AnythingFunction']!, 0, 0, '', '', scope) as GenericFunctionValueType;
           }
           while (tokens.current is! CharToken || tokens.currentChar != TokenType.closeParen) {
-            if ((funType is FunctionValueType) && funType.parameters is! InfiniteIterable && funType.parameters.length <= arguments.length) {
-              throw BSCException(
-                "Too many arguments to $result, type is ${funType} - expected ${funType.parameters}, got $arguments ${formatCursorPositionFromTokens(tokens)}",
-                scope,
-              );
-            }
             Expression expr = parseExpression(
               tokens,
               scope,
             );
+            if ((funType is FunctionValueType) && funType.parameters is! InfiniteIterable && funType.parameters.length <= arguments.length) {
+              throw BSCException(
+                "Too many arguments to $result, type is ${funType} - expected ${funType.parameters}, got extra argument $expr ${formatCursorPositionFromTokens(tokens)}",
+                scope,
+              );
+            }
             if (funType is FunctionValueType) {
               if (!expr.type.isSubtypeOf(funType.parameters.elementAt(arguments.length))) {
                 throw BSCException(

@@ -1,0 +1,6 @@
+// expected output: Happy.clap
+
+import 'enums_4a.syllad';
+import 'enums_4b.syllad';
+
+b(Happy.clap);

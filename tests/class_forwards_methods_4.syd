@@ -1,7 +1,7 @@
 // expected error: no such property
 // unexpected output: A
 
-fwdclass A;
+fwdclass A();
 
 Integer foo(A a) {
   return a.test(42);

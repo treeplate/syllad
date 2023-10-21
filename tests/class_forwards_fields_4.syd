@@ -3,7 +3,7 @@
 
 println('FAIL');
 
-fwdclass A;
+fwdclass A();
 fwdclassfield Null A.a;
 fwdclassfield Null A.a;
 

@@ -2,7 +2,7 @@ import 'core.syd';
 import 'syd-utils.syd';
 import 'syd-datum.syd';
 
-fwdclass StackMetrics extends Object;
+fwdclass StackMetrics() extends Object;
 fwdclass Operand(String) extends Object;
 fwdclass ImmediateOperand(String) extends Operand;
 fwdclass RegisterOperand() extends Operand;

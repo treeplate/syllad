@@ -1,0 +1,4 @@
+// expected error: duplicate enum
+
+enum Moo {}
+enum Moo {}

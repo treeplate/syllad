@@ -1,13 +1,13 @@
 import 'core.syd';
 import 'syd-utils.syd';
 
-fwdclass TypeRegistry extends Object;
+fwdclass TypeRegistry() extends Object;
 fwdclass Type(TypeRegistry, String) extends Object;
 fwdclass NullableType(TypeRegistry, Type) extends Type;
-fwdclass NumericType extends Type;
+fwdclass NumericType(TypeRegistry, String) extends Type;
 fwdclass AbstractSubroutineType(TypeRegistry, Type) extends Type;
-fwdclass SubroutineTypeWithAnyArguments extends AbstractSubroutineType;
-fwdclass AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineType;
+fwdclass SubroutineTypeWithAnyArguments(TypeRegistry, Type) extends AbstractSubroutineType;
+fwdclass AbstractSubroutineTypeWithSpecificParameters(TypeRegistry, Type) extends AbstractSubroutineType;
 fwdclass AbstractListType(TypeRegistry, String, Type) extends Type;
 fwdclass ArrayType(TypeRegistry, Type) extends AbstractListType;
 fwdclass ListType(TypeRegistry, Type) extends AbstractListType;
@@ -17,7 +17,7 @@ fwdclass IteratorType(TypeRegistry, Type) extends Type;
 fwdclassfield Type NullableType.subtype;
 fwdclassfield Type IterableType.elementType;
 fwdclassmethod Null TypeRegistry.registerType(Type);
-fwdclassmethod TypeNullable TypeRegistry.parseType(String, TypeNullableFunction);
+fwdclassmethod TypeNullable TypeRegistry.parseType(String, Boolean, TypeNullableFunction);
 
 fwdclassfield NullableTypeList TypeRegistry.typesOfNullables;
 fwdclassfield SubroutineTypeWithAnyArgumentsList TypeRegistry.typesOfSubroutinesWithAnyArguments;
@@ -46,9 +46,15 @@ class Type extends Object {
     return !isSubtypeOf(other);
   }
 
+  Boolean isDeclared = false;
   Boolean isConstructed = false;
   Boolean isUsedInTypeCheck = false;
   Boolean canSetUsageFlags = true;
+
+  Null markDeclared() {
+    assert(canSetUsageFlags, 'cannot mark declared type that finalizeUsageFlags has been called on');
+    isDeclared = true;
+  }
 
   // Should be called by the code that calls the constructor.
   // Implied by __as__.
@@ -342,6 +348,7 @@ class SubroutineTypeWithAnyArguments extends AbstractSubroutineType {
     assert(false, concat(name, ' type cannot be constructed.'));
   } 
   
+  // this is for internal use in this file and is never want you want to be using outside this file
   Boolean equals(Type returnTypeArg) {
     return returnType == returnTypeArg;
   }
@@ -353,6 +360,7 @@ class SubroutineTypeWithAnyArguments extends AbstractSubroutineType {
 }
 
 class AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineType {
+  // this is for internal use in this file and is never want you want to be using outside this file
   Boolean equals(Type returnTypeArg, TypeList parameterTypesArg, Boolean isVarArgsArg) {
     abstract();
   }
@@ -478,7 +486,7 @@ class SubroutineTypeWithSpecificParameters extends AbstractSubroutineTypeWithSpe
   Null verifyArguments(TypeList argumentTypes, SourceLocation callLocation, SourceLocationList sourceLocations) {
     assert(len(argumentTypes) == len(sourceLocations), 'contract violation');
     if (len(argumentTypes) != len(parameterTypes)) {
-      throw(concat('wrong number of arguments for subroutine call at ', callLocation, ' (expected ', len(parameterTypes), ', got ', len(argumentTypes), ')'));
+      throw(concat('Wrong number of arguments for subroutine call at ', callLocation, ' (expected ', len(parameterTypes), ', got ', len(argumentTypes), ')'));
     }
     Integer index = 0;
     for (type in argumentTypes) {
@@ -892,42 +900,42 @@ class TypeRegistry extends Object {
         || hasSuffix(name, 'Iterable');
   }
 
-  TypeNullable getPrefix(String name, String suffix, TypeNullableFunction lookupType) {
+  TypeNullable getPrefix(String name, String suffix, Boolean requireDeclared, TypeNullableFunction lookupType) {
     Integer nameLen = len(scalarValues(name));
     Integer suffixLen = len(scalarValues(suffix));
     if ((nameLen > suffixLen) && (substring(name, nameLen - suffixLen, nameLen) == suffix)) {
-      return parseType(substring(name, 0, nameLen - suffixLen), lookupType);
+      return parseType(substring(name, 0, nameLen - suffixLen), requireDeclared, lookupType);
     }
     return null;
   }
 
-  TypeNullable parseType(String name, TypeNullableFunction lookupType) {
+  TypeNullable parseType(String name, Boolean requireDeclared, TypeNullableFunction lookupType) {
     TypeNullable prefix;
-    prefix = getPrefix(name, 'Nullable', lookupType);
+    prefix = getPrefix(name, 'Nullable', requireDeclared, lookupType);
     if (prefix != null) {
       return createOrFindNullableType(this, prefix!);
     }
-    prefix = getPrefix(name, 'Function', lookupType);
+    prefix = getPrefix(name, 'Function', requireDeclared, lookupType);
     if (prefix != null) {
       return createOrFindSubroutineTypeWithAnyArgs(this, prefix!);
     }
-    prefix = getPrefix(name, 'List', lookupType);
+    prefix = getPrefix(name, 'List', requireDeclared, lookupType);
     if (prefix != null) {
       return createOrFindListType(this, prefix!);
     }
-    prefix = getPrefix(name, 'Array', lookupType);
+    prefix = getPrefix(name, 'Array', requireDeclared, lookupType);
     if (prefix != null) {
       return createOrFindArrayType(this, prefix!);
     }
-    prefix = getPrefix(name, 'Iterable', lookupType);
+    prefix = getPrefix(name, 'Iterable', requireDeclared, lookupType);
     if (prefix != null) {
       return createOrFindIterableType(this, prefix!);
     }
-    prefix = getPrefix(name, 'Iterator', lookupType);
+    prefix = getPrefix(name, 'Iterator', requireDeclared, lookupType);
     if (prefix != null) {
       return createOrFindIteratorType(this, prefix!);
     }
-    return lookupType(name);
+    return lookupType(name, requireDeclared);
   }
 }
 

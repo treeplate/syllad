@@ -1,7 +1,7 @@
 // expected output: hello
 
-fwdclass A;
-fwdclass B extends A;
+fwdclass A();
+fwdclass B() extends A;
 fwdclassmethod String B.test(String);
 
 class A {

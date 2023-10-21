@@ -6,7 +6,7 @@ import 'syd-x64-operands.syd';
 // operand whether it's written to AND whether it's read from, so that we can avoid moving
 // stack values into registers just before we blow them away.
 
-fwdclass X64Assembler extends Assembler;
+fwdclass X64Assembler(AssemblerLabel) extends Assembler;
 fwdclassmethod Null X64Assembler.addBlankLine();
 fwdclassmethod Null X64Assembler.addCode(Integer, String, OperandList, StringNullable);
 fwdclassmethod Null X64Assembler.addLabel(Integer, AssemblerLabel, StringNullable);
@@ -512,7 +512,7 @@ class X64Instruction extends X64Line {
   }
 }
 
-fwdclass X64Opcode extends X64Instruction;
+fwdclass X64Opcode(Integer, String, OperandList, StringNullable) extends X64Instruction;
 
 class X64Opcode extends X64Instruction {
   //#override

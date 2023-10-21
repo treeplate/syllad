@@ -142,11 +142,11 @@ class FunctionStatement extends Statement {
           ),
           NotLazyString('.'),
         );
-      } else if (thisScope == null) {
+      } else if (thisScope == null || scope.currentClass == null) {
         fromClass = NotLazyString('');
       } else {
         fromClass = ConcatenateLazyString(
-          NotLazyString(scope.currentClass?.name.name ?? 'ierror'),
+          NotLazyString(scope.currentClass!.name.name),
           NotLazyString('.'),
         );
       }
@@ -606,13 +606,14 @@ class ClassStatement extends Statement {
       ),
       intrinsics: scope.intrinsics,
     );
+    ValueWrapper? superConst = superclass == null ? null : scope.internal_getVar(variables['${superclass!.name}']??=Variable('${superclass!.name}'));
     Scope staticMembers = Scope(
       false,
       true,
       scope.rtl,
       parent: superclass == null
           ? null
-          : scope.internal_getVar(variables['${superclass!.name}']!)!.valueC<Class>(scope, scope.stack, line, col, workspace, file).staticMembers,
+          : superConst!.valueC<Class>(scope, scope.stack, line, col, workspace, file).staticMembers,
       stack: [ConcatenateLazyString(NotLazyString('staticMembersOf'), VariableLazyString(name))],
       debugName: ConcatenateLazyString(NotLazyString('staticMembersOf'), VariableLazyString(name)),
       staticClassName: '${name.name}',

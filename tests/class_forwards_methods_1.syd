@@ -3,7 +3,7 @@
 
 println('FAIL');
 
-fwdclass A;
+fwdclass A();
 fwdclassmethod Null A.foo();
 
 class A {

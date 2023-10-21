@@ -1,0 +1,5 @@
+// expected error: invalid enum name "FooList"
+
+enum FooList { bar baz }
+FooList.bar;
+FooList.baz;

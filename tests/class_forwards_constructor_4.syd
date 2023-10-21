@@ -2,7 +2,7 @@
 // expected output: 42
 // expected output: B
 
-fwdclass A;
+fwdclass A();
 fwdclassmethod Integer A.test(Integer);
 
 Integer foo(A a) {

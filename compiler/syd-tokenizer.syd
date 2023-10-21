@@ -267,7 +267,6 @@ class Token extends Object {
 }
 
 TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
-  stderr(concat('tokenizing "', filename, '"...'));
   Integer lineNo = 1;
   Integer colNo = 0;
   Integer startLineNo = -1;
@@ -398,7 +397,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           append(tokens, createToken(tt.Tilde, null));
           break;
         } else {
-          throw(concat('unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', ': ', chr(ch)));
+          throw(concat('Unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', ': ', chr(ch)));
           break;
         }
       } else if (state == ts.Identifier) {
@@ -542,7 +541,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           buffer = 0;
           // no break, reprocess in ts.Hex
         } else {
-          throw(concat('unexpected character ', padLeft(hex(ch), 4, "0"), ' in hex literal at ', ': ', chr(ch)));
+          throw(concat('Unexpected character ', padLeft(hex(ch), 4, "0"), ' in hex literal at ', ': ', chr(ch)));
         }
       } else if (state == ts.Hex) {
         if (ch >= 0x30 && ch <= 0x39) { // 0-9
@@ -575,7 +574,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           state = ts.Top;
           break;
         } else {
-          throw(concat('unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', ': ', chr(ch)));
+          throw(concat('Unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', ': ', chr(ch)));
         }
 
       } else if (state == ts.Plus) {
@@ -800,7 +799,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
         state = ts.Top;
         // no break, reprocess in ts.Top
       } else {
-        throw(concat('unknown state ', state));
+        throw(concat('Unknown state ', state));
       }
     }
   }
@@ -810,30 +809,30 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
   } else if (state == ts.Identifier) {
     append(tokens, createToken(tt.Identifier, joinList(buffer as WhateverList)));
   } else if (state == ts.SingleQuoteString) {
-    throw(concat('unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    throw(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.SingleQuoteStringCR) {
-    throw(concat('unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    throw(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.SingleQuoteStringEscape) {
-    throw(concat('unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    throw(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.DoubleQuoteString) {
-    throw(concat('unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    throw(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.DoubleQuoteStringCR) {
-    throw(concat('unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    throw(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.DoubleQuoteStringEscape) {
-    throw(concat('unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    throw(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.Zero) {
     append(tokens, createToken(tt.Integer, 0));
   } else if (state == ts.Integer) {
     append(tokens, createToken(tt.Integer, buffer));
   } else if (state == ts.HexStart) {
-    throw(concat('incomplete hex literal at end of ', filename));
+    throw(concat('Incomplete hex literal at end of ', filename));
   } else if (state == ts.Hex) {
     append(tokens, createToken(tt.Integer, buffer));
 
   } else if (state == ts.Period) {
     append(tokens, createToken(tt.Period, null));
   } else if (state == ts.PeriodPeriod) {
-    throw(concat('incomplete ellipsis at end of ', filename));
+    throw(concat('Incomplete ellipsis at end of ', filename));
 
   } else if (state == ts.Plus) {
     append(tokens, createToken(tt.Plus, null));
@@ -869,15 +868,15 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
   } else if (state == ts.LineComment) {
     // file terminated with line comment
   } else if (state == ts.BlockComment) {
-    throw(concat('unterminated block comment at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    throw(concat('Unterminated block comment at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.BlockCommentCR) {
-    throw(concat('unterminated block comment at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    throw(concat('Unterminated block comment at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.BlockCommentAsterisk) {
-    throw(concat('unterminated block comment at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    throw(concat('Unterminated block comment at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.CR) {
     // file terminated with newline
   } else {
-    throw(concat('unknown state ', state));
+    throw(concat('Unknown state ', state));
   }
   append(tokens, createToken(tt.Eof, null));
   return tokens;

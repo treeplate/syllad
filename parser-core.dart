@@ -568,8 +568,15 @@ class ClassOfValueType extends ValueType {
     return super.isSubtypeOf(possibleParent) || (possibleParent is ClassOfValueType && classType.isSubtypeOf(possibleParent.classType));
   }
 
-  ClassOfValueType(this.classType, this.staticMembers, this.constructor, String /*super.*/ file, TypeValidator tv)
-      : super.internal(anythingType, variables['${classType.name.name}Class'] ??= Variable('${classType.name.name}Class'), file, false, tv) {}
+  factory ClassOfValueType(ClassValueType classType, TypeValidator staticMembers, GenericFunctionValueType constructor, String file, TypeValidator tv) {
+    if(ValueType.types[variables['${classType.name.name}Class'] ??= Variable('${classType.name.name}Class')] != null) {
+      return ValueType.types[variables['${classType.name.name}Class']!] as ClassOfValueType;
+    }
+    return ClassOfValueType.internal(classType, staticMembers, constructor, file, tv);
+  }
+
+  ClassOfValueType.internal(this.classType, this.staticMembers, this.constructor, String /*super.*/ file, TypeValidator tv)
+      : super.internal(anythingType, variables['${classType.name.name}Class']!, file, false, tv) ;
 
   @override
   bool memberAccesible() {
@@ -1004,14 +1011,13 @@ class Scope extends VariableGroup {
   final ClassValueType? typeIfClass;
 
   ClassValueType? get currentClass {
-    Scope node = this;
-    while (node.declaringClass == null && !node.isClass) {
-      if (node.parents.isEmpty) {
+    if (declaringClass == null && !isClass) {
+      if (parents.isEmpty) {
         return null;
       }
-      node = node.parents.first;
+      return parents.where((element) => element.currentClass != null).firstOrNull?.currentClass;
     }
-    return node.declaringClass ?? node.typeIfClass!;
+    return declaringClass ?? typeIfClass!;
   }
 
   Scope? get currentStaticClass {

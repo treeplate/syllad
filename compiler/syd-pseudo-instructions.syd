@@ -856,7 +856,7 @@ class CodeFlowPseudoInstruction extends PseudoInstruction {
         append(output, Push(currentDatum, concat('restore ', destinationDatum.commentName, ' (from ', currentDatum.commentName, ') for ', statementName))); 
         append(destinations, destinationDatum as LocalDatum);
       } else {
-        throw(concat('cannot restore ', destinationDatum.commentName, ' from a ', destinationDatum.className));
+        throw(concat('Cannot restore ', destinationDatum.commentName, ' from a ', destinationDatum.className));
         append(output, Comment(concat('cannot restore ', destinationDatum.commentName, ' from a ', destinationDatum.className)));
       }
     }

@@ -1,6 +1,6 @@
 // expected output: PASS
 
-fwdclass Test;
+fwdclass Test();
 class Test {}
 
 println('PASS');

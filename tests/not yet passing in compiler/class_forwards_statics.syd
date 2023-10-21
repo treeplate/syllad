@@ -1,0 +1,16 @@
+// expected output: PASS
+// expected output: moo
+
+fwdclass Foo();
+fwdstaticfield String Foo.potato;
+
+Null test(FooClass foo) {
+  println(foo.potato);
+}
+
+class Foo {
+  static String potato = 'PASS';
+}
+
+test(Foo);
+println('moo');

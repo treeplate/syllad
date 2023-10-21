@@ -36,7 +36,7 @@ Integer _enumTableLengthOffset = 0x08;
 Integer _enumTableEntryTypeOffset = 0x10;
 Integer _enumTableFirstEntryOffset = 0x18;
 
-fwdclass __Object __intrinsic;
+fwdclass __Object() __intrinsic;
 
 // ERROR MANAGEMENT
 

@@ -718,7 +718,7 @@ Statement parseTopLevelStatement(TokenConsumer source) {
       isIntrinsic = true;
     }
     source.expectPunctuation(tt.OpenBrace);
-    DeclarationStatementList members = []:DeclarationStatement;
+    StatementList members = []:Statement; // TODO: consider making a superclass just for methods and fields
     while (!source.isNext(tt.CloseBrace)) {
       append(members, parseClassMemberDeclaration(source));
     }
@@ -729,32 +729,28 @@ Statement parseTopLevelStatement(TokenConsumer source) {
     source.expectIdentifier('fwdclass');
     String className = source.readIdentifier();
     SourceLocation location = source.lastLocation();
-    TypeIdentifierListNullable constructorParameterTypes = null;
+    TypeIdentifierList constructorParameterTypes;
     Boolean isVarArgs = false;
-    if (source.isNext(tt.OpenParen)) {
-      source.expectPunctuation(tt.OpenParen);
-      constructorParameterTypes = []:TypeIdentifier;
-      while (!source.isNext(tt.CloseParen)) {
-        append(constructorParameterTypes!, TypeIdentifier(source.readIdentifier(), source.lastLocation()));
-        if (len(constructorParameterTypes!) == 1) {
-          if (source.isNext(tt.Ellipsis)) {
-            source.expectPunctuation(tt.Ellipsis);
-            isVarArgs = true;
-            break;
-          }
-        }
-        if (!source.isNext(tt.CloseParen)) {
-          source.expectPunctuation(tt.Comma);
+    source.expectPunctuation(tt.OpenParen);
+    constructorParameterTypes = []:TypeIdentifier;
+    while (!source.isNext(tt.CloseParen)) {
+      append(constructorParameterTypes, TypeIdentifier(source.readIdentifier(), source.lastLocation()));
+      if (len(constructorParameterTypes) == 1) {
+        if (source.isNext(tt.Ellipsis)) {
+          source.expectPunctuation(tt.Ellipsis);
+          isVarArgs = true;
+          break;
         }
       }
-      source.expectPunctuation(tt.CloseParen);
+      if (!source.isNext(tt.CloseParen)) {
+        source.expectPunctuation(tt.Comma);
+      }
     }
+    source.expectPunctuation(tt.CloseParen);
     TypeIdentifierNullable superclassName = null;
     if (source.isNextIdentifier('extends')) {
       source.expectIdentifier('extends');
       superclassName = TypeIdentifier(source.readIdentifier(), source.lastLocation());
-    } else if (constructorParameterTypes == null) {
-      constructorParameterTypes = []:TypeIdentifier;
     }
     Boolean isIntrinsic = false;
     if (source.isNextIdentifier('__intrinsic')) {
@@ -798,7 +794,6 @@ Statement parseTopLevelStatement(TokenConsumer source) {
 }
 
 Library parseTokens(TokenList tokens, String name, Boolean isProgram) {
-  stderr('parsing...');
   TokenConsumer source = TokenConsumer(tokens);
   StatementList statements = []:Statement;
   while (!source.isNext(tt.Eof)) {

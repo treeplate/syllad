@@ -165,10 +165,12 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
               scope);
         } else if (newType is FunctionValueType && value.value.type is! FunctionValueType) {
           // this will break when we get function types with arguments specifiable by fields
-          throw BSCException('${name.name}.${value.key.name} was forward-declared with a fwdclassfield but is a method ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw BSCException(
+              '${name.name}.${value.key.name} was forward-declared with a fwdclassfield but is a method ${formatCursorPositionFromTokens(tokens)}', scope);
         } else if (newType is! FunctionValueType && value.value.type is FunctionValueType) {
           // this will break when we get function types with arguments specifiable by fields
-          throw BSCException('${name.name}.${value.key.name} was forward-declared with a fwdclassmethod but is a field ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw BSCException(
+              '${name.name}.${value.key.name} was forward-declared with a fwdclassmethod but is a field ${formatCursorPositionFromTokens(tokens)}', scope);
         }
       }
     }
@@ -177,9 +179,9 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
   if (hasFwdDecl) {
     scope.directVars.remove(name); // will be re-added in a few lines
   }
-  GenericFunctionValueType constructorType = type.recursiveLookup(constructorVariable)?.key is FunctionValueType?
+  GenericFunctionValueType constructorType = (type.recursiveLookup(constructorVariable)?.key is FunctionValueType?
       ? FunctionValueType(type, (type.recursiveLookup(constructorVariable)?.key as FunctionValueType?)?.parameters ?? [], tokens.file, scope)
-      : GenericFunctionValueType(type, tokens.file, scope);
+      : GenericFunctionValueType(type, tokens.file, scope));
   ClassOfValueType classOfType = ClassOfValueType(
     type,
     staticMembers,
@@ -1071,20 +1073,18 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       Variable cln = tokens.currentIdent;
       tokens.moveNext();
       List<ValueTypePlaceholder>? parameters;
-      if (tokens.current is CharToken && tokens.currentChar != TokenType.endOfStatement) {
-        parameters = parseArgList(tokens, (TokenIterator tokens) {
-          ValueTypePlaceholder result = ValueTypePlaceholder(
-            null,
-            tokens.currentIdent,
-            tokens.current.line,
-            tokens.current.col,
-            tokens.workspace,
-            tokens.file,
-          );
-          tokens.moveNext();
-          return result;
-        });
-      }
+      parameters = parseArgList(tokens, (TokenIterator tokens) {
+        ValueTypePlaceholder result = ValueTypePlaceholder(
+          null,
+          tokens.currentIdent,
+          tokens.current.line,
+          tokens.current.col,
+          tokens.workspace,
+          tokens.file,
+        );
+        tokens.moveNext();
+        return result;
+      });
       ClassValueType? spt;
       TypeValidator props;
       if (tokens.current is IdentToken && tokens.currentIdent == variables['extends']) {
@@ -1099,34 +1099,30 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       }
       ClassValueType x = ClassValueType(cln, spt, props, tokens.file, true, scope);
       FunctionValueType? constructorType;
-      if (spt?.properties.types[constructorVariable] != null) {
-        constructorType = spt!.properties.types[constructorVariable]!.type as FunctionValueType;
-      } else {
-        constructorType = FunctionValueType(nullType, [], tokens.file, scope);
-      }
-      if (parameters != null) {
-        constructorType = FunctionValueType(nullType, parameters.map((e) => e.toVT(scope)), tokens.file, scope);
-      }
-
+      constructorType = FunctionValueType(nullType, parameters.map((e) => e.toVT(scope)), tokens.file, scope);
+      
       props.types[constructorVariable] = TVProp(true, constructorType, false);
-      spt?.subtypes.add(x);
-
-      x.properties.types[thisVariable] = TVProp(true, x, false);
-      scope.newVar(
-        cln,
-        (constructorType).withReturnType(x, tokens.file),
-        tokens.current.line,
-        tokens.current.col,
-        tokens.workspace,
+      constructorType = constructorType.withReturnType(x, tokens.file);
+      ClassOfValueType y = ClassOfValueType(
+        x,
+        TypeValidator([
+          scope,
+          if (spt != null)
+            (ValueType.create(null, variables[spt.name.name + 'Class'] ??= Variable(spt.name.name + 'Class'), tokens.current.line, tokens.current.col,
+                    tokens.file, tokens.workspace, scope) as ClassOfValueType)
+                .staticMembers,
+        ], NotLazyString('static members'), false, true, false, scope.rtl),
+        constructorType,
         tokens.file,
-        false,
-        true,
+        scope,
       );
+      spt?.subtypes.add(x);
+      scope.newVar(x.name, y, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
+      x.properties.types[thisVariable] = TVProp(true, x, false);
       if (ignoreUnused) {
         scope.igv(cln, true);
       }
       tokens.expectChar(TokenType.endOfStatement);
-      scope.classes[cln] = x.properties;
       return NopStatement();
     case fwdclassfieldVariable:
       ValueType type = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
@@ -1194,23 +1190,17 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       return NopStatement();
     case fwdstaticfieldVariable:
       ValueType type = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
-      ClassValueType cl =
-          (ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope)
-              as ClassValueType);
+      ClassOfValueType cl =
+          (ValueType.create(null, variables[(tokens..moveNext()).currentIdent.name + 'Class'] ??= Variable((tokens..moveNext()).currentIdent.name + 'Class'), tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope)
+              as ClassOfValueType);
       tokens..moveNext();
       tokens.expectChar(TokenType.period);
       if (overriden) {
         stderr.writeln('fwdstaticfields should never be defined as override ${formatCursorPositionFromTokens(tokens)}');
       }
-      cl.properties.types[tokens.currentIdent] = TVProp(true, type, false);
+      cl.staticMembers.types[tokens.currentIdent] = TVProp(true, type, false);
       if (ignoreUnused) {
-        cl.properties.igv(tokens.currentIdent, true);
-      }
-      for (ClassValueType cvt in cl.allDescendants) {
-        cvt.properties.types[tokens.currentIdent] = TVProp(true, type, false);
-        if (ignoreUnused) {
-          cvt.properties.igv(tokens.currentIdent, true);
-        }
+        cl.staticMembers.igv(tokens.currentIdent, true);
       }
       tokens.moveNext();
       tokens.expectChar(TokenType.endOfStatement);

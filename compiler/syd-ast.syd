@@ -3,6 +3,11 @@ import 'syd-tokenizer.syd';
 import 'syd-utils.syd';
 import 'syd-compiler.syd';
 
+fwdclass Statement(SourceLocation) extends AstNode;
+fwdclass StatementBlock(StatementList, SourceLocation) extends AstNode;
+fwdclass Library(StatementList, String, SourceLocation) extends StatementBlock;
+fwdclassmethod LibraryList Library.generateLibraryScope(CompilationEnvironment);
+
 class TypeIdentifier extends AstNode {
   String name;
   
@@ -11,10 +16,10 @@ class TypeIdentifier extends AstNode {
     return name;
   }
 
-  Type generateInstructions(CompiledScope scope) {
-    TypeNullable result = scope.environment().parseType(name, scope.globalScope().lookupType);
+  Type lookup(CompiledLibrary scope, Boolean requireDeclared) {
+    TypeNullable result = scope.environment().parseType(name, requireDeclared, scope.lookupType);
     if (result == null) {
-      throw(concat('Type "', name, '" not known at ', sourceLocation));
+      throw(concat('Type "', name, '" not known in ', scope.name, ' scope at ', sourceLocation));
     }
     return result!;
   }
@@ -26,6 +31,8 @@ class TypeIdentifier extends AstNode {
 }
 
 class Statement extends AstNode {
+  Null declareTypes(CompiledScope scope) { }
+
   Null generateInstructions(CompiledScope scope) {
     abstract();
   }
@@ -42,6 +49,12 @@ class StatementBlock extends AstNode {
       append(buffer, statement.toStringIndent(indent));
     }
     return joinList(buffer);
+  }
+
+  Null declareTypes(CompiledScope scope) {
+    for (child in children) {
+      child.declareTypes(scope);
+    }
   }
 
   Null generateInstructions(CompiledScope scope) {
@@ -185,7 +198,7 @@ class ListLiteralExpression extends Expression {
     // Determine type of list.
     Type evaluatedElementType;
     if (elementType != null) {
-      evaluatedElementType = elementType!.generateInstructions(scope);
+      evaluatedElementType = elementType!.lookup(scope.globalScope(), true);
     } else {
       // infer the type based on the elements of the list
       TypeNullable currentType = null;
@@ -453,18 +466,18 @@ class MemberAccessExpression extends LValueExpression {
 CompiledSubroutine evaluateSuper(CompiledScope scope, String method, SourceLocation sourceLocation) {
   CompiledStackFrameScope stackFrame = scope.stackFrame();
   if (!stackFrame is CompiledSubroutine) {
-    throw(concat('super expression used outside method at ', sourceLocation));
+    throw(concat('Super expression used outside method at ', sourceLocation));
   }
   ClassTypeNullable hostClass = (stackFrame as CompiledSubroutine).parentClass;
   if (hostClass == null) {
-    throw(concat('super expression used in function instead of method at ', sourceLocation));
+    throw(concat('Super expression used in function instead of method at ', sourceLocation));
   }
   if (hostClass!.supertype == hostClass) {
     assert(hostClass!.supertype == scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName), 'unexpected other root class');
-    throw(concat('super expression used in internal base class at ', sourceLocation));
+    throw(concat('Super expression used in internal base class at ', sourceLocation));
   }
   if (hostClass!.supertype == scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName)) {
-    throw(concat('super expression used in base class at ', sourceLocation));
+    throw(concat('Super expression used in base class at ', sourceLocation));
   }
   ClassType superclass = hostClass!.supertype;
   MemberDescriptionNullable memberDescription = superclass.getMember(method);
@@ -625,9 +638,9 @@ class MemberAccessSubroutineCallExpression extends Expression {
       if (memberDescription != null && memberDescription!.isDeclared()) {
         return class.createIdentifierEntity(scope, lBucket, member).emitCall(scope, arguments, this, sourceLocation);
       }
-      throw(concat('nonexistent member ', member, ' at ', sourceLocation));
+      throw(concat('Nonexistent member ', member, ' at ', sourceLocation));
     } else {
-      throw(concat('cannot call member on non-class type ', lBucket.staticType.name, ' at ', sourceLocation));
+      throw(concat('Cannot call member on non-class type ', lBucket.staticType.name, ' at ', sourceLocation));
     }
   }
 
@@ -729,7 +742,7 @@ class IsOperatorExpression extends Expression {
   //#override
   Bucket generateInstructions(CompiledScope scope) {
     Bucket lhs = expression.generateInstructions(scope);
-    Type rhs = type.generateInstructions(scope);
+    Type rhs = type.lookup(scope.globalScope(), true);
     if (!lhs.staticType.needRuntimeTypeCheckFor(rhs)) {
       // always true
       return scope.environment().coreTrue;
@@ -760,7 +773,7 @@ class AsOperatorExpression extends Expression {
   //#override
   Bucket generateInstructions(CompiledScope scope) {
     Bucket exprBucket = expression.generateInstructions(scope);
-    Type rhs = type.generateInstructions(scope);
+    Type rhs = type.lookup(scope.globalScope(), true);
     if (rhs.isSubtypeOf(exprBucket.staticType)) {
       scope.emit(TypeCheckInstruction(
         exprBucket, 
@@ -802,7 +815,7 @@ class ReinterpretAsOperatorExpression extends Expression {
   //#override
   Bucket generateInstructions(CompiledScope scope) {
     Bucket exprBucket = expression.generateInstructions(scope);
-    Type rhs = type.generateInstructions(scope);
+    Type rhs = type.lookup(scope.globalScope(), true);
     rhs.markConstructed();
     return StaticReinterpretCastBucket(exprBucket, rhs);
   }
@@ -1143,7 +1156,7 @@ class TypeToCodeExpression extends Expression {
 
   //#override
   Bucket generateInstructions(CompiledScope scope) {
-    Type rhsValue = rhs.generateInstructions(scope);
+    Type rhsValue = rhs.lookup(scope.globalScope(), true);
     rhsValue.markConstructed();
     return TypeCodeBucket(rhsValue, scope.environment().coreIntegerType);
   }
@@ -1202,7 +1215,7 @@ class OperatorExpression extends Expression {
   Null generateTypeCheckInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
     Type lhsType = lhsType(scope.environment());
     if (!lhsValue.staticType.isSubtypeOf(lhsType)) {
-      throw(concat('expected ', lhsType.name, ', but found ', lhsValue.staticType.name, ', as lhs of binary ', describeOperator(), ' operator at ', sourceLocation));
+      throw(concat('Expected ', lhsType.name, ', but found ', lhsValue.staticType.name, ', as lhs of binary ', describeOperator(), ' operator at ', sourceLocation));
     }
     scope.emit(TypeCheckInstruction(
       lhsValue, 
@@ -1667,26 +1680,11 @@ class OperatorLogicalOrExpression extends Expression {
   }
 }
 
-class DeclarationStatement extends Statement {
+class FieldDeclarationStatement extends Statement {
   String identifier;
-
-  // Static type of the thing being declared.
-  Type staticType; // must be set by generateInstructions
-
-  Null constructor(String identifierArg, SourceLocation sourceLocationArg) {
-    super.constructor(sourceLocationArg);
-    identifier = identifierArg;
-  }
-}
-
-class FieldDeclarationStatement extends DeclarationStatement {
   TypeIdentifier type;
   ExpressionNullable rValue;
   ClassType parentClass;
-
-  Null setParentClass(ClassType parentClassArg) {
-    parentClass = parentClassArg;
-  }
 
   //#override
   String toStringIndent(Integer indent) {
@@ -1696,6 +1694,28 @@ class FieldDeclarationStatement extends DeclarationStatement {
     return concat(type.toStringIndent(indent), ' ', identifier, ' = ', rValue!.toStringIndent(indent), ';\n');
   }
 
+  Type staticType; // set in registerMember, used when generating instructions
+
+  Null registerMember(CompiledScope scope, ClassType parentClassArg) {
+    parentClass = parentClassArg;
+    staticType = type.lookup(scope.globalScope(), false);
+    if (identifier == kConstructor && !staticType.isSubtypeOf(createOrFindSubroutineTypeWithAnyArgs(scope.environment(), scope.environment().coreNullType))) {
+      throw(concat('Constructor must be a NullFunction, but is declared as a ', staticType.name, ' at ', sourceLocation));
+    }
+    MemberDescriptionNullable inheritedMember = parentClass.getMember(identifier);
+    if (inheritedMember != null) {
+      if (inheritedMember!.isInherited) {
+        if (!staticType.isSubtypeOf(inheritedMember!.staticType)) {
+          throw(concat('Inherited ', identifier, ' has type ', inheritedMember!.staticType.name,
+                       ', but is overridden with incompatible type ', staticType.name, ' at ', sourceLocation));
+        }
+      } else {
+        throw(concat('Identifier ', identifier, ' redeclared at ', sourceLocation));
+      }
+    }
+    parentClass.registerMember(identifier, staticType, true);
+  }
+  
   Null generateInitializerInstructions(CompiledScope constructor) {
     if (rValue != null) {
       Bucket rBucket = rValue!.generateInstructions(constructor);
@@ -1722,35 +1742,25 @@ class FieldDeclarationStatement extends DeclarationStatement {
   
   //#override
   Null generateInstructions(CompiledScope scope) {
-    staticType = type.generateInstructions(scope);
-    MemberDescriptionNullable inheritedMember = parentClass.getRealMember(identifier);
-    if (inheritedMember != null) {
-      if (inheritedMember!.isInherited) {
-        if (!staticType.isSubtypeOf(inheritedMember!.staticType)) {
-          throw(concat('Inherited ', identifier, ' has type ', inheritedMember!.staticType.name,
-                       ', but is overridden with incompatible type ', staticType.name, ' at ', sourceLocation));
-        }
-      } else {
-        throw(concat('Identifier ', identifier, ' redeclared at ', sourceLocation));
-      }
-    }
     if (identifier == kConstructor) {
+      // TODO: this violates the language spec
       throw(concat('Identifier "', identifier, '" is an invalid name for a field at ', sourceLocation));
     }
-    parentClass.registerMember(identifier, staticType, true, sourceLocation);
     generateInitializerInstructions(scope);
     parentClass.getMember(identifier)!.markDeclared();
     parentClass.getMember(identifier)!.markDefined();
   }
 
   Null constructor(TypeIdentifier typeArg, String identifierArg, ExpressionNullable rValueArg, SourceLocation sourceLocationArg) {
-    super.constructor(identifierArg, sourceLocationArg);
+    super.constructor(sourceLocationArg);
     type = typeArg;
+    identifier = identifierArg;
     rValue = rValueArg;
   }
 }
 
-class VariableDeclarationStatement extends DeclarationStatement {
+class VariableDeclarationStatement extends Statement {
+  String identifier;
   TypeIdentifier type;
   ExpressionNullable rValue;
   
@@ -1764,7 +1774,7 @@ class VariableDeclarationStatement extends DeclarationStatement {
   
   //#override
   Null generateInstructions(CompiledScope scope) {
-    staticType = type.generateInstructions(scope);
+    Type staticType = type.lookup(scope.globalScope(), true);
     if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
       throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
     }
@@ -1791,13 +1801,14 @@ class VariableDeclarationStatement extends DeclarationStatement {
   }
 
   Null constructor(TypeIdentifier typeArg, String identifierArg, ExpressionNullable rValueArg, SourceLocation sourceLocationArg) {
-    super.constructor(identifierArg, sourceLocationArg);
+    super.constructor(sourceLocationArg);
     type = typeArg;
+    identifier = identifierArg;
     rValue = rValueArg;
   }
 }
 
-class AbstractSubroutineDeclarationStatement extends DeclarationStatement {
+class AbstractSubroutineDeclarationStatement extends Statement {
   TypeIdentifier returnType;
   String identifier;
   AnythingListList parameters; // pairs of type (TypeIdentifier) and identifier (String)
@@ -1813,12 +1824,13 @@ class AbstractSubroutineDeclarationStatement extends DeclarationStatement {
   }
 
   CompiledSubroutine subroutine;
+  Type staticType;
 
-  Null generateStaticType(CompiledScope scope) {
-    Type compiledReturnType = returnType.generateInstructions(scope);
+  Null generateStaticType(CompiledScope scope, Boolean requireDeclared) {
+    Type compiledReturnType = returnType.lookup(scope.globalScope(), requireDeclared);
     TypeList compiledParameterTypes = []:Type;
     for (entry in parameters) {
-      append(compiledParameterTypes, (entry[0] as TypeIdentifier).generateInstructions(scope));
+      append(compiledParameterTypes, (entry[0] as TypeIdentifier).lookup(scope.globalScope(), requireDeclared));
     }
     if (isVarArgs) {
       assert(len(compiledParameterTypes) == 1, 'unexpected number of parameters to varargs function');
@@ -1879,8 +1891,9 @@ class AbstractSubroutineDeclarationStatement extends DeclarationStatement {
 
   Null constructor(TypeIdentifier returnTypeArg, String identifierArg, AnythingListList parametersArg, Boolean isVarArgsArg, StatementBlock bodyArg, SourceLocation sourceLocationArg) {
     assert(!isVarArgsArg || (len(parametersArg) == 1), 'varargs is only valid with a single parameter');
-    super.constructor(identifierArg, sourceLocationArg);
+    super.constructor(sourceLocationArg);
     returnType = returnTypeArg;
+    identifier = identifierArg;
     parameters = parametersArg;
     isVarArgs = isVarArgsArg;
     body = bodyArg;
@@ -1890,14 +1903,13 @@ class AbstractSubroutineDeclarationStatement extends DeclarationStatement {
 class MethodDeclarationStatement extends AbstractSubroutineDeclarationStatement {
   ClassType parentClass;
 
-  Null setParentClass(ClassType parentClassArg) {
+  Null registerMember(CompiledScope scope, ClassType parentClassArg) {
     parentClass = parentClassArg;
-  }
-
-  //#override
-  Null generateInstructions(CompiledScope scope) {
-    generateStaticType(scope);
-    MemberDescriptionNullable inheritedMember = parentClass.getRealMember(identifier);
+    generateStaticType(scope, false);
+    if (identifier == kConstructor && !staticType.isSubtypeOf(createOrFindSubroutineTypeWithAnyArgs(scope.environment(), scope.environment().coreNullType))) {
+      throw(concat('Constructor must be a NullFunction, but is declared as a ', staticType.name, ' at ', sourceLocation));
+    }
+    MemberDescriptionNullable inheritedMember = parentClass.getMember(identifier);
     if (inheritedMember != null) {
       if (inheritedMember!.isInherited) {
         if (inheritedMember!.name != kConstructor && !staticType.isSubtypeOf(inheritedMember!.staticType)) {
@@ -1908,7 +1920,11 @@ class MethodDeclarationStatement extends AbstractSubroutineDeclarationStatement 
         throw(concat('Identifier ', identifier, ' redeclared at ', sourceLocation));
       }
     }
-    parentClass.registerMember(identifier, staticType, false, sourceLocation);
+    parentClass.registerMember(identifier, staticType, false);
+  }
+
+  //#override
+  Null generateInstructions(CompiledScope scope) {
     super.generateInstructions(scope);
   }
 
@@ -1948,7 +1964,7 @@ class SubroutineDeclarationStatement extends AbstractSubroutineDeclarationStatem
     if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
       throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
     }
-    super.generateStaticType(scope);
+    super.generateStaticType(scope, true);
     super.generateInstructions(scope);
   }
 
@@ -1958,7 +1974,7 @@ class SubroutineDeclarationStatement extends AbstractSubroutineDeclarationStatem
   }
 }  
 
-class GenericSystemSubroutineDeclarationStatement extends DeclarationStatement {
+class GenericSystemSubroutineDeclarationStatement extends Statement {
   TypeIdentifier returnType;
   String identifier;
   AnythingListList parameters; // pairs of type (TypeIdentifier) and identifier (String)
@@ -1971,11 +1987,11 @@ class GenericSystemSubroutineDeclarationStatement extends DeclarationStatement {
     if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
       throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
     }
-    Type compiledReturnType = returnType.generateInstructions(scope);
+    Type compiledReturnType = returnType.lookup(scope.globalScope(), true);
     TypeList compiledParameterTypes = []:Type;
     StringList compiledParameterNames = []:String;
     for (entry in parameters) {
-      append(compiledParameterTypes, (entry[0] as TypeIdentifier).generateInstructions(scope));
+      append(compiledParameterTypes, (entry[0] as TypeIdentifier).lookup(scope.globalScope(), true));
       append(compiledParameterNames, entry[1] as String);
     }
     CompiledSubroutine subroutine = GenericSystemCallSubroutine(
@@ -1987,7 +2003,6 @@ class GenericSystemSubroutineDeclarationStatement extends DeclarationStatement {
       identifier,
       compiledParameterNames,
     );
-    staticType = subroutine.type;
     scope.registerSubroutine(subroutine, false);
     if (isIntrinsic) {
       scope.environment().registerIntrinsic(subroutine);
@@ -2009,8 +2024,9 @@ class GenericSystemSubroutineDeclarationStatement extends DeclarationStatement {
   }
 
   Null constructor(TypeIdentifier returnTypeArg, String identifierArg, AnythingListList parametersArg, String libraryArg, String externalNameArg, SourceLocation sourceLocationArg, Boolean isIntrinsicArg) {
-    super.constructor(identifierArg, sourceLocationArg);
+    super.constructor(sourceLocationArg);
     returnType = returnTypeArg;
+    identifier = identifierArg;
     parameters = parametersArg;
     library = libraryArg;
     externalName = externalNameArg;
@@ -2018,7 +2034,7 @@ class GenericSystemSubroutineDeclarationStatement extends DeclarationStatement {
   }
 }
 
-class EnumDeclaration extends DeclarationStatement {
+class EnumDeclaration extends Statement {
   String identifier;
   StringList values;
   
@@ -2037,15 +2053,17 @@ class EnumDeclaration extends DeclarationStatement {
     return joinList(buffer);
   }
 
+  EnumPropertyType enumPropertyType;
+  ReifiedEnumType reifiedEnumType;
+
   //#override
-  Null generateInstructions(CompiledScope scope) {
+  Null declareTypes(CompiledScope scope) {
     assert(scope is CompiledLibrary, 'found enum in non-global scope');
-    CompiledLibrary globalScope = scope as CompiledLibrary;
-    CompilationEnvironment environment = globalScope.environment();
-    if (environment.isCompoundType(identifier)) {
-      throw(concat('"', identifier, '" is not a valid enum type name at ', sourceLocation));
+    CompilationEnvironment environment = scope.environment();
+    if ((scope as CompiledLibrary).isTypeDeclaredInGlobalScope(identifier)) {
+      throw(concat('"', identifier, '" redeclared at ', sourceLocation));
     }
-    EnumPropertyType enumPropertyType = EnumPropertyType(environment, identifier);
+    enumPropertyType = EnumPropertyType(environment, identifier);
     AssemblerLabel enumLabel = scope.label.deriveWith(identifier);
     Map enumValues = Map(); // String -> StringBucket
     for (value in values) {
@@ -2057,30 +2075,36 @@ class EnumDeclaration extends DeclarationStatement {
         concat(identifier, '.', value),
       ));
     }
-    ReifiedEnumType reifiedEnumType = ReifiedEnumType(
+    reifiedEnumType = ReifiedEnumType(
       environment,
       enumLabel, 
       environment.registerStringConstant(enumLabel.deriveWith('name'), identifier, environment.coreStringType, identifier, identifier),
       enumPropertyType,
       enumValues,
     );
-    staticType = reifiedEnumType;
-    globalScope.declareType(enumPropertyType);
-    globalScope.declareType(reifiedEnumType);
-    globalScope.registerConstant(identifier, environment.registerEnumType(reifiedEnumType));
+    (scope as CompiledLibrary).registerType(enumPropertyType);
+    (scope as CompiledLibrary).registerType(reifiedEnumType);
+  }
+
+  //#override
+  Null generateInstructions(CompiledScope scope) {
+    enumPropertyType.markDeclared();
+    reifiedEnumType.markDeclared();
+    scope.registerConstant(identifier, scope.environment().registerEnumType(reifiedEnumType));
   }
 
   Null constructor(String identifierArg, StringList valuesArg, SourceLocation sourceLocationArg) {
-    super.constructor(identifierArg, sourceLocationArg);
+    super.constructor(sourceLocationArg);
+    identifier = identifierArg;
     values = valuesArg;
   }
 }
 
-class AbstractClassDeclaration extends DeclarationStatement {
-  TypeIdentifierNullable superclassName;
-  Boolean isIntrinsic;
-  
-  Null declareType(CompiledScope scope) {
+class AbstractClassDeclaration extends Statement {
+  ClassType declareType(CompiledScope scope, String identifier, TypeIdentifierNullable superclassName, Boolean isIntrinsic) {
+    if (scope.globalScope().isTypeDeclaredInGlobalScope(identifier)) {
+      throw(concat('Type ', identifier, ' redeclared at ', sourceLocation));
+    }
     TypeNullable superclass;
     if (isIntrinsic) {
       if (identifier != scope.environment().coreClassTypeIntrinsicName) {
@@ -2093,113 +2117,138 @@ class AbstractClassDeclaration extends DeclarationStatement {
     } else if (superclassName == null) {
       superclass = scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName);
     } else {
-      superclass = superclassName!.generateInstructions(scope);
+      superclass = superclassName!.lookup(scope.globalScope(), false);
     }
-    staticType = ClassType(scope, identifier, superclass);
-    scope.globalScope().declareType(staticType);
+    ClassType classType = ClassType(scope, identifier, superclass);
+    scope.globalScope().registerType(classType);
     if (isIntrinsic) {
-      scope.environment().registerClassIntrinsic(staticType as ClassType);
+      scope.environment().registerClassIntrinsic(classType);
     }
+    return classType;
   }
 
-  Null createGeneratedConstructor(CompiledScope scope, TypeList parameters, Boolean isVarArgs) {
-    if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
-      throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
-    }
-    AbstractSubroutineTypeWithSpecificParameters subroutineType;
-    if (isVarArgs) {
-      subroutineType = createOrFindSubroutineTypeWithVarArgs(
+  AbstractSubroutineTypeWithSpecificParameters createConstructorType(CompiledScope scope, ClassType classType, TypeList constructorParameters, Boolean constructorIsVarArgs) {
+    if (constructorIsVarArgs) {
+      return createOrFindSubroutineTypeWithVarArgs(
         scope.environment(),
-        staticType,
-        parameters,
-      );
-    } else {
-      subroutineType = createOrFindSubroutineTypeWithSpecificParameters(
-        scope.environment(),
-        staticType,
-        parameters,
+        classType,
+        constructorParameters,
       );
     }
-    subroutineType.markConstructed();
-    CompiledGeneratedConstructorSubroutine constructor = CompiledGeneratedConstructorSubroutine(scope, subroutineType, identifier, staticType as ClassType);
-    (staticType as ClassType).setConstructorSubroutine(scope.registerSubroutine(constructor, true));
-  }
-
-  Null constructor(String identifierArg, TypeIdentifierNullable superclassNameArg, Boolean isIntrinsicArg, SourceLocation sourceLocationArg) {
-    super.constructor(identifierArg, sourceLocationArg);
-    superclassName = superclassNameArg;
-    isIntrinsic = isIntrinsicArg;
+    return createOrFindSubroutineTypeWithSpecificParameters(
+      scope.environment(),
+      classType,
+      constructorParameters,
+    );
   }
 }
 
 class ForwardClassDeclaration extends AbstractClassDeclaration {
-  TypeIdentifierListNullable constructorParameterTypes;
+  String identifier;
+  TypeIdentifierNullable superclassName;
+  Boolean isIntrinsic;
+  TypeIdentifierList constructorParameterTypes;
   Boolean isVarArgs;
-  
+
   //#override
   String toStringIndent(Integer indent) {
     StringList buffer = ['fwdclass ', identifier];
-    if (constructorParameterTypes != null) {
-      append(buffer, '(');
-      Integer index = 0;
-      while (index < len(constructorParameterTypes!)) {
-        if (index > 0) {
-          append(buffer, ', ');
-        }
-        append(buffer, constructorParameterTypes![index].toStringIndent(indent));
-        index += 1;
+    append(buffer, '(');
+    Integer index = 0;
+    while (index < len(constructorParameterTypes)) {
+      if (index > 0) {
+        append(buffer, ', ');
       }
-      append(buffer, ')');
+      append(buffer, constructorParameterTypes[index].toStringIndent(indent));
+      index += 1;
     }
+    append(buffer, ')');
     if (superclassName != null) {
       append(buffer, ' extends ');
       append(buffer, superclassName!.toStringIndent(indent));
+    }
+    if (isIntrinsic) {
+      append(buffer, ' __intrinsic');
     }
     append(buffer, ';\n');
     return joinList(buffer);
   }
 
   //#override
-  Null generateInstructions(CompiledScope scope) {
-    declareType(scope);
-    if (constructorParameterTypes != null) {
-      TypeList parameterTypes = []:Type;
-      for (identifier in constructorParameterTypes!) {
-        append(parameterTypes, identifier.generateInstructions(scope));
-      }
-      assert(!isVarArgs || len(parameterTypes) == 1, 'varargs must have one parameter in their list');
-      createGeneratedConstructor(scope, parameterTypes, isVarArgs);
-    } else {
-      assert((staticType as ClassType).supertype != scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName), 'parser failed to give empty list of arguments');
-      // If no parameters are given on the fwdclass declaration, but the declaration
-      // has a superclass, then the arguments from the superclass constructor are implied.
-      createGeneratedConstructor(
-        scope,
-        ((staticType as ClassType).supertype.constructorSubroutine.staticType as SubroutineTypeWithSpecificParameters).parameterTypes,
-        (staticType as ClassType).supertype.constructorSubroutine.staticType is SubroutineTypeWithVarArgs,
-      );
-    }
-    (staticType as ClassType).constructorSubroutine.markConstructorAsDeclared();
+  Null declareTypes(CompiledScope scope) {
+    ClassType classType = declareType(scope, identifier, superclassName, isIntrinsic);
+    classType.markAsForwardDeclared();
   }
 
-  Null constructor(String classNameArg, TypeIdentifierListNullable constructorParameterTypesArg, Boolean isVarArgsArg, TypeIdentifierNullable superclassNameArg, Boolean isIntrinsicArg, SourceLocation sourceLocationArg) {
-    super.constructor(classNameArg, superclassNameArg, isIntrinsicArg, sourceLocationArg);
+  //#override
+  Null generateInstructions(CompiledScope scope) {
+    ClassTypeNullable classType = scope.globalScope().lookupType(identifier, false) as ClassTypeNullable;
+    assert(classType != null, 'but... we just registered it');
+    if (classType!.isForwardDeclared) {
+      throw(concat('Class ', identifier, ' is never defined after being forward-declared at ', sourceLocation));
+    }
+    classType!.markDeclared();
+    TypeList parameterTypes = []:Type;
+    for (parameterType in constructorParameterTypes) {
+      append(parameterTypes, parameterType.lookup(scope.globalScope(), true));
+    }
+    assert(!isVarArgs || len(parameterTypes) == 1, 'varargs must have one parameter in their list');
+    AbstractSubroutineTypeWithSpecificParameters constructorSubroutineType = createConstructorType(scope, classType!, parameterTypes, isVarArgs);
+    if (constructorSubroutineType != classType!.constructorSubroutine.staticType) {
+      throw(concat('Constructor for class ', identifier, ' is defined as ', classType!.constructorSubroutine.staticType.name, ' but was forward declared as ', constructorSubroutineType.name, ' at ', sourceLocation));
+    }
+    ClassType supertype;
+    if (superclassName != null) {
+      supertype = superclassName!.lookup(scope.globalScope(), true) as ClassType;
+    } else {
+      supertype = scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName);
+    }
+    if (classType!.supertype != supertype) {
+      if (supertype == classType) {
+        // we (the forward declaration) expected the supertype to be the same as our declared type, i.e., that this is __Object
+        // but when it was actually defined, this did not turn out to be the case, so it must have had some other supertype declared
+        throw(concat('Class ', classType!.name, ' has supertype (', classType!.supertype.name, ') but forward-declaration had no supertype at ', sourceLocation));
+      } else if (classType!.supertype == classType) {
+        // the actual defined type did not have an "extends" clause (implied or otherwise), i.e., it was __Object.
+        // however, this forward declaration did have a declared supertype.
+        throw(concat('Class ', classType!.name, ' has no supertype, but forward-declaration has a supertype (', supertype.name, ') at ', sourceLocation));
+      } else {
+        throw(concat('Class ', classType!.name, ' supertype (', classType!.supertype.name, ') does not match forward-declared supertype (', supertype.name, ') at ', sourceLocation));
+      }
+    }
+    if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
+      throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
+    }
+    classType!.constructorSubroutine.markConstructorAsDeclared();
+  }
+
+  Null constructor(String classNameArg, TypeIdentifierList constructorParameterTypesArg, Boolean isVarArgsArg, TypeIdentifierNullable superclassNameArg, Boolean isIntrinsicArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
+    identifier = classNameArg;
+    superclassName = superclassNameArg;
+    isIntrinsic = isIntrinsicArg;
     constructorParameterTypes = constructorParameterTypesArg;
     isVarArgs = isVarArgsArg;
   }
 }
 
 class ClassDeclaration extends AbstractClassDeclaration {
-  DeclarationStatementList members;
-  
+  String identifier;
+  TypeIdentifierNullable superclassName;
+  Boolean isIntrinsic;
+  StatementList members;
+ 
   //#override
   String toStringIndent(Integer indent) {
-    StringList buffer = ['class ', identifier, ' '];
+    StringList buffer = ['class ', identifier];
     if (superclassName != null) {
-      append(buffer, 'extends ');
+      append(buffer, ' extends');
       append(buffer, superclassName!.toStringIndent(indent));
     }
-    append(buffer, '{\n');
+    if (isIntrinsic) {
+      append(buffer, ' __intrinsic');
+    }
+    append(buffer, ' {\n');
     for (member in members) {
       append(buffer, stringTimes(' ', indent + 2));
       append(buffer, member.toStringIndent(indent + 2));
@@ -2209,34 +2258,69 @@ class ClassDeclaration extends AbstractClassDeclaration {
     return joinList(buffer);
   }
 
+  ClassType classType;
+
   //#override
-  Null generateInstructions(CompiledScope scope) {
-    TypeNullable existingStaticType = scope.globalScope().lookupType(identifier);
-    CompilationEnvironment environment = scope.environment();
-    if (existingStaticType == null) {
-      declareType(scope);
-      assert(scope.globalScope().lookupType(identifier) == staticType, 'invariant violation');
+  Null declareTypes(CompiledScope scope) {
+    assert(scope is CompiledLibrary, 'invariant violation');
+    TypeNullable candidate = scope.globalScope().lookupType(identifier, false);
+    if ((candidate is ClassType) && (candidate as ClassType).isForwardDeclared) {
+      classType = candidate as ClassType;
+      classType.markAsNoLongerMerelyForwardDeclared();
     } else {
-      staticType = existingStaticType!;
-      // either someone declared an unrelated type with the same name (bad)
-      // or, they used fwdclass (good).
-      if (!(staticType is ClassType)) {
-        throw(concat('Type ', identifier, ' redeclared at ', sourceLocation));
-      } else if ((staticType as ClassType).members.length != 0) {
-        throw(concat('Class ', identifier, ' redeclared at ', sourceLocation));
-      } else if (superclassName == null) {
-        if ((staticType as ClassType).supertype.supertype != (staticType as ClassType).supertype) {
-          throw(concat('Forward class declaration for ', identifier, ' used supertype ', (staticType as ClassType).supertype.name, ', but class declaration had no supertype at ', sourceLocation));
-        }
+      classType = declareType(scope, identifier, superclassName, isIntrinsic);
+    }
+    classType.inheritMemberSignaturesFromSupertype();
+    for (member in members) {
+      if (member is FieldDeclarationStatement) {
+        (member as FieldDeclarationStatement).registerMember(scope, classType);
+      } else if (member is MethodDeclarationStatement) {
+        (member as MethodDeclarationStatement).registerMember(scope, classType);
       } else {
-        Type superclass = superclassName!.generateInstructions(scope);
-        if (superclass != (staticType as ClassType).supertype) {
-          throw(concat('Forward class declaration for ', identifier, ' used supertype ', (staticType as ClassType).supertype.name, ', but class declaration uses supertype ', superclass.name, ', at ', sourceLocation));
-        }
+        assert(false, concat('unexpected declaration statement (', member.className, ') in class at ', member.sourceLocation));
       }
     }
-    ClassType classType = staticType as ClassType;
-    classType.inheritMembersFromSupertype();
+
+    MemberDescriptionNullable constructorMember = classType.getMember(kConstructor);
+    TypeList constructorParameters;
+    Boolean constructorIsVarArgs;
+    if (constructorMember != null) {
+      // we have an explicit constructor
+      assert(constructorMember!.staticType.isSubtypeOf(createOrFindSubroutineTypeWithAnyArgs(scope.environment(), scope.environment().coreNullType)), 'invariant violation');
+      if (constructorMember!.isField) {
+        // constructor was probably declared as a property (grr!)
+        assert(constructorMember!.staticType is SubroutineTypeWithAnyArguments, concat('unexpected subroutine type ', constructorMember!.staticType, ' for constructor ', constructorMember));
+        constructorParameters = [scope.environment().coreAnythingType]:Type;
+        constructorIsVarArgs = true;
+      } else {
+        // constructor was declared as a method
+        if (constructorMember!.staticType is SubroutineTypeWithVarArgs) {
+          constructorParameters = [(constructorMember!.staticType as SubroutineTypeWithVarArgs).parameterType]:Type;
+          constructorIsVarArgs = true;
+        } else {
+          assert(constructorMember!.staticType is SubroutineTypeWithSpecificParameters, 'unexpected subroutine type');
+          constructorParameters = (constructorMember!.staticType as SubroutineTypeWithSpecificParameters).parameterTypes;
+          constructorIsVarArgs = false;
+        }
+      }
+    } else {
+      if (classType.supertype == classType) {
+        // this must be the __Object definition
+        throw(concat('Base class must have an explicit constructor but has none at ', sourceLocation));
+      }
+      throw(concat('Class attempts to extend a forward-declared (but not yet defined) class at ', sourceLocation));
+    }
+    AbstractSubroutineTypeWithSpecificParameters subroutineType = createConstructorType(scope, classType, constructorParameters, constructorIsVarArgs);
+    subroutineType.markConstructed();
+    CompiledGeneratedConstructorSubroutine generatedConstructor = CompiledGeneratedConstructorSubroutine(scope, subroutineType, identifier, classType);
+    classType.setConstructorSubroutine(scope.registerSubroutine(generatedConstructor, true));
+  }
+  
+  //#override
+  Null generateInstructions(CompiledScope scope) {
+    CompilationEnvironment environment = scope.environment();
+    classType.inheritMemberImplementationsFromSupertype();
+    classType.markDeclared();
     classType.markAsDefined();
     if (!classType.supertype.isDefined) {
       if (superclassName == null) {
@@ -2249,7 +2333,6 @@ class ClassDeclaration extends AbstractClassDeclaration {
     // register members on the class type
     for (member in members) {
       if (member is FieldDeclarationStatement) {
-        (member as FieldDeclarationStatement).setParentClass(staticType as ClassType);
         if (initializer == null) {
           initializer = CompiledSubroutineWithSpecificParameters(
             scope,
@@ -2262,88 +2345,20 @@ class ClassDeclaration extends AbstractClassDeclaration {
         }
         member.generateInstructions(initializer!);
       } else if (member is MethodDeclarationStatement) {
-        (member as MethodDeclarationStatement).setParentClass(staticType as ClassType);
         member.generateInstructions(scope);
       } else {
         assert(false, concat('unexpected declaration statement (', member.className, ') in class at ', member.sourceLocation));
       }
     }
-    classType.checkForMissingForwardDeclaredMembers(sourceLocation);
-    DeclarationStatementNullable constructorMember = null;
-    // look for the constructor
-    for (member in members) {
-      if (member.identifier == kConstructor) {
-        // we found it!
-        constructorMember = member;
-        break;
+    SubroutinePointerBucket generatedConstructorBucket = classType.constructorSubroutine;
+    if (!classType.constructorSubroutine.isDeclared()) {
+      if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
+        throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
       }
-    }
-    TypeList constructorParameters;
-    Boolean constructorIsVarArgs;
-    if (constructorMember != null) {
-      // we have an explicit constructor
-      if (!constructorMember!.staticType.isSubtypeOf(createOrFindSubroutineTypeWithAnyArgs(environment, environment.coreNullType))) {
-        throw(concat('Constructor must be a NullFunction, but is declared as a ', constructorMember!.staticType.name, ' at ', constructorMember!.sourceLocation));
-      }
-      if (constructorMember is AbstractSubroutineDeclarationStatement) {
-        // constructor was declared as a method on this class
-        if ((constructorMember as AbstractSubroutineDeclarationStatement).isVarArgs) {
-          constructorParameters = [(constructorMember!.staticType as SubroutineTypeWithVarArgs).parameterType]:Type;
-          constructorIsVarArgs = true;
-        } else {
-          assert(constructorMember!.staticType is SubroutineTypeWithSpecificParameters, 'unexpected subroutine type');
-          Type getTypes(Anything tuple) {
-            return ((tuple as AnythingList)[0] as TypeIdentifier).generateInstructions(scope);
-          }
-          constructorParameters = map((constructorMember as AbstractSubroutineDeclarationStatement).parameters, getTypes) as TypeList;
-          constructorIsVarArgs = false;
-        }
-      } else {
-        // constructor was probably declared as a property on this class (grr!)
-        assert(constructorMember!.staticType is SubroutineTypeWithAnyArguments, 'unexpected subroutine type');
-        constructorParameters = [environment.coreAnythingType]:Type;
-        constructorIsVarArgs = true;
-      }
-    } else if (classType.supertype == staticType) {
-      // this must be the __Object definition
-      throw(concat('Base class must have an explicit constructor but has none at ', sourceLocation));
-    } else {
-      // we did not have an explicit constructor, so our constructor just defers to the superclass constructor
-      if (classType.supertype.constructorSubroutine.staticType is SubroutineTypeWithVarArgs) {
-        constructorParameters = [(classType.supertype.constructorSubroutine.staticType as SubroutineTypeWithVarArgs).parameterType]:Type;
-        constructorIsVarArgs = true;
-      } else {
-        assert(classType.supertype.constructorSubroutine.staticType is SubroutineTypeWithSpecificParameters, 'unexpected subroutine type');
-        constructorParameters = (classType.supertype.constructorSubroutine.staticType as SubroutineTypeWithSpecificParameters).parameterTypes;
-        constructorIsVarArgs = false;
-      }
-    }
-    SubroutinePointerBucket generatedConstructorBucket;
-    if (existingStaticType != null) {
-      generatedConstructorBucket = classType.constructorSubroutine;
-      // we must have had a forward class declaration; check that what we are going to define matches it
-      if (constructorIsVarArgs) {
-        assert(len(constructorParameters) == 1, 'internal inconsistency');
-        if (!(generatedConstructorBucket.staticType is SubroutineTypeWithVarArgs) ||
-             (generatedConstructorBucket.staticType as SubroutineTypeWithVarArgs).parameterType != constructorParameters[0]) {
-          throw(concat('Forward class declaration constructor signature did not match constructor declaration at ', constructorMember!.sourceLocation));
-        }
-      } else {
-        if (!(generatedConstructorBucket.staticType is SubroutineTypeWithSpecificParameters) ||
-            !listEqualsWithComparator(
-              (generatedConstructorBucket.staticType as SubroutineTypeWithSpecificParameters).parameterTypes,
-              constructorParameters,
-              typesEquivalent,
-             )) {
-          throw(concat('Forward class declaration constructor signature for class ', staticType.name, ' did not match constructor declaration at ', constructorMember!.sourceLocation));
-        }
-      }
-    } else {
-      createGeneratedConstructor(scope, constructorParameters, constructorIsVarArgs);
-      generatedConstructorBucket = classType.constructorSubroutine;
+      generatedConstructorBucket.markConstructorAsDeclared();
     }
     CompiledGeneratedConstructorSubroutine generatedConstructorScope = generatedConstructorBucket.subroutine as CompiledGeneratedConstructorSubroutine;
-    Bucket thisPointer = generatedConstructorScope.emitIntrinsicCall(environment.classAllocatorIntrinsicName, [ VmtPointerBucket(environment, staticType as ClassType) ]:Bucket);
+    Bucket thisPointer = generatedConstructorScope.emitIntrinsicCall(environment.classAllocatorIntrinsicName, [ VmtPointerBucket(environment, classType) ]:Bucket);
     generatedConstructorScope.setThisPointer(thisPointer);
     // call initializers
     ClassType ancestorClassType = classType;
@@ -2367,9 +2382,8 @@ class ClassDeclaration extends AbstractClassDeclaration {
       }
       index -= 1;
     }
-    generatedConstructorBucket.markConstructorAsDeclared();
     // userConstructor should never be null, because the base class must have a constructor
-    // userConstructor should never be a field, because we prevent properties from being declared with the name kConstructor
+    // TODO: handle the case of userConstructor being a field (see tests/class_constructors_4.syd)
     CompiledSubroutine userConstructor = classType.getMember(kConstructor)!.methodImplementation!;
     generatedConstructorScope.setActualConstructor(userConstructor);
     // Finally, we set the generated constructor's return type and value to the
@@ -2380,15 +2394,19 @@ class ClassDeclaration extends AbstractClassDeclaration {
     generatedConstructorScope.emitReturnFrom(generatedConstructorScope, thisPointer, false);
   }
 
-  Null constructor(String classNameArg, TypeIdentifierNullable superclassNameArg, DeclarationStatementList membersArg, Boolean isIntrinsicArg, SourceLocation sourceLocationArg) {
-    super.constructor(classNameArg, superclassNameArg, isIntrinsicArg, sourceLocationArg);
+  Null constructor(String classNameArg, TypeIdentifierNullable superclassNameArg, StatementList membersArg, Boolean isIntrinsicArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
+    identifier = classNameArg;
+    superclassName = superclassNameArg;
+    isIntrinsic = isIntrinsicArg;
     members = membersArg;
   }
 }
 
-class ForwardClassFieldDeclaration extends DeclarationStatement {
+class ForwardClassFieldDeclaration extends Statement {
   TypeIdentifier fieldType;
   TypeIdentifier hostClass;
+  String identifier;
   
   //#override
   String toStringIndent(Integer indent) {
@@ -2397,32 +2415,47 @@ class ForwardClassFieldDeclaration extends DeclarationStatement {
 
   //#override
   Null generateInstructions(CompiledScope scope) {
-    TypeNullable existingStaticType = hostClass.generateInstructions(scope);
-    if (existingStaticType == null) {
-      throw(concat('nonexistent class ', hostClass.name, ' at ', sourceLocation));
+    Type candidateClassType = hostClass.lookup(scope.globalScope(), true);
+    if (!(candidateClassType is ClassType)) {
+      throw(concat('Type ', hostClass.name, ' is not a class at ', sourceLocation));
     }
-    if (!(existingStaticType is ClassType)) {
-      throw(concat('type ', hostClass.name, ' is not a class at ', sourceLocation));
-    }
-    ClassType classType = existingStaticType as ClassType;
+    ClassType classType = candidateClassType as ClassType;
     if (classType.isDefined) {
-      throw(concat('type ', hostClass.name, ' is already defined and cannot have a forward-declared property at ', sourceLocation));
+      throw(concat('Type ', hostClass.name, ' is already defined and cannot have a forward-declared property at ', sourceLocation));
     }
-    staticType = fieldType.generateInstructions(scope);
-    classType.registerForwardField(identifier, staticType, sourceLocation);
+    MemberDescriptionNullable member = classType.getMember(identifier);
+    if (member == null) {
+      throw(concat('Field ', hostClass.name, '.', identifier, ' never defined after being forward declared at ', sourceLocation));
+    }
+    if (!member!.isField) {
+      throw(concat('Field ', hostClass.name, '.', identifier, ' not defined as a field after being forward declared at ', sourceLocation));
+    }
+    TypeNullable candidateFieldType = fieldType.lookup(scope.globalScope(), true);
+    if (candidateFieldType == null) {
+      throw(concat('Field ', hostClass.name, '.', identifier, ' forward declared with type ', fieldType.toStringIndent(0), ' which is not yet known at ', sourceLocation));
+    }
+    if (member!.staticType != candidateFieldType) {
+      throw(concat('Field ', hostClass.name, '.', identifier, ' has type ', member!.staticType.name, ' which does not match the type used in the forward declaration at ', sourceLocation));
+    }
+    member!.markDeclared();
+    if (member!.forwardDeclare()) {
+      throw(concat('Field ', hostClass.name, '.', identifier, ' forward declared twice at ', sourceLocation));
+    }
   }
 
   Null constructor(TypeIdentifier hostClassArg, TypeIdentifier fieldTypeArg, String identifierArg, SourceLocation sourceLocationArg) {
-    super.constructor(identifierArg, sourceLocationArg);
+    super.constructor(sourceLocationArg);
     hostClass = hostClassArg;
     fieldType = fieldTypeArg;
+    identifier = identifierArg;
   }
 }
 
-class ForwardClassMethodDeclaration extends DeclarationStatement {
+class ForwardClassMethodDeclaration extends Statement {
   TypeIdentifier returnType;
   TypeIdentifier hostClass;
-  AnythingListList parameters; // example: [[String], [Integer]]
+  String identifier;
+  AnythingListList parameters; // list of one-element lists of TypeIdentifiers (example: [[String], [Integer]])
   Boolean isVarArgs;
   
   //#override
@@ -2439,48 +2472,65 @@ class ForwardClassMethodDeclaration extends DeclarationStatement {
 
   //#override
   Null generateInstructions(CompiledScope scope) {
-    TypeNullable existingStaticType = hostClass.generateInstructions(scope);
-    if (existingStaticType == null) {
-      throw(concat('class ', hostClass.name, ' is not known at ', sourceLocation));
+    Type candidateClassType = hostClass.lookup(scope.globalScope(), true);
+    if (!(candidateClassType is ClassType)) {
+      throw(concat('Type ', hostClass.name, ' is not a class at ', sourceLocation));
     }
-    if (!(existingStaticType is ClassType)) {
-      throw(concat('type ', hostClass.name, ' is not a class at ', sourceLocation));
-    }
-    ClassType classType = existingStaticType as ClassType;
+    ClassType classType = candidateClassType as ClassType;
     if (classType.isDefined) {
-      throw(concat('type ', hostClass.name, ' is already defined and cannot have a forward-declared method at ', sourceLocation));
+      throw(concat('Type ', hostClass.name, ' is already defined and cannot have a forward-declared property at ', sourceLocation));
     }
-    TypeList compiledParameterTypes = []:Type;
+    MemberDescriptionNullable member = classType.getMember(identifier);
+    if (member == null) {
+      throw(concat('Method ', hostClass.name, '.', identifier, ' never defined after being forward declared at ', sourceLocation));
+    }
+    if (member!.isField) {
+      throw(concat('Method ', hostClass.name, '.', identifier, ' not defined as a method after being forward declared at ', sourceLocation));
+    }
+    TypeNullable forwardDeclaredReturnType = returnType.lookup(scope.globalScope(), true);
+    if (forwardDeclaredReturnType == null) {
+      throw(concat('Method ', hostClass.name, '.', identifier, ' forward declared with return type ', returnType.toStringIndent(0), ' which is not yet known at ', sourceLocation));
+    }
+    assert(member!.staticType is AbstractSubroutineTypeWithSpecificParameters, 'invariant violation');
+    if ((member!.staticType as AbstractSubroutineTypeWithSpecificParameters).returnType != forwardDeclaredReturnType) {
+      throw(concat('Method ', hostClass.name, '.', identifier, ' has return type ', (member!.staticType as AbstractSubroutineTypeWithSpecificParameters).returnType.name, ' which does not match the return type used in the forward declaration at ', sourceLocation));
+    }
+    TypeList forwardDeclaredParameters = []:Type;
     for (parameter in parameters) {
-      append(compiledParameterTypes, (parameter[0] as TypeIdentifier).generateInstructions(scope));
+      append(forwardDeclaredParameters, (parameter[0] as TypeIdentifier).lookup(scope.globalScope(), true));
     }
-    Type returnType = returnType.generateInstructions(scope);
+    Type forwardDeclaredType;
     if (isVarArgs) {
-      staticType = createOrFindSubroutineTypeWithVarArgs(
+      assert(len(forwardDeclaredParameters) == 1, 'unexpected number of parameters to varargs function');
+      forwardDeclaredType = createOrFindSubroutineTypeWithVarArgs(
         scope.environment(),
-        returnType,
-        compiledParameterTypes,
+        forwardDeclaredReturnType!,
+        forwardDeclaredParameters,
       );
     } else {
-      staticType = createOrFindSubroutineTypeWithSpecificParameters(
+      forwardDeclaredType = createOrFindSubroutineTypeWithSpecificParameters(
         scope.environment(),
-        returnType,
-        compiledParameterTypes,
-      ); 
+        forwardDeclaredReturnType!,
+        forwardDeclaredParameters,
+      );
     }
-    classType.registerForwardMethod(identifier, staticType, sourceLocation);
+    if (forwardDeclaredType != member!.staticType) {
+      throw(concat('Method ', hostClass.name, '.', identifier, ' defined with signature ', member!.staticType.name, ' but forward declared with signature ', forwardDeclaredType.name, ' at ', sourceLocation));
+    }
+    member!.markDeclared();
   }
 
   Null constructor(TypeIdentifier hostClassArg, TypeIdentifier returnTypeArg, String identifierArg, AnythingListList parametersArg, Boolean isVarargsArg, SourceLocation sourceLocationArg) {
-    super.constructor(identifierArg, sourceLocationArg);
+    super.constructor(sourceLocationArg);
     hostClass = hostClassArg;
     returnType = returnTypeArg;
+    identifier = identifierArg;
     parameters = parametersArg;
     isVarArgs = isVarargsArg;
   }
 }
 
-class TypeIntrinsicDeclaration extends DeclarationStatement {
+class TypeIntrinsicDeclaration extends Statement {
   String identifier;
   
   //#override
@@ -2488,14 +2538,26 @@ class TypeIntrinsicDeclaration extends DeclarationStatement {
     return concat('typedef# ', identifier, ' is GarbageCollectable;\n');
   }
 
+  IntrinsicType staticType;
+
+  //#override
+  Null declareTypes(CompiledScope scope) {
+    assert(scope is CompiledLibrary, 'found typedef# in non-global scope');
+    if (scope.globalScope().isTypeDeclaredInGlobalScope(identifier)) {
+      throw(concat('"', identifier, '" redeclared at ', sourceLocation));
+    }
+    staticType = IntrinsicType(scope.environment(), identifier);
+    (scope as CompiledLibrary).registerType(staticType);
+  }
+
   //#override
   Null generateInstructions(CompiledScope scope) {
-    assert(scope is CompiledLibrary, 'found typedef# in non-global scope');
-    if (scope.environment().isCompoundType(identifier)) {
-      throw(concat('"', identifier, '" is not a valid intrinsic type name at ', sourceLocation));
-    }
-    IntrinsicType type = IntrinsicType(scope.environment(), identifier);
-    (scope as CompiledLibrary).declareType(type);
+    staticType.markDeclared();
+  }
+
+  Null constructor(String identifierArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
+    identifier = identifierArg;
   }
 }
 
@@ -2595,10 +2657,16 @@ class ContinueStatement extends Statement {
 
 class ImportStatement extends Statement {
   String path;
+
   String resolvedPath;
+  Library resolvedLibrary;
 
   Null setResolvedPath(String resolvedPathArg) {
     resolvedPath = resolvedPathArg;
+  }
+
+  Null setResolvedLibrary(Library library) {
+    resolvedLibrary = library;
   }
   
   //#override
@@ -2609,8 +2677,6 @@ class ImportStatement extends Statement {
   //#override
   Null generateInstructions(CompiledScope scope) {
     assert(scope is CompiledLibrary, 'found import outside global scope');
-    assert(scope.environment().getLibraryState(resolvedPath) == ls.Defined, concat('tried to import library "', path, '" before it was compiled'));
-    (scope as CompiledLibrary).importLibrary(scope.environment().getLibrary(resolvedPath) as CompiledLibrary);
   }
 
   Null constructor(String pathArg, SourceLocation sourceLocationArg) {
@@ -3101,19 +3167,29 @@ class ForStatement extends Statement {
 class Library extends StatementBlock {
   String name;
 
+  CompiledLibraryNullable library = null;
+
+  LibraryList generateLibraryScope(CompilationEnvironment environment) { 
+    LibraryList result = []:Library;
+    if (library != null) {
+      // we already generated our library scope
+      return result; // (return empty list)
+    }
+    library = CompiledLibrary(environment, name);
+    for (child in children) {
+      if (child is ImportStatement) {
+        appendAll(result, (child as ImportStatement).resolvedLibrary.generateLibraryScope(environment));
+        library!.importLibrary((child as ImportStatement).resolvedLibrary.library!);
+      }
+    }
+    environment.registerLibrary(library!);
+    append(result, this);
+    return result;
+  }
+
   Null constructor(StatementList childrenArg, String nameArg, SourceLocation sourceLocationArg) {
     super.constructor(childrenArg, sourceLocationArg);
     name = nameArg;
-  }
-
-  // TODO: this should be split into "declaration" and "definition" phases
-  //       the "declaration" phase does declareType-type stuff, setIsAmbiguous-type stuff, etc.
-  //       the "definition" phase actually generates scopes and instructions, sets isDeclared, calls forRead, etc.
-  //       this would fix class_16.syd
-  CompiledLibrary generateScopes(CompilationEnvironment compilationEnvironmentArg) { 
-    CompiledLibrary result = CompiledLibrary(compilationEnvironmentArg, name);
-    generateInstructions(result);
-    return result;
   }
 }
 

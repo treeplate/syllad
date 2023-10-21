@@ -3,6 +3,6 @@
 
 println('FAIL');
 
-fwdclass A;
+fwdclass A();
 fwdclassmethod Null A.a();
 class A { NullFunction a; }

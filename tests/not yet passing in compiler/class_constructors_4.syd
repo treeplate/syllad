@@ -1,0 +1,18 @@
+// expected output: 1
+// expected output: 2
+// expected error: parameter mismatch
+// unexpected output: ierror
+
+Null test(Integer foo) {
+  println(foo);
+}
+
+class A {
+  NullFunction constructor = test;
+}
+
+class B extends A { }
+
+A(1);
+B(2);
+A();
