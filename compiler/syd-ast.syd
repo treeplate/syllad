@@ -127,10 +127,13 @@ class IntegerLiteralExpression extends Expression {
     if (value > -10 && value < 10) {
       return concat(value);
     }
-    if (value < 0) {
-      return concat(value, ' /* -0x', hex(-value), ' *\/');
+    if (value == -0x8000000000000000) {
+      return concat(value, ' /* -0x8000000000000000 */');
     }
-    return concat(value, ' /* 0x', hex(value), ' *\/');
+    if (value < 0) {
+      return concat(value, ' /* -0x', hex(-value), ' */');
+    }
+    return concat(value, ' /* 0x', hex(value), ' */');
   }
 
   Null constructor(Integer valueArg, SourceLocation sourceLocationArg) {

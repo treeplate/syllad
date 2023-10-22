@@ -1,0 +1,11 @@
+// expected output: PASS -7fffffffffffffff -8000000000000000 7fffffffffffffff -8000000000000000
+// expected output: -1
+// expected output: -9223372036854775808
+
+Integer smallNumber = -0x7FFFFFFFFFFFFFFF;
+Integer tinyNumber  = -0x8000000000000000;
+
+assert(smallNumber != tinyNumber, 'numbers equal');
+println('PASS', hex(smallNumber), hex(tinyNumber), hex(tinyNumber - 1), hex(-tinyNumber));
+println(tinyNumber - smallNumber);
+println(tinyNumber);

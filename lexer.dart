@@ -344,7 +344,7 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           buffer.writeCharCode(rune);
         } else {
           yield IntToken(
-              int.tryParse(buffer.toString()) ??
+              buffer.toString() == '9223372036854775808' ? 0x8000000000000000 : int.tryParse(buffer.toString()) ??
                   (throw BSCException(
                     'bad integer: $buffer',
                     NoDataVG(),

@@ -3034,7 +3034,7 @@ class CompiledLibrary extends CompiledStackFrameScope {
   IdentifierEntityNullable internalLookupIdentifier(String name) {
     IdentifierEntityNullable result = super.internalLookupIdentifier(name);
     if (result == null) {
-      for (library in libraries) {
+      for (library in reverse(libraries) as CompiledLibraryList) {
         result = library.internalLookupIdentifier(name);
         if (result != null) {
           break;
@@ -3058,7 +3058,7 @@ class CompiledLibrary extends CompiledStackFrameScope {
     if (result != null && (!requireDeclared || result!.isDeclared)) {
       return result;
     }
-    for (library in libraries) {
+    for (library in reverse(libraries) as CompiledLibraryList) {
       result = library.lookupType(name, requireDeclared);
       if (result != null) {
         assert(!requireDeclared || result!.isDeclared, 'invariant violation');

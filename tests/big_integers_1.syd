@@ -3,8 +3,6 @@
 
 println('FAIL');
 
-// (currently buggy in compiler -- no compile time error is reported)
-
 Integer n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 if (n == 0xFFFFFFFFFFFFFFFF) {
   print("ERROR\n");

@@ -10,12 +10,12 @@ test.syd
 *.ilk
 *.pdb
 mllink$.lnk
-syd.obj
 .packages
 .dart_tool
 profile.txt
 error-dump.txt
-compiler/syd.asm
-compiler/syd.exe
+*.syd.asm
+*.syd.exe
+*.syd.obj
 compiler/temp.syd
 main.exe

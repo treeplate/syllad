@@ -397,7 +397,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           append(tokens, createToken(tt.Tilde, null));
           break;
         } else {
-          throw(concat('Unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', ': ', chr(ch)));
+          throw(concat('Unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename), ': ', chr(ch)));
           break;
         }
       } else if (state == ts.Identifier) {
@@ -526,7 +526,10 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
         }
       } else if (state == ts.Integer) {
         if (ch >= 0x30 && ch <= 0x39) { // 0-9
-          buffer = buffer as Integer * 10 + ch - 0x30;
+          if ((buffer as Integer > 922337203685477580) || ((buffer as Integer == 922337203685477580) && (ch == 0x39))) {
+            throw(concat('Invalid integer literal at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename)));
+          }
+          buffer = buffer as Integer * 10 + (ch - 0x30);
           break;
         } else {
           append(tokens, createTokenWithBacktrack(tt.Integer, buffer));
@@ -541,17 +544,26 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           buffer = 0;
           // no break, reprocess in ts.Hex
         } else {
-          throw(concat('Unexpected character ', padLeft(hex(ch), 4, "0"), ' in hex literal at ', ': ', chr(ch)));
+          throw(concat('Unexpected character ', padLeft(hex(ch), 4, "0"), ' in hex literal at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename), ': ', chr(ch)));
         }
       } else if (state == ts.Hex) {
         if (ch >= 0x30 && ch <= 0x39) { // 0-9
-          buffer = buffer as Integer * 0x10 + ch - 0x30;
+          if ((buffer as Integer > 0x07ffffffffffffff) && ((buffer as Integer != 0x0800000000000000) || ch != 0x30)) {
+            throw(concat('Invalid integer literal at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename)));
+          }
+          buffer = buffer as Integer * 0x10 + (ch - 0x30);
           break;
         } else if (ch >= 0x41 && ch <= 0x46) { // A-F
-          buffer = (buffer as Integer * 0x10 + ch - 0x41) + 10;
+          if (buffer as Integer > 0x07ffffffffffffff) {
+            throw(concat('Invalid integer literal at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename)));
+          }
+          buffer = buffer as Integer * 0x10 + (ch - 0x41) + 10;
           break;
         } else if (ch >= 0x61 && ch <= 0x66) { // a-f
-          buffer = (buffer as Integer * 0x10 + ch - 0x61) + 10;
+          if (buffer as Integer > 0x07ffffffffffffff) {
+            throw(concat('Invalid integer literal at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename)));
+          }
+          buffer = buffer as Integer * 0x10 + (ch - 0x61) + 10;
           break;
         } else {
           append(tokens, createTokenWithBacktrack(tt.Integer, buffer));
@@ -574,7 +586,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           state = ts.Top;
           break;
         } else {
-          throw(concat('Unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', ': ', chr(ch)));
+          throw(concat('Unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename), ': ', chr(ch)));
         }
 
       } else if (state == ts.Plus) {

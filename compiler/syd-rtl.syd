@@ -111,6 +111,8 @@ Null _free(Integer pointer) __intrinsic {
   }
 }
 
+Integer _allBits = -1; // 0xFFFFFFFFFFFFFFFF
+
 Null _moveBytes(Integer from, Integer to, Integer length) {
   // TODO: move this to inlined assembler (using the string-copy instructions) for performance
   // (or optimize the compiler enough that it generates good code somehow!)
@@ -134,7 +136,7 @@ Null _moveBytes(Integer from, Integer to, Integer length) {
     Integer extraBytes = end - fromCursor;
     assert(extraBytes > 0, 'internal error: zero extra bytes but fromCursor is before end');
     assert(extraBytes < 8, 'internal error: more than 7 extra bytes');
-    Integer mask = 0xFFFFFFFFFFFFFFFF << (extraBytes * 8);
+    Integer mask = _allBits << (extraBytes * 8);
     Integer finalValue = (newValue & ~mask) | (oldValue & mask);
     __writeToAddress(toCursor, finalValue);
   }
@@ -762,12 +764,15 @@ class StringBuffer# {
   Integer length = 0;
 
   StringBufferPart#Nullable first = null;
-  Null setFirst(StringBufferPart# part) {
-    first = part;
-  }
-
   StringBufferPart#Nullable last = null;
   Null add(StringBufferPart# part) {
+    if (first == null) {
+      assert(length == 0, 'invariant violation');
+      first = part;
+    } else {
+      assert(length > 0, 'invariant violation');
+      last!.setNext(part);
+    }
     last = part;
     length += _stringByteLength(part.value);
   }
@@ -783,15 +788,7 @@ Null writeStringBuffer(StringBuffer buffer, String value) {
     return;
   }
   StringBuffer# target = buffer __as__ StringBuffer#;
-  StringBufferPart# part = StringBufferPart#(value);
-  if (target.first == null) {
-    assert(target.length == 0, 'invariant violation');
-    target.setFirst(part);
-  } else {
-    assert(target.length > 0, 'invariant violation');
-    target.last!.setNext(part);
-  }
-  target.add(part);
+  target.add(StringBufferPart#(value));
 }
 
 String readStringBuffer(StringBuffer buffer) {
@@ -896,13 +893,13 @@ String intToStr(Integer value) {
   }
   StringBuffer buffer = createStringBuffer();
   Integer newValue = value; // parameters are final
-  if (newValue < 0) {
+  if (newValue > 0) {
     newValue = -newValue;
   }
-  while (newValue > 0) {
+  while (newValue < 0) {
     Integer digit = newValue % 10;
     newValue = newValue / 10;
-    writeStringBuffer(buffer, _digitToStr(digit));
+    writeStringBuffer(buffer, _digitToStr(-digit));
   }
   if (value < 0) {
     writeStringBuffer(buffer, '-');
@@ -917,13 +914,13 @@ String hex(Integer value) {
   }
   StringBuffer buffer = createStringBuffer();
   Integer newValue = value; // parameters are final
-  if (newValue < 0) {
+  if (newValue > 0) {
     newValue = -newValue;
   }
-  while (newValue > 0) {
+  while (newValue < 0) {
     Integer digit = newValue % 16;
     newValue = newValue / 16;
-    writeStringBuffer(buffer, _digitToStr(digit));
+    writeStringBuffer(buffer, _digitToStr(-digit));
   }
   if (value < 0) {
     writeStringBuffer(buffer, '-');
@@ -1158,7 +1155,7 @@ Boolean substringMatch#(String string, String pattern, Integer index) {
     if (patternLength - patternCursor < 8) {
       // the next character is the lowest byte on little-endian systems
       // on big-endian systems this would need to shift the other way
-      Integer mask = 0xFFFFFFFFFFFFFFFF >> ((8 - (patternLength - patternCursor)) * 8);
+      Integer mask = _allBits >> ((8 - (patternLength - patternCursor)) * 8);
       inputPart &= mask;
       patternPart &= mask;
     }
