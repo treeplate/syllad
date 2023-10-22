@@ -545,7 +545,7 @@ class BitTest extends PseudoComputation {
   }
 }
 
-class StringCompare extends PseudoComputation {
+class ByteSequenceCompare extends PseudoComputation {
   Datum length;
   Datum left;
   Integer leftOffset;

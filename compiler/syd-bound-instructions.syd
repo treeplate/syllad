@@ -9,6 +9,7 @@ class ConversionContext extends Object {
   CodeLabelDatum freeIntrinsic() { abstract(); }
   CodeLabelDatum errorIntrinsic() { abstract(); }
   CodeLabelDatum exponentiationIntrinsic() { abstract(); }
+  CodeLabelDatum equalityIntrinsic() { abstract(); }
   Bucket errorMessage(String value) { abstract(); }
   Bucket coreSentinel() { abstract(); }
   //#ignore_unused
@@ -2000,70 +2001,30 @@ class EqualityInstruction extends ComputationBoundInstruction {
       compute(output, Cmp(a.currentValueDatum(), b.currentValueDatum(), Comparison.Equal, concat('compare ', a.commentName(), ' and ', b.commentName()), 'value equality result')),
       compute(output, Cmp(a.currentTypeDatum(), b.currentTypeDatum(), Comparison.Equal, concat('compare ', a.currentTypeDatum().commentName, ' and ', b.currentTypeDatum().commentName), 'type equality result')),
       concat('combine value and type equality results'),
-      'non-string equality result',
+      'identity equality result',
     ));
     TypeNullable aType = a.currentTypeDatum().asType();
     TypeNullable bType = b.currentTypeDatum().asType();
-    if (context.types().coreStringType.isSubtypeOf(a.staticType) && 
-        context.types().coreStringType.isSubtypeOf(b.staticType) &&
-        (aType == null || aType == context.types().coreStringType) &&
-        (bType == null || bType == context.types().coreStringType)) {
-      PseudoInstructionList subblock = []:PseudoInstruction;
-      DatumNullable areTheyStrings = null;
-      if (aType == null) {
-        areTheyStrings = exactTypeCheck(subblock, a, context.types().coreStringType);
-      } else {
-        assert(aType == context.types().coreStringType, concat('invariant violation -- ', aType!.name, ' is not string!'));
-      }
-      if (bType == null) {
-        Datum subcondition = exactTypeCheck(subblock, b, context.types().coreStringType);
-        if (areTheyStrings != null) {
-          areTheyStrings = compute(subblock, And(areTheyStrings!, subcondition, concat('check if both ', a.commentName(), ' and ', b.commentName(), ' are strings'), '"are they strings?"'));
-        } else {
-          areTheyStrings = subcondition;
-        }
-      } else {
-        assert(bType == context.types().coreStringType, concat('invariant violation -- ', bType!.name, ' is not string!'));
-      }
-      PseudoInstructionList subsubblock = []:PseudoInstruction;
-      Datum lengthA = DereferenceDatum(a.currentValueDatum(), IntegerDatum(_gcBlockHeaderLength, '_gcBlockHeaderLength'), ow.QWord, concat('length of ', a.commentName()));
-      Datum lengthB = DereferenceDatum(b.currentValueDatum(), IntegerDatum(_gcBlockHeaderLength, '_gcBlockHeaderLength'), ow.QWord, concat('length of ', b.commentName()));
-      PseudoInstructionList subsubsubblock = []:PseudoInstruction;
-      Datum stringComparison = compute(subsubsubblock, StringCompare(lengthA, a.currentValueDatum(), _gcBlockStringData, b.currentValueDatum(), _gcBlockStringData, concat('perform string comparison of ', a.commentName(), ' and ', b.commentName()), 'string comparison result'));
-      append(subsubsubblock, Mov(preNegationTarget, stringComparison, concat('set ', preNegationTarget.commentName, ' to ', stringComparison.commentName)));
-      append(subsubblock, If(
-        compute(subsubblock, Cmp(lengthA, lengthB, Comparison.Equal, concat('compare lengths'), '"are they the same length?"')),
-        subsubsubblock, 
-        [Mov(preNegationTarget, result, concat('set ', preNegationTarget.commentName, ' to ', result.commentName))]:PseudoInstruction, 
-        scopeLabel.deriveWith('lengthCompare'),
-        Map(),
-        'lengths equal, continue with string compare',
-        'lengths unequal, strings must be unequal',
-      ));
-      if (areTheyStrings != null) {
-        append(subblock, If(
-          areTheyStrings!, 
-          subsubblock, 
-          [Mov(preNegationTarget, result, concat('set ', preNegationTarget.commentName, ' to ', result.commentName))]:PseudoInstruction, 
-          scopeLabel.deriveWith('typeCheck'),
-          Map(),
-          'values are strings, do string comparison',
-          'values are not strings, pointer equality is sufficient',
-        ));
-      } else {
-        // must be strings, no need to check
-        for (instruction in subsubblock) {
-          append(subblock, instruction);
-        }
-      }
+    if ((context.types().coreStringType.isSubtypeOf(a.staticType) && 
+         context.types().coreStringType.isSubtypeOf(b.staticType) &&
+         (aType == null || aType == context.types().coreStringType) &&
+         (bType == null || bType == context.types().coreStringType)) ||
+        (context.types().coreSubroutineType.isSubtypeOf(a.staticType) && 
+         context.types().coreSubroutineType.isSubtypeOf(b.staticType) &&
+         (aType == null || aType is AbstractSubroutineType) &&
+         (bType == null || bType is AbstractSubroutineType))) {
+      PseudoInstructionList equalityIntrinsicSubblock = []:PseudoInstruction;
+      ValueBucket equalityIntrinsicCallResult = ValueBucket(target.staticType, LazyComment('value equality result'));
+      callFunction(equalityIntrinsicSubblock, context.equalityIntrinsic(), [a, b]:Bucket, equalityIntrinsicCallResult);
+      append(equalityIntrinsicSubblock, Mov(preNegationTarget, equalityIntrinsicCallResult.currentValueDatum(), concat('set ', preNegationTarget.commentName, ' to ', equalityIntrinsicCallResult.commentName())));
       append(output, If(
         result,
-        [Mov(preNegationTarget, result, concat('set ', preNegationTarget.commentName, ' to result.commentName'))]:PseudoInstruction,
-        subblock,
+        [Mov(preNegationTarget, result, concat('set ', preNegationTarget.commentName, ' to ', result.commentName))]:PseudoInstruction,
+        equalityIntrinsicSubblock,
         scopeLabel.deriveWith('pointerEquality'),
         Map(),
         'values are exactly equal',
-        'values are not exactly equal, but they may be strings that are equal to each other',
+        'values are not exactly equal, but they may be value-equal, so defer to RTL',
       ));
     } else {
       append(output, Mov(preNegationTarget, result, concat('set ', preNegationTarget.commentName, ' to ', result.commentName)));
@@ -2174,6 +2135,33 @@ class StoreDynamicTypeCheckInstruction extends ComputationBoundInstruction {
     type = typeArg;
     value = valueArg;
     typeCheckReason = typeCheckReasonArg;
+  }
+}
+
+class ByteSequenceCompareInstruction extends ComputationBoundInstruction {
+  Bucket aPtr;
+  Bucket bPtr;
+  Bucket length;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [aPtr, bPtr, length]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    Datum result = compute(output, ByteSequenceCompare(length.currentValueDatum(), aPtr.currentValueDatum(), 0, bPtr.currentValueDatum(), 0, concat('perform byte sequence comparison of ', aPtr.commentName(), ' and ', bPtr.commentName()), 'byte sequence comparison result'));
+    target.assignDatums(result, TypeCodeDatum(target.staticType)); // (boolean)
+    return output;
+  }
+
+  Null constructor(Bucket aArg, Bucket bArg, Bucket lengthArg, Type staticTypeArg, LazyComment resultComment) {
+    assert(staticTypeArg is BooleanType, 'invariant violation -- static type of string comparison must be boolean');
+    super.constructor(staticTypeArg, resultComment);
+    aPtr = aArg;
+    bPtr = bArg;
+    length = lengthArg;
   }
 }
 

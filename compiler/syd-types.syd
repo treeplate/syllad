@@ -938,7 +938,3 @@ class TypeRegistry extends Object {
     return lookupType(name, requireDeclared);
   }
 }
-
-Boolean typesEquivalent(Type a, Type b) {
-  return a.isSubtypeOf(b) && b.isSubtypeOf(a);
-}

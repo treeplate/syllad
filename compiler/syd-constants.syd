@@ -31,8 +31,12 @@
 //      8 bytes atom identifier
 //      8 bytes enum value (pointer to enum value name)
 
+//#ignore_unused
+Integer _blockEntrySize = 8; // stride size in block entry list
+
 Integer _gcBlockHeaderRefCount = 0 * 8;
 Integer _gcBlockHeaderLength = 1 * 8;
+//#ignore_unused
 Integer _gcBlockStringData = 2 * 8;
 //#ignore_unused
 Integer _gcBlockHeaderScratchSpace = 2 * 8; // for completeness
@@ -42,6 +46,7 @@ Integer _gcBlockData = 4 * 8;
 //#ignore_unused
 Integer _listBlockSize = _gcBlockData + 0 * 16 + 8; // for completeness
 Integer _listBlockData = _gcBlockData + 1 * 16 + 8;
+
 Integer _subroutineReceiverType = _gcBlockData + 0 * 16;
 Integer _subroutineReceiverPointer = _gcBlockData + 0 * 16 + 8;
 //#ignore_unused
@@ -51,16 +56,19 @@ Integer _subroutineCodeType = _gcBlockData + 2 * 16; // for completeness, always
 Integer _subroutineCodePointer = _gcBlockData + 2 * 16 + 8;
 
 //#ignore_unused
-Integer vmtTypeCode = 0; // class type code (may be -1 if never constructed or type checked)
+Integer _vmtTypeCode = 0x00;
 //#ignore_unused
-Integer vmtFieldCount = 1; // amount of storage space to allocate for class
+Integer _vmtFieldCount = 0x08;
 //#ignore_unused
-Integer vmtClassNamePointer = 2; // pointer to a String data structure with the class name, used to initialize className field
+Integer _vmtClassName = 0x10;
 //#ignore_unused
-Integer vmtParentVmtPointer = 3; // pointer to the VMT structure for the parent class, points to this VMT for __Object
+Integer _vmtParent = 0x18;
 //#ignore_unused
-Integer vmtDynamicDispatchTable = 4; // DDT in VMT
-Integer vmtHeaderFieldCount = 5; // number of 64 bit header fields before the actual virtual method table
+Integer _vmtDynamicDispatchTable = 0x20;
+//#ignore_unused
+Integer _vmtMethods = 0x28;
+
+Integer _vmtHeaderFieldCount = 5; // number of 64 bit header fields before the actual virtual method table
 
 Integer _fieldVmt = _gcBlockData + 0x00;
 //#ignore_unused
@@ -76,3 +84,6 @@ Integer _enumTableLengthOffset = 0x08;
 Integer _enumTableEntryTypeOffset = 0x10; // only present if length is non-zero
 //#ignore_unused
 Integer _enumTableFirstEntryOffset = 0x18; // length (atom code, string pointer) pairs
+
+//#ignore_unused
+Integer _allBits = -1; // 0xFFFFFFFFFFFFFFFF

@@ -4,37 +4,7 @@
 // TODO: turn RTL privates into foo# syntax
 // TODO: complain if a function is __intrinsic and we don't know about it
 
-// CONSTANTS // TODO: don't declare these here - just import syd-constants.syd
-
-Integer _blockEntrySize = 8; // stride size in block entry list
-Integer _gcBlockHeaderRefCount = 0 * 8;
-Integer _gcBlockHeaderLength = 1 * 8;
-Integer _gcBlockHeaderScratchSpace = 2 * 8;
-Integer _gcBlockHeaderEntryPointer = 3 * 8;
-Integer _gcBlockData = 4 * 8;
-
-Integer _vmtTypeCode = 0x00;
-Integer _vmtFieldCount = 0x08;
-Integer _vmtClassName = 0x10;
-Integer _vmtParent = 0x18;
-Integer _vmtDynamicDispatchTable = 0x20;
-Integer _vmtMethods = 0x28;
-
-Integer _fieldVmt = _gcBlockData + 0x00;
-Integer _fieldClassName = _gcBlockData + 0x10;
-Integer _fieldsRemainder = _gcBlockData + 0x20;
-
-Integer _subroutineReceiverType = _gcBlockData + 0 * 16;
-Integer _subroutineReceiverPointer = _gcBlockData + 0 * 16 + 8;
-Integer _subroutineClosureType = _gcBlockData + 1 * 16; // either sentinel or internal closure type
-Integer _subroutineClosurePointer = _gcBlockData + 1 * 16 + 8;
-Integer _subroutineCodeType = _gcBlockData + 2 * 16; // for completeness, always code address type
-Integer _subroutineCodePointer = _gcBlockData + 2 * 16 + 8;
-
-Integer _enumTableNameOffset = 0x00;
-Integer _enumTableLengthOffset = 0x08;
-Integer _enumTableEntryTypeOffset = 0x10;
-Integer _enumTableFirstEntryOffset = 0x18;
+import 'syd-constants.syd';
 
 fwdclass __Object() __intrinsic;
 
@@ -110,8 +80,6 @@ Null _free(Integer pointer) __intrinsic {
     exit(1);
   }
 }
-
-Integer _allBits = -1; // 0xFFFFFFFFFFFFFFFF
 
 Null _moveBytes(Integer from, Integer to, Integer length) {
   // TODO: move this to inlined assembler (using the string-copy instructions) for performance
@@ -446,7 +414,7 @@ WhateverList filledList(Integer length, Whatever value) {
 
 Integer _stringByteLength(String data) {
   Integer pointer = data __as__ Integer;
-  return __readFromAddress(pointer + 8);
+  return __readFromAddress(pointer + _gcBlockHeaderLength);
 }
 
 StringFunction _stringify; // defined later
@@ -473,15 +441,15 @@ String concat(Anything... arguments) {
   }
   Integer resultPointer = _alloc(16 + length);
   __writeToAddress(resultPointer, 0); // ref count
-  __writeToAddress(resultPointer + 8, length);
-  Integer cursor = resultPointer + 16;
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, length);
+  Integer cursor = resultPointer + _gcBlockStringData;
   index = 0;
   while (index < len(strings)) {
     String segment = strings[index];
     Integer segmentLength = _stringByteLength(segment);
     if (segmentLength > 0) {
       Integer segmentPointer = segment __as__ Integer;
-      _moveBytes(segmentPointer + 16, cursor, segmentLength);
+      _moveBytes(segmentPointer + _gcBlockStringData, cursor, segmentLength);
       cursor += segmentLength;
     }
     index += 1;
@@ -648,7 +616,7 @@ Integer __openFile(String filename, Boolean enableRead, Boolean enableWrite, Int
     accessMode |= __GENERIC_WRITE;
     shareMode = 0; // reset share mode to exclusive access
   }
-  Integer result = __createFile(filenameNullTerminated __as__ Integer + 16, accessMode, shareMode, 0, createMode, 0x80 /* FILE_ATTRIBUTE_NORMAL */, 0);
+  Integer result = __createFile(filenameNullTerminated __as__ Integer + _gcBlockStringData, accessMode, shareMode, 0, createMode, 0x80 /* FILE_ATTRIBUTE_NORMAL */, 0);
   if (result == -1) {
     Integer rawError = __getLastError();
     String error = concat('error code: ', rawError);
@@ -675,7 +643,7 @@ Integer __getFileSizeFromHandle(Integer hFile) {
 String __readStringFromHandle(Integer handle, Integer bytesToRead) {
   Integer resultPointer = _alloc(16 + bytesToRead);
   __writeToAddress(resultPointer, 0); // ref count
-  if (!__readFile(handle, resultPointer + 16, bytesToRead, _scratch, 0)) {
+  if (!__readFile(handle, resultPointer + _gcBlockStringData, bytesToRead, _scratch, 0)) {
     stderr('failed to read file, error code:', __getLastError());
     exit(1);
   }
@@ -685,7 +653,7 @@ String __readStringFromHandle(Integer handle, Integer bytesToRead) {
 }
 
 Null __writeStringToHandle(Integer handle, String message) {
-  __writeFile(handle, (message __as__ Integer) + 16, _stringByteLength(message), _scratch, 0);
+  __writeFile(handle, (message __as__ Integer) + _gcBlockStringData, _stringByteLength(message), _scratch, 0);
 }
 
 String readFile(String filename) {
@@ -799,13 +767,13 @@ String readStringBuffer(StringBuffer buffer) {
   }
   Integer resultPointer = _alloc(16 + source.length);
   __writeToAddress(resultPointer, 0); // ref count
-  __writeToAddress(resultPointer + 8, source.length);
-  Integer cursor = resultPointer + 16;
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, source.length);
+  Integer cursor = resultPointer + _gcBlockStringData;
   StringBufferPart#Nullable part = source.first!;
   while (part != null) {
     Integer segmentLength = _stringByteLength(part!.value);
     Integer segmentPointer = part!.value __as__ Integer;
-    _moveBytes(segmentPointer + 16, cursor, segmentLength);
+    _moveBytes(segmentPointer + _gcBlockStringData, cursor, segmentLength);
     part = part!.next;
     cursor += segmentLength;
   }
@@ -820,14 +788,14 @@ String _readStringBufferBackwards(StringBuffer buffer) {
   }
   Integer resultPointer = _alloc(16 + source.length);
   __writeToAddress(resultPointer, 0); // ref count
-  __writeToAddress(resultPointer + 8, source.length);
-  Integer cursor = resultPointer + 16 + source.length;
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, source.length);
+  Integer cursor = resultPointer + _gcBlockStringData + source.length;
   StringBufferPart#Nullable part = source.first!;
   while (part != null) {
     Integer segmentLength = _stringByteLength(part!.value);
     cursor -= segmentLength;
     Integer segmentPointer = part!.value __as__ Integer;
-    _moveBytes(segmentPointer + 16, cursor, segmentLength);
+    _moveBytes(segmentPointer + _gcBlockStringData, cursor, segmentLength);
     part = part!.next;
   }
   return resultPointer __as__ String;
@@ -948,21 +916,21 @@ String join(StringList items, String joiner) {
   }
   Integer resultPointer = _alloc(16 + length);
   __writeToAddress(resultPointer, 0); // ref count
-  __writeToAddress(resultPointer + 8, length);
-  Integer cursor = resultPointer + 16;
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, length);
+  Integer cursor = resultPointer + _gcBlockStringData;
   index = 0;
   while (index < len(items)) {
     String segment = items[index];
     Integer segmentLength = _stringByteLength(segment);
     if (segmentLength > 0) {
       Integer segmentPointer = segment __as__ Integer;
-      _moveBytes(segmentPointer + 16, cursor, segmentLength);
+      _moveBytes(segmentPointer + _gcBlockStringData, cursor, segmentLength);
       cursor += segmentLength;
     }
     if (index < len(items) - 1) {
       if (joinerLength > 0) {
         Integer joinerPointer = joiner __as__ Integer;
-        _moveBytes(joinerPointer + 16, cursor, joinerLength);
+        _moveBytes(joinerPointer + _gcBlockStringData, cursor, joinerLength);
         cursor += joinerLength;
       }
     }
@@ -1037,8 +1005,8 @@ String chr(Integer code) {
   assert(code <= 255, 'Unicode unimplemented');
   Integer resultPointer = _alloc(16 + 1);
   __writeToAddress(resultPointer, 0); // ref count
-  __writeToAddress(resultPointer + 8, 1); // length
-  __writeToAddress(resultPointer + 16, code); // the character
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, 1); // length
+  __writeToAddress(resultPointer + _gcBlockStringData, code); // the character
   return resultPointer __as__ String;
 }
 
@@ -1048,7 +1016,7 @@ IntegerList scalarValues(String value) {
   // For now we only support 8-bit character encodings.
   IntegerList result = []:Integer;
   Integer length = _stringByteLength(value);
-  Integer cursor = value __as__ Integer + 16;
+  Integer cursor = value __as__ Integer + _gcBlockStringData;
   assert(cursor % 8 == 0, 'string is misaligned');
   Integer end = cursor + length;
   while (cursor < end) {
@@ -1069,7 +1037,7 @@ StringList charsOf(String value) {
   // For now we just return the string representation of each Unicode Scalar Value since we only support 8-bit encodings anyway.
   StringList result = []:String;
   Integer length = _stringByteLength(value);
-  Integer cursor = value __as__ Integer + 16;
+  Integer cursor = value __as__ Integer + _gcBlockStringData;
   assert(cursor % 8 == 0, 'string is misaligned');
   Integer end = cursor + length;
   while (cursor < end) {
@@ -1082,6 +1050,28 @@ StringList charsOf(String value) {
     }
   }
   return result;
+}
+
+
+// EQUALITY
+
+Boolean equals#(Anything a, Anything b) __intrinsic {
+  // This only gets called if the compiler thinks a and b might be both strings or both function pointers.
+  // See EqualityInstruction.
+  if (a is String && b is String) {
+    Integer lengthA = __readFromAddress(a __as__ Integer + _gcBlockHeaderLength);
+    Integer lengthB = __readFromAddress(b __as__ Integer + _gcBlockHeaderLength);
+    if (lengthA != lengthB) {
+      return false;
+    }
+    return __byteCompare(a __as__ Integer + _gcBlockStringData, b __as__ Integer + _gcBlockStringData, lengthA);
+  }
+  if (a is WhateverFunction && b is WhateverFunction) {
+    return (__readFromAddress(a __as__ Integer + _subroutineReceiverPointer) == __readFromAddress(b __as__ Integer + _subroutineReceiverPointer))
+        && (__readFromAddress(a __as__ Integer + _subroutineClosurePointer) == __readFromAddress(b __as__ Integer + _subroutineClosurePointer))
+        && (__readFromAddress(a __as__ Integer + _subroutineCodePointer) == __readFromAddress(b __as__ Integer + _subroutineCodePointer));
+  }
+  return false;
 }
 
 
@@ -1111,7 +1101,7 @@ Integer pow#(Integer base, Integer exponent) __intrinsic {
 
 String substring(String string, Integer start, Integer end) {
   Integer stringPointer = string __as__ Integer;
-  Integer stringLength = __readFromAddress(stringPointer + 8);
+  Integer stringLength = __readFromAddress(stringPointer + _gcBlockHeaderLength);
   if (start < 0) {
     throw('negative start index in substring');
   }
@@ -1130,16 +1120,16 @@ String substring(String string, Integer start, Integer end) {
   }
   Integer resultPointer = _alloc(16 + length);
   __writeToAddress(resultPointer, 0); // ref count
-  __writeToAddress(resultPointer + 8, length);
-  _moveBytes(stringPointer + 16 + start, resultPointer + 16, length);
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, length);
+  _moveBytes(stringPointer + _gcBlockStringData + start, resultPointer + _gcBlockStringData, length);
   return resultPointer __as__ String;
 }
 
 Boolean substringMatch#(String string, String pattern, Integer index) {
   Integer stringPointer = string __as__ Integer;
-  Integer stringLength = __readFromAddress(stringPointer + 8);
+  Integer stringLength = __readFromAddress(stringPointer + _gcBlockHeaderLength);
   Integer patternPointer = pattern __as__ Integer;
-  Integer patternLength = __readFromAddress(patternPointer + 8);
+  Integer patternLength = __readFromAddress(patternPointer + _gcBlockHeaderLength);
   if (patternLength == 0) {
     return true;
   }
@@ -1150,8 +1140,8 @@ Boolean substringMatch#(String string, String pattern, Integer index) {
   Boolean match = true;
   Integer patternCursor = 0;
   while (patternCursor < patternLength) {
-    Integer inputPart = __readFromAddress(stringPointer + 16 + cursor + patternCursor);
-    Integer patternPart = __readFromAddress(patternPointer + 16 + patternCursor);
+    Integer inputPart = __readFromAddress(stringPointer + _gcBlockStringData + cursor + patternCursor);
+    Integer patternPart = __readFromAddress(patternPointer + _gcBlockStringData + patternCursor);
     if (patternLength - patternCursor < 8) {
       // the next character is the lowest byte on little-endian systems
       // on big-endian systems this would need to shift the other way
@@ -1230,10 +1220,10 @@ String _wideStringToString(Integer buffer) {
   Integer newLength = __wideCharToMultiByte(__CP_UTF8, 0, buffer, -1 /* string is null terminated */, 0, 0 /* measure output buffer */, 0, 0);
   Integer resultPointer = _alloc(16 + newLength);
   __writeToAddress(resultPointer, 0); // ref count
-  __writeToAddress(resultPointer + 8, newLength - 1);
-  Integer conversionResult = __wideCharToMultiByte(__CP_UTF8, 0, buffer, -1 /* string is null terminated */, resultPointer + 16, newLength, 0, 0);
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, newLength - 1);
+  Integer conversionResult = __wideCharToMultiByte(__CP_UTF8, 0, buffer, -1 /* string is null terminated */, resultPointer + _gcBlockStringData, newLength, 0, 0);
   if (conversionResult == 0) {
-    stderr('failed Unicode conversion, error code:', __getLastError(), 'buffer=',buffer, 'resultPointer+16=', resultPointer + 16, 'newLength=', newLength);
+    stderr(concat('failed Unicode conversion, error code: ', __getLastError()));
     exit(1);
   }
   return resultPointer __as__ String;

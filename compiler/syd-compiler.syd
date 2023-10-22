@@ -253,6 +253,7 @@ class CompilationEnvironment extends TypeRegistry {
   String exitIntrinsicName = 'exit';
   String freeIntrinsicName = '_free';
   String exponentiationIntrinsicName = 'pow#';
+  String equalityIntrinsicName = 'equals#';
   String listConstructorIntrinsicName = '_listConstructor';
   String classAllocatorIntrinsicName = '_classAllocator';
   String appendIntrinsicName = 'append';
@@ -756,6 +757,8 @@ class EnvironmentConversionContext extends ConversionContext {
   //#override
   CodeLabelDatum exponentiationIntrinsic() { return environment.lookupIntrinsicSubroutine(environment.exponentiationIntrinsicName).codePointer.currentValueDatum() as CodeLabelDatum; }
   //#override
+  CodeLabelDatum equalityIntrinsic() { return environment.lookupIntrinsicSubroutine(environment.equalityIntrinsicName).codePointer.currentValueDatum() as CodeLabelDatum; }
+  //#override
   Bucket errorMessage(String value) { return environment.errorMessage(value); }
   //#override
   Bucket coreSentinel() { return environment.coreSentinel; }
@@ -913,7 +916,7 @@ class VmtMemberBucket extends ConstantBucket {
   IntegerDatum currentValueDatum() {
     assert(member.needsMethods, concat('Member ', member.classType.name, '.', member.name, ' did not need methods but was passed to VmtMemberBucket'));
     // header + method offset + member property 
-    Integer offset = vmtHeaderFieldCount * 8 + member.methodsIndex! * 4 * 8 + propertyIndex() * 8;
+    Integer offset = _vmtHeaderFieldCount * 8 + member.methodsIndex! * 4 * 8 + propertyIndex() * 8;
     return IntegerDatum(offset, hexH(offset));
   }
 
@@ -1779,7 +1782,7 @@ class ClassType extends Type {
   
       append(vmtLines, ConstantPart(ow.QWord, [DataLabelDatum(ddtLabel, concat('ddt of ', name))]:ImmediateDatum, 'pointer to member lookup table for dynamic dispatch (to implement (foo as Whatever).bar)'));
   
-      // there must be exactly vmtHeaderFieldCount * 8 bytes from the label to here.
+      // there must be exactly _vmtHeaderFieldCount * 8 bytes from the label to here.
   
       MemberDescriptionList sortedMethods = []:MemberDescription;
       for (member in members.values()) {
@@ -1836,7 +1839,7 @@ class ClassType extends Type {
       for (member in sortedMembers) {
         append(ddtLines, ConstantPart(ow.DWord, [
           IntegerDatum(environment.atomizeForDynamicDispatch(member.name), concat('atom for ', member.name)), // low bits, member identifier
-          IntegerDatum(vmtHeaderFieldCount * 8 + member.methodsIndex! * 4 * 8 + 16, concat('offset into ', name, ', VMT for ', member.name, ' getter')), // high bits, offset into vmt to getter function, from vmt pointer
+          IntegerDatum(_vmtHeaderFieldCount * 8 + member.methodsIndex! * 4 * 8 + 16, concat('offset into ', name, ', VMT for ', member.name, ' getter')), // high bits, offset into vmt to getter function, from vmt pointer
         ]:ImmediateDatum, concat('dynamic dispatch data for ', name, '.', member.name)));
       } 
       assembler.addConst(Constant(ddtLabel, ddtLines, null, concat('DDT for ', name)));
@@ -2887,7 +2890,7 @@ class CompilerIntrinsic extends BuiltInSubroutine {
   }
 
   Boolean verifyArguments(BucketList arguments, TypeList parameters) {
-    assert(len(parameters) == len(arguments), 'unexpected number of arguments');
+    assert(len(parameters) == len(arguments), concat('unexpected number of arguments to ', name));
     Integer index = 0;
     while (index < len(arguments)) {
       assert(
@@ -2961,6 +2964,31 @@ class BuiltInWriteToAddressIntrinsic extends CompilerIntrinsic {
         [ parentArg.environment().coreIntegerType, parentArg.environment().coreIntegerType ]:Type,
       ),
       '__writeToAddress',
+      null /* parentClass */,
+    );
+  }
+}
+
+class BuiltInByteCompareIntrinsic extends CompilerIntrinsic {
+  //#override
+  StringList parameterNames() {
+    return ['a', 'b', 'length'];
+  }
+
+  //#override
+  Bucket inlineBody(CompiledScope scope, BucketList arguments) {
+    return scope.compute(ByteSequenceCompareInstruction(arguments[0], arguments[1], arguments[2], environment().coreBooleanType, LazyComment('compare ', arguments[2], ' bytes of ', arguments[0], ' and ', arguments[1])));
+  }
+
+  Null constructor(CompiledIntrinsicsLibrary parentArg) { 
+    super.constructor(
+      parentArg,
+      createOrFindSubroutineTypeWithSpecificParameters(
+        parentArg.environment(),
+        parentArg.environment().coreBooleanType,
+        [ parentArg.environment().coreIntegerType, parentArg.environment().coreIntegerType, parentArg.environment().coreIntegerType ]:Type,
+      ),
+      '__byteCompare',
       null /* parentClass */,
     );
   }
@@ -3182,5 +3210,6 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
     // intrinsic functions (functions that only work when inlined)
     registerSubroutine(BuiltInReadFromAddressIntrinsic(this), false);
     registerSubroutine(BuiltInWriteToAddressIntrinsic(this), false);
+    registerSubroutine(BuiltInByteCompareIntrinsic(this), false);
   }
 }

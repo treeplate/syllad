@@ -1204,34 +1204,35 @@ Null convertToX64(X64Context context, PseudoInstruction instruction) {
     X64Opcode opcode = X64Opcode(context.indent, setcc, [result]:Operand, concat('set ', result.commentName, ' to ZF (zero flag is set if values are equal)'));
     opcode.setOperandWidth(0, ow.Byte);
     append(context.output, opcode);
-  } else if (instruction is StringCompare) {
-    Operand result = convertToWritableX64Operand(context, (instruction as StringCompare).result);
+  } else if (instruction is ByteSequenceCompare) {
+    ByteSequenceCompare compare = instruction as ByteSequenceCompare;
+    Operand result = convertToWritableX64Operand(context, compare.result);
     append(context.output, X64Opcode(context.indent, 'xor', [result, result]:Operand, concat('clear ', result.commentName)));
-    Operand leftOperand = convertToX64Operand(context, (instruction as StringCompare).left);
-    PlaceholderOperand rsiOperand = PlaceholderOperand(concat('pointer to ', (instruction as StringCompare).left.commentName));
+    Operand leftOperand = convertToX64Operand(context, compare.left);
+    PlaceholderOperand rsiOperand = PlaceholderOperand(concat('pointer to ', compare.left.commentName));
     rsiOperand.assignOperand(rsi);
     rsiOperand.pinOperand();
-    if (leftOperand.canBeDereferencedWithOffset((instruction as StringCompare).leftOffset)) {
-      append(context.output, X64DerefOpcode(context.indent, 'lea', 1, [rsiOperand, leftOperand]:Operand, (instruction as StringCompare).left.commentName, (instruction as StringCompare).leftOffset));
+    if (leftOperand.canBeDereferencedWithOffset(compare.leftOffset)) {
+      append(context.output, X64DerefOpcode(context.indent, 'lea', 1, [rsiOperand, leftOperand]:Operand, compare.left.commentName, compare.leftOffset));
     } else {
-      append(context.output, X64Opcode(context.indent, 'mov', [rsiOperand, leftOperand]:Operand, (instruction as StringCompare).left.commentName));
-      append(context.output, X64Opcode(context.indent, 'add', [rsiOperand, ImmediateIntegerOperand((instruction as StringCompare).leftOffset, 'offset')]:Operand, 'with offset'));
+      append(context.output, X64Opcode(context.indent, 'mov', [rsiOperand, leftOperand]:Operand, compare.left.commentName));
+      append(context.output, X64Opcode(context.indent, 'add', [rsiOperand, ImmediateIntegerOperand(compare.leftOffset, 'offset')]:Operand, 'with offset'));
     }
-    Operand rightOperand = convertToX64Operand(context, (instruction as StringCompare).right);
-    PlaceholderOperand rdiOperand = PlaceholderOperand(concat('pointer to ', (instruction as StringCompare).right.commentName));
+    Operand rightOperand = convertToX64Operand(context, compare.right);
+    PlaceholderOperand rdiOperand = PlaceholderOperand(concat('pointer to ', compare.right.commentName));
     rdiOperand.assignOperand(rdi);
     rdiOperand.pinOperand();
-    if (rightOperand.canBeDereferencedWithOffset((instruction as StringCompare).rightOffset)) {
-      append(context.output, X64DerefOpcode(context.indent, 'lea', 1, [rdiOperand, rightOperand]:Operand, (instruction as StringCompare).right.commentName, (instruction as StringCompare).rightOffset));
+    if (rightOperand.canBeDereferencedWithOffset(compare.rightOffset)) {
+      append(context.output, X64DerefOpcode(context.indent, 'lea', 1, [rdiOperand, rightOperand]:Operand, compare.right.commentName, compare.rightOffset));
     } else {
-      append(context.output, X64Opcode(context.indent, 'mov', [rdiOperand, rightOperand]:Operand, (instruction as StringCompare).right.commentName));
-      append(context.output, X64Opcode(context.indent, 'add', [rdiOperand, ImmediateIntegerOperand((instruction as StringCompare).rightOffset, 'offset')]:Operand, 'with offset'));
+      append(context.output, X64Opcode(context.indent, 'mov', [rdiOperand, rightOperand]:Operand, compare.right.commentName));
+      append(context.output, X64Opcode(context.indent, 'add', [rdiOperand, ImmediateIntegerOperand(compare.rightOffset, 'offset')]:Operand, 'with offset'));
     }
-    Operand lengthOperand = convertToX64Operand(context, (instruction as StringCompare).length);
+    Operand lengthOperand = convertToX64Operand(context, compare.length);
     PlaceholderOperand rcxOperand = PlaceholderOperand('length to compare');
     rcxOperand.assignOperand(rcx);
     rcxOperand.pinOperand();
-    append(context.output, X64Opcode(context.indent, 'mov', [rcxOperand, lengthOperand]:Operand, (instruction as StringCompare).length.commentName));
+    append(context.output, X64Opcode(context.indent, 'mov', [rcxOperand, lengthOperand]:Operand, compare.length.commentName));
     append(context.output, X64Opcode(context.indent, 'cld', []:Operand, 'configure repe cmpsb to increment'));
     append(context.output, X64Opcode(context.indent, 'repe cmpsb', []:Operand, 'compare strings for rcx bytes, result in ZF (ZF=1 is a match)'));
     X64Opcode setz = X64Opcode(context.indent, 'setz', [result]:Operand, 'store result from ZF');
