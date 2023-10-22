@@ -535,6 +535,9 @@ Statement parseClassMemberDeclaration(TokenConsumer source) {
 }
 
 Statement _parseStatement(TokenConsumer source) {
+  if (source.isNextIdentifier('import')) {
+    throw(source.butFound('statement', 'import'));
+  }
   if (source.isNextIdentifier('if')) {
     return parseIfStatement(source);
   }
@@ -556,12 +559,6 @@ Statement _parseStatement(TokenConsumer source) {
     source.expectIdentifier('continue');
     source.expectPunctuation(tt.Semicolon);
     return ContinueStatement(source.lastLocation());
-  }
-  if (source.isNextIdentifier('import')) {
-    source.expectIdentifier('import');
-    String path = source.readString();
-    source.expectPunctuation(tt.Semicolon);
-    return ImportStatement(path, source.lastLocation());
   }
   if (source.isNextIdentifier('while')) {
     source.expectIdentifier('while');
@@ -692,6 +689,12 @@ Statement _parseStatement(TokenConsumer source) {
 parseStatement = _parseStatement;
 
 Statement parseTopLevelStatement(TokenConsumer source) {
+  if (source.isNextIdentifier('import')) {
+    source.expectIdentifier('import');
+    String path = source.readString();
+    source.expectPunctuation(tt.Semicolon);
+    return ImportStatement(path, source.lastLocation());
+  }
   if (source.isNextIdentifier('enum')) {
     source.expectIdentifier('enum');
     String name = source.readIdentifier();
@@ -796,8 +799,17 @@ Statement parseTopLevelStatement(TokenConsumer source) {
 Library parseTokens(TokenList tokens, String name, Boolean isProgram) {
   TokenConsumer source = TokenConsumer(tokens);
   StatementList statements = []:Statement;
+  Boolean importsOk = true;
   while (!source.isNext(tt.Eof)) {
-    append(statements, parseTopLevelStatement(source));
+    Statement statement = parseTopLevelStatement(source);
+    if (statement is ImportStatement) {
+      if (!importsOk) {
+        throw(source.butFound('declaration or statement', 'import'));
+      }
+    } else {
+      importsOk = false;
+    }
+    append(statements, statement);
   }
   if (isProgram) {
     return Program(statements, name, SourceLocation(0, 0, 0, 0, name));

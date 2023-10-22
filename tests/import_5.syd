@@ -1,0 +1,5 @@
+// expected error: invalid import
+
+if (true) { }
+import '../import_1a.syd';
+func('Line 2');
