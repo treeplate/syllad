@@ -1,0 +1,4 @@
+// expected error: namespaces should not be supported
+// unexpected output: FAIL
+println('FAIL');
+namespace (foo) { }

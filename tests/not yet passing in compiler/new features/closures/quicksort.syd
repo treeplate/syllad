@@ -1,6 +1,6 @@
 // expected output: PASS
 
-import '../../../compiler/core.syd';
+import '../../../../compiler/core.syd';
 
 Boolean assertsEnabled = false;
 Boolean test() { assertsEnabled = true; return true; }

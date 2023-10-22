@@ -1814,7 +1814,7 @@ class VariableDeclarationStatement extends Statement {
 class AbstractSubroutineDeclarationStatement extends Statement {
   TypeIdentifier returnType;
   String identifier;
-  AnythingListList parameters; // pairs of type (TypeIdentifier) and identifier (String)
+  AnythingListList parameters; // tuples of type (TypeIdentifier), identifier (String), and SourceLocation
   Boolean isVarArgs;
   StatementBlock body;
 
@@ -1833,6 +1833,9 @@ class AbstractSubroutineDeclarationStatement extends Statement {
     Type compiledReturnType = returnType.lookup(scope.globalScope(), requireDeclared);
     TypeList compiledParameterTypes = []:Type;
     for (entry in parameters) {
+      if (entry[1] == identifier) {
+        throw(concat('Parameter has the same name as its function at ', entry[2]));
+      }
       append(compiledParameterTypes, (entry[0] as TypeIdentifier).lookup(scope.globalScope(), requireDeclared));
     }
     if (isVarArgs) {

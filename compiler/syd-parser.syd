@@ -458,7 +458,7 @@ Boolean parseParameters(TokenConsumer source, AnythingListList parameters, Boole
     }
     if (expectNames) {
       String parameterName = source.readIdentifier();
-      append(parameters, [ parameterType, parameterName ]);
+      append(parameters, [ parameterType, parameterName, source.lastLocation() ]);
     } else {
       append(parameters, [ parameterType ]:Anything);
     }
