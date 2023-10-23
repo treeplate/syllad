@@ -14,7 +14,6 @@ const Variable fwdclassmethodVariable = Variable("fwdclassmethod");
 const Variable fwdstaticfieldVariable = Variable("fwdstaticfield");
 const Variable fwdstaticmethodVariable = Variable("fwdstaticmethod");
 const Variable classVariable = Variable("class");
-const Variable namespaceVariable = Variable("namespace");
 const Variable importVariable = Variable("import");
 const Variable whileVariable = Variable("while");
 const Variable breakVariable = Variable("break");
@@ -354,62 +353,6 @@ class ClassTypeValidator extends TypeValidator {
   }
 }
 
-class NamespaceTypeValidator extends TypeValidator {
-  final TypeValidator deferTarget;
-  final Variable namespace;
-
-  NamespaceTypeValidator(this.deferTarget, this.namespace, MapEntry<List<Statement>, TypeValidator>? rtl)
-      : super([deferTarget], ConcatenateLazyString(NotLazyString('namespace of '), VariableLazyString(namespace)), false, false, false, rtl);
-  @override
-  late Map<Variable, TypeValidator> classes = deferTarget.classes;
-
-  @override
-  List<Variable> directVars = [];
-
-  @override
-  late List<Variable> nonconst = [];
-
-  @override
-  Map<Variable, TVProp> types = {};
-
-  @override
-  Set<Variable> usedVars = {};
-
-  @override
-  TypeValidator copy() {
-    return NamespaceTypeValidator(deferTarget, namespace, rtl)
-      ..nonconst = nonconst.toList()
-      ..types = types.map((key, value) => MapEntry(key, value));
-  }
-
-  @override
-  ValueType get currentClassType => deferTarget.currentClassType;
-
-  @override
-  ValueType? igv(Variable name, bool addToUsedVars,
-      [int line = -2,
-      int col = 0,
-      String workspace = '',
-      String file = '',
-      bool checkParent = true,
-      bool escapeClass = true,
-      bool acceptFwd = true,
-      bool forSuper = false]) {
-    assert(escapeClass, '${this.debugName}');
-    if (addToUsedVars) {
-      usedVars.add(name);
-    }
-    return (acceptFwd && (!forSuper || (types[name]?.validForSuper ?? false))
-            ? types[name]?.type
-            : (!forSuper || (types[name]?.validForSuper ?? false))
-                ? types[name]?.notFwd()
-                : null) ??
-        deferTarget.igv(variables[namespace.name + name.name] ??= Variable(namespace.name + name.name), addToUsedVars, line, col, workspace, file, checkParent,
-            escapeClass, acceptFwd, forSuper) ??
-        deferTarget.igv(name, addToUsedVars, line, col, workspace, file, checkParent, escapeClass, acceptFwd, forSuper);
-  }
-}
-
 Never throwWithStack(Scope scope, List<LazyString> stack, String value) {
   ValueWrapper thrower = scope.getVar(throwVariable, -2, 0, 'in throwWithStack', 'while throwing $value', null);
   return thrower.valueC<Never Function(List<ValueWrapper>, List<LazyString>)>(scope, stack, -2, 0, 'in throwWithStack', 'while throwing $value')(
@@ -468,96 +411,6 @@ class ValueWrapper<T extends Object?> {
 
 typedef TA = dynamic Function(List<ValueWrapper> args, List<LazyString>, [Scope?, ValueType?]);
 
-class NamespaceScope extends Scope {
-  final Scope deferTarget;
-  final Variable namespace;
-
-  NamespaceScope(this.deferTarget, this.namespace, Scope? rtl)
-      : super(
-          true,
-          true,
-          rtl,
-          stack: [NotLazyString('nvr-gt-hr')],
-          debugName: NotLazyString('never get here'),
-          intrinsics: null /*we override the getter*/,
-        );
-
-  @override
-  Map<Variable, MaybeConstantValueWrapper> values = {};
-
-  @override
-  void addParent(Scope scope) {
-    deferTarget.addParent(scope);
-  }
-
-  @override
-  ClassValueType? get currentClass => deferTarget.currentClass;
-
-  @override
-  LazyString get debugName => NotLazyString('namespace $namespace of $deferTarget');
-
-  @override
-  ClassValueType? get declaringClass => deferTarget.declaringClass;
-
-  @override
-  ValueWrapper getVar(Variable name, int line, int column, String workspace, String file, TypeValidator? validator) {
-    ValueWrapper? val = internal_getVar(name);
-    if (val == null) throw BSCException('tried to access nonexistent $name from namespace scope  ${formatCursorPosition(line, column, workspace, file)}', this);
-    return val;
-  }
-
-  @override
-  ValueWrapper? internal_getVar(Variable name) {
-    return values[name]?.value ??
-        deferTarget.internal_getVar(variables[namespace.name + name.name] ??= Variable(namespace.name + name.name)) ??
-        deferTarget.internal_getVar(name);
-  }
-
-  @override
-  Scope? get intrinsics => deferTarget.intrinsics;
-
-  @override
-  List<Scope> get parents => [deferTarget];
-
-  @override
-  void setVar(Expression expr, ValueWrapper value, bool isConstant, int line, int col, String workspace, String file) {
-    expr.writeWithNamespace(namespace, value, isConstant, this);
-  }
-
-  @override
-  late List<LazyString> stack = deferTarget.stack + [ConcatenateLazyString(NotLazyString('namespace of'), VariableLazyString(namespace))]; // xxx optimize
-
-  @override
-  String toStringWithStack(List<LazyString> stack2, int line, int col, String workspace, String file, bool rethrowErrors) {
-    return deferTarget.toStringWithStack(stack2, line, col, workspace, file, rethrowErrors);
-  }
-
-  @override
-  bool get isClass => false;
-
-  @override
-  ClassValueType? get typeIfClass => null;
-
-  @override
-  bool recursiveContains(Variable variable) {
-    assert(false, 'not implemented');
-    return deferTarget.recursiveContains(variable);
-  }
-
-  @override
-  Scope? get currentStaticClass => deferTarget.currentStaticClass;
-
-  @override
-  bool get isStaticClass => false;
-
-  @override
-  String? get staticClassName => null;
-
-  @override
-  Scope? getClass() {
-    return deferTarget.getClass();
-  }
-}
 
 class ClassOfValueType extends ValueType {
   final ClassValueType classType;

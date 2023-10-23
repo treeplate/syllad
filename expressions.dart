@@ -9,9 +9,6 @@ abstract class Expression {
   final String workspace, file;
   ValueWrapper eval(Scope scope);
   bool isLValue(TypeValidator scope);
-  void writeWithNamespace(Variable namespace, ValueWrapper value, bool isConstant, Scope scope) {
-    throw StateError("writeWithNamespace of $runtimeType is not defined");
-  }
 
   void write(ValueWrapper value, bool isConstant, Scope scope) {
     throw StateError("write of $runtimeType is not defined");

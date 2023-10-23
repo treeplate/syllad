@@ -1242,14 +1242,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
         stderr.writeln('Can\'t override classes ${formatCursorPositionFromTokens(tokens)}');
       }
       return parseClass(tokens, scope, ignoreUnused);
-    case namespaceVariable:
-      if (overriden) {
-        stderr.writeln('Can\'t override namespaces ${formatCursorPositionFromTokens(tokens)}');
-      }
-      if (ignoreUnused) {
-        stderr.writeln('What does that even mean (look at this and previous line) ${formatCursorPositionFromTokens(tokens)}');
-      }
-      return parseNamespace(tokens, scope);
+    
     case importVariable:
       if (overriden) {
         stderr.writeln('Overriding an import makes no sense, like, what does that mean ${formatCursorPositionFromTokens(tokens)}');
@@ -1365,29 +1358,6 @@ Statement parseConst(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
   return NewVarStatement(name, expr, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, true, type, scope);
 }
 
-Statement parseNamespace(TokenIterator tokens, TypeValidator scope) {
-  tokens.moveNext();
-  tokens.expectChar(TokenType.openParen);
-  Variable namespace = tokens.currentIdent;
-  tokens.moveNext();
-  tokens.expectChar(TokenType.closeParen);
-  TypeValidator innerScope = NamespaceTypeValidator(scope, namespace, scope.rtl);
-  tokens.expectChar(TokenType.openBrace);
-  List<Statement> body = parseBlock(tokens, innerScope);
-  List<Variable> unusedNamespaceVars = innerScope.types.keys.where((element) => !innerScope.usedVars.contains(element)).toList();
-  if (!unusedNamespaceVars.isEmpty) {
-    stderr.writeln("Unused vars for namespace: ${formatCursorPositionFromTokens(tokens)}\n  ${unusedNamespaceVars.join('\n  ')}");
-  }
-  tokens.expectChar(TokenType.closeBrace);
-  return NamespaceStatement(
-    body,
-    tokens.current.line,
-    tokens.current.col,
-    tokens.workspace,
-    tokens.file,
-    namespace,
-  );
-}
 
 Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnused) {
   tokens.moveNext();

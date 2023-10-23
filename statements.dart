@@ -280,42 +280,6 @@ class WhileStatement extends Statement {
   }
 }
 
-class NamespaceStatement extends Statement {
-  final String workspace;
-  final String file;
-  final Variable namespace;
-
-  NamespaceStatement(
-    this.body,
-    int line,
-    int col,
-    this.workspace,
-    this.file,
-    this.namespace,
-  ) : super(line, col);
-  final List<Statement> body;
-  @override
-  StatementResult run(Scope scope) {
-    Scope whileScope = NamespaceScope(
-      scope,
-      namespace,
-      scope.rtl,
-    );
-    for (Statement statement in body) {
-      StatementResult statementResult = statement.run(whileScope);
-      switch (statementResult.type) {
-        case StatementResultType.nothing:
-          break;
-        case StatementResultType.breakWhile:
-        case StatementResultType.continueWhile:
-        case StatementResultType.returnFunction:
-        case StatementResultType.unwindAndThrow:
-          return statementResult;
-      }
-    }
-    return StatementResult(StatementResultType.nothing);
-  }
-}
 
 class IfStatement extends Statement {
   final String workspace;
