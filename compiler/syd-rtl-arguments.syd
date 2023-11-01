@@ -1,0 +1,51 @@
+// RUNTIME LIBRARY - COMMAND LINE ARGUMENTS
+
+import 'syd-constants.syd';
+import 'syd-rtl-memory.syd';
+import 'syd-rtl-core-strings.syd';
+import 'syd-rtl-lists.syd';
+
+Integer getCommandLineW#() __extern 'kernel32.lib' 'GetCommandLineW';
+Integer commandLineToArgvW#(Integer lpCmdLine, Integer pNumArgs) __extern 'shell32.lib' 'CommandLineToArgvW';
+Integer localFree#(Integer hMem) __extern 'kernel32.lib' 'LocalFree';
+Integer wideCharToMultiByte#(
+  Integer codePage,
+  Integer dwFlags,
+  Integer lpWideCharStr,
+  Integer cchWideChar,
+  Integer lpMultiByteStr,
+  Integer cbMultiByte,
+  Integer lpDefaultChar,
+  Integer lpUsedDefaultChar
+) __extern 'kernel32.lib' 'WideCharToMultiByte';
+Integer CP_UTF8# = 65001;
+
+// buffer must be a pointer to a null-terminated UTF-16 string.
+String wideStringToString#(Integer buffer) {
+  assert(buffer != 0, 'invalid buffer');
+  Integer newLength = wideCharToMultiByte#(CP_UTF8#, 0, buffer, -1 /* string is null terminated */, 0, 0 /* measure output buffer */, 0, 0);
+  Integer resultPointer = _alloc(16 + newLength);
+  __writeToAddress(resultPointer, 0); // ref count
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, newLength - 1);
+  Integer conversionResult = wideCharToMultiByte#(CP_UTF8#, 0, buffer, -1 /* string is null terminated */, resultPointer + _gcBlockStringData, newLength, 0, 0);
+  if (conversionResult == 0) {
+    stderr(concat('failed Unicode conversion, error code: ', _getLastError()));
+    exit(1);
+  }
+  return resultPointer __as__ String;
+}
+
+StringList getCommandLineArguments#() {
+  Integer arrayPointer = commandLineToArgvW#(getCommandLineW#(), _scratch);
+  Integer count = __readFromAddress(_scratch) & 0x00000000FFFFFFFF; // return value is a 32 bit value, not 64 bit
+  StringList result = []:String;
+  Integer index = 0;
+  while (index < count) {
+    append(result, wideStringToString#(__readFromAddress(arrayPointer + index * 8)));
+    index += 1;
+  }
+  localFree#(arrayPointer);
+  return result;
+}
+
+StringList args = getCommandLineArguments#();

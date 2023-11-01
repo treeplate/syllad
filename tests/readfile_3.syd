@@ -1,0 +1,7 @@
+// expected output: PASS
+
+assert(!fileExists('.'), concat('failure on line ', LINE));
+assert(!fileExists('..'), concat('failure on line ', LINE));
+assert(!fileExists('C:/'), concat('failure on line ', LINE));
+assert(!fileExists('C:\\'), concat('failure on line ', LINE));
+println('PASS');

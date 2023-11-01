@@ -1,0 +1,5 @@
+// unexpected output: FAIL
+// expected error: cannot mutate constant variable
+
+println('FAIL');
+null = null;

@@ -513,7 +513,7 @@ class RemainderExpression extends Expression {
           scope);
     }
     return ValueWrapper(integerType,
-        av.valueC<int>(scope, scope.stack, line, col, workspace, file) % bv.valueC<int>(scope, scope.stack, line, col, workspace, file), '$this result');
+        av.valueC<int>(scope, scope.stack, line, col, workspace, file) % bv.valueC<int>(scope, scope.stack, line, col, workspace, file), Concat(this, ' result'));
   }
 
   ValueType get type => integerType;
@@ -536,7 +536,7 @@ class SubtractExpression extends Expression {
           scope);
     }
     return ValueWrapper(integerType,
-        av.valueC<int>(scope, scope.stack, line, col, workspace, file) - bv.valueC<int>(scope, scope.stack, line, col, workspace, file), '$this result');
+        av.valueC<int>(scope, scope.stack, line, col, workspace, file) - bv.valueC<int>(scope, scope.stack, line, col, workspace, file), Concat(this, ' result'));
   }
 
   String toString() => "($a) - ($b)";
@@ -696,22 +696,22 @@ class FunctionCallExpr extends Expression {
   }
 
   String toString() => "$a(${b.join(', ')})";
-
+  late ValueType anythingFunctionType = GenericFunctionValueType(anythingType, 'interr', validator);
   FunctionCallExpr(this.a, this.b, this.validator, int line, int col, String workspace, file) : super(line, col, workspace, file);
   @override
   ValueWrapper eval(Scope scope) {
     //print("calling $a...");
     ValueWrapper aEval = a.eval(scope);
     ValueType type2 = aEval.typeC(scope, scope.stack, line, col, workspace, file);
-    if (!type2.isSubtypeOf(GenericFunctionValueType(anythingType, '__test', validator)) && !(type2 is ClassOfValueType)) {
+    if (!type2.isSubtypeOf(anythingFunctionType) && !(type2 is ClassOfValueType)) {
       throw BSCException('tried to call non-function: $aEval, ${formatCursorPosition(line, col, workspace, file)}\n${scope.stack.reversed.join('\n')}', scope);
     }
     List<ValueWrapper> args = b.map((x) => x.eval(scope)).toList();
     for (int i = 0; i < args.length; i++) {
       if (a.type is FunctionValueType &&
-          !args[i].typeC(scope, scope.stack, line, col, workspace, file).isSubtypeOf((a.type as FunctionValueType).parameters.elementAt(i))) {
+          !args[i].typeC(scope, scope.stack, line, col, workspace, file).isSubtypeOf((type2 as FunctionValueType).parameters.elementAt(i))) {
         throw BSCException(
-            "argument #$i of $a, ${args[i].toStringWithStack(scope.stack, line, col, workspace, file, false)} (${b[i]}), of wrong type (${args[i].typeC(scope, scope.stack, line, col, workspace, file)}) expected ${(a.type as FunctionValueType).parameters.elementAt(i)} ${formatCursorPosition(line, col, workspace, file)}\n${scope.stack.reversed.join('\n')}",
+            "argument #$i of $a, ${args[i].toStringWithStack(scope.stack, line, col, workspace, file, false)} (${b[i]}), of wrong type (${args[i].typeC(scope, scope.stack, line, col, workspace, file)}) expected ${type2.parameters.elementAt(i)} ${formatCursorPosition(line, col, workspace, file)}\n${scope.stack.reversed.join('\n')}",
             scope);
       }
     }
@@ -719,6 +719,8 @@ class FunctionCallExpr extends Expression {
     List<LazyString> newStack = scope.stack.toList();
     if (newStack.last is NotLazyString) {
       newStack[newStack.length - 1] = CursorPositionLazyString((newStack.last as NotLazyString).str, line, col, workspace, file);
+    } else {
+      newStack[newStack.length - 1] = ConcatenateLazyString(newStack.last, CursorPositionLazyString('', line, col, workspace, file));
     }
     try {
       if (type2 is ClassOfValueType) {
@@ -798,7 +800,7 @@ class ShiftLeftExpression extends Expression {
           scope);
     }
     return ValueWrapper(integerType,
-        av.valueC<int>(scope, scope.stack, line, col, workspace, file) << bv.valueC<int>(scope, scope.stack, line, col, workspace, file), '$this result');
+        av.valueC<int>(scope, scope.stack, line, col, workspace, file) << bv.valueC<int>(scope, scope.stack, line, col, workspace, file), Concat(this, ' result'));
   }
 
   ValueType get type => integerType;

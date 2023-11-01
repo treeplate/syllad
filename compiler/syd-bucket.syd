@@ -3,14 +3,16 @@ import 'syd-types.syd';
 import 'syd-datum.syd';
 import 'syd-assembler.syd';
 
+fwdclass TypeInference() extends Object;
 fwdclass Bucket(Type) extends Object;
+fwdclass ConstantBucket(Type) extends Bucket;
+fwdclass ConstantValueBucket(Type, Datum, Datum, String, TypeInference) extends ConstantBucket;
 fwdclass DynamicBucket(Type) extends Bucket;
 fwdclass StaticCastBucket(Bucket, Type) extends Bucket;
 fwdclass VarArgsParameterBucket(Type, Bucket) extends Bucket;
 fwdclass SentinelBucket(SentinelType) extends DynamicBucket;
 fwdclassmethod String Bucket.commentName();
 
-fwdclass TypeInference() extends Object;
 class TypeInference extends Object {
   Boolean definitelyNotSentinel = false;
 
@@ -98,7 +100,13 @@ class Bucket extends Object {
     return currentValueDatum().isConstant();
   }
 
-  // whether it's a varargs parameter
+  ConstantBucketNullable asConstant() {
+    if (isConstant()) {
+      return ConstantValueBucket(staticType, currentValueDatum(), currentTypeDatum(), commentName(), typeInference);
+    }
+    return null;
+  }
+
   VarArgsParameterBucketNullable asVarArgs() {
     return null;
   }
@@ -110,6 +118,9 @@ class Bucket extends Object {
     abstract();
   }
 
+  // if we are setting this to a new value, this determines whether/how we need to incref:
+  //   true = incref always
+  //   false = incref only for strings
   Boolean isGCRoot() {
     abstract();
   }
@@ -134,6 +145,12 @@ class ConstantBucket extends Bucket {
   //#override
   Boolean isGCRoot() {
     return false;
+  }
+
+  //#override
+  ConstantBucket asConstant() {
+    assert(isConstant(), 'invariant violation');
+    return this;
   }
 }
 
@@ -244,6 +261,35 @@ class DataLabelBucket extends ConstantBucket {
   }
 }
 
+class ConstantValueBucket extends ConstantBucket {
+  String _commentName;
+  Datum _currentValueDatum;
+  Datum _currentTypeDatum;
+
+  //#override
+  String commentName() {
+    return _commentName;
+  }
+
+  //#override
+  Datum currentValueDatum() {
+    return _currentValueDatum;
+  }
+
+  //#override
+  Datum currentTypeDatum() {
+    return _currentTypeDatum;
+  }
+  
+  Null constructor(Type staticTypeArg, Datum currentValueDatumArg, Datum currentTypeDatumArg, String commentNameArg, TypeInference typeInferenceArg) {
+    super.constructor(staticTypeArg);
+    _currentValueDatum = currentValueDatumArg;
+    _currentTypeDatum = currentTypeDatumArg;
+    _commentName = commentNameArg;
+    typeInference.resetFrom(typeInferenceArg);
+  }
+}
+
 class DynamicBucket extends Bucket {
   DatumNullable _currentValueDatum = null;
   //#override
@@ -255,6 +301,14 @@ class DynamicBucket extends Bucket {
   //#override
   Datum currentTypeDatum() {
     return _currentTypeDatum!;
+  }
+
+  //#override
+  Boolean isConstant() {
+    if (_currentValueDatum == null) {
+      return false;
+    }
+    return super.isConstant();
   }
 }
 

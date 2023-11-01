@@ -1,0 +1,25 @@
+// expected output: PASS
+
+String filename = 'readfile_4.$$$';
+
+File fA = openFile(filename, fileModeWrite);
+writeFile(fA, 'X');
+closeFile(fA);
+
+File fB = openFile(filename, fileModeWrite);
+writeFile(fB, 'Y');
+closeFile(fB);
+
+File f1 = openFile(filename, fileModeRead);
+File f2 = openFile(filename, fileModeRead);
+File f3 = openFile(filename, fileModeRead);
+assert(readFile(f1) == 'Y', concat('fail on line ', LINE));
+assert(readFile(f2) == 'Y', concat('fail on line ', LINE));
+assert(readFile(f3) == 'Y', concat('fail on line ', LINE));
+closeFile(f1);
+closeFile(f2);
+closeFile(f3);
+
+deleteFile(filename);
+
+println('PASS');

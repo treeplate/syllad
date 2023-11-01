@@ -18,3 +18,8 @@ String join(StringList items, String joiner) {
   }
   return joinList(result);
 }
+
+//#ignore_unused
+String readFile(File file) {
+  return utf8Decode(readFileBytes(file));
+}

@@ -1,0 +1,17 @@
+// unexpected output: FAIL
+// expected error: cannot read a file twice
+
+String filename = 'readfile_5.$$$';
+
+File fA = openFile(filename, fileModeWrite);
+writeFile(fA, 'X');
+closeFile(fA);
+
+File f1 = openFile(filename, fileModeRead);
+assert(readFile(f1) == 'X', concat('fail on line ', LINE));
+readFile(f1);
+closeFile(f1);
+
+deleteFile(filename);
+
+println('FAIL');

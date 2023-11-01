@@ -6,6 +6,9 @@ if (len(cwdParts) == 0) {
   append(cwdParts, '.');
 }
 String cwd = join(cwdParts, '/');
-String file = readFile(concat(cwd, '/readfile.txt'));
+String filename = concat(cwd, '/readfile.txt');
+String file = readFile(openFile(filename, fileModeRead));
+
+assert(fileExists(filename), concat('fail on line ', LINE));
 
 println(file);

@@ -1,0 +1,50 @@
+// RUNTIME LIBRARY - CONCAT
+
+import 'syd-rtl-system.syd';
+import 'syd-rtl-memory.syd';
+import 'syd-rtl-lists.syd';
+import 'syd-constants.syd';
+
+Integer _stringByteLength(String data) {
+  Integer pointer = data __as__ Integer;
+  return __readFromAddress(pointer + _gcBlockHeaderLength);
+}
+
+String concat(Anything... arguments) {
+  if (len(arguments) == 0) {
+    return '';
+  }
+  if (len(arguments) == 1) {
+    return stringify#(arguments[0]);
+  }
+  StringList strings = []:String;
+  Integer length = 0;
+  Integer index = 0;
+  while (index < len(arguments)) {
+    String segment = stringify#(arguments[index]);
+    append(strings, segment);
+    length += _stringByteLength(segment);
+    index += 1;
+  }
+  assert(length >= 0, 'negative length detected');
+  if (length >= 2147483648) {
+    stderr('absurd length detected (as exit code)\n');
+    exit(length);
+  }
+  Integer resultPointer = _alloc(16 + length);
+  __writeToAddress(resultPointer, 0); // ref count
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, length);
+  Integer cursor = resultPointer + _gcBlockStringData;
+  index = 0;
+  while (index < len(strings)) {
+    String segment = strings[index];
+    Integer segmentLength = _stringByteLength(segment);
+    if (segmentLength > 0) {
+      Integer segmentPointer = segment __as__ Integer;
+      _moveBytes(segmentPointer + _gcBlockStringData, cursor, segmentLength);
+      cursor += segmentLength;
+    }
+    index += 1;
+  }
+  return resultPointer __as__ String;
+}

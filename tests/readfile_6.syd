@@ -1,0 +1,13 @@
+// unexpected output: FAIL
+// expected error: cannot write to a file twice
+
+String filename = 'readfile_6.$$$';
+
+File fA = openFile(filename, fileModeWrite);
+writeFile(fA, 'X');
+writeFile(fA, 'Y');
+closeFile(fA);
+
+deleteFile(filename);
+
+println('FAIL');

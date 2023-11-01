@@ -76,6 +76,7 @@ void main(List<String> args) {
     handleVariable(toStringVariable);
     handleVariable(throwVariable);
     handleVariable(stringBufferVariable);
+    handleVariable(fileVariable);
     handleVariable(Variable('Anything'));
     handleVariable(Variable('Integer'));
     handleVariable(Variable('String'));
@@ -134,8 +135,8 @@ void main(List<String> args) {
     File('error-dump.txt').writeAsStringSync(e.toString() + '\n\n' + e.scope.dump());
     stderr.writeln("done");
     exit(e.exitCode);
-  } on UnsupportedError catch (e) {
-    stderr.writeln("Tried to write to unmodifiable list ($e)");
+  } on UnsupportedError catch (e, st) {
+    stderr.writeln("Tried to write to unmodifiable list ($e)\n$st");
     exit(-2);
   } on StackOverflowError catch (e, st) {
     stderr.writeln("(somehow a StackOverflow got past my try..on) $e\n$st");

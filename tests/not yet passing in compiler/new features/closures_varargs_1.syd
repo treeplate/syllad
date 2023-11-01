@@ -1,0 +1,12 @@
+// expected output: 1 2 3 4 5
+
+IntegerFunction convertVarargsToList(Integer... list) {
+  Integer indexIntoList(Integer index) {
+    return list[index];
+  }
+
+  return indexIntoList;
+}
+
+IntegerFunction list = convertVarargsToList(1, 3, 2, 5, 4);
+println(list(0), list(2), list(1), list(4), list(3));

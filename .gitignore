@@ -19,3 +19,4 @@ error-dump.txt
 *.syd.obj
 compiler/temp.syd
 main.exe
+*.$$$

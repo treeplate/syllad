@@ -1080,7 +1080,7 @@ class TokenIterator implements Iterator<Token> {
   final String file;
 
   @override
-  Token get current => doingPrevious ? previous! : tokens.current;
+  Token get current => doingPrevious ? previous ?? (throw 'help') : tokens.current;
   Variable get currentIdent {
     if (current is IdentToken) {
       return variables[(current as IdentToken).ident] ??= Variable((current as IdentToken).ident);

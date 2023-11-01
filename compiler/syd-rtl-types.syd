@@ -1,0 +1,124 @@
+// RUNTIME LIBRARY - CLASSES, ENUMS
+
+import 'syd-rtl-memory.syd';
+import 'syd-rtl-core-strings.syd';
+
+// VMT structure
+//
+// integer giving type code for this class (-1 if the class is never constructed or type checked)
+// integer giving number of fields to allocate (for construction)
+// pointer to class name (to implement .className)
+// pointer to parent vmt (to implement super.bar)
+// pointer to member lookup table for dynamic dispatch (to implement (foo as Whatever).bar)
+// for each member, we have these methods:
+//   0. a setter implementation that takes one argument and return nothing
+//      for properties, it just sets the right entry of the object
+//      for methods, it throws
+//   1. a getter implementation that takes no arguments and returns the member
+//      for properties, it just fetches the right entry from the object
+//      for methods, it creates and returns a method pointer
+//   2. a function call implementation
+//      for properties, it calls the getter, does type checks, and then invokes it with the arguments
+//      for methods, it is the actual code for the method
+//   they are stored in the vmt as follows:
+//      <type code of member>
+//      <code address to setter function>
+//      <code address to getter function>
+//      <code address to call function>
+
+// member lookup table for dynamic dispatch list
+// 32 bit zero
+// 32 bit length number of entries
+// for each entry (in increasing member name number order):
+//   32 bit (high bits) offset into vmt that gives code address to getter function (i.e. address of pointer to code address - address of vmt)
+//   32 bit (low bits) member name number
+
+// Instances are GarbageCollectable blocks whose fields are the class fields in declaration order.
+
+fwdclass Object#() intrinsic#;
+
+Object# _classAllocator(Integer vmt) intrinsic# {
+  _gcLocked += 1;
+  Integer typeCode = __readFromAddress(vmt + _vmtTypeCode);
+  assert(typeCode >= 0, 'tried to construct class without a type code');
+  Integer fieldCount = __readFromAddress(vmt + _vmtFieldCount);
+  assert(fieldCount >= 2, 'unexpectedly small field count');
+  Object# instance = _constructor(typeCode, fieldCount, fieldCount) as Object#;
+  __writeToAddress(instance __as__ Integer + _fieldVmt, __typeToCode Integer);
+  __writeToAddress(instance __as__ Integer + _fieldVmt + 8, vmt);
+  __writeToAddress(instance __as__ Integer + _fieldClassName, __typeToCode String);
+  __writeToAddress(instance __as__ Integer + _fieldClassName + 8, __readFromAddress(vmt + _vmtClassName));
+  if (fieldCount > 2) {
+    _fillQuadWords(instance __as__ Integer + _fieldsRemainder, (fieldCount - 2) * 16, 0);
+  }
+  _gcLocked -= 1;
+  return instance;
+}
+
+class Object# intrinsic# {
+  Integer vmt#; // must be field 0 to match constants above
+  String className; // must be field 1 to match constants above
+  String toString() {
+    return concat('<', className, '>');
+  }
+  Null constructor() {}
+}
+
+// Code pointers are blocks with the following values:
+//  1: pointer to object; null for global scope function pointers
+//  2: pointer to closure; null for global scope function pointers
+//  3: pointer to code (with annotation at -8 bytes) as an Integer
+
+WhateverFunction _createMethodPointer(Object# receiver, __CodeAddress codePointer, Integer functionTypeCode) intrinsic# {
+  _gcLocked += 1;
+  WhateverFunction result = _constructor(functionTypeCode, 2, 2) as WhateverFunction;
+  __writeToAddress(result __as__ Integer + _subroutineReceiverType, __typeOf receiver);
+  __writeToAddress(result __as__ Integer + _subroutineReceiverPointer, receiver __as__ Integer);
+  __writeToAddress(result __as__ Integer + _subroutineClosurePointer, 0);
+  __writeToAddress(result __as__ Integer + _subroutineClosureType, 0);
+  __writeToAddress(result __as__ Integer + _subroutineCodeType, __typeToCode Integer);
+  __writeToAddress(result __as__ Integer + _subroutineCodePointer, codePointer __as__ Integer);
+  _gcLocked -= 1;
+  return result;
+}
+
+Whatever _WhateverFunctionPrototype() { }
+
+Whatever _dynamicLookup(Anything receiver, Integer methodId) intrinsic# {
+  if (receiver is Object#) {
+    Integer vmt = (receiver as Object#).vmt#;
+    Integer ddt = __readFromAddress(vmt + _vmtDynamicDispatchTable);
+    // TODO: make this a binary search
+    Integer cursor = ddt + 8;
+    Integer end = ddt + 8 + __readFromAddress(ddt) * 8;
+    while (cursor < end) {
+      Integer entry = __readFromAddress(cursor);
+      if ((entry & 0x00000000FFFFFFFF) == methodId) {
+        WhateverFunction getter = _createMethodPointer(
+          receiver as Object#,
+          __readFromAddress(vmt + (entry >> 32)) __as__ __CodeAddress,
+          __typeOf _WhateverFunctionPrototype,
+        );
+        return getter();
+      }
+      cursor += 8;
+    }
+    throw(concat('No member with specified name found on "', (receiver as Object#).className, '".'));
+  }
+  if (receiver is ReifiedEnum#) {
+    Integer enumTable = receiver __as__ Integer;
+    Integer length = __readFromAddress(enumTable + _enumTableLengthOffset);
+    // TODO: make this a binary search
+    Integer cursor = enumTable + _enumTableFirstEntryOffset;
+    Integer end = enumTable + _enumTableFirstEntryOffset + length * 16;
+    while (cursor < end) {
+      Integer entry = __readFromAddress(cursor);
+      if (entry == methodId) {
+        return __readFromAddress(cursor + 8) __dynamic_as__ __readFromAddress(enumTable + _enumTableEntryTypeOffset);
+      }
+      cursor += 16;
+    }
+    throw(concat('No member with specified name found on "', __readFromAddress(enumTable + _enumTableNameOffset) __as__ String, '".'));
+  }
+  throw(concat('Cannot dynamic dispatch on ', receiver, '.'));
+}

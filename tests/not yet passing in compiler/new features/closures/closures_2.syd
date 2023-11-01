@@ -1,0 +1,28 @@
+// expected output: 1
+// expected output: 2
+// expected output: 3
+// expected output: 4
+// expected output: 5
+// expected output: 6
+
+NullFunction func() {
+  Integer foo = 0;
+  Null closure1() {
+    foo += 1;
+    println(foo);
+  }
+  Null closure2() {
+    foo += 1;
+    println(foo);
+  }
+  Null closure3() {
+    closure1();
+    closure2();
+  }
+  return closure3;
+}
+
+NullFunction closure = func();
+closure();
+closure();
+closure();

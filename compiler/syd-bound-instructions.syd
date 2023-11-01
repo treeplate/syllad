@@ -12,12 +12,6 @@ class ConversionContext extends Object {
   CodeLabelDatum equalityIntrinsic() { abstract(); }
   Bucket errorMessage(String value) { abstract(); }
   Bucket coreSentinel() { abstract(); }
-  //#ignore_unused
-  Bucket coreNull() { abstract(); }
-  //#ignore_unused
-  Bucket coreTrue() { abstract(); }
-  //#ignore_unused
-  Bucket coreFalse() { abstract(); }
   Set bucketsCreatedSoFar() { abstract(); }
   Null didCreateBucket(Bucket bucket) { abstract(); }
 }

@@ -4,6 +4,10 @@ import 'expressions.dart';
 
 Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
   Token current = tokens.current;
+  while(current is CommentFeatureToken) {
+    tokens.moveNext();
+    current = tokens.current;
+  }
   switch (tokens.current.runtimeType) {
     case IntToken:
       int i = tokens.integer;
@@ -97,9 +101,8 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       return StringLiteralExpression(s, current.line, current.col, tokens.workspace, tokens.file);
     case CommentFeatureToken:
-      throw BSCException(
-        'Unexpected comment feature, remove please. ${formatCursorPositionFromTokens(tokens)}',
-        scope,
+      assert(false, 
+        'comment feature was undetected by earlier loop ${formatCursorPositionFromTokens(tokens)}',
       );
     case CharToken:
       if (tokens.currentChar == TokenType.openSquare) {

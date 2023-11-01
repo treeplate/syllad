@@ -1,0 +1,17 @@
+// expected output: 1
+// expected output: 2
+// expected output: 3
+
+IntegerFunction func() {
+  Integer foo = 0;
+  Integer closure() {
+    foo += 1;
+    return foo;
+  }
+  return closure;
+}
+
+IntegerFunction closure = func();
+println(closure());
+println(closure());
+println(closure());

@@ -38,7 +38,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
           scope,
         );
   if (superclass != null && !scope.classes.containsKey(superclass)) {
-    throw BSCException("${superclass.name} nonexistent while trying to have ${name.name} extend it. ${formatCursorPositionFromTokens(tokens)}", scope);
+    throw BSCException('${superclass.name} nonexistent while trying to have ${name.name} extend it. ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   TypeValidator newScope = superclass == null
       ? TypeValidator([scope], ConcatenateLazyString(NotLazyString('root class '), VariableLazyString(name)), true, false, false, scope.rtl)
@@ -48,7 +48,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
   if (newScope != type.properties) {
     if (supertype != type.supertype) {
       throw BSCException(
-        "${name.name} does not have the same supertype ($supertype) as forward declaration (${type.supertype}) ${formatCursorPositionFromTokens(tokens)}",
+        '${name.name} does not have the same supertype ($supertype) as forward declaration (${type.supertype}) ${formatCursorPositionFromTokens(tokens)}',
         scope,
       );
     }
@@ -80,9 +80,9 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
   newScope.usedVars.add(classNameVariable);
   newScope.usedVars.add(toStringVariable);
   List<Statement> block = parseBlock(tokens, newScope);
-  ValueType? supertype1 = superclass != null ? scope.igv(variables["${superclass.name}"]!, true) : null;
+  ValueType? supertype1 = superclass != null ? scope.igv(variables['${superclass.name}']!, true) : null;
   if (supertype1 is FunctionValueType) {
-    throw BSCException("Cannot extend an class that has not been defined yet.", scope);
+    throw BSCException('Cannot extend an class that has not been defined yet.', scope);
   }
   TypeValidator staticMembers = TypeValidator([if (superclass != null) (supertype1 as ClassOfValueType).staticMembers],
       ConcatenateLazyString(NotLazyString('static members of '), VariableLazyString(name)), false, true, false, scope.rtl);
@@ -91,7 +91,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
       if (!statement.val.type.isSubtypeOf(
           staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, true, false) ?? anythingType)) {
         throw BSCException(
-          "Invalid override of static member ${statement.name.name} - expected ${staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, true, false)} but got ${statement.val.type} ${formatCursorPositionFromTokens(tokens)}",
+          'Invalid override of static member ${statement.name.name} - expected ${staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, true, false)} but got ${statement.val.type} ${formatCursorPositionFromTokens(tokens)}',
           scope,
         );
       }
@@ -108,7 +108,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
       if (!statement.type.isSubtypeOf(
           staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, true, false) ?? anythingType)) {
         throw BSCException(
-          "Invalid override of static member ${statement.name.name} - expected ${staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, true, false)} but got ${statement.type} ${formatCursorPositionFromTokens(tokens)}",
+          'Invalid override of static member ${statement.name.name} - expected ${staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, true, false)} but got ${statement.type} ${formatCursorPositionFromTokens(tokens)}',
           scope,
         );
       }
@@ -142,7 +142,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
             property.key != constructorVariable &&
             property.value.runtimeType != GenericFunctionValueType) {
           throw BSCException(
-            "${name.name} type has invalid override of ${superclass!.name}.${property.key.name} (expected ${supertype.properties.igv(property.key, false)}, got ${property.value.type} ${formatCursorPositionFromTokens(tokens)}",
+            '${name.name} type has invalid override of ${superclass!.name}.${property.key.name} (expected ${supertype.properties.igv(property.key, false)}, got ${property.value.type} ${formatCursorPositionFromTokens(tokens)}',
             scope,
           );
         }
@@ -154,14 +154,14 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
       if (value.key == constructorVariable) {
         if ((newScope.igv(value.key, false, -2, 0, '', '', true, false, false) ?? FunctionValueType(nullType, [], 'xxx', scope)) != value.value.type) {
           throw BSCException(
-              "${name.name}'s constructor (${newScope.igv(value.key, false, -2, 0, '', '', true, false, false) ?? FunctionValueType(nullType, [], 'xxx', scope)}) does not match forward declaration (${value.value.type}) ${formatCursorPositionFromTokens(tokens)}",
+              '${name.name}\'s constructor (${newScope.igv(value.key, false, -2, 0, '', '', true, false, false) ?? FunctionValueType(nullType, [], 'xxx', scope)}) does not match forward declaration (${value.value.type}) ${formatCursorPositionFromTokens(tokens)}',
               scope);
         }
       } else {
         ValueType? newType = newScope.igv(value.key, false, -2, 0, '', '', true, false, false);
         if (newType != value.value.type) {
           throw BSCException(
-              "${name.name}.${value.key.name} (a ${newScope.igv(value.key, false)}) does not match forward declaration (a ${value.value.type}) ${formatCursorPositionFromTokens(tokens)}",
+              '${name.name}.${value.key.name} (a ${newScope.igv(value.key, false)}) does not match forward declaration (a ${value.value.type}) ${formatCursorPositionFromTokens(tokens)}',
               scope);
         } else if (newType is FunctionValueType && value.value.type is! FunctionValueType) {
           // this will break when we get function types with arguments specifiable by fields
@@ -216,27 +216,21 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     } else if (feature == 'ignore_unused') {
       ignoreUnused = true;
       tokens.moveNext();
-    } else {
-      stderr.writeln("Unknown comment feature: $feature ${formatCursorPositionFromTokens(tokens)}");
-      tokens.moveNext();
     }
   }
   if (tokens.current is CommentFeatureToken) {
     String feature = (tokens.current as CommentFeatureToken).feature;
     if (feature == 'override') {
       if (overriden) {
-        stderr.writeln("Duplicate override comment feature ${formatCursorPositionFromTokens(tokens)}");
+        stderr.writeln('Duplicate override comment feature ${formatCursorPositionFromTokens(tokens)}');
       }
       overriden = true;
       tokens.moveNext();
     } else if (feature == 'ignore_unused') {
       if (ignoreUnused) {
-        stderr.writeln("Duplicate ignore_unused comment feature ${formatCursorPositionFromTokens(tokens)}");
+        stderr.writeln('Duplicate ignore_unused comment feature ${formatCursorPositionFromTokens(tokens)}');
       }
       ignoreUnused = true;
-      tokens.moveNext();
-    } else {
-      stderr.writeln("Unknown comment feature after comment feature: $feature ${formatCursorPositionFromTokens(tokens)}");
       tokens.moveNext();
     }
   }
@@ -259,9 +253,9 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   }
   if (tokens.current is CharToken && tokens.currentChar == TokenType.endOfStatement) {
     if (overriden || ignoreUnused)
-      stderr.writeln("Comment features are currently pointless for expression statements ${formatCursorPositionFromTokens(tokens)}");
+      stderr.writeln('Comment features are currently pointless for expression statements ${formatCursorPositionFromTokens(tokens)}');
     if (static) {
-      throw BSCException("static expression statements make no sense ${formatCursorPositionFromTokens(tokens)}", scope);
+      throw BSCException('static expression statements make no sense ${formatCursorPositionFromTokens(tokens)}', scope);
     }
     if (expr is GetExpr) {
       scope.usedVars.add(expr.name);
@@ -271,37 +265,37 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   }
   if (tokens.current is CharToken) {
     if (overriden || ignoreUnused)
-      stderr.writeln("Comment features are currently pointless for x++, x+=y, x--, x-=y, x=y, etc ${formatCursorPositionFromTokens(tokens)}");
+      stderr.writeln('Comment features are currently pointless for x++, x+=y, x--, x-=y, x=y, etc ${formatCursorPositionFromTokens(tokens)}');
     if (static) {
-      throw BSCException("static x++, x+=y, x--, x-=y, x=y, etc make no sense ${formatCursorPositionFromTokens(tokens)}", scope);
+      throw BSCException('static x++, x+=y, x--, x-=y, x=y, etc make no sense ${formatCursorPositionFromTokens(tokens)}', scope);
     }
     if (tokens.currentChar == TokenType.set) {
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
       if (!expr.isLValue(scope)) {
-        throw BSCException("$expr is not an lvalue for = ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('$expr is not an lvalue for = ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (!value.type.isSubtypeOf(expr.type)) {
-        throw BSCException("attempted $expr=$value but $value was not a ${expr.type} ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('attempted $expr=$value but $value was not a ${expr.type} ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.expectChar(TokenType.endOfStatement);
       return SetStatement(expr, value, line, col, tokens.workspace, tokens.file);
     }
     if (tokens.currentChar == TokenType.plusEquals) {
       if (!expr.type.isSubtypeOf(integerType)) {
-        throw BSCException("Attempted $expr (not an integer!) += ... ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('Attempted $expr (not an integer!) += ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
       if (!value.type.isSubtypeOf(integerType)) {
         throw BSCException(
-          "attempted $expr+=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}",
+          'attempted $expr+=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
           scope,
         );
       }
       tokens.expectChar(TokenType.endOfStatement);
       if (!expr.isLValue(scope)) {
-        throw BSCException("$expr is not an lvalue for += ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('$expr is not an lvalue for += ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       return SetStatement(
         expr,
@@ -320,7 +314,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       );
     } else if (tokens.currentChar == TokenType.plusPlus) {
       if (!expr.type.isSubtypeOf(integerType)) {
-        throw BSCException("Attempted $expr (not an integer!) ++ ... ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('Attempted $expr (not an integer!) ++ ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.expectChar(TokenType.plusPlus);
       tokens.expectChar(TokenType.endOfStatement);
@@ -342,19 +336,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       );
     } else if (tokens.currentChar == TokenType.minusEquals) {
       if (!expr.type.isSubtypeOf(integerType)) {
-        throw BSCException("Attempted $expr (not an integer!) -= ... ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('Attempted $expr (not an integer!) -= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
       if (!value.type.isSubtypeOf(integerType)) {
         throw BSCException(
-          "attempted $expr-=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}",
+          'attempted $expr-=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
           scope,
         );
       }
       tokens.expectChar(TokenType.endOfStatement);
       if (!expr.isLValue(scope)) {
-        throw BSCException("$expr is not valid l-value; attempted to do -=", scope);
+        throw BSCException('$expr is not valid l-value; attempted to do -=', scope);
       }
       return SetStatement(
         expr,
@@ -373,7 +367,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       );
     } else if (tokens.currentChar == TokenType.minusMinus) {
       if (!expr.type.isSubtypeOf(integerType)) {
-        throw BSCException("Attempted $expr (not an integer!) -- ... ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('Attempted $expr (not an integer!) -- ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.expectChar(TokenType.minusMinus);
       tokens.expectChar(TokenType.endOfStatement);
@@ -395,19 +389,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       );
     } else if (tokens.currentChar == TokenType.bitOrEquals) {
       if (!expr.type.isSubtypeOf(integerType)) {
-        throw BSCException("Attempted $expr (not an integer!) |= ... ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('Attempted $expr (not an integer!) |= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
       if (!value.type.isSubtypeOf(integerType)) {
         throw BSCException(
-          "attempted $expr|=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}",
+          'attempted $expr|=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
           scope,
         );
       }
       tokens.expectChar(TokenType.endOfStatement);
       if (!expr.isLValue(scope)) {
-        throw BSCException("$expr is not valid l-value; attempted to do |=", scope);
+        throw BSCException('$expr is not valid l-value; attempted to do |=', scope);
       }
       return SetStatement(
         expr,
@@ -426,19 +420,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       );
     } else if (tokens.currentChar == TokenType.bitAndEquals) {
       if (!expr.type.isSubtypeOf(integerType)) {
-        throw BSCException("Attempted $expr (not an integer!) &= ... ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('Attempted $expr (not an integer!) &= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
       if (!value.type.isSubtypeOf(integerType)) {
         throw BSCException(
-          "attempted $expr&=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}",
+          'attempted $expr&=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
           scope,
         );
       }
       tokens.expectChar(TokenType.endOfStatement);
       if (!expr.isLValue(scope)) {
-        throw BSCException("$expr is not valid l-value; attempted to do &=", scope);
+        throw BSCException('$expr is not valid l-value; attempted to do &=', scope);
       }
       return SetStatement(
         expr,
@@ -457,19 +451,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       );
     } else if (tokens.currentChar == TokenType.bitXorEquals) {
       if (!expr.type.isSubtypeOf(integerType)) {
-        throw BSCException("Attempted $expr (not an integer!) ^= ... ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('Attempted $expr (not an integer!) ^= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
       if (!value.type.isSubtypeOf(integerType)) {
         throw BSCException(
-          "attempted $expr^=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}",
+          'attempted $expr^=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
           scope,
         );
       }
       tokens.expectChar(TokenType.endOfStatement);
       if (!expr.isLValue(scope)) {
-        throw BSCException("$expr is not valid l-value; attempted to do ^=", scope);
+        throw BSCException('$expr is not valid l-value; attempted to do ^=', scope);
       }
       return SetStatement(
         expr,
@@ -488,19 +482,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       );
     } else if (tokens.currentChar == TokenType.andandEquals) {
       if (!expr.type.isSubtypeOf(booleanType)) {
-        throw BSCException("Attempted $expr (not an boolean!) &&= ... ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('Attempted $expr (not an boolean!) &&= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
       if (!value.type.isSubtypeOf(booleanType)) {
         throw BSCException(
-          "attempted $expr&&=$value but $value was not an boolean ${formatCursorPositionFromTokens(tokens)}",
+          'attempted $expr&&=$value but $value was not an boolean ${formatCursorPositionFromTokens(tokens)}',
           scope,
         );
       }
       tokens.expectChar(TokenType.endOfStatement);
       if (!expr.isLValue(scope)) {
-        throw BSCException("$expr is not valid l-value; attempted to do &&=", scope);
+        throw BSCException('$expr is not valid l-value; attempted to do &&=', scope);
       }
       return SetStatement(
         expr,
@@ -519,19 +513,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       );
     } else if (tokens.currentChar == TokenType.ororEquals) {
       if (!expr.type.isSubtypeOf(booleanType)) {
-        throw BSCException("Attempted $expr (not an boolean!) ||= ... ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('Attempted $expr (not an boolean!) ||= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
       if (!value.type.isSubtypeOf(booleanType)) {
         throw BSCException(
-          "attempted $expr||=$value but $value was not an boolean ${formatCursorPositionFromTokens(tokens)}",
+          'attempted $expr||=$value but $value was not an boolean ${formatCursorPositionFromTokens(tokens)}',
           scope,
         );
       }
       tokens.expectChar(TokenType.endOfStatement);
       if (!expr.isLValue(scope)) {
-        throw BSCException("$expr is not valid l-value; attempted to do ||=", scope);
+        throw BSCException('$expr is not valid l-value; attempted to do ||=', scope);
       }
       return SetStatement(
         expr,
@@ -550,19 +544,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       );
     } else if (tokens.currentChar == TokenType.divideEquals) {
       if (!expr.type.isSubtypeOf(integerType)) {
-        throw BSCException("Attempted $expr (not an integer!) /= ... ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('Attempted $expr (not an integer!) /= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
       if (!value.type.isSubtypeOf(integerType)) {
         throw BSCException(
-          "attempted $expr/=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}",
+          'attempted $expr/=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
           scope,
         );
       }
       tokens.expectChar(TokenType.endOfStatement);
       if (!expr.isLValue(scope)) {
-        throw BSCException("$expr is not valid l-value; attempted to do /=", scope);
+        throw BSCException('$expr is not valid l-value; attempted to do /=', scope);
       }
       return SetStatement(
         expr,
@@ -581,19 +575,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       );
     } else if (tokens.currentChar == TokenType.starEquals) {
       if (!expr.type.isSubtypeOf(integerType)) {
-        throw BSCException("Attempted $expr (not an integer!) *= ... ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('Attempted $expr (not an integer!) *= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
       if (!value.type.isSubtypeOf(integerType)) {
         throw BSCException(
-          "attempted $expr*=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}",
+          'attempted $expr*=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
           scope,
         );
       }
       tokens.expectChar(TokenType.endOfStatement);
       if (!expr.isLValue(scope)) {
-        throw BSCException("$expr is not valid l-value; attempted to do *=", scope);
+        throw BSCException('$expr is not valid l-value; attempted to do *=', scope);
       }
       return SetStatement(
         expr,
@@ -612,19 +606,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       );
     } else if (tokens.currentChar == TokenType.remainderEquals) {
       if (!expr.type.isSubtypeOf(integerType)) {
-        throw BSCException("Attempted $expr (not an integer!) %= ... ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('Attempted $expr (not an integer!) %= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
       if (!value.type.isSubtypeOf(integerType)) {
         throw BSCException(
-          "attempted $expr%=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}",
+          'attempted $expr%=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
           scope,
         );
       }
       tokens.expectChar(TokenType.endOfStatement);
       if (!expr.isLValue(scope)) {
-        throw BSCException("$expr is not valid l-value; attempted to do %=", scope);
+        throw BSCException('$expr is not valid l-value; attempted to do %=', scope);
       }
       return SetStatement(
         expr,
@@ -652,7 +646,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       expr.asType,
     )) {
       throw BSCException(
-        "$expr2 is not of type $expr, which is expected by ${ident2.name}. (it's a ${expr2.type}) ${formatCursorPositionFromTokens(tokens)}",
+        '$expr2 is not of type $expr, which is expected by ${ident2.name}. (it\'s a ${expr2.type}) ${formatCursorPositionFromTokens(tokens)}',
         scope,
       );
     }
@@ -689,7 +683,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       scope.igv(ident2, true);
     }
     if (static) {
-      throw BSCException("static declarations must have values ${formatCursorPositionFromTokens(tokens)}", scope);
+      throw BSCException('static declarations must have values ${formatCursorPositionFromTokens(tokens)}', scope);
     }
     return NewVarStatement(ident2, null, line, col, tokens.workspace, tokens.file, false, expr.asType, scope);
   }
@@ -712,10 +706,10 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     if (tokens.current is CharToken && tokens.currentChar == TokenType.ellipsis) {
       tokens.moveNext();
       if (isVararg) {
-        throw BSCException("${ident2.name} had 2 varargs ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('${ident2.name} had 2 varargs ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (isNormal) {
-        throw BSCException("${ident2.name} had regular arguments before a vararg ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw BSCException('${ident2.name} had regular arguments before a vararg ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       isVararg = true;
     } else {
@@ -723,7 +717,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     }
     Variable name = tokens.currentIdent;
     if (debugParams.contains(name)) {
-      throw BSCException("${ident2.name} had duplicate parameter ${name.name} ${formatCursorPositionFromTokens(tokens)}", scope);
+      throw BSCException('${ident2.name} had duplicate parameter ${name.name} ${formatCursorPositionFromTokens(tokens)}', scope);
     }
     debugParams.add(name);
     tokens.moveNext();
@@ -740,7 +734,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         name);
   });
   if (isVararg && params.length > 1) {
-    throw BSCException("${ident2.name} had ${params.length - 1} regular arguments and a vararg ${formatCursorPositionFromTokens(tokens)}", scope);
+    throw BSCException('${ident2.name} had ${params.length - 1} regular arguments and a vararg ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   if (isVararg) {
     params = InfiniteIterable(params.single);
@@ -772,7 +766,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       .map((e) => e.name)
       .toList();
   if (!unusedFuncVars.isEmpty) {
-    stderr.writeln("Unused vars for ${tv.debugName}:\n  ${unusedFuncVars.join('\n  ')}");
+    stderr.writeln('Unused vars for ${tv.debugName}:\n  ${unusedFuncVars.join('\n  ')}');
   }
   tokens.expectChar(TokenType.closeBrace);
   ValueType type = FunctionValueType(expr.asType, typeParams, tokens.file, scope);
@@ -810,35 +804,33 @@ MapEntry<List<Statement>, TypeValidator> parse(
       integerType = ValueType.internal(anythingType, variables['Integer']!, 'intrinsics', false, intrinsics);
       stringType = ValueType.internal(anythingType, variables['String']!, 'intrinsics', false, intrinsics);
       booleanType = ValueType.internal(anythingType, variables['Boolean']!, 'intrinsics', false, intrinsics);
-      nullType = ValueType.internal(anythingType, variables['Null']!, 'intrinsics', false, intrinsics);
+      nullType = NullType.internal(anythingType, intrinsics);
       rootClassType = ValueType.internal(anythingType, variables['~root_class']!, 'intrinsics', false, intrinsics);
       stringBufferType = ValueType.internal(anythingType, variables['StringBuffer']!, 'intrinsics', false, intrinsics);
+      fileType = ValueType.internal(anythingType, variables['File']!, 'intrinsics', false, intrinsics);
     }
   }
   intrinsics.types = <String, ValueType>{
-    "true": booleanType,
-    "false": booleanType,
-    "null": nullType,
-    "args": ListValueType<ValueWrapper<String>>(stringType, 'intrinsics', intrinsics),
-    "print": FunctionValueType(integerType, InfiniteIterable(anythingType), 'intrinsics', intrinsics),
-    "stderr": FunctionValueType(integerType, InfiniteIterable(anythingType), 'intrinsics', intrinsics),
-    "concat": FunctionValueType(stringType, InfiniteIterable(anythingType), 'intrinsics', intrinsics),
-    "parseInt": FunctionValueType(integerType, [stringType], 'intrinsics', intrinsics),
+    'true': booleanType,
+    'false': booleanType,
+    'null': nullType,
+    'args': ListValueType<String>(stringType, 'intrinsics', intrinsics),
+    'print': FunctionValueType(integerType, InfiniteIterable(anythingType), 'intrinsics', intrinsics),
+    'stderr': FunctionValueType(integerType, InfiniteIterable(anythingType), 'intrinsics', intrinsics),
+    'concat': FunctionValueType(stringType, InfiniteIterable(anythingType), 'intrinsics', intrinsics),
+    'parseInt': FunctionValueType(integerType, [stringType], 'intrinsics', intrinsics),
     'addLists': FunctionValueType(
         ListValueType(anythingType, 'intrinsics', intrinsics),
         InfiniteIterable(
             ArrayValueType<ValueWrapper>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)),
         'intrinsics',
         intrinsics),
-    'charsOf': FunctionValueType(IterableValueType<ValueWrapper<String>>(stringType, 'intrinsics', intrinsics), [stringType], 'intrinsics', intrinsics),
-    'scalarValues': FunctionValueType(IterableValueType<ValueWrapper<int>>(integerType, 'intrinsics', intrinsics), [stringType], 'intrinsics', intrinsics),
+    'charsOf': FunctionValueType(IterableValueType<String>(stringType, 'intrinsics', intrinsics), [stringType], 'intrinsics', intrinsics),
+    'scalarValues': FunctionValueType(IterableValueType<int>(integerType, 'intrinsics', intrinsics), [stringType], 'intrinsics', intrinsics),
     'split': FunctionValueType(ListValueType(stringType, 'intrinsics', intrinsics), [stringType, stringType], 'intrinsics', intrinsics),
     'len': FunctionValueType(
         integerType,
-        [
-          IterableValueType<ValueWrapper<dynamic>>(
-              ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)
-        ],
+        [IterableValueType<Object?>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)],
         'intrinsics',
         intrinsics),
     'input': FunctionValueType(stringType, [], 'intrinsics', intrinsics),
@@ -849,10 +841,7 @@ MapEntry<List<Statement>, TypeValidator> parse(
         intrinsics),
     'iterator': FunctionValueType(
         IteratorValueType(anythingType, 'intrinsics', intrinsics),
-        [
-          IterableValueType<ValueWrapper<dynamic>>(
-              ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)
-        ],
+        [IterableValueType<Object?>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)],
         'intrinsics',
         intrinsics),
     'next': FunctionValueType(booleanType, [IteratorValueType(anythingType, 'intrinsics', intrinsics)], 'intrinsics', intrinsics),
@@ -860,17 +849,22 @@ MapEntry<List<Statement>, TypeValidator> parse(
     'stringTimes': FunctionValueType(stringType, [stringType, integerType], 'intrinsics', intrinsics),
     'copy': FunctionValueType(
         ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics),
-        [
-          IterableValueType<ValueWrapper<dynamic>>(
-              ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)
-        ],
+        [IterableValueType<Object?>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)],
         'intrinsics',
         intrinsics),
     'hex': FunctionValueType(stringType, [integerType], 'intrinsics', intrinsics),
     'chr': FunctionValueType(stringType, [integerType], 'intrinsics', intrinsics),
     'exit': FunctionValueType(nullType, [integerType], 'intrinsics', intrinsics),
-    'readFile': FunctionValueType(stringType, [stringType], 'intrinsics', intrinsics),
-    'readFileBytes': FunctionValueType(ListValueType(integerType, 'intrinsics', intrinsics), [stringType], 'intrinsics', intrinsics),
+    'fileExists': FunctionValueType(booleanType, [stringType], 'intrinsics', intrinsics),
+    'openFile': FunctionValueType(fileType, [stringType, integerType], 'intrinsics', intrinsics),
+    'fileModeAppend': integerType,
+    'fileModeRead': integerType,
+    'fileModeWrite': integerType,
+    'readFileBytes': FunctionValueType(ListValueType(integerType, 'intrinsics', intrinsics), [fileType], 'intrinsics', intrinsics),
+    'writeFile': FunctionValueType(nullType, [fileType, stringType], 'intrinsics', intrinsics),
+    'closeFile': FunctionValueType(nullType, [fileType], 'intrinsics', intrinsics),
+    'deleteFile': FunctionValueType(nullType, [stringType], 'intrinsics', intrinsics),
+    'utf8Decode': FunctionValueType(stringType, [ListValueType(integerType, 'intrinsics', intrinsics)], 'intrinsics', intrinsics),
     'containsString': FunctionValueType(booleanType, [stringType, stringType], 'intrinsics', intrinsics),
     'println': FunctionValueType(integerType, InfiniteIterable(anythingType), 'intrinsics', intrinsics),
     'clear': FunctionValueType(
@@ -927,6 +921,8 @@ MapEntry<List<Statement>, TypeValidator> parse(
   intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, rootClassType, false);
   v = '~type${stringBufferType.name.name}';
   intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, stringBufferType, false);
+  v = '~type${fileType.name.name}';
+  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, fileType, false);
   intrinsics.directVars.addAll(intrinsics.types.keys);
 
   TypeValidator validator = TypeValidator([intrinsics], ConcatenateLazyString(NotLazyString('file '), NotLazyString(file)), false, false, false, rtl);
@@ -939,14 +935,14 @@ MapEntry<List<Statement>, TypeValidator> parse(
   if (isMain) {
     List<Variable> unusedGlobalscopeVars = validator.types.keys.where((element) => !validator.usedVars.contains(element)).toList();
     if (!unusedGlobalscopeVars.isEmpty) {
-      stderr.writeln("Unused vars:\n  ${unusedGlobalscopeVars.map((e) => e.name).join('\n  ')}");
+      stderr.writeln('Unused vars:\n  ${unusedGlobalscopeVars.map((e) => e.name).join('\n  ')}');
     }
     for (TypeValidator classTv in validator.classes.values) {
       List<Variable> unusedClassVars = classTv.types.keys
           .where((element) => !classTv.usedVars.contains(element) && !classTv.parents.any((element2) => element2.igv(element, false) != null))
           .toList();
       if (!unusedClassVars.isEmpty) {
-        stderr.writeln("Unused vars for ${classTv.debugName}:\n  ${unusedClassVars.map((e) => e.name).join('\n  ')}");
+        stderr.writeln('Unused vars for ${classTv.debugName}:\n  ${unusedClassVars.map((e) => e.name).join('\n  ')}');
       }
     }
   }
@@ -959,7 +955,7 @@ WhileStatement parseWhile(TokenIterator tokens, TypeValidator scope) {
   Expression value = parseExpression(tokens, scope);
   if (!value.type.isSubtypeOf(booleanType)) {
     throw BSCException(
-      "The while condition ($value, a ${value.type}) is not a Boolean       ${formatCursorPositionFromTokens(tokens)}",
+      'The while condition ($value, a ${value.type}) is not a Boolean       ${formatCursorPositionFromTokens(tokens)}',
       scope,
     );
   }
@@ -969,7 +965,7 @@ WhileStatement parseWhile(TokenIterator tokens, TypeValidator scope) {
   List<Statement> body = parseBlock(tokens, tv);
   List<String> unusedWhileLoopVars = tv.types.keys.where((element) => !tv.usedVars.contains(element)).map((e) => e.name).toList();
   if (!unusedWhileLoopVars.isEmpty) {
-    stderr.writeln("Unused vars for while loop: ${formatCursorPositionFromTokens(tokens)}\n  ${unusedWhileLoopVars.join('\n  ')}");
+    stderr.writeln('Unused vars for while loop: ${formatCursorPositionFromTokens(tokens)}\n  ${unusedWhileLoopVars.join('\n  ')}');
   }
   tokens.expectChar(TokenType.closeBrace);
   return WhileStatement(
@@ -989,7 +985,7 @@ List<String> filesStartedLoading = [];
 ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
   if (tokens.doneImports) {
     throw BSCException(
-      "cannot have import statement after non-import ${formatCursorPositionFromTokens(tokens)}",
+      'cannot have import statement after non-import ${formatCursorPositionFromTokens(tokens)}',
       scope,
     );
   }
@@ -997,13 +993,13 @@ ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
   String str = tokens.string;
   if (filesStartedLoading.contains(str)) {
     throw BSCException(
-      "Import loop detected at ${formatCursorPositionFromTokens(tokens)}",
+      'Import loop detected at ${formatCursorPositionFromTokens(tokens)}',
       scope,
     );
   }
   filesStartedLoading.add(str);
   if (!File('${tokens.workspace}/$str').existsSync()) {
-    throw BSCException("Attempted import of nonexistent file $str ${formatCursorPositionFromTokens(tokens)}", scope);
+    throw BSCException('Attempted import of nonexistent file $str ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   tokens.moveNext();
   tokens.expectChar(TokenType.endOfStatement);
@@ -1046,8 +1042,6 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
         overriden = true;
       } else if (feature == 'ignore_unused') {
         ignoreUnused = true;
-      } else {
-        stderr.writeln("Unknown comment feature: $feature ${formatCursorPositionFromTokens(tokens)}");
       }
       tokens.moveNext();
       commentFeature = true;
@@ -1100,7 +1094,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       ClassValueType x = ClassValueType(cln, spt, props, tokens.file, true, scope);
       FunctionValueType? constructorType;
       constructorType = FunctionValueType(nullType, parameters.map((e) => e.toVT(scope)), tokens.file, scope);
-      
+
       props.types[constructorVariable] = TVProp(true, constructorType, false);
       constructorType = constructorType.withReturnType(x, tokens.file);
       ClassOfValueType y = ClassOfValueType(
@@ -1190,9 +1184,14 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       return NopStatement();
     case fwdstaticfieldVariable:
       ValueType type = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
-      ClassOfValueType cl =
-          (ValueType.create(null, variables[(tokens..moveNext()).currentIdent.name + 'Class'] ??= Variable((tokens..moveNext()).currentIdent.name + 'Class'), tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope)
-              as ClassOfValueType);
+      ClassOfValueType cl = (ValueType.create(
+          null,
+          variables[(tokens..moveNext()).currentIdent.name + 'Class'] ??= Variable((tokens..moveNext()).currentIdent.name + 'Class'),
+          tokens.current.line,
+          tokens.current.col,
+          tokens.workspace,
+          tokens.file,
+          scope) as ClassOfValueType);
       tokens..moveNext();
       tokens.expectChar(TokenType.period);
       if (overriden) {
@@ -1242,7 +1241,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
         stderr.writeln('Can\'t override classes ${formatCursorPositionFromTokens(tokens)}');
       }
       return parseClass(tokens, scope, ignoreUnused);
-    
+
     case importVariable:
       if (overriden) {
         stderr.writeln('Overriding an import makes no sense, like, what does that mean ${formatCursorPositionFromTokens(tokens)}');
@@ -1330,6 +1329,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
 Statement parseConst(TokenIterator tokens, TypeValidator scope, bool ignoreUnused) {
   tokens.moveNext();
   bool static = false;
+  Token start = tokens.current;
   if (tokens.current is IdentToken && tokens.currentIdent == variables['static']) {
     tokens.moveNext();
     static = true;
@@ -1344,20 +1344,18 @@ Statement parseConst(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
     scope,
   );
   if (!expr.type.isSubtypeOf(type)) {
-    throw BSCException("attempted to assign $expr (a ${expr.type}) to $name, which is a const $type ${formatCursorPositionFromTokens(tokens)}", scope);
+    throw BSCException('attempted to assign $expr (a ${expr.type}) to $name, which is a const $type ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   tokens.expectChar(TokenType.endOfStatement);
   if (!static) scope.types[name] = TVProp(false, type, false);
   if (ignoreUnused) {
     scope.igv(name, true);
-    tokens.moveNext();
   }
   if (static) {
-    return StaticFieldStatement(name, expr, tokens.current.line, tokens.current.col, true);
+    return StaticFieldStatement(name, expr, start.line, start.col, true);
   }
-  return NewVarStatement(name, expr, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, true, type, scope);
+  return NewVarStatement(name, expr, start.line, start.col, tokens.workspace, tokens.file, true, type, scope);
 }
-
 
 Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnused) {
   tokens.moveNext();
@@ -1365,7 +1363,7 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
   Variable currentName = tokens.currentIdent;
   tokens.moveNext();
   if (tokens.currentIdent != (variables['in'] ??= Variable('in'))) {
-    throw BSCException("no 'in' after name of new variable in the for loop ${formatCursorPositionFromTokens(tokens)}", scope);
+    throw BSCException('no \'in\' after name of new variable in the for loop ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   tokens.moveNext();
   Expression iterable = parseExpression(
@@ -1373,8 +1371,8 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
     scope,
   );
   if (!iterable.type.isSubtypeOf(ValueType.create(
-      null, variables["WhateverIterable"] ??= Variable("WhateverIterable"), tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope))) {
-    throw BSCException("tried to for loop over non-iterable (iterated over ${iterable.type}) ${formatCursorPositionFromTokens(tokens)}", scope);
+      null, variables['WhateverIterable'] ??= Variable('WhateverIterable'), tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope))) {
+    throw BSCException('tried to for loop over non-iterable (iterated over ${iterable.type}) ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   TypeValidator innerScope = TypeValidator([scope], NotLazyString('for loop'), false, false, false, scope.rtl);
   innerScope.newVar(
@@ -1399,7 +1397,7 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
   List<Statement> body = parseBlock(tokens, innerScope);
   List<String> unusedForLoopVars = innerScope.types.keys.where((element) => !innerScope.usedVars.contains(element)).toList().map((e) => e.name).toList();
   if (!unusedForLoopVars.isEmpty) {
-    stderr.writeln("Unused vars for for loop: ${formatCursorPositionFromTokens(tokens)}\n  ${unusedForLoopVars.join('\n  ')}");
+    stderr.writeln('Unused vars for for loop: ${formatCursorPositionFromTokens(tokens)}\n  ${unusedForLoopVars.join('\n  ')}');
   }
   tokens.expectChar(TokenType.closeBrace);
   return ForStatement(
@@ -1466,7 +1464,7 @@ IfStatement parseIf(TokenIterator tokens, TypeValidator scope) {
   Expression value = parseExpression(tokens, scope);
   if (!value.type.isSubtypeOf(booleanType)) {
     throw BSCException(
-      "The if condition ($value, a ${value.type}) is not a Boolean        ${formatCursorPositionFromTokens(tokens)}",
+      'The if condition ($value, a ${value.type}) is not a Boolean        ${formatCursorPositionFromTokens(tokens)}',
       scope,
     );
   }
@@ -1476,13 +1474,13 @@ IfStatement parseIf(TokenIterator tokens, TypeValidator scope) {
   List<Statement> body = parseBlock(tokens, innerScope);
   List<String> unusedForLoopVars = innerScope.types.keys.where((element) => !innerScope.usedVars.contains(element)).map((e) => e.name).toList();
   if (!unusedForLoopVars.isEmpty) {
-    stderr.writeln("Unused vars for if statement: ${formatCursorPositionFromTokens(tokens)}\n  ${unusedForLoopVars.join('\n  ')}");
+    stderr.writeln('Unused vars for if statement: ${formatCursorPositionFromTokens(tokens)}\n  ${unusedForLoopVars.join('\n  ')}');
   }
   List<Statement> elseBody = [];
   tokens.expectChar(TokenType.closeBrace);
-  if (tokens.current is IdentToken && tokens.currentIdent == variables["else"]) {
+  if (tokens.current is IdentToken && tokens.currentIdent == variables['else']) {
     tokens.moveNext();
-    if (tokens.current is IdentToken && tokens.currentIdent == variables["if"]) {
+    if (tokens.current is IdentToken && tokens.currentIdent == variables['if']) {
       IfStatement parsedIf = parseIf(tokens, scope);
       elseBody = [parsedIf];
     } else {

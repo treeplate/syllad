@@ -254,7 +254,7 @@ class CompilationEnvironment extends TypeRegistry {
   String freeIntrinsicName = '_free';
   String exponentiationIntrinsicName = 'pow#';
   String equalityIntrinsicName = 'equals#';
-  String listConstructorIntrinsicName = '_listConstructor';
+  String listConstructorIntrinsicName = 'listConstructor#';
   String classAllocatorIntrinsicName = '_classAllocator';
   String appendIntrinsicName = 'append';
   String iteratorIntrinsicName = 'iterator';
@@ -279,7 +279,7 @@ class CompilationEnvironment extends TypeRegistry {
     return result!;
   }
 
-  String coreClassTypeIntrinsicName = '__Object';
+  String coreClassTypeIntrinsicName = 'Object#';
 
   // use CompiledScope.lookupIntrinsicClass() to reference this
   Map classIntrinsics = Map(); // String -> ClassType
@@ -288,11 +288,14 @@ class CompilationEnvironment extends TypeRegistry {
     classIntrinsics.set(intrinsic.name, intrinsic);
   }
 
-  ClassType lookupIntrinsicClass(String name) {
+  ClassType lookupIntrinsicClass(String name, SourceLocationNullable sourceLocation) {
     ClassTypeNullable result = classIntrinsics.get(name) as ClassTypeNullable;
     if (result == null) {
-      // TODO: this should be an assert, and we should verify all the intrinsics are defined when we're done reading the standard library.
-      throw(concat('Compiler intrinsic "', name, '" is not declared.'));
+      if (sourceLocation != null) {
+        throw(concat('Compiler intrinsic "', name, '" is not yet declared at ', sourceLocation));
+      }
+      // TODO: actually implement the check below
+      assert(false, concat('Compiler should verify that RTL contains compiler intrinsic "', name, '" before this point.'));
     }
     return result!;
   }
@@ -319,7 +322,7 @@ class CompilationEnvironment extends TypeRegistry {
   }
 
   Null finalizeClassTypes(Assembler assembler) {
-    ClassType rootClass = lookupIntrinsicClass(coreClassTypeIntrinsicName);
+    ClassType rootClass = lookupIntrinsicClass(coreClassTypeIntrinsicName, null);
     rootClass.assignIndicies(this, 0, 0);
     rootClass.populateMembers(this);
   }
@@ -651,7 +654,7 @@ class CompilationEnvironment extends TypeRegistry {
   }
 
   Null generateVmts(Assembler assembler) {
-    ClassType rootClass = lookupIntrinsicClass(coreClassTypeIntrinsicName);
+    ClassType rootClass = lookupIntrinsicClass(coreClassTypeIntrinsicName, null);
     rootClass.generateVmt(this, assembler);
   }
 
@@ -762,12 +765,6 @@ class EnvironmentConversionContext extends ConversionContext {
   Bucket errorMessage(String value) { return environment.errorMessage(value); }
   //#override
   Bucket coreSentinel() { return environment.coreSentinel; }
-  //#override
-  Bucket coreNull() { return environment.coreNull; }
-  //#override
-  Bucket coreTrue() { return environment.coreTrue; }
-  //#override
-  Bucket coreFalse() { return environment.coreFalse; }
   //#override
   Set bucketsCreatedSoFar() { return environment.bucketsCreatedSoFar; }
 
@@ -1094,6 +1091,7 @@ class LocalVariableIdentifierEntity extends IdentifierEntity {
 
 class GlobalVariableIdentifierEntity extends IdentifierEntity {
   GlobalVariable globalVariable;
+  Boolean _writeable;
 
   //#override
   Boolean isDeclared() { return true; }
@@ -1107,16 +1105,18 @@ class GlobalVariableIdentifierEntity extends IdentifierEntity {
   }
 
   //#override
-  Boolean writeable() { return true; }
+  Boolean writeable() { return _writeable; }
 
   //#override
   Null write(CompiledScope scope, Bucket value) { 
+    assert(writeable(), 'contract violation');
     scope.emit(UpdateGlobalVariableInstruction(globalVariable, value));
   }
 
-  Null constructor(GlobalVariable globalVariableArg) {
+  Null constructor(GlobalVariable globalVariableArg, Boolean writeableArg) {
     super.constructor();
     globalVariable = globalVariableArg;
+    _writeable = writeableArg;
   }
 }
 
@@ -2173,7 +2173,7 @@ class CompiledScope extends Object {
       environment.integer(_subroutineReceiverPointer),
       environment.integer(_subroutineReceiverType),
       ow.QWord,
-      environment.lookupIntrinsicClass(environment.coreClassTypeIntrinsicName),
+      environment.lookupIntrinsicClass(environment.coreClassTypeIntrinsicName, null),
       LazyComment('this pointer'),
     );
     // Call label
@@ -2620,7 +2620,7 @@ class CompiledVarArgsSubroutine extends CompiledSubroutine {
 //
 // It should allocate memory, configure that memory with the appropriate
 // bits, then call the user-defined constructor, if any. (There will always
-// be one, because the RTL defines a base class constructor for __Object.)
+// be one, because the RTL defines a base class constructor for Object#.)
 class CompiledGeneratedConstructorSubroutine extends CompiledSubroutine {
   // actualConstructor (setActualConstructor)
   // thisPointer (setThisPointer)
@@ -3052,10 +3052,22 @@ class CompiledLibrary extends CompiledStackFrameScope {
   IdentifierEntity registerVariable(String name, Type type) {
     assert(!isIdentifierDeclaredInLocalScope(name), concat('tried to redeclare an identifier (', name, ') within a scope'));
     GlobalVariable variable = GlobalVariable(type, globalVariablesLabel, name);
-    IdentifierEntity result = GlobalVariableIdentifierEntity(variable);
+    IdentifierEntity result = GlobalVariableIdentifierEntity(variable, true);
     identifiers.set(name, result);
     append(globalVariables, variable);
     return result;
+  }
+
+  // Caller must incref variable if appropriate.
+  //#override
+  Null registerImmutableValue(String name, Bucket value) {
+    assert(!isIdentifierDeclaredInLocalScope(name), concat('tried to redeclare an identifier (', name, ') within a scope'));
+    assert(!(value is LocalVariable), concat('registerImmutableValue used to register variable "', name, '"'));
+    GlobalVariable variable = GlobalVariable(value.staticType, globalVariablesLabel, name);
+    emit(UpdateGlobalVariableInstruction(variable, value));
+    IdentifierEntity result = GlobalVariableIdentifierEntity(variable, false);
+    identifiers.set(name, result);
+    append(globalVariables, variable);
   }
 
   //#override
@@ -3175,9 +3187,6 @@ class CompiledLibrary extends CompiledStackFrameScope {
 class CompiledIntrinsicsLibrary extends CompiledLibrary {
   Null constructor(CompilationEnvironment environment, String name) {
     super.constructor(environment, name);
-    registerConstant('null', environment.coreNull);
-    registerConstant('false', environment.coreFalse);
-    registerConstant('true', environment.coreTrue);
     registerType(environment.coreAnythingType);
     environment.coreAnythingType.markDeclared();
     registerType(environment.coreWhateverType);

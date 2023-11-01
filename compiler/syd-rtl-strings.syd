@@ -1,0 +1,441 @@
+// RUNTIME LIBRARY - STRINGS
+
+import 'syd-rtl-memory.syd';
+import 'syd-rtl-core-strings.syd';
+import 'syd-rtl-types.syd';
+
+typedef# StringBuffer is GarbageCollectable;
+
+class StringBufferPart# {
+  String value;
+
+  StringBufferPart#Nullable next = null;
+  Null setNext(StringBufferPart# part) {
+    next = part;
+  }
+
+  Null constructor(String valueArg) {
+    value = valueArg;
+  }
+}
+
+class StringBuffer# {
+  Integer length = 0;
+
+  StringBufferPart#Nullable first = null;
+  StringBufferPart#Nullable last = null;
+  Null add(StringBufferPart# part) {
+    if (first == null) {
+      assert(length == 0, 'invariant violation');
+      first = part;
+    } else {
+      assert(length > 0, 'invariant violation');
+      last!.setNext(part);
+    }
+    last = part;
+    length += _stringByteLength(part.value);
+  }
+}
+
+StringBuffer createStringBuffer() {
+  StringBuffer# buffer = StringBuffer#();
+  return buffer __as__ StringBuffer;
+}
+
+Null writeStringBuffer(StringBuffer buffer, String value) {
+  if (value == '') {
+    return;
+  }
+  StringBuffer# target = buffer __as__ StringBuffer#;
+  target.add(StringBufferPart#(value));
+}
+
+String readStringBuffer(StringBuffer buffer) {
+  StringBuffer# source = buffer __as__ StringBuffer#;
+  if (source.first == null) {
+    assert(source.length == 0, 'invariant violation');
+    return '';
+  }
+  Integer resultPointer = _alloc(16 + source.length);
+  __writeToAddress(resultPointer, 0); // ref count
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, source.length);
+  Integer cursor = resultPointer + _gcBlockStringData;
+  StringBufferPart#Nullable part = source.first!;
+  while (part != null) {
+    Integer segmentLength = _stringByteLength(part!.value);
+    Integer segmentPointer = part!.value __as__ Integer;
+    _moveBytes(segmentPointer + _gcBlockStringData, cursor, segmentLength);
+    part = part!.next;
+    cursor += segmentLength;
+  }
+  return resultPointer __as__ String;
+}
+
+String readStringBufferBackwards#(StringBuffer buffer) {
+  StringBuffer# source = buffer __as__ StringBuffer#;
+  if (source.first == null) {
+    assert(source.length == 0, 'invariant violation');
+    return '';
+  }
+  Integer resultPointer = _alloc(16 + source.length);
+  __writeToAddress(resultPointer, 0); // ref count
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, source.length);
+  Integer cursor = resultPointer + _gcBlockStringData + source.length;
+  StringBufferPart#Nullable part = source.first!;
+  while (part != null) {
+    Integer segmentLength = _stringByteLength(part!.value);
+    cursor -= segmentLength;
+    Integer segmentPointer = part!.value __as__ Integer;
+    _moveBytes(segmentPointer + _gcBlockStringData, cursor, segmentLength);
+    part = part!.next;
+  }
+  return resultPointer __as__ String;
+}
+
+String digitToStr#(Integer digit) {
+  if (digit == 0) {
+    return '0';
+  }
+  if (digit == 1) {
+    return '1';
+  }
+  if (digit == 2) {
+    return '2';
+  }
+  if (digit == 3) {
+    return '3';
+  }
+  if (digit == 4) {
+    return '4';
+  }
+  if (digit == 5) {
+    return '5';
+  }
+  if (digit == 6) {
+    return '6';
+  }
+  if (digit == 7) {
+    return '7';
+  }
+  if (digit == 8) {
+    return '8';
+  }
+  if (digit == 9) {
+    return '9';
+  }
+  if (digit == 10) {
+    return 'a';
+  }
+  if (digit == 11) {
+    return 'b';
+  }
+  if (digit == 12) {
+    return 'c';
+  }
+  if (digit == 13) {
+    return 'd';
+  }
+  if (digit == 14) {
+    return 'e';
+  }
+  if (digit == 15) {
+    return 'f';
+  }
+  stderr('Invalid digit passed to digitToStr# (digit as exit code)');
+  exit(digit);
+}
+
+//#ignore_unused
+String intToStr(Integer value) {
+  if (value >= 0 && value < 10) {
+    return digitToStr#(value);
+  }
+  StringBuffer buffer = createStringBuffer();
+  Integer newValue = value; // parameters are final
+  if (newValue > 0) {
+    newValue = -newValue;
+  }
+  while (newValue < 0) {
+    Integer digit = newValue % 10;
+    newValue = newValue / 10;
+    writeStringBuffer(buffer, digitToStr#(-digit));
+  }
+  if (value < 0) {
+    writeStringBuffer(buffer, '-');
+  }
+  return readStringBufferBackwards#(buffer);
+}
+
+//#ignore_unused
+String hex(Integer value) {
+  if (value >= 0 && value < 16) {
+    return digitToStr#(value);
+  }
+  StringBuffer buffer = createStringBuffer();
+  Integer newValue = value; // parameters are final
+  if (newValue > 0) {
+    newValue = -newValue;
+  }
+  while (newValue < 0) {
+    Integer digit = newValue % 16;
+    newValue = newValue / 16;
+    writeStringBuffer(buffer, digitToStr#(-digit));
+  }
+  if (value < 0) {
+    writeStringBuffer(buffer, '-');
+  }
+  return readStringBufferBackwards#(buffer);
+}
+
+//#ignore_unused
+String join(StringList items, String joiner) {
+  if (len(items) == 0) {
+    return '';
+  }
+  Integer length = 0;
+  Integer index = 0;
+  while (index < len(items)) {
+    length += _stringByteLength(items[index]);
+    index += 1;
+  }
+  Integer joinerLength = _stringByteLength(joiner);
+  length += joinerLength * (len(items) - 1);
+  assert(length >= 0, 'negative length detected');
+  if (length >= 2147483648) {
+    stderr('absurd length detected (as exit code)');
+    exit(length);
+  }
+  Integer resultPointer = _alloc(16 + length);
+  __writeToAddress(resultPointer, 0); // ref count
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, length);
+  Integer cursor = resultPointer + _gcBlockStringData;
+  index = 0;
+  while (index < len(items)) {
+    String segment = items[index];
+    Integer segmentLength = _stringByteLength(segment);
+    if (segmentLength > 0) {
+      Integer segmentPointer = segment __as__ Integer;
+      _moveBytes(segmentPointer + _gcBlockStringData, cursor, segmentLength);
+      cursor += segmentLength;
+    }
+    if (index < len(items) - 1) {
+      if (joinerLength > 0) {
+        Integer joinerPointer = joiner __as__ Integer;
+        _moveBytes(joinerPointer + _gcBlockStringData, cursor, joinerLength);
+        cursor += joinerLength;
+      }
+    }
+    index += 1;
+  }
+  return resultPointer __as__ String;
+}
+
+String stringifyImplementation#(Anything arg) {
+  if (arg is String) {
+    return arg as String;
+  }
+  if (arg is Boolean) {
+    if (arg as Boolean) {
+      return 'true';
+    }
+    return 'false';
+  }
+  if (arg is Null) {
+    return 'null';
+  }
+  if (arg is Integer) {
+    return intToStr(arg as Integer);
+  }
+  if (arg is Object#) {
+    return (arg as Object#).toString();
+  }
+  if (arg is AnythingFunction) {
+    Integer func = arg __as__ Integer;
+    if (__readFromAddress(func + _subroutineReceiverPointer) != 0) {
+      Integer annotation = __readFromAddress(__readFromAddress(func + _subroutineCodePointer) - 8);
+      Object# class = (__readFromAddress(func + _subroutineReceiverPointer) __dynamic_as__ __readFromAddress(func + _subroutineReceiverType)) as Object#;
+      return concat('<function (method ', class.className, '.', annotation __as__ String, ')>');
+    }
+    Integer annotation = __readFromAddress(__readFromAddress(func + _subroutineCodePointer) - 8);
+    return concat('<function (', annotation __as__ String, ')>');
+  }
+  if (arg is StringList) {
+    return concat('[', join(arg as StringList, ', '), ']');
+  }
+  if (arg is WhateverList) {
+    StringList new = []:String;
+    WhateverList old = arg as WhateverList;
+    Integer i = 0;
+    while (i < len(old)) {
+      // TODO: beware infinite loops from cyclic references
+      append(new, stringify#(old[i]));
+      i += 1;
+    }
+    return concat('[', join(new, ', '), ']');
+  }
+  if (arg is StringBuffer) {
+    return '<StringBuffer>';
+  }
+  if (arg is __ListData) {
+    return '<__ListData>';
+  }
+  if (arg is ReifiedEnum#) {
+    return __readFromAddress(arg __as__ Integer + _enumTableNameOffset) __as__ String;
+  }
+  if (arg is EnumProperty#) {
+    return arg __as__ String;
+  }
+  stderr('value cannot be stringified:', __typeOf arg);
+  exit(1);
+}
+stringify# = stringifyImplementation#;
+
+String chr(Integer code) {
+  assert(code >= 0, 'invalid Unicode value');
+  assert(code <= 0x10FFFF, 'invalid Unicode value');
+  assert(code <= 255, 'Unicode unimplemented');
+  Integer resultPointer = _alloc(16 + 1);
+  __writeToAddress(resultPointer, 0); // ref count
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, 1); // length
+  __writeToAddress(resultPointer + _gcBlockStringData, code); // the character
+  return resultPointer __as__ String;
+}
+
+// Returns the integer representation of the Unicode Scalar Values in a String
+IntegerList scalarValues(String value) {
+  // This should decode UTF-8.
+  // For now we only support 8-bit character encodings.
+  IntegerList result = []:Integer;
+  Integer length = _stringByteLength(value);
+  Integer cursor = value __as__ Integer + _gcBlockStringData;
+  assert(cursor % 8 == 0, 'string is misaligned');
+  Integer end = cursor + length;
+  while (cursor < end) {
+    Integer code = __readFromAddress(cursor);
+    Integer shift = 0;
+    while (shift < 64 && cursor < end) {
+      append(result, (code >> shift) & 0xFF);
+      cursor += 1;
+      shift += 8;
+    }
+  }
+  return result;
+}
+
+// Returns the string representation of each extended grapheme cluster in a String
+StringList charsOf(String value) {
+  // This should use ICU's BreakIterator.
+  // For now we just return the string representation of each Unicode Scalar Value since we only support 8-bit encodings anyway.
+  StringList result = []:String;
+  Integer length = _stringByteLength(value);
+  Integer cursor = value __as__ Integer + _gcBlockStringData;
+  assert(cursor % 8 == 0, 'string is misaligned');
+  Integer end = cursor + length;
+  while (cursor < end) {
+    Integer code = __readFromAddress(cursor);
+    Integer shift = 0;
+    while (shift < 64 && cursor < end) {
+      append(result, chr((code >> shift) & 0xFF));
+      cursor += 1;
+      shift += 8;
+    }
+  }
+  return result;
+}
+
+String substring(String string, Integer start, Integer end) {
+  Integer stringPointer = string __as__ Integer;
+  Integer stringLength = __readFromAddress(stringPointer + _gcBlockHeaderLength);
+  if (start < 0) {
+    throw('negative start index in substring');
+  }
+  if (end < 0) {
+    throw('negative end index in substring');
+  }
+  if (end > stringLength) {
+    throw('end index past end of string in substring');
+  }
+  if (start > end) {
+    throw('start index past end index in substring');
+  }
+  Integer length = end - start;
+  if (length == 0) {
+    return '';
+  }
+  Integer resultPointer = _alloc(16 + length);
+  __writeToAddress(resultPointer, 0); // ref count
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, length);
+  _moveBytes(stringPointer + _gcBlockStringData + start, resultPointer + _gcBlockStringData, length);
+  return resultPointer __as__ String;
+}
+
+Boolean substringMatch#(String string, String pattern, Integer index) {
+  Integer stringPointer = string __as__ Integer;
+  Integer stringLength = __readFromAddress(stringPointer + _gcBlockHeaderLength);
+  Integer patternPointer = pattern __as__ Integer;
+  Integer patternLength = __readFromAddress(patternPointer + _gcBlockHeaderLength);
+  if (patternLength == 0) {
+    return true;
+  }
+  if (patternLength > stringLength - index) {
+    return false;
+  }
+  Integer cursor = index;
+  Boolean match = true;
+  Integer patternCursor = 0;
+  while (patternCursor < patternLength) {
+    Integer inputPart = __readFromAddress(stringPointer + _gcBlockStringData + cursor + patternCursor);
+    Integer patternPart = __readFromAddress(patternPointer + _gcBlockStringData + patternCursor);
+    if (patternLength - patternCursor < 8) {
+      // the next character is the lowest byte on little-endian systems
+      // on big-endian systems this would need to shift the other way
+      Integer mask = _allBits >> ((8 - (patternLength - patternCursor)) * 8);
+      inputPart &= mask;
+      patternPart &= mask;
+    }
+    if (inputPart != patternPart) {
+      return false;
+    }
+    patternCursor += 8;
+  }
+  return true;
+}
+
+Boolean containsString(String string, String pattern) {
+  // TODO: use a more efficient algorithm
+  Integer cursor = 0;
+  Integer end = _stringByteLength(string) - _stringByteLength(pattern) + 1;
+  while (cursor < end) {
+    if (substringMatch#(string, pattern, cursor)) {
+      return true;
+    }
+    cursor += 1;
+  }
+  return false;
+}
+
+//#ignore_unused
+StringList split(String input, String pattern) {
+  if (input == '') {
+    return ['']:String;
+  }
+  if (pattern == '') {
+    return copy(charsOf(input)) as StringList;
+  }
+  Integer length = _stringByteLength(input);
+  Integer patternLength = _stringByteLength(pattern);
+  StringList result = []:String;
+  Integer start = 0;
+  Integer index = 0;
+  while (index < length) {
+    if (substringMatch#(input, pattern, index)) {
+      append(result, substring(input, start, index));
+      index += patternLength;
+      start = index;
+    } else {
+      index += 1;
+    }
+  }
+  append(result, substring(input, start, index));
+  return result;
+}

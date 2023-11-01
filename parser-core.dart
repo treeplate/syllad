@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:io';
 
 import 'expressions.dart';
 import 'lexer.dart';
@@ -29,6 +30,7 @@ const Variable thisVariable = Variable("this");
 const Variable toStringVariable = Variable("toString");
 const Variable throwVariable = Variable("throw");
 const Variable stringBufferVariable = Variable("StringBuffer");
+const Variable fileVariable = Variable("File");
 
 Null handleVariable(Variable variable) {
   if (variables[variable.name] == null) {
@@ -368,7 +370,7 @@ class ValueWrapper<T extends Object?> {
   /// This function gets the type of the wrapper, and throws an error if the value wrapper is sentinel
   ValueType typeC(Scope? scope, List<LazyString> stack, int line, int col, String workspace, String filename) {
     if (canBeRead) {
-      return _type!;
+      return _type ?? (throw debugCreationDescription);
     } else {
       return valueC(scope, stack, line, col, workspace, filename) as ValueType;
     }
@@ -392,7 +394,7 @@ class ValueWrapper<T extends Object?> {
     }
   }
 
-  ValueWrapper(this._type, this._value, this.debugCreationDescription, [this.canBeRead = true]) : assert(_value.runtimeType != TA) {
+  ValueWrapper(this._type, this._value, this.debugCreationDescription, [this.canBeRead = true]) {
     assert(debugCreationDescription is! Variable);
     assert(_value is! ValueWrapper);
   }
@@ -409,27 +411,24 @@ class ValueWrapper<T extends Object?> {
   }
 }
 
-typedef TA = dynamic Function(List<ValueWrapper> args, List<LazyString>, [Scope?, ValueType?]);
-
-
 class ClassOfValueType extends ValueType {
   final ClassValueType classType;
   final TypeValidator staticMembers;
   final GenericFunctionValueType constructor;
 
-  bool isSubtypeOf(ValueType possibleParent) {
-    return super.isSubtypeOf(possibleParent) || (possibleParent is ClassOfValueType && classType.isSubtypeOf(possibleParent.classType));
+  bool _isSubtypeOf(ValueType possibleParent) {
+    return super._isSubtypeOf(possibleParent) || (possibleParent is ClassOfValueType && classType._isSubtypeOf(possibleParent.classType));
   }
 
   factory ClassOfValueType(ClassValueType classType, TypeValidator staticMembers, GenericFunctionValueType constructor, String file, TypeValidator tv) {
-    if(ValueType.types[variables['${classType.name.name}Class'] ??= Variable('${classType.name.name}Class')] != null) {
+    if (ValueType.types[variables['${classType.name.name}Class'] ??= Variable('${classType.name.name}Class')] != null) {
       return ValueType.types[variables['${classType.name.name}Class']!] as ClassOfValueType;
     }
     return ClassOfValueType.internal(classType, staticMembers, constructor, file, tv);
   }
 
   ClassOfValueType.internal(this.classType, this.staticMembers, this.constructor, String /*super.*/ file, TypeValidator tv)
-      : super.internal(anythingType, variables['${classType.name.name}Class']!, file, false, tv) ;
+      : super.internal(anythingType, variables['${classType.name.name}Class']!, file, false, tv);
 
   @override
   bool memberAccesible() {
@@ -477,7 +476,11 @@ class ValueType<T extends Object?> {
   final ValueType? parent;
   final Variable name;
 
+  static int currentId = 0;
+  late int id = currentId++;
+
   bool memberAccesible() {
+    // whether this is a valid reciever for member access
     return _memberAccesible;
   }
 
@@ -497,8 +500,18 @@ class ValueType<T extends Object?> {
     fileTypes[file] = (fileTypes[file] ?? 0) + 1;
     tv.types[variables['~type${name.name}'] ??= Variable('~type${name.name}')] = TVProp(false, this, false);
     tv.igv(variables['~type${name.name}']!, true);
+    assert(subtypeTable.length == id);
+    subtypeTable.add([]);
+    for (ValueType type in types.values) {
+      assert(type.id == subtypeTable[id].length);
+      subtypeTable[id].add(_isSubtypeOf(type));
+      if (type.id == id) continue;
+      assert(id == subtypeTable[type.id].length);
+      subtypeTable[type.id].add(type._isSubtypeOf(this));
+    }
   }
   static final Map<Variable, ValueType> types = {};
+  static final List<List<bool>> subtypeTable = []; // subtypeTable[a][b] is equivalent to a.isSubtypeOf(b)
   static ValueType create(ValueType? parent, Variable name, int line, int col, String workspace, String file, TypeValidator tv) {
     return createNullable(parent, name, file, tv) ??
         (throw BSCException("'${name.name}' type doesn't exist ${formatCursorPosition(line, col, workspace, file)}", NoDataVG()));
@@ -518,7 +531,7 @@ class ValueType<T extends Object?> {
         tv,
       );
       if (iterableOrNull == null) return null;
-      return IterableValueType<ValueWrapper>(
+      return IterableValueType<Object?>(
         iterableOrNull,
         file,
         tv,
@@ -546,7 +559,7 @@ class ValueType<T extends Object?> {
         tv,
       );
       if (listOrNull == null) return null;
-      return ListValueType<ValueWrapper>(
+      return ListValueType<Object?>(
         listOrNull,
         file,
         tv,
@@ -600,17 +613,28 @@ class ValueType<T extends Object?> {
     return basicTypes(name, parent, file, tv);
   }
 
-  bool isSubtypeOf(ValueType possibleParent) {
+  bool _isSubtypeOf(ValueType possibleParent) {
     return name == possibleParent.name ||
-        (parent != null && parent!.isSubtypeOf(possibleParent)) ||
+        (parent != null && parent!._isSubtypeOf(possibleParent)) ||
         name == whateverVariable ||
         possibleParent.name == whateverVariable ||
-        (name == nullType.name && possibleParent is NullableValueType) ||
-        (possibleParent is NullableValueType && isSubtypeOf(possibleParent.genericParam));
+        (possibleParent is NullableValueType && _isSubtypeOf(possibleParent.genericParam));
+  }
+
+  bool isSubtypeOf(ValueType possibleParent) {
+    return subtypeTable[id][possibleParent.id];
   }
 
   GenericFunctionValueType withReturnType(ValueType x, String file) {
     throw UnsupportedError("err");
+  }
+}
+
+class NullType extends ValueType<Null> {
+  NullType.internal(ValueType anythingType, TypeValidator tv) : super.internal(anythingType, variables['Null'] ??= Variable('Null'), 'interr', false, tv);
+
+  bool _isSubtypeOf(ValueType possibleParent) {
+    return possibleParent is NullableValueType || super._isSubtypeOf(possibleParent);
   }
 }
 
@@ -622,9 +646,10 @@ ValueType? basicTypes(Variable name, ValueType? parent, String file, TypeValidat
       if (ValueType.types[name] != null) return ValueType.types[name];
       return ValueType.internal(parent, name, file, name == whateverVariable, tv);
     default:
-    if(name == sentinel) {
-      if (ValueType.types[name] != null) return ValueType.types[name];
-      return ValueType.internal(parent, name, file, name == whateverVariable, tv);}
+      if (name == sentinel) {
+        if (ValueType.types[name] != null) return ValueType.types[name];
+        return ValueType.internal(parent, name, file, name == whateverVariable, tv);
+      }
       return null;
   }
 }
@@ -639,8 +664,8 @@ class NullableValueType<T> extends ValueType<T?> {
         NullableValueType.internal(genericParam, file, tv)) as NullableValueType<T>;
   }
 
-  bool isSubtypeOf(ValueType other) {
-    return super.isSubtypeOf(other) || (other is NullableValueType && genericParam.isSubtypeOf(other.genericParam));
+  bool _isSubtypeOf(ValueType other) {
+    return super._isSubtypeOf(other) || (other is NullableValueType && genericParam._isSubtypeOf(other.genericParam));
   }
 }
 
@@ -681,10 +706,10 @@ class GenericFunctionValueType<T> extends ValueType<SydFunction<T>> {
         GenericFunctionValueType<T>.internal(returnType, file, tv)) as GenericFunctionValueType<T>;
   }
   @override
-  bool isSubtypeOf(final ValueType possibleParent) {
-    return super.isSubtypeOf(possibleParent) ||
+  bool _isSubtypeOf(final ValueType possibleParent) {
+    return super._isSubtypeOf(possibleParent) ||
         ((possibleParent is GenericFunctionValueType && (this is! FunctionValueType || possibleParent is! FunctionValueType)) &&
-            returnType.isSubtypeOf(possibleParent.returnType));
+            returnType._isSubtypeOf(possibleParent.returnType));
   }
 
   GenericFunctionValueType withReturnType(ValueType rt, String file) {
@@ -692,52 +717,51 @@ class GenericFunctionValueType<T> extends ValueType<SydFunction<T>> {
   }
 }
 
-class IterableValueType<T extends ValueWrapper> extends ValueType<Iterable<T>> {
+class IterableValueType<T> extends ValueType<Iterable<ValueWrapper<T>>> {
   IterableValueType.internal(this.genericParameter, String file, TypeValidator tv)
       : super.internal(anythingType, variables["${genericParameter}Iterable"] ??= Variable("${genericParameter}Iterable"), file, false, tv);
-  factory IterableValueType(ValueType genericParameter, String file, TypeValidator tv) {
+  factory IterableValueType(ValueType<T> genericParameter, String file, TypeValidator tv) {
     return ValueType.types[variables["${genericParameter}Iterable"] ??= Variable("${genericParameter}Iterable")] as IterableValueType<T>? ??
         IterableValueType<T>.internal(genericParameter, file, tv);
   }
-  final ValueType genericParameter;
+  final ValueType<T> genericParameter;
   @override
-  bool isSubtypeOf(ValueType possibleParent) {
-    return super.isSubtypeOf(possibleParent) ||
-        (possibleParent is IterableValueType && genericParameter.isSubtypeOf(possibleParent.genericParameter));
+  bool _isSubtypeOf(ValueType possibleParent) {
+    return super._isSubtypeOf(possibleParent) || (possibleParent is IterableValueType && genericParameter._isSubtypeOf(possibleParent.genericParameter));
   }
 }
 
-class IteratorValueType<T extends ValueWrapper> extends ValueType<Iterator<T>> {
+class IteratorValueType<T> extends ValueType<Iterator<ValueWrapper<T>>> {
   IteratorValueType.internal(this.genericParameter, String file, TypeValidator tv)
       : super.internal(anythingType, variables["${genericParameter}Iterator"] ??= Variable("${genericParameter}Iterator"), file, false, tv);
-  factory IteratorValueType(ValueType genericParameter, String file, TypeValidator tv) {
+  factory IteratorValueType(ValueType<T> genericParameter, String file, TypeValidator tv) {
     return ValueType.types[variables["${genericParameter}Iterator"] ??= Variable("${genericParameter}Iterator")] as IteratorValueType<T>? ??
         IteratorValueType<T>.internal(genericParameter, file, tv);
   }
-  final ValueType genericParameter;
+  final ValueType<T> genericParameter;
   @override
-  bool isSubtypeOf(ValueType possibleParent) {
-    return super.isSubtypeOf(possibleParent) || (possibleParent is IteratorValueType && genericParameter.isSubtypeOf(possibleParent.genericParameter));
+  bool _isSubtypeOf(ValueType possibleParent) {
+    return super._isSubtypeOf(possibleParent) || (possibleParent is IteratorValueType && genericParameter._isSubtypeOf(possibleParent.genericParameter));
   }
 }
 
-class ListValueType<T extends ValueWrapper> extends ValueType<List<T>> {
+class ListValueType<T> extends ValueType<List<ValueWrapper<T>>> {
   ListValueType.internal(this.genericParameter, String file, TypeValidator tv)
       : super.internal(anythingType, variables["${genericParameter}List"] ??= Variable("${genericParameter}List"), file, false, tv);
   late Variable name = variables["${genericParameter}List"] ??= Variable("${genericParameter}List");
-  factory ListValueType(ValueType genericParameter, String file, TypeValidator tv) {
+  factory ListValueType(ValueType<T> genericParameter, String file, TypeValidator tv) {
     return ValueType.types[variables["${genericParameter}List"] ??= Variable("${genericParameter}List")] as ListValueType<T>? ??
         ListValueType<T>.internal(genericParameter, file, tv);
   }
-  final ValueType genericParameter;
+  final ValueType<T> genericParameter;
   @override
-  bool isSubtypeOf(ValueType possibleParent) {
+  bool _isSubtypeOf(ValueType possibleParent) {
     return name == possibleParent.name ||
-        (parent != null && parent!.isSubtypeOf(possibleParent)) ||
+        (parent != null && parent!._isSubtypeOf(possibleParent)) ||
         (possibleParent is IterableValueType && genericParameter == possibleParent.genericParameter) ||
         (possibleParent is ArrayValueType && genericParameter == possibleParent.genericParameter) ||
         (possibleParent is ListValueType && genericParameter == possibleParent.genericParameter) ||
-        (possibleParent is NullableValueType && isSubtypeOf(possibleParent.genericParam));
+        (possibleParent is NullableValueType && _isSubtypeOf(possibleParent.genericParam));
   }
 }
 
@@ -751,12 +775,12 @@ class ArrayValueType<T extends ValueWrapper> extends ValueType<List<T>> {
   }
   final ValueType genericParameter;
   @override
-  bool isSubtypeOf(ValueType possibleParent) {
+  bool _isSubtypeOf(ValueType possibleParent) {
     return name == possibleParent.name ||
-        (parent != null && parent!.isSubtypeOf(possibleParent)) ||
+        (parent != null && parent!._isSubtypeOf(possibleParent)) ||
         (possibleParent is IterableValueType && genericParameter == possibleParent.genericParameter) ||
         (possibleParent is ArrayValueType && genericParameter == possibleParent.genericParameter) ||
-        (possibleParent is NullableValueType && isSubtypeOf(possibleParent.genericParam));
+        (possibleParent is NullableValueType && _isSubtypeOf(possibleParent.genericParam));
   }
 }
 
@@ -787,6 +811,15 @@ class StatementResult {
 }
 
 class LazyString {}
+
+class Concat {
+  final Object? left;
+  final Object? right;
+
+  String toString() => left.toString() + right.toString();
+
+  Concat(this.left, this.right);
+}
 
 class NotLazyString extends LazyString {
   final String str;
@@ -998,14 +1031,14 @@ class FunctionValueType<T extends Object?> extends GenericFunctionValueType<T> {
         FunctionValueType<T>.internal(returnType, parameters, file, tv);
   }
   @override
-  bool isSubtypeOf(ValueType possibleParent) {
-    if (super.isSubtypeOf(possibleParent)) {
+  bool _isSubtypeOf(ValueType possibleParent) {
+    if (super._isSubtypeOf(possibleParent)) {
       return true;
     }
     if (possibleParent is! FunctionValueType) {
       return false;
     }
-    if (!returnType.isSubtypeOf(possibleParent.returnType)) {
+    if (!returnType._isSubtypeOf(possibleParent.returnType)) {
       return false;
     }
     if (possibleParent.parameters is InfiniteIterable || parameters is InfiniteIterable) {
@@ -1015,9 +1048,17 @@ class FunctionValueType<T extends Object?> extends GenericFunctionValueType<T> {
     }
     int i = 0;
     return possibleParent.parameters.every(
-      (element) => element.isSubtypeOf(parameters.elementAt(i++)),
+      (element) => element._isSubtypeOf(parameters.elementAt(i++)),
     );
   }
+}
+
+class SydFile {
+  final RandomAccessFile file;
+  final bool appendMode;
+  bool used = false;
+
+  SydFile(this.file, this.appendMode);
 }
 
 late final ValueType anythingType;
@@ -1027,6 +1068,7 @@ late final ValueType<bool> booleanType;
 late final ValueType<Null> nullType;
 late final ValueType<Scope> rootClassType;
 late final ValueType<StringBuffer> stringBufferType;
+late final ValueType<SydFile> fileType;
 
 List<T> parseArgList<T>(TokenIterator tokens, T Function(TokenIterator) parseArg) {
   tokens.expectChar(TokenType.openParen);
@@ -1079,8 +1121,7 @@ class InfiniteIterable<E> implements Iterable<E> {
 
   @override
   bool every(bool Function(E element) test) {
-    // waiting for someone to use
-    throw UnimplementedError();
+    return test(value);
   }
 
   @override

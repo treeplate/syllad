@@ -32,58 +32,58 @@
 //      8 bytes enum value (pointer to enum value name)
 
 //#ignore_unused
-Integer _blockEntrySize = 8; // stride size in block entry list
+const Integer _blockEntrySize = 8; // stride size in block entry list
 
-Integer _gcBlockHeaderRefCount = 0 * 8;
-Integer _gcBlockHeaderLength = 1 * 8;
+const Integer _gcBlockHeaderRefCount = 0 * 8;
+const Integer _gcBlockHeaderLength = 1 * 8;
 //#ignore_unused
-Integer _gcBlockStringData = 2 * 8;
+const Integer _gcBlockStringData = 2 * 8;
 //#ignore_unused
-Integer _gcBlockHeaderScratchSpace = 2 * 8; // for completeness
+const Integer _gcBlockHeaderScratchSpace = 2 * 8; // for completeness
 //#ignore_unused
-Integer _gcBlockHeaderEntryPointer = 3 * 8; // for completeness
-Integer _gcBlockData = 4 * 8;
+const Integer _gcBlockHeaderEntryPointer = 3 * 8; // for completeness
+const Integer _gcBlockData = 4 * 8;
 //#ignore_unused
-Integer _listBlockSize = _gcBlockData + 0 * 16 + 8; // for completeness
-Integer _listBlockData = _gcBlockData + 1 * 16 + 8;
+const Integer _listBlockSize = _gcBlockData + 0 * 16 + 8; // for completeness
+const Integer _listBlockData = _gcBlockData + 1 * 16 + 8;
 
-Integer _subroutineReceiverType = _gcBlockData + 0 * 16;
-Integer _subroutineReceiverPointer = _gcBlockData + 0 * 16 + 8;
+const Integer _subroutineReceiverType = _gcBlockData + 0 * 16;
+const Integer _subroutineReceiverPointer = _gcBlockData + 0 * 16 + 8;
 //#ignore_unused
-Integer _subroutineClosureType = _gcBlockData + 1 * 16; // either sentinel or internal closure type
-Integer _subroutineClosurePointer = _gcBlockData + 1 * 16 + 8;
-Integer _subroutineCodeType = _gcBlockData + 2 * 16; // for completeness, always code address type
-Integer _subroutineCodePointer = _gcBlockData + 2 * 16 + 8;
-
-//#ignore_unused
-Integer _vmtTypeCode = 0x00;
-//#ignore_unused
-Integer _vmtFieldCount = 0x08;
-//#ignore_unused
-Integer _vmtClassName = 0x10;
-//#ignore_unused
-Integer _vmtParent = 0x18;
-//#ignore_unused
-Integer _vmtDynamicDispatchTable = 0x20;
-//#ignore_unused
-Integer _vmtMethods = 0x28;
-
-Integer _vmtHeaderFieldCount = 5; // number of 64 bit header fields before the actual virtual method table
-
-Integer _fieldVmt = _gcBlockData + 0x00;
-//#ignore_unused
-Integer _fieldClassName = _gcBlockData + 0x10;
-//#ignore_unused
-Integer _fieldsRemainder = _gcBlockData + 0x20;
+const Integer _subroutineClosureType = _gcBlockData + 1 * 16; // either sentinel or internal closure type
+const Integer _subroutineClosurePointer = _gcBlockData + 1 * 16 + 8;
+const Integer _subroutineCodeType = _gcBlockData + 2 * 16; // for completeness, always code address type
+const Integer _subroutineCodePointer = _gcBlockData + 2 * 16 + 8;
 
 //#ignore_unused
-Integer _enumTableNameOffset = 0x00;
+const Integer _vmtTypeCode = 0x00;
 //#ignore_unused
-Integer _enumTableLengthOffset = 0x08;
+const Integer _vmtFieldCount = 0x08;
 //#ignore_unused
-Integer _enumTableEntryTypeOffset = 0x10; // only present if length is non-zero
+const Integer _vmtClassName = 0x10;
 //#ignore_unused
-Integer _enumTableFirstEntryOffset = 0x18; // length (atom code, string pointer) pairs
+const Integer _vmtParent = 0x18;
+//#ignore_unused
+const Integer _vmtDynamicDispatchTable = 0x20;
+//#ignore_unused
+const Integer _vmtMethods = 0x28;
+
+const Integer _vmtHeaderFieldCount = 5; // number of 64 bit header fields before the actual virtual method table
+
+const Integer _fieldVmt = _gcBlockData + 0x00;
+//#ignore_unused
+const Integer _fieldClassName = _gcBlockData + 0x10;
+//#ignore_unused
+const Integer _fieldsRemainder = _gcBlockData + 0x20;
 
 //#ignore_unused
-Integer _allBits = -1; // 0xFFFFFFFFFFFFFFFF
+const Integer _enumTableNameOffset = 0x00;
+//#ignore_unused
+const Integer _enumTableLengthOffset = 0x08;
+//#ignore_unused
+const Integer _enumTableEntryTypeOffset = 0x10; // only present if length is non-zero
+//#ignore_unused
+const Integer _enumTableFirstEntryOffset = 0x18; // length (atom code, string pointer) pairs
+
+//#ignore_unused
+const Integer _allBits = -1; // 0xFFFFFFFFFFFFFFFF

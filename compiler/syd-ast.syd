@@ -451,7 +451,7 @@ class MemberAccessExpression extends LValueExpression {
       }
       throw(concat('Enum "', enum.name, '" does not have a value "', member, '", as used at ', sourceLocation));
     }
-    if (lBucket.staticType.isSubtypeOf(environment.lookupIntrinsicClass(environment.coreClassTypeIntrinsicName)) || 
+    if (lBucket.staticType.isSubtypeOf(environment.lookupIntrinsicClass(environment.coreClassTypeIntrinsicName, sourceLocation)) || 
         lBucket.staticType.isSubtypeOf(environment.coreRootReifiedEnumType)) {
       Integer memberId = scope.environment().atomizeForDynamicDispatch(member);
       return scope.emitIntrinsicCall(scope.environment().dynamicLookupIntrinsicName, [ lBucket, scope.environment().integer(memberId) ]:Bucket);
@@ -476,10 +476,10 @@ CompiledSubroutine evaluateSuper(CompiledScope scope, String method, SourceLocat
     throw(concat('Super expression used in function instead of method at ', sourceLocation));
   }
   if (hostClass!.supertype == hostClass) {
-    assert(hostClass!.supertype == scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName), 'unexpected other root class');
+    assert(hostClass!.supertype == scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName, sourceLocation), 'unexpected other root class');
     throw(concat('Super expression used in internal base class at ', sourceLocation));
   }
-  if (hostClass!.supertype == scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName)) {
+  if (hostClass!.supertype == scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName, sourceLocation)) {
     throw(concat('Super expression used in base class at ', sourceLocation));
   }
   ClassType superclass = hostClass!.supertype;
@@ -1762,6 +1762,49 @@ class FieldDeclarationStatement extends Statement {
   }
 }
 
+class ConstantDeclarationStatement extends Statement {
+  String identifier;
+  TypeIdentifier type;
+  Expression rValue;
+  
+  //#override
+  String toStringIndent(Integer indent) {
+    return concat('const ', type.toStringIndent(indent), ' ', identifier, ' = ', rValue.toStringIndent(indent), ';\n');
+  }
+  
+  //#override
+  Null generateInstructions(CompiledScope scope) {
+    Type staticType = type.lookup(scope.globalScope(), true);
+    if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
+      throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
+    }
+    Bucket rhs = rValue.generateInstructions(scope);
+    if (!rhs.staticType.isSubtypeOf(staticType)) {
+      throw(concat('Cannot assign ', rhs.staticType.name, ' to variable of type ', staticType.name, ' at ', sourceLocation));
+    }
+    ConstantBucketNullable rhsConstant = rhs.asConstant();
+    if (rhsConstant != null) {
+      scope.registerConstant(identifier, rhsConstant!);
+    } else {
+      scope.emit(TypeCheckInstruction(
+        rhs, 
+        staticType, 
+        'type mismatch in assignment.', 
+        true, 
+        LazyComment('check type of variable initializer (', rhs, ')'), // TODO: more detailed error message
+      ));
+      scope.registerImmutableValue(identifier, rhs);
+    }
+  }
+
+  Null constructor(TypeIdentifier typeArg, String identifierArg, Expression rValueArg, SourceLocation sourceLocationArg) {
+    super.constructor(sourceLocationArg);
+    type = typeArg;
+    identifier = identifierArg;
+    rValue = rValueArg;
+  }
+}
+
 class VariableDeclarationStatement extends Statement {
   String identifier;
   TypeIdentifier type;
@@ -2121,7 +2164,7 @@ class AbstractClassDeclaration extends Statement {
       }
       superclass = null;
     } else if (superclassName == null) {
-      superclass = scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName);
+      superclass = scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName, sourceLocation);
     } else {
       superclass = superclassName!.lookup(scope.globalScope(), false);
     }
@@ -2174,7 +2217,7 @@ class ForwardClassDeclaration extends AbstractClassDeclaration {
       append(buffer, superclassName!.toStringIndent(indent));
     }
     if (isIntrinsic) {
-      append(buffer, ' __intrinsic');
+      append(buffer, ' intrinsic#');
     }
     append(buffer, ';\n');
     return joinList(buffer);
@@ -2207,15 +2250,15 @@ class ForwardClassDeclaration extends AbstractClassDeclaration {
     if (superclassName != null) {
       supertype = superclassName!.lookup(scope.globalScope(), true) as ClassType;
     } else {
-      supertype = scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName);
+      supertype = scope.environment().lookupIntrinsicClass(scope.environment().coreClassTypeIntrinsicName, sourceLocation);
     }
     if (classType!.supertype != supertype) {
       if (supertype == classType) {
-        // we (the forward declaration) expected the supertype to be the same as our declared type, i.e., that this is __Object
+        // we (the forward declaration) expected the supertype to be the same as our declared type, i.e., that this is Object#
         // but when it was actually defined, this did not turn out to be the case, so it must have had some other supertype declared
         throw(concat('Class ', classType!.name, ' has supertype (', classType!.supertype.name, ') but forward-declaration had no supertype at ', sourceLocation));
       } else if (classType!.supertype == classType) {
-        // the actual defined type did not have an "extends" clause (implied or otherwise), i.e., it was __Object.
+        // the actual defined type did not have an "extends" clause (implied or otherwise), i.e., it was Object#.
         // however, this forward declaration did have a declared supertype.
         throw(concat('Class ', classType!.name, ' has no supertype, but forward-declaration has a supertype (', supertype.name, ') at ', sourceLocation));
       } else {
@@ -2252,7 +2295,7 @@ class ClassDeclaration extends AbstractClassDeclaration {
       append(buffer, superclassName!.toStringIndent(indent));
     }
     if (isIntrinsic) {
-      append(buffer, ' __intrinsic');
+      append(buffer, ' intrinsic#');
     }
     append(buffer, ' {\n');
     for (member in members) {
@@ -2311,7 +2354,7 @@ class ClassDeclaration extends AbstractClassDeclaration {
       }
     } else {
       if (classType.supertype == classType) {
-        // this must be the __Object definition
+        // this must be the Object# definition
         throw(concat('Base class must have an explicit constructor but has none at ', sourceLocation));
       }
       throw(concat('Class attempts to extend a forward-declared (but not yet defined) class at ', sourceLocation));
@@ -2330,7 +2373,7 @@ class ClassDeclaration extends AbstractClassDeclaration {
     classType.markAsDefined();
     if (!classType.supertype.isDefined) {
       if (superclassName == null) {
-        throw(concat('Class defined before __Object is defined at ', sourceLocation));
+        throw(concat('Class defined before Object# is defined at ', sourceLocation));
       }
       assert(superclassName != null, 'we were not defined');
       throw(concat('Cannot extend a class that has not yet been defined at ', superclassName!.sourceLocation));

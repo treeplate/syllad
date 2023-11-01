@@ -1,0 +1,9 @@
+// expected output: Hello
+
+String init() {
+  return 'Hello';
+}
+
+const String message = init();
+
+println(message);

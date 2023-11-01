@@ -1,0 +1,234 @@
+// RUNTIME LIBRARY - MEMORY ROUTINES
+
+import 'syd-rtl-system.syd';
+import 'syd-constants.syd';
+
+Integer getProcessHeap#() __extern 'kernel32.lib' 'GetProcessHeap';
+Integer heapAlloc#(Integer hHeap, Integer dwFlags, Integer dwBytes) __extern 'kernel32.lib' 'HeapAlloc';
+
+Integer heapHandle# = getProcessHeap#();
+
+// Number of calls to alloc minus number of calls to free.
+Integer _blockCount = 0; // publicly visible for testing and debugging only
+
+NullFunction _garbageCollector; // publicly visible for testing and debugging only
+
+// The number of times this file will call _alloc and not _free on startup 
+Integer _rtlInitialBlockCount = 3; // publicly visible for testing and debugging only
+
+// The number of GC blocks at the end of this file.
+Integer _rtlInitialLiveBlocks = 2; // publicly visible for testing and debugging only
+
+/// Allocates a block on the heap.
+///
+/// Block must be freed with [_free].
+///
+/// Blocks are always 8-byte aligned.
+Integer _alloc(Integer size) {
+  Integer alignedSize = size + (size % 8);
+  Integer pointer = heapAlloc#(heapHandle#, 0x00, alignedSize);
+  if (pointer > 0) {
+    _blockCount += 1;
+    return pointer;
+  }
+  _garbageCollector();
+  pointer = heapAlloc#(heapHandle#, 0x00, alignedSize);
+  if (pointer > 0) {
+    _blockCount += 1;
+    return pointer;
+  }
+  stderr('Out of memory.');
+  exit(1);
+}
+
+Integer _scratch = _alloc(8); // used as scratch space for out parameters of Win32 API functions
+
+/// returns positive for success, zero for failure
+Integer heapFree#(Integer hHeap, Integer dwFlags, Integer lpMem) __extern 'kernel32.lib' 'HeapFree';
+
+/// Frees a heap allocation obtained from [_alloc].
+Null _free(Integer pointer) intrinsic# {
+  _blockCount -= 1;
+  if (heapFree#(heapHandle#, 0x00, pointer) == 0) {
+    stderr('failed to free pointer, error code:', _getLastError());
+    exit(1);
+  }
+}
+
+Null _moveBytes(Integer from, Integer to, Integer length) {
+  // TODO: move this to inlined assembler (using the string-copy instructions) for performance
+  // (or optimize the compiler enough that it generates good code somehow!)
+  assert(length > 0, '_moveBytes expects positive number of bytes to copy');
+  Integer fromCursor = from;
+  Integer toCursor = to;
+  Integer end = from + (length / 8) * 8;
+  assert(fromCursor != end || length < 8, 'inconsistency');
+  assert(fromCursor != end || length > 0, 'inconsistency');
+  while (fromCursor < end) {
+    Integer value = __readFromAddress(fromCursor);
+    __writeToAddress(toCursor, value);
+    fromCursor += 8;
+    toCursor += 8;
+  }
+  end = from + length;
+  assert((fromCursor < end) || (from < fromCursor), 'no moves on either side');
+  if (fromCursor < end) {
+    Integer newValue = __readFromAddress(fromCursor);
+    Integer oldValue = __readFromAddress(toCursor);
+    Integer extraBytes = end - fromCursor;
+    assert(extraBytes > 0, 'internal error: zero extra bytes but fromCursor is before end');
+    assert(extraBytes < 8, 'internal error: more than 7 extra bytes');
+    Integer mask = _allBits << (extraBytes * 8);
+    Integer finalValue = (newValue & ~mask) | (oldValue & mask);
+    __writeToAddress(toCursor, finalValue);
+  }
+}
+
+// length is in bytes
+Null _fillQuadWords(Integer destination, Integer length, Integer value) {
+  // TODO: is there an x64 intrinsic that does this faster?
+  assert(length > 0, '_fillQuadWords expects positive number of bytes to fill');
+  assert(length % 8 == 0, '_fillQuadWords expects number of bytes to fill to be a multiple of 8');
+  Integer cursor = destination;
+  Integer end = destination + length;
+  while (cursor < end) {
+    __writeToAddress(cursor, value);
+    cursor += 8;
+  }
+}
+
+
+// GARBAGE COLLECTION
+
+// Allocated blocks that participate in garbage collection are a subtype of GarbageCollectable.
+// We have a list for every allocated GarbageCollectable block (list starts at blockListStart#).
+// Each allocated GarbageCollectable block has the same header (each line is 64 bits):
+//
+//   ref count (number of known references from stack)
+//   length N
+//   scratch space (used by GC, can otherwise be ignored)
+//   block entry (pointer into block list, minus blockListStart#)
+//
+// After this there are N fields, which are type/value pairs (64 bit type codes, 64 bit values)
+// which the garbage collector can walk to find all references.
+
+Integer _gcLocked = 0; // when non-zero, GC cannot happen // publicly visible for testing and debugging only
+Integer blockListStart#; // start of allocation list
+Integer blockListEnd#; // end of allocation list
+Integer blockListNext#; // next allocation entry
+Integer _debugLiveBlocks = 0; // publicly visible for testing and debugging only
+
+Null blockListInit#(Integer initialCount) {
+  _gcLocked += 1;
+  Integer initialSize = initialCount * _blockEntrySize;
+  blockListStart# = _alloc(initialSize);
+  blockListEnd# = blockListStart# + initialSize;
+  blockListNext# = blockListStart#;
+  _fillQuadWords(blockListStart#, initialSize, 0);
+  _gcLocked -= 1;
+}
+
+blockListInit#(1024);
+
+Null growBlockList#() {
+  assert(_gcLocked > 0, 'growBlockList# called without _gcLocked set');
+  Integer oldLength = blockListEnd# - blockListStart#;
+  Integer newLength = oldLength * 2;
+  Integer newBlock = _alloc(newLength); // TODO: use realloc instead
+  _moveBytes(blockListStart#, newBlock, oldLength);
+  _fillQuadWords(newBlock + oldLength, oldLength, 0);
+  _free(blockListStart#);
+  blockListStart# = newBlock;
+  blockListNext# = newBlock + oldLength;
+  blockListEnd# = newBlock + newLength;
+}
+
+Null advanceToNextBlock#() {
+  assert(_gcLocked > 0, 'advanceToNextBlock# called without _gcLocked set');
+  Integer last = blockListNext#;
+  while (true) {
+    Integer pointer = __readFromAddress(blockListNext#);
+    if (pointer == 0) {
+      // found a free slot
+      return;
+    }
+    blockListNext# += _blockEntrySize;
+    if (blockListNext# == last) {
+      // looped all the way around, need to grow the list
+      growBlockList#();
+      return;
+    }
+    if (blockListNext# == blockListEnd#) {
+      blockListNext# = blockListStart#;
+    }
+  }
+}
+
+GarbageCollectable _constructor(Integer typeCode, Integer length, Integer size) {
+  assert(_gcLocked > 0, '_constructor called without _gcLocked set');
+  assert(size >= length, 'length cannot be bigger than size');
+  Integer resultPointer = _alloc(64 + 16 * size);
+  __writeToAddress(resultPointer + _gcBlockHeaderRefCount, 0); // ref count
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, length); // length
+  __writeToAddress(resultPointer + _gcBlockHeaderScratchSpace, 0); // scratch space
+  __writeToAddress(resultPointer + _gcBlockHeaderEntryPointer, blockListNext# - blockListStart#); // block pointer
+  __writeToAddress(blockListNext#, resultPointer);
+  advanceToNextBlock#();
+  _debugLiveBlocks += 1;
+  return (resultPointer __dynamic_as__ typeCode) as GarbageCollectable;
+}
+
+Null mark#(Integer pointer, Integer tag) {
+  Integer blockScratchSpace = __readFromAddress(pointer + _gcBlockHeaderScratchSpace);
+  if (blockScratchSpace == tag) {
+    return;
+  }
+  __writeToAddress(pointer + _gcBlockHeaderScratchSpace, tag);
+  Integer blockLength = __readFromAddress(pointer + _gcBlockHeaderLength);
+  Integer cursor = pointer + _gcBlockData;
+  Integer end = cursor + blockLength * 16;
+  while (cursor < end) {
+    Whatever value = __readFromAddress(cursor + 8) __dynamic_as__ __readFromAddress(cursor + 0);
+    if (value is GarbageCollectable) {
+      mark#(value __as__ Integer, tag);
+    }
+    cursor += 16;
+  }
+}
+
+Integer currentTag# = 0;
+
+Null garbageCollectorImplementation#() {
+  if (_gcLocked > 0) {
+    return;
+  }
+  _gcLocked += 1;
+  currentTag# += 1;
+  Integer cursor = blockListStart#;
+  while (cursor < blockListEnd#) {
+    Integer pointer = __readFromAddress(cursor);
+    if (pointer != 0) {
+      Integer blockRefCount = __readFromAddress(pointer + _gcBlockHeaderRefCount);
+      assert(blockRefCount >= 0, 'Reference count underflow.');
+      if (blockRefCount != 0) {
+        mark#(pointer, currentTag#);
+      }
+    }
+    cursor += _blockEntrySize;
+  }
+  while (cursor > blockListStart#) {
+    cursor -= _blockEntrySize;
+    Integer pointer = __readFromAddress(cursor);
+    if (pointer != 0) {
+      Integer blockScratchSpace = __readFromAddress(pointer + _gcBlockHeaderScratchSpace);
+      if (blockScratchSpace != currentTag#) {
+        // destructor:
+        _free(pointer);
+        __writeToAddress(cursor, 0);
+        _debugLiveBlocks -= 1;
+      }
+    }
+  }
+  _gcLocked -= 1;
+}
+_garbageCollector = garbageCollectorImplementation#;

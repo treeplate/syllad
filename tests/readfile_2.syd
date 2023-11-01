@@ -1,0 +1,47 @@
+// expected output: PASS
+
+String filename = 'test.$$$';
+
+assert(fileModeRead == 0, concat('failure on line ', LINE));
+assert(fileModeWrite == 1, concat('failure on line ', LINE));
+assert(fileModeAppend == 2, concat('failure on line ', LINE));
+
+if (fileExists(filename)) {
+  deleteFile(filename);
+}
+
+Null checkFile(String filename, String expect) {
+  File f = openFile(filename, fileModeRead);
+  String actual = readFile(f);
+  assert(actual == expect, concat('expected "', expect, '" but got "', actual, '"'));
+  closeFile(f);
+}
+
+// interleaved read and write
+File f1 = openFile(filename, fileModeAppend);
+writeFile(f1, 'ABC');
+writeFile(f1, 'DEF');
+writeFile(f1, 'GHI');
+closeFile(f1);
+checkFile(filename, 'ABCDEFGHI');
+
+File f2 = openFile(filename, fileModeAppend);
+writeFile(f2, 'JKL');
+closeFile(f2);
+checkFile(filename, 'ABCDEFGHIJKL');
+
+File f3 = openFile(filename, fileModeAppend);
+writeFile(f3, 'MNO');
+closeFile(f3);
+checkFile(filename, 'ABCDEFGHIJKLMNO');
+
+File f4 = openFile(filename, fileModeWrite);
+writeFile(f4, 'PQR');
+closeFile(f4);
+checkFile(filename, 'PQR');
+
+assert(fileExists(filename), concat('fail on line ', LINE));
+deleteFile(filename);
+assert(!fileExists(filename), concat('fail on line ', LINE));
+
+println('PASS');

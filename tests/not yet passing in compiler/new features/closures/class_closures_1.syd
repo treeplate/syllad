@@ -1,0 +1,39 @@
+// expected output: 2
+// expected output: 3
+// expected output: 4 1
+// expected output: 5 1
+// expected output: 7 2
+// expected output: 6 2
+// expected output: 9 3
+// expected output: 8 3
+// expected output: 9
+
+class Foo {
+  Integer a;
+  NullFunction method() {
+    a += 1;
+    println(a);
+    Integer b = 0;
+    Null closure() {
+      a += 2;
+      b += 1;
+      println(this.a, b);
+    }
+    return closure;
+  }
+  Null constructor(Integer arg) {
+    a = arg;
+  }
+}
+
+Foo foo1 = Foo(1);
+Foo foo2 = Foo(2);
+NullFunction closure1 = foo1.method();
+NullFunction closure2 = foo2.method();
+closure1();
+closure2();
+closure2();
+closure1();
+closure2();
+closure1();
+foo1.method();

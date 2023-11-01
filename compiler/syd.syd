@@ -65,7 +65,11 @@ Library processFile(String filename, MapNullable librariesArg, Boolean isProgram
   }
   assert(libraries.get(filename) == null, concat('tried to process ', filename, ' twice'));
   stderr(concat('  ', filename));
-  Library ast = parseTokens(tokenize(scalarValues(readFile(filename)), filename, isInternal), filename, isProgram);
+  if (!fileExists(filename)) {
+    stderr(concat('File "', filename, '" not found.'));
+    exit(1);
+  }
+  Library ast = parseTokens(tokenize(scalarValues(readFile(openFile(filename, fileModeRead))), filename, isInternal), filename, isProgram);
   libraries.set(filename, true);
   for (child in ast.children) {
     if (child is ImportStatement) {
@@ -75,6 +79,9 @@ Library processFile(String filename, MapNullable librariesArg, Boolean isProgram
       if (sublibrary == true) {
         throw(concat('Import loop at ', child.sourceLocation));
       } else if (sublibrary == null) {
+        if (!fileExists(node.resolvedPath)) {
+          throw(concat('Import specifies a non-existent file "', node.resolvedPath, '" at ', node.sourceLocation));
+        }
         node.setResolvedLibrary(processFile(node.resolvedPath, libraries, false, isInternal));
       } else {
         node.setResolvedLibrary(sublibrary as Library);
@@ -108,6 +115,7 @@ appendAll(libraries, program.generateLibraryScope(compilationEnvironment));
 
 stderr('declareTypes...');
 for (library in libraries) {
+  stderr(concat('  ', library.name));
   library.declareTypes(library.library!);
 }
 

@@ -1,0 +1,37 @@
+// expected output: 0
+// expected output: -1
+// expected output: -2
+// expected output: 0
+// expected output: 1
+// expected output: 1
+// expected output: -1
+// expected output: 0
+// expected output: 2
+
+IntegerFunctionFunction func() {
+  Integer foo = 0;
+  IntegerFunction outerClosure() {
+    foo += 1;
+    Integer bar = -foo;
+    Integer innerClosure() {
+      bar += 1;
+      return bar;
+    }
+    return innerClosure;
+  }
+  return outerClosure;
+}
+
+IntegerFunctionFunction outer = func();
+IntegerFunction a = outer();
+IntegerFunction b = outer();
+IntegerFunction c = outer();
+println(a());
+println(b());
+println(c());
+println(b());
+println(a());
+println(b());
+println(c());
+println(c());
+println(a());

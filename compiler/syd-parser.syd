@@ -1,6 +1,9 @@
 import 'syd-tokenizer.syd';
 import 'syd-ast.syd';
 
+// TODO: have a parseTypeIdentifier for where we have TypeIdentifier objects.
+// TODO: introduce an Identifier AST node and use a parseIdentifier for it so identifiers have source locations.
+
 // forward declaration
 ExpressionFunction parseExpression;
 
@@ -483,8 +486,8 @@ Statement parseDeclaration(TokenConsumer source) {
     AnythingListList parameters = []:AnythingList;
     Boolean isVarArgs = parseParameters(source, parameters, true);
     Boolean isIntrinsic = false;
-    if (source.isNextIdentifier('__intrinsic')) {
-      source.expectIdentifier('__intrinsic');
+    if (source.isNextIdentifier('intrinsic#')) {
+      source.expectIdentifier('intrinsic#');
       isIntrinsic = true;
     }
     if (source.isNextIdentifier('__extern')) {
@@ -579,6 +582,17 @@ Statement _parseStatement(TokenConsumer source) {
     SourceLocation location = source.lastLocation();
     StatementBlock block = parseBlock(source);
     return ForStatement(variable, expression, block, location);
+  }
+  if (source.isNextIdentifier('const')) {
+    source.expectIdentifier('const');
+    String typeName = source.readIdentifier();
+    TypeIdentifier type = TypeIdentifier(typeName, source.lastLocation());
+    String identifier = source.readIdentifier();
+    source.expectPunctuation(tt.Equals);
+    SourceLocation location = source.lastLocation();
+    Expression initializer = parseExpression(source);
+    source.expectPunctuation(tt.Semicolon);
+    return ConstantDeclarationStatement(type, identifier, initializer, location);
   }
   if (source.isNext2(tt.Identifier, tt.Identifier)) {
     return parseDeclaration(source);
@@ -716,8 +730,8 @@ Statement parseTopLevelStatement(TokenConsumer source) {
       superclassName = TypeIdentifier(source.readIdentifier(), source.lastLocation());
     }
     Boolean isIntrinsic = false;
-    if (source.isNextIdentifier('__intrinsic')) {
-      source.expectIdentifier('__intrinsic');
+    if (source.isNextIdentifier('intrinsic#')) {
+      source.expectIdentifier('intrinsic#');
       isIntrinsic = true;
     }
     source.expectPunctuation(tt.OpenBrace);
@@ -756,8 +770,8 @@ Statement parseTopLevelStatement(TokenConsumer source) {
       superclassName = TypeIdentifier(source.readIdentifier(), source.lastLocation());
     }
     Boolean isIntrinsic = false;
-    if (source.isNextIdentifier('__intrinsic')) {
-      source.expectIdentifier('__intrinsic');
+    if (source.isNextIdentifier('intrinsic#')) {
+      source.expectIdentifier('intrinsic#');
       isIntrinsic = true;
     }
     source.expectPunctuation(tt.Semicolon);

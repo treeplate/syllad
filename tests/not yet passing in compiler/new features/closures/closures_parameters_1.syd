@@ -1,0 +1,16 @@
+// expected output: 6
+
+Integer add(Integer a, Integer b) {
+  return a + b;
+}
+
+IntegerFunction curry(IntegerFunction f, Integer a) {
+  Integer result(Integer b) {
+    return f(a, b);
+  }
+  return result;
+}
+
+IntegerFunction increment = curry(add, 1);
+
+println(increment(5));

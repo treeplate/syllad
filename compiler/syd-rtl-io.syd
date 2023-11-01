@@ -1,0 +1,256 @@
+// RUNTIME LIBRARY - I/O
+
+import 'syd-rtl-system.syd';
+import 'syd-rtl-core-strings.syd';
+import 'syd-rtl-memory.syd';
+
+// WIN32 API WRAPPER
+
+// access mode
+const Integer GENERIC_READ# = 0x80000000;
+const Integer GENERIC_WRITE# = 0x40000000;
+// share mode
+const Integer FILE_SHARE_READ# = 0x00000001;
+const Integer FILE_SHARE_WRITE# = 0x00000002;
+// create mode
+const Integer CREATE_NEW# = 1; // create, fail if already exists
+const Integer CREATE_ALWAYS# = 2; // create or truncate
+const Integer OPEN_EXISTING# = 3; // open, fail if does not exist
+const Integer OPEN_ALWAYS# = 4; // open, create if does not exist
+const Integer TRUNCATE_EXISTING# = 5; // truncate, fail if does not exist
+// dwMoveMethod anchors
+const Integer FILE_BEGIN# = 0;
+const Integer FILE_CURRENT# = 1;
+const Integer FILE_END# = 2;
+
+Integer getStdHandle#(Integer handle) __extern 'kernel32.lib' 'GetStdHandle';
+Integer createFile#(Integer lpFileName, Integer dwDesiredAccess, Integer dwShareMode, Integer lpSecurityAttributes, Integer dwCreationDisposition, Integer dwFlagsAndAttributes, Integer hTemplateFile) __extern 'kernel32.lib' 'CreateFileA';
+Boolean getFileSize#(Integer hFile, Integer lpFileSize) __extern 'kernel32.lib' 'GetFileSizeEx';
+Boolean setFilePointerEx#(Integer hFile, Integer liDistanceToMove, Integer lpNewFilePointer, Integer dwMoveMethod) __extern 'kernel32.lib' 'SetFilePointerEx';
+Boolean readFile#(Integer hFile, Integer lpBuffer, Integer nNumberOfBytesToRead, Integer lpNumberOfBytesRead, Integer lpOverlapped) __extern 'kernel32.lib' 'ReadFile';
+Integer writeFile#(Integer hFile, Integer lpBuffer, Integer nNumberOfBytesToWrite, Integer lpNumberOfBytesWritten, Integer lpOverlapped) __extern 'kernel32.lib' 'WriteFile';
+Boolean setEndOfFile#(Integer hFile) __extern 'kernel32.lib' 'SetEndOfFile';
+Integer closeHandle#(Integer hFile) __extern 'kernel32.lib' 'CloseHandle';
+Integer getFileAttributes#(Integer lpFileName) __extern 'kernel32.lib' 'GetFileAttributesA';
+Boolean deleteFile#(Integer lpFileName) __extern 'kernel32.lib' 'DeleteFileA';
+
+Integer STD_OUTPUT_HANDLE# = -11;
+Integer STD_ERROR_HANDLE# = -12;
+
+// createMode is one of the create mode constants defined above
+Integer openFile#(String filename, Boolean enableRead, Boolean enableWrite, Integer createMode) {
+  assert(enableRead || enableWrite, 'at least one of enableRead and enableWrite must be set');
+  String filenameNullTerminated = concat(filename, '\0');
+  Integer accessMode = 0x00;
+  Integer shareMode = FILE_SHARE_READ#;
+  if (enableRead) {
+    accessMode |= GENERIC_READ#;
+  }
+  if (enableWrite) {
+    accessMode |= GENERIC_WRITE#;
+    shareMode = 0; // reset share mode to exclusive access
+  }
+  Integer result = createFile#(filenameNullTerminated __as__ Integer + _gcBlockStringData, accessMode, shareMode, 0, createMode, 0x80 /* FILE_ATTRIBUTE_NORMAL */, 0);
+  if (result == -1) {
+    Integer rawError = _getLastError();
+    String error = concat('error code: ', rawError);
+    if (rawError == 2) {
+      error = 'file not found';
+    }
+    if (rawError == 123) {
+      error = 'file path invalid';
+    }
+    stderr(concat('failed to open file \'', filenameNullTerminated, '\', ', error));
+    exit(1);
+  }
+  return result;
+}
+
+Integer getFileSizeFromHandle#(Integer hFile) {
+  if (!getFileSize#(hFile, _scratch)) {
+    stderr('failed to get file size, error code:', _getLastError());
+    exit(1);
+  }
+  return __readFromAddress(_scratch);
+}
+
+String readStringFromHandle#(Integer handle, Integer bytesToRead) {
+  Integer resultPointer = _alloc(16 + bytesToRead);
+  __writeToAddress(resultPointer, 0); // ref count
+  if (!readFile#(handle, resultPointer + _gcBlockStringData, bytesToRead, _scratch, 0)) {
+    stderr('failed to read file, error code:', _getLastError());
+    exit(1);
+  }
+  __writeToAddress(resultPointer + 8, __readFromAddress(_scratch));
+  // TODO: check that data is valid UTF-8, throw if not
+  return resultPointer __as__ String;
+}
+
+Null writeStringToHandle#(Integer handle, String message) {
+  writeFile#(handle, (message __as__ Integer) + _gcBlockStringData, _stringByteLength(message), _scratch, 0);
+}
+
+class File# {
+  Integer handle;
+  Integer mode; // 0 (read), 1 (write), 2 (append) => 3 (done, for read/write) => 4 (closed)
+
+  Null done() {
+    assert(mode < 2, 'contract violation');
+    mode = 3;
+  }
+
+  Null close() {
+    assert(mode < 4, 'contract violation');
+    mode = 4;
+  }
+
+  Null constructor(Integer handleArg, Integer modeArg) {
+    handle = handleArg;
+    mode = modeArg;
+  }
+}
+
+// SYD API
+
+typedef# File is GarbageCollectable;
+
+const Integer fileModeRead = 0;
+const Integer fileModeWrite = 1;
+const Integer fileModeAppend = 2;
+
+Boolean fileExists(String filename) {
+  Integer attributes = getFileAttributes#(concat(filename, '\0') __as__ Integer + _gcBlockStringData);
+  const Integer FILE_ATTRIBUTE_DIRECTORY = 0x00000010;
+  const Integer FILE_ATTRIBUTE_DEVICE = 0x00000040;
+  const Integer notFile = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_DEVICE;
+  return ((attributes & notFile) == 0) && (attributes != 0);
+}
+
+File openFile(String filename, Integer mode) {
+  Boolean enableRead;
+  Boolean enableWrite;
+  Integer createMode;
+  if (mode == fileModeRead) {
+    enableRead = true;
+    enableWrite = false;
+    createMode = OPEN_EXISTING#;
+  } else if (mode == fileModeWrite) {
+    enableRead = false;
+    enableWrite = true;
+    createMode = CREATE_ALWAYS#;
+  } else if (mode == fileModeAppend) {
+    enableRead = false;
+    enableWrite = true;
+    createMode = OPEN_ALWAYS#;
+  } else {
+    throw(concat('Invalid file mode ', mode, '.'));
+  }
+  return File#(openFile#(filename, enableRead, enableWrite, createMode), mode) __as__ File;
+}
+
+Null closeFile(File fileArg) {
+  File# file = fileArg __as__ File#;
+  if (file.mode == 4) {
+    throw('Cannot close a file twice.');
+  }
+  closeHandle#(file.handle);
+  file.close();
+}
+
+String readFile(File fileArg) {
+  File# file = fileArg __as__ File#;
+  if (file.mode == 4) {
+    throw('File cannot be read after being closed.');
+  }
+  if (file.mode == 3) {
+    throw('File is no longer active.');
+  }
+  if (file.mode != 0) {
+    throw('File is not open for reading.');
+  }
+  file.done();
+  setFilePointerEx#(file.handle, 0, 0, FILE_BEGIN#);
+  Integer size = getFileSizeFromHandle#(file.handle);
+  return readStringFromHandle#(file.handle, size);
+}
+
+// TODO: not implemented; no current way to represent a byte array efficiently
+// IntegerList readFileBytes(File fileArg) { ... }
+
+Null writeFile(File fileArg, String data) {
+  File# file = fileArg __as__ File#;
+  if (file.mode == 4) {
+    throw('File cannot be written after being closed.');
+  }
+  if (file.mode == 3) {
+    throw('File is no longer active.');
+  }
+  if (file.mode == 0) {
+    throw('File is not open for writing.');
+  }
+  if (file.mode == 1) {
+    file.done();
+    // file will have been truncated on open
+    writeStringToHandle#(file.handle, data);
+    setEndOfFile#(file.handle);
+  } else {
+    assert(file.mode == 2, 'invariant violation');
+    setFilePointerEx#(file.handle, 0, 0, FILE_END#);
+    writeStringToHandle#(file.handle, data);
+  }
+}
+
+Null deleteFile(String filename) {
+  if (!deleteFile#(concat(filename, '\0') __as__ Integer + _gcBlockStringData)) {
+    stderr('failed to delete file, error code:', _getLastError());
+    exit(1);
+  }
+}
+
+Null print(Anything... parts) { 
+  Boolean first = true;
+  Integer index = 0;
+  while (index < len(parts)) {
+    if (first == false) {
+      writeStringToHandle#(getStdHandle#(STD_OUTPUT_HANDLE#), ' ');
+    }
+    writeStringToHandle#(getStdHandle#(STD_OUTPUT_HANDLE#), stringify#(parts[index]));
+    first = false;
+    index += 1;
+  }
+}
+
+Null println(Anything... parts) {
+  Boolean first = true;
+  Integer index = 0;
+  while (index < len(parts)) {
+    if (first == false) {
+      writeStringToHandle#(getStdHandle#(STD_OUTPUT_HANDLE#), ' ');
+    }
+    writeStringToHandle#(getStdHandle#(STD_OUTPUT_HANDLE#), stringify#(parts[index]));
+    first = false;
+    index += 1;
+  }
+  writeStringToHandle#(getStdHandle#(STD_OUTPUT_HANDLE#), '\n');
+}
+
+Null stderr#(Anything... parts) {
+  Boolean first = true;
+  Integer index = 0;
+  while (index < len(parts)) {
+    if (first == false) {
+      writeStringToHandle#(getStdHandle#(STD_ERROR_HANDLE#), ' ');
+    }
+    writeStringToHandle#(getStdHandle#(STD_ERROR_HANDLE#), stringify#(parts[index]));
+    first = false;
+    index += 1;
+  }
+  writeStringToHandle#(getStdHandle#(STD_ERROR_HANDLE#), '\n');
+}
+stderr = stderr#;
+
+Null _error(Anything... arguments) intrinsic# {
+  assert(len(arguments) >= 1, 'insufficient arguments to _error');
+  stderr(arguments[0]);
+  exit(1);
+}

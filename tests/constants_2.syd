@@ -1,0 +1,15 @@
+// unexpected output: Hello
+// unexpected output: FAIL
+// expected error: cannot mutate constant variable
+
+println('FAIL');
+
+String init() {
+  return 'Hello';
+}
+
+const String message = init();
+
+message = 'FAIL';
+
+println(message);

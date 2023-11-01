@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 //import 'lexer.dart';
@@ -8,6 +9,8 @@ import 'package:characters/characters.dart';
 Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? intrinsics, Scope? rtl, TypeValidator tv, bool profileMode, bool debugMode,
     [List<String>? args, List<LazyString>? stack, Scope? parent]) {
   if (intrinsics == null) {
+    ValueType whateverIterableType = IterableValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', tv), 'intrinsics', tv);
+    ListValueType anythingListType = ListValueType<Object?>(anythingType, 'intrinsics', tv);
     assert(parent == null);
     assert(stack == null);
     intrinsics = Scope(false, false, rtl,
@@ -77,12 +80,12 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
           );
         },
         'filledList': (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          return ValueWrapper<List<ValueWrapper>>(ListValueType<ValueWrapper>(anythingType, 'intrinsics', tv),
-              List.filled(l.first.valueC<int>(null, s, -2, 0, 'interr', 'interr'), l.last, growable: true), 'filledList rtv');
+          return ValueWrapper<List<ValueWrapper>>(
+              anythingListType, List.filled(l.first.valueC<int>(null, s, -2, 0, 'interr', 'interr'), l.last, growable: true), 'filledList rtv');
         },
         'sizedList': (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           return ValueWrapper<List<ValueWrapper>>(
-              ListValueType<ValueWrapper>(anythingType, 'intrinsics', tv),
+              anythingListType,
               List.filled(
                   l.first.valueC(null, s, -2, 0, 'interr', 'interr'),
                   ValueWrapper<String>(
@@ -91,7 +94,7 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
               'sizedList rtv');
         },
         "len": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          if (!l.single.typeC(null, s, -2, 0, 'interr', 'interr').isSubtypeOf(IterableValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', tv), 'intrinsics', tv))) {
+          if (!l.single.typeC(null, s, -2, 0, 'interr', 'interr').isSubtypeOf(whateverIterableType)) {
             throw BSCException(
                 'len() takes a list as its argument, not a ${l.single.typeC(null, s, -2, 0, 'interr', 'interr')} ${s.reversed.join('\n')}', NoDataVG());
           }
@@ -137,7 +140,7 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
         },
         "copy": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           return ValueWrapper(
-            ListValueType(anythingType, 'intrinsics', tv),
+            anythingListType,
             l.single.valueC<Iterable<ValueWrapper>>(null, s, -2, 0, 'interr', 'interr').toList(),
             'copy rtv',
           );
@@ -155,24 +158,70 @@ Scope runProgram(List<Statement> ast, String filename, String workspace, Scope? 
         "exit": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           exit(l.single.valueC(null, s, -2, 0, 'interr', 'interr'));
         },
-        "readFile": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+        "fileExists": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          File file = File('${l.single.valueC(null, s, -2, 0, 'interr', 'interr')}');
+          return ValueWrapper(booleanType, file.existsSync(), 'fileExists rtv');
+        },
+        "openFile": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          File file = File('${l.first.valueC(null, s, -2, 0, 'interr', 'interr')}');
+          FileMode mode = switch (l.last.valueC<int>(null, s, -2, 0, 'interr', 'interr')) {
+            0 => FileMode.read,
+            1 => FileMode.writeOnly,
+            2 => FileMode.writeOnlyAppend,
+            int x => throw BSCException('openFile mode $x is not a valid mode\n${s.reversed.join('\n')}', StringVariableGroup('$file')),
+          };
+          return ValueWrapper(fileType, SydFile(file.openSync(mode: mode), mode == FileMode.writeOnlyAppend), 'openFile rtv');
+        },
+        "fileModeRead": 0,
+        "fileModeWrite": 1,
+        "fileModeAppend": 2,
+        "readFileBytes": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           try {
-            File file = File('${l.single.valueC(null, s, -2, 0, 'interr', 'interr')}');
-            if (!file.existsSync()) {
-              throw BSCException("${l.single.toStringWithStack(s, -2, 0, 'interr', 'interr', false)} is not a existing file\n${s.reversed.join('\n')}",
-                  StringVariableGroup('$workspace'));
+            SydFile file = l.single.valueC(null, s, -2, 0, 'interr', 'interr');
+            int length = file.file.lengthSync();
+            if (file.used) {
+              throw BSCException('${file.file.path} was read twice ${s.reversed.join('\n')}', NoDataVG());
             }
-            return ValueWrapper(stringType, file.readAsStringSync(), 'readFile rtv');
-          } on PathNotFoundException catch (e) {
-            throw BSCException(e.message + ' when reading file ${l.single.valueC(null, s, -2, 0, 'interr', 'interr')}\n${s.reversed.join('\n')}', NoDataVG());
+            file.used = true;
+            return ValueWrapper(ListValueType<int>(integerType, 'interr', tv), file.file.readSync(length), 'readFileBytes rtv');
+          } catch (e) {
+            rethrow;
           }
         },
-        "readFileBytes": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
-          if (l.length == 0) throw BSCException("readFileBytes called with no args", NoDataVG());
-          File file = File('$workspace/${l.single.valueC(null, s, -2, 0, 'interr', 'interr')}');
-          return file.existsSync()
-              ? ValueWrapper(stringType, file.readAsBytesSync(), 'readFileBytes rtv')
-              : throw BSCException("${l.single} is not a existing file\n${s.reversed.join('\n')}", NoDataVG());
+        "writeFile": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          try {
+            SydFile file = l.first.valueC(null, s, -2, 0, 'interr', 'interr');
+            if (file.used && !file.appendMode) {
+              throw BSCException('${file.file.path} was written to twice ${s.reversed.join('\n')}', NoDataVG());
+            }
+            file.file.writeStringSync(l.last.valueC(null, s, -2, 0, 'interr', 'interr'));
+            file.used = true;
+            return ValueWrapper(nullType, null, 'writeFile rtv');
+          } catch (e) {
+            rethrow;
+          }
+        },
+        "closeFile": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          try {
+            SydFile file = l.single.valueC(null, s, -2, 0, 'interr', 'interr');
+            file.file.closeSync();
+            return ValueWrapper(nullType, null, 'closeFile rtv');
+          } catch (e) {
+            rethrow;
+          }
+        },
+        "deleteFile": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          File file = File(l.single.valueC<String>(null, s, -2, 0, 'interr', 'interr'));
+          file.deleteSync();
+          return ValueWrapper(nullType, null, 'deleteFile rtv');
+        },
+        "utf8Decode": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
+          try {
+            List<int> input = l.single.valueC(null, s, -2, 0, 'interr', 'interr');
+            return ValueWrapper(stringType, utf8.decode(input), 'utf8Decode rtv');
+          } catch (e) {
+            throw BSCException('error $e when reading file ${l.single.valueC(null, s, -2, 0, 'interr', 'interr')}\n${s.reversed.join('\n')}', NoDataVG());
+          }
         },
         "println": (List<ValueWrapper> l, List<LazyString> s, [Scope? thisScope, ValueType? thisType]) {
           stdout.writeln(l.map(((e) => e.toStringWithStack(s + [NotLazyString('println calling toString()')], -2, 0, 'interr', 'interr', true))).join(' '));

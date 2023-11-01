@@ -1,0 +1,38 @@
+// expected output: 1
+// expected output: 2
+// expected output: 3
+// expected output: 5
+// expected output: 7
+// expected output: 10
+// expected output: 12
+// expected output: 15
+// expected output: 18
+// expected output: 1
+IntegerFunctionFunction createCounterFactory() {
+  Integer foo = 0;
+  IntegerFunction createCounter() {
+    Integer bar = 1;
+    Integer count() {
+      foo += bar;
+      bar += 1;
+      return foo;
+    }
+    return count;
+  }
+  return createCounter;
+}
+
+IntegerFunctionFunction createCounter = createCounterFactory();
+IntegerFunction counterA = createCounter();
+IntegerFunction counterB = createCounter();
+IntegerFunction counterC = createCounter();
+println(counterA());
+println(counterB());
+println(counterC());
+println(counterB());
+println(counterA());
+println(counterB());
+println(counterC());
+println(counterC());
+println(counterA());
+println(createCounterFactory()()());
