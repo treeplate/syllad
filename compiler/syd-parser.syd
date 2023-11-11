@@ -96,8 +96,8 @@ Expression parseUnaryExpression(TokenConsumer source) {
     SourceLocation location = source.lastLocation();
     return BitwiseNotExpression(parseUnaryExpression(source), location);
   }
-  if (source.isNextIdentifier('__typeToCode')) {
-    source.expectIdentifier('__typeToCode');
+  if (source.isNextIdentifier('__typeCodeOf')) {
+    source.expectIdentifier('__typeCodeOf');
     SourceLocation location = source.lastLocation();
     TypeIdentifier type = TypeIdentifier(source.readIdentifier(), source.lastLocation());
     return TypeToCodeExpression(type, location);

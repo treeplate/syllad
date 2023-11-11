@@ -735,8 +735,11 @@ class ClosureType extends Type {
   //#override
   Boolean isSubtypeOf(Type other) {
     return other is ClosureType
+        || other is AnythingType
+        || other is WhateverType
         || other is GarbageCollectableType
-        || other is ReferenceCountedType;
+        || other is ReferenceCountedType
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
   //#override
@@ -745,7 +748,7 @@ class ClosureType extends Type {
   }
 
   Null constructor(TypeRegistry typeRegistryArg) {
-    super.constructor(typeRegistryArg, '<closure>');
+    super.constructor(typeRegistryArg, 'Closure#');
   }
 }
 

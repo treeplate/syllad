@@ -33,6 +33,10 @@ class TypeIdentifier extends AstNode {
 class Statement extends AstNode {
   Null declareTypes(CompiledScope scope) { }
 
+  Null prepareIdentifiers(CompiledScope scope) {
+    abstract();
+  }
+
   Null generateInstructions(CompiledScope scope) {
     abstract();
   }
@@ -57,6 +61,12 @@ class StatementBlock extends AstNode {
     }
   }
 
+  Null prepareIdentifiers(CompiledScope scope) {
+    for (child in children) {
+      child.prepareIdentifiers(scope);
+    }
+  }
+
   Null generateInstructions(CompiledScope scope) {
     for (child in children) {
       scope.markSourceLocation(child);
@@ -72,6 +82,11 @@ class StatementBlock extends AstNode {
 
 class StringLiteralExpression extends Expression {
   String value;
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    // no identifiers to prepare
+  }
 
   //#override
   Bucket generateInstructions(CompiledScope scope) {
@@ -97,6 +112,11 @@ class StringLiteralExpression extends Expression {
 
 class SourceLocationFileStringLiteralExpression extends Expression {
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    // no identifiers to prepare
+  }
+
+  //#override
   Bucket generateInstructions(CompiledScope scope) {
     return scope.environment().registerStringConstant(
       scope.label.deriveWith('file'),
@@ -115,6 +135,11 @@ class SourceLocationFileStringLiteralExpression extends Expression {
 
 class IntegerLiteralExpression extends Expression {
   Integer value;
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    // no identifiers to prepare
+  }
 
   //#override
   Bucket generateInstructions(CompiledScope scope) {
@@ -144,6 +169,11 @@ class IntegerLiteralExpression extends Expression {
 
 class SourceLocationLineIntegerLiteralExpression extends Expression {
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    // no identifiers to prepare
+  }
+
+  //#override
   Bucket generateInstructions(CompiledScope scope) {
     scope.environment().coreIntegerType.markConstructed();
     return scope.environment().integer(sourceLocation.startLineNo);
@@ -156,6 +186,11 @@ class SourceLocationLineIntegerLiteralExpression extends Expression {
 }
 
 class SourceLocationColumnIntegerLiteralExpression extends Expression {
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    // no identifiers to prepare
+  }
+
   //#override
   Bucket generateInstructions(CompiledScope scope) {
     scope.environment().coreIntegerType.markConstructed();
@@ -182,6 +217,13 @@ class ListLiteralExpression extends Expression {
       elementTypeString = concat(':', elementType!.toStringIndent(indent));
     }
     return concat('[', join(map(values, indenter) as StringList, ','), ']', elementTypeString);
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    for (value in values) {
+      value.prepareIdentifiers(scope);
+    }
   }
 
   //#override
@@ -309,6 +351,11 @@ class VariableExpression extends LValueExpression {
   }
 
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    scope.prepareIdentifierReferenceFor(name);
+  }
+
+  //#override
   Bucket generateInstructions(CompiledScope scope) {
     return lookupCurrentIdentifier(scope).forRead(scope);
   }
@@ -340,7 +387,7 @@ class SubscriptLValue extends LValue {
       true, 
       LazyComment('check subscript assignment is type-safe'),
     ));
-    scope.emit(HeapUpdateInstruction(pointer, rValue, elementType));
+    scope.emit(HeapUpdateInstruction(pointer, rValue, 0, elementType));
   }
 
   Null constructor(Type elementTypeArg, Bucket pointerArg) {
@@ -397,6 +444,12 @@ class SubscriptExpression extends LValueExpression {
   }
 
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    list.prepareIdentifiers(scope);
+    argument.prepareIdentifiers(scope);
+  }
+
+  //#override
   Bucket generateInstructions(CompiledScope scope) {
     _prepare(scope);
     return DereferenceWithOffsetsBucket(
@@ -429,6 +482,11 @@ class MemberAccessExpression extends LValueExpression {
   //#override
   String toStringIndent(Integer indent) {
     return concat(object.toStringIndent(indent), '.', member);
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    object.prepareIdentifiers(scope);
   }
 
   //#override
@@ -501,6 +559,9 @@ CompiledSubroutine evaluateSuper(CompiledScope scope, String method, SourceLocat
   return memberDescription!.methodImplementation!;
 }
 
+// super only ever applies to methods (not fields)
+// this AST node is used when super.foo is not being directly called
+// super.foo() is handled by SuperSubroutineCallExpression
 class SuperExpression extends Expression {
   String method;
 
@@ -510,15 +571,21 @@ class SuperExpression extends Expression {
   }
 
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    // no identifiers to prepare
+  }
+
+  //#override
   Bucket generateInstructions(CompiledScope scope) {
     CompiledSubroutine targetMethod = evaluateSuper(scope, method, sourceLocation);
     CompiledSubroutine thisMethod = scope.stackFrame() as CompiledSubroutine;
     targetMethod.type.markConstructed();
     return scope.emitIntrinsicCall(
-      scope.environment().createMethodPointerIntrinsicName,
+      scope.environment().createFunctionPointerIntrinsicName,
       [
         thisMethod.thisPointer,
         targetMethod.codePointer,
+        scope.environment().coreNull,
         TypeCodeBucket(targetMethod.type, scope.environment().coreIntegerType),
       ]:Bucket,
     );
@@ -560,6 +627,14 @@ class SubroutineCallExpression extends Expression {
   }
 
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    subroutineReference.prepareIdentifiers(scope);
+    for (argument in arguments) {
+      argument.prepareIdentifiers(scope);
+    }
+  }
+
+  //#override
   Bucket generateInstructions(CompiledScope scope) {
     return generateInstructionsForSubroutinePointerCallExpression(scope, subroutineReference.generateInstructions(scope), arguments, subroutineReference, sourceLocation);
   }
@@ -591,7 +666,7 @@ class IdentifierSubroutineCallExpression extends Expression {
   
   IdentifierEntity lookupCurrentIdentifier(CompiledScope scope) {
     IdentifierEntityNullable entity = scope.lookupIdentifier(name);
-    if (entity == null) {
+    if (entity == null)  {
       throw(concat('Identifier "', name, '" not known at ', sourceLocation));
     }
     if (!entity!.isDeclared()) {
@@ -599,6 +674,14 @@ class IdentifierSubroutineCallExpression extends Expression {
       throw(concat('Identifier "', name, '" is known but has not yet been declared at ', sourceLocation));
     }
     return entity!;
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    scope.prepareIdentifierReferenceFor(name);
+    for (argument in arguments) {
+      argument.prepareIdentifiers(scope);
+    }
   }
 
   //#override
@@ -630,6 +713,14 @@ class MemberAccessSubroutineCallExpression extends Expression {
       index += 1;
     }
     return concat(object.toStringIndent(indent), '.', member, '(', joinList(argumentsList), ')');
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    object.prepareIdentifiers(scope);
+    for (argument in arguments) {
+      argument.prepareIdentifiers(scope);
+    }
   }
 
   //#override
@@ -674,6 +765,13 @@ class SuperSubroutineCallExpression extends Expression {
   }
 
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    for (argument in arguments) {
+      argument.prepareIdentifiers(scope);
+    }
+  }
+
+  //#override
   Bucket generateInstructions(CompiledScope scope) {
     CompiledSubroutine targetMethod = evaluateSuper(scope, method, sourceLocation);
     CompiledSubroutine thisMethod = scope.stackFrame() as CompiledSubroutine;
@@ -700,6 +798,11 @@ class UnwrapExpression extends Expression {
   //#override
   String toStringIndent(Integer indent) {
     return concat(lhs.toStringIndent(indent), '!');
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    lhs.prepareIdentifiers(scope);
   }
 
   //#override
@@ -743,6 +846,11 @@ class IsOperatorExpression extends Expression {
   }
 
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    expression.prepareIdentifiers(scope);
+  }
+
+  //#override
   Bucket generateInstructions(CompiledScope scope) {
     Bucket lhs = expression.generateInstructions(scope);
     Type rhs = type.lookup(scope.globalScope(), true);
@@ -771,6 +879,11 @@ class AsOperatorExpression extends Expression {
   //#override
   String toStringIndent(Integer indent) {
     return concat(expression.toStringIndent(indent), ' as ', type);
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    expression.prepareIdentifiers(scope);
   }
 
   //#override
@@ -816,6 +929,11 @@ class ReinterpretAsOperatorExpression extends Expression {
   }
 
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    expression.prepareIdentifiers(scope);
+  }
+
+  //#override
   Bucket generateInstructions(CompiledScope scope) {
     Bucket exprBucket = expression.generateInstructions(scope);
     Type rhs = type.lookup(scope.globalScope(), true);
@@ -840,6 +958,12 @@ class DynamicIsOperatorExpression extends Expression {
   }
 
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    expression.prepareIdentifiers(scope);
+    type.prepareIdentifiers(scope);
+  }
+
+  //#override
   Bucket generateInstructions(CompiledScope scope) {
     Bucket lhs = expression.generateInstructions(scope);
     Bucket rhs = type.generateInstructions(scope);
@@ -860,6 +984,12 @@ class ReinterpretDynamicAsOperatorExpression extends Expression {
   //#override
   String toStringIndent(Integer indent) {
     return concat(expression.toStringIndent(indent), ' __dynamic_as__ ', type);
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    expression.prepareIdentifiers(scope);
+    type.prepareIdentifiers(scope);
   }
 
   //#override
@@ -906,6 +1036,11 @@ class UnaryExpression extends Expression {
       ' ',
       rhs.toStringIndent(indent),
     );
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    rhs.prepareIdentifiers(scope);
   }
 
   //#override
@@ -1145,7 +1280,7 @@ class TypeToCodeExpression extends Expression {
   TypeIdentifier rhs;
 
   String describeOperator() {
-    return '__typeToCode';
+    return '__typeCodeOf';
   }
   
   //#override
@@ -1155,6 +1290,11 @@ class TypeToCodeExpression extends Expression {
       ' ',
       rhs.toStringIndent(indent),
     );
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    // no identifiers to prepare
   }
 
   //#override
@@ -1238,6 +1378,12 @@ class OperatorExpression extends Expression {
       true, 
       LazyComment('check right hand side operand of ', describeOperator(), ' operator is valid type'),
     ));
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    lhs.prepareIdentifiers(scope);
+    rhs.prepareIdentifiers(scope);
   }
 
   //#override
@@ -1575,6 +1721,12 @@ class OperatorLogicalAndExpression extends Expression {
   }
 
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    lhs.prepareIdentifiers(scope);
+    rhs.prepareIdentifiers(scope);
+  }
+
+  //#override
   Bucket generateInstructions(CompiledScope scope) {
     // evaluate lhs
     LocalVariable result = LocalVariable(scope.environment().coreBooleanType, scope.environment().coreSentinel, '$result$');
@@ -1636,6 +1788,12 @@ class OperatorLogicalOrExpression extends Expression {
       ' ',
       rhs.toStringIndent(indent),
     );
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    lhs.prepareIdentifiers(scope);
+    rhs.prepareIdentifiers(scope);
   }
 
   //#override
@@ -1744,6 +1902,13 @@ class FieldDeclarationStatement extends Statement {
   }
   
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    if (rValue != null) {
+      rValue!.prepareIdentifiers(scope);
+    }
+  }
+
+  //#override
   Null generateInstructions(CompiledScope scope) {
     if (identifier == kConstructor) {
       // TODO: this violates the language spec
@@ -1772,6 +1937,12 @@ class ConstantDeclarationStatement extends Statement {
     return concat('const ', type.toStringIndent(indent), ' ', identifier, ' = ', rValue.toStringIndent(indent), ';\n');
   }
   
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    rValue.prepareIdentifiers(scope);
+    scope.prepareIdentifier(identifier);
+  }
+
   //#override
   Null generateInstructions(CompiledScope scope) {
     Type staticType = type.lookup(scope.globalScope(), true);
@@ -1818,6 +1989,14 @@ class VariableDeclarationStatement extends Statement {
     return concat(type.toStringIndent(indent), ' ', identifier, ' = ', rValue!.toStringIndent(indent), ';\n');
   }
   
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    if (rValue != null) {
+      rValue!.prepareIdentifiers(scope);
+    }
+    scope.prepareIdentifier(identifier);
+  }
+
   //#override
   Null generateInstructions(CompiledScope scope) {
     Type staticType = type.lookup(scope.globalScope(), true);
@@ -1901,14 +2080,29 @@ class AbstractSubroutineDeclarationStatement extends Statement {
   }
 
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    if (isVarArgs) {
+      subroutine = CompiledVarArgsSubroutine(scope, identifier, receiverType());
+    } else {
+      subroutine = CompiledSubroutineWithSpecificParameters(scope, identifier, receiverType());
+    }
+    scope.prepareIdentifier(identifier);
+    for (parameter in parameters) {
+      String name = parameter[1] as String;
+      subroutine.prepareIdentifier(name);
+    }
+    body.prepareIdentifiers(subroutine);
+  }
+
+  //#override
   Null generateInstructions(CompiledScope scope) {
     if (isVarArgs) {
-      subroutine = CompiledVarArgsSubroutine(scope, staticType as SubroutineTypeWithVarArgs, identifier, receiverType());
+      subroutine.setType(staticType as SubroutineTypeWithVarArgs);
       String name = parameters[0][1] as String;
       Type type = (staticType as SubroutineTypeWithVarArgs).parameterType;
       (subroutine as CompiledVarArgsSubroutine).emitVarArgsParameterChecks(type, (subroutine as CompiledVarArgsSubroutine).registerVarArgsParameter(name, type) as VarArgsParameterBucket);
     } else {
-      subroutine = CompiledSubroutineWithSpecificParameters(scope, staticType as SubroutineTypeWithSpecificParameters, identifier, receiverType());
+      subroutine.setType(staticType as SubroutineTypeWithSpecificParameters);
       ParameterBucketList parameterBuckets = []:ParameterBucket;
       Integer index = 0;
       for (parameter in parameters) {
@@ -2002,7 +2196,11 @@ class SubroutineDeclarationStatement extends AbstractSubroutineDeclarationStatem
 
   //#override
   Null registerSubroutine(CompiledScope scope, CompiledSubroutine subroutine) {
-    scope.registerSubroutine(subroutine, false);
+    if (subroutine.isClosure()) {
+      scope.registerClosure(subroutine, false);
+    } else {
+      scope.registerSubroutine(subroutine, false);
+    }
     if (isIntrinsic) {
       scope.environment().registerIntrinsic(subroutine);
     }
@@ -2013,7 +2211,7 @@ class SubroutineDeclarationStatement extends AbstractSubroutineDeclarationStatem
     if (scope.isIdentifierDeclaredInLocalScope(identifier)) {
       throw(concat('Cannot redeclare identifier "', identifier, '" at ', sourceLocation));
     }
-    super.generateStaticType(scope, true);
+    generateStaticType(scope, true);
     super.generateInstructions(scope);
   }
 
@@ -2030,6 +2228,11 @@ class GenericSystemSubroutineDeclarationStatement extends Statement {
   String library;
   String externalName;
   Boolean isIntrinsic;
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    scope.prepareIdentifier(identifier);
+  }
 
   //#override
   Null generateInstructions(CompiledScope scope) {
@@ -2136,6 +2339,11 @@ class EnumDeclaration extends Statement {
   }
 
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    // no identifiers to prepare
+  }
+
+  //#override
   Null generateInstructions(CompiledScope scope) {
     enumPropertyType.markDeclared();
     reifiedEnumType.markDeclared();
@@ -2227,6 +2435,11 @@ class ForwardClassDeclaration extends AbstractClassDeclaration {
   Null declareTypes(CompiledScope scope) {
     ClassType classType = declareType(scope, identifier, superclassName, isIntrinsic);
     classType.markAsForwardDeclared();
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    // no identifiers to prepare
   }
 
   //#override
@@ -2361,8 +2574,17 @@ class ClassDeclaration extends AbstractClassDeclaration {
     }
     AbstractSubroutineTypeWithSpecificParameters subroutineType = createConstructorType(scope, classType, constructorParameters, constructorIsVarArgs);
     subroutineType.markConstructed();
-    CompiledGeneratedConstructorSubroutine generatedConstructor = CompiledGeneratedConstructorSubroutine(scope, subroutineType, identifier, classType);
+    CompiledGeneratedConstructorSubroutine generatedConstructor = CompiledGeneratedConstructorSubroutine(scope, identifier, classType);
+    generatedConstructor.setType(subroutineType);
     classType.setConstructorSubroutine(scope.registerSubroutine(generatedConstructor, true));
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    scope.prepareIdentifier(identifier);
+    for (member in members) {
+      member.prepareIdentifiers(scope);
+    }
   }
   
   //#override
@@ -2385,10 +2607,10 @@ class ClassDeclaration extends AbstractClassDeclaration {
         if (initializer == null) {
           initializer = CompiledSubroutineWithSpecificParameters(
             scope,
-            createOrFindSubroutineTypeWithSpecificParameters(environment, environment.coreNullType, []:Type),
             concat(classType.name, '.initializer#'),
             classType,
           );
+          initializer!.setType(createOrFindSubroutineTypeWithSpecificParameters(environment, environment.coreNullType, []:Type));
           classType.setInitializerSubroutine(initializer!);
           scope.registerSubroutine(initializer!, false);
         }
@@ -2463,6 +2685,11 @@ class ForwardClassFieldDeclaration extends Statement {
   }
 
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    // no identifiers to prepare
+  }
+
+  //#override
   Null generateInstructions(CompiledScope scope) {
     Type candidateClassType = hostClass.lookup(scope.globalScope(), true);
     if (!(candidateClassType is ClassType)) {
@@ -2517,6 +2744,11 @@ class ForwardClassMethodDeclaration extends Statement {
       append(parametersList, (parameter[0] as TypeIdentifier).toStringIndent(indent));
     }
     return concat('fwdclassmethod ', returnType.toStringIndent(indent), ' ', hostClass.toStringIndent(indent), '.', identifier, '(', joinList(parametersList), ');\n');
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    // no identifiers to prepare
   }
 
   //#override
@@ -2600,6 +2832,11 @@ class TypeIntrinsicDeclaration extends Statement {
   }
 
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    // no identifiers to prepare
+  }
+
+  //#override
   Null generateInstructions(CompiledScope scope) {
     staticType.markDeclared();
   }
@@ -2616,6 +2853,11 @@ class ExpressionStatement extends Statement {
   //#override
   String toStringIndent(Integer indent) {
     return concat(expression.toStringIndent(indent), ';\n');
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    expression.prepareIdentifiers(scope);
   }
 
   //#override
@@ -2638,6 +2880,13 @@ class ReturnStatement extends Statement {
       return 'return;';
     }
     return concat('return ', expression!.toStringIndent(indent), ';\n');
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    if (expression != null) {
+      expression!.prepareIdentifiers(scope);
+    }
   }
 
   //#override
@@ -2673,6 +2922,11 @@ class BreakStatement extends Statement {
   }
 
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    // no identifiers to prepare
+  }
+
+  //#override
   Null generateInstructions(CompiledScope scope) {
     CompiledScopeNullable loopScope = scope;
     while (loopScope != null && !(loopScope is CompiledLoopScope)) {
@@ -2689,6 +2943,11 @@ class ContinueStatement extends Statement {
   //#override
   String toStringIndent(Integer indent) {
     return concat(stringTimes(' ', indent), 'continue;\n');
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    // no identifiers to prepare
   }
 
   //#override
@@ -2724,6 +2983,11 @@ class ImportStatement extends Statement {
   }
 
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    // no identifiers to prepare
+  }
+
+  //#override
   Null generateInstructions(CompiledScope scope) {
     assert(scope is CompiledLibrary, 'found import outside global scope');
   }
@@ -2746,6 +3010,12 @@ class StraightAssignmentStatement extends Statement {
       rValue.toStringIndent(indent),
       ';\n',
     );
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    lValue.prepareIdentifiers(scope);
+    rValue.prepareIdentifiers(scope);
   }
 
   //#override
@@ -2782,6 +3052,12 @@ class AssignmentStatement extends Statement {
       rValue.toStringIndent(indent),
       ';\n',
     );
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    lValue.prepareIdentifiers(scope);
+    rValue.prepareIdentifiers(scope);
   }
 
   //#override
@@ -2994,6 +3270,10 @@ class LogicalOrAssignmentStatement extends BooleanOperatorAssignmentStatement {
 }
 
 class ElseClause extends AstNode {
+  Null prepareIdentifiers(CompiledScope scope) {
+    abstract();
+  }
+
   Null generateInstructions(CompiledScope scope) {
     abstract();
   }
@@ -3019,6 +3299,22 @@ class IfStatement extends Statement {
     );
   }
 
+  CompiledScope blockScope;
+  CompiledScopeNullable elseBlockScope;
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    expression.prepareIdentifiers(scope);
+    blockScope = CompiledScope(scope, 'if');
+    block.prepareIdentifiers(blockScope);
+    if (elseClause != null) {
+      elseBlockScope = CompiledScope(scope, 'else');
+      elseClause!.prepareIdentifiers(elseBlockScope!);
+    } else {
+      elseBlockScope = null;
+    }
+  }
+
   //#override
   Null generateInstructions(CompiledScope scope) {
     Bucket expressionHandle = expression.generateInstructions(scope);
@@ -3032,11 +3328,8 @@ class IfStatement extends Statement {
       true, 
       LazyComment('verify type of if condition'), // TODO: better error messages
     ));
-    CompiledScope blockScope = CompiledScope(scope, 'if');
     block.generateInstructions(blockScope);
-    CompiledScopeNullable elseBlockScope = null;
     if (elseClause != null) {
-      elseBlockScope = CompiledScope(scope, 'else');
       elseClause!.generateInstructions(elseBlockScope!);
     }
     scope.emit(IfScopeInstruction(expressionHandle, blockScope, elseBlockScope));
@@ -3063,6 +3356,11 @@ class DefaultElseClause extends ElseClause {
   }
 
   //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    block.prepareIdentifiers(scope);
+  }
+
+  //#override
   Null generateInstructions(CompiledScope scope) {
     block.generateInstructions(scope);
   }
@@ -3079,6 +3377,11 @@ class ElseIfClause extends ElseClause {
   //#override
   String toStringIndent(Integer indent) {
     return concat(' else ', ifClause.toStringIndent(indent));
+  }
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    ifClause.prepareIdentifiers(scope);
   }
 
   //#override
@@ -3105,9 +3408,17 @@ class WhileStatement extends Statement {
     );
   }
 
+  CompiledLoopScope loopScope;
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    expression.prepareIdentifiers(scope);
+    loopScope = CompiledLoopScope(scope, 'while');
+    block.prepareIdentifiers(loopScope);
+  }
+
   //#override
   Null generateInstructions(CompiledScope scope) {
-    CompiledLoopScope loopScope = CompiledLoopScope(scope, 'while');
     CompiledScope emptyScope = CompiledScope(loopScope, 'while condition is true');
     CompiledScope breakScope = CompiledScope(loopScope, 'while condition is false');
     breakScope.emit(BreakInstruction());
@@ -3152,6 +3463,16 @@ class ForStatement extends Statement {
     );
   }
 
+  CompiledLoopScope loopScope;
+
+  //#override
+  Null prepareIdentifiers(CompiledScope scope) {
+    iterable.prepareIdentifiers(scope);
+    loopScope = CompiledLoopScope(scope, 'for loop');
+    loopScope.prepareIdentifier(variableName);
+    block.prepareIdentifiers(loopScope);
+  }
+
   //#override
   Null generateInstructions(CompiledScope scope) {
     CompilationEnvironment environment = scope.environment();
@@ -3173,7 +3494,6 @@ class ForStatement extends Statement {
       environment.iteratorIntrinsicName,
       [ iterableBucket ]:Bucket,
     );
-    CompiledLoopScope loopScope = CompiledLoopScope(scope, 'for loop');
     CompiledScope emptyScope = CompiledScope(loopScope, 'iterator continues');
     CompiledScope breakScope = CompiledScope(loopScope, 'iterator finished');
     breakScope.emit(BreakInstruction());

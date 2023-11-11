@@ -66,21 +66,21 @@ fwdclass CompilationEnvironment() extends TypeRegistry;
 fwdclass CompiledScope(CompiledScopeNullable, String) extends Object;
 fwdclass ClassType(CompiledScope, String, TypeNullable) extends Type;
 fwdclass CompiledStackFrameScope(CompiledScopeNullable, String) extends CompiledScope;
-fwdclass CompiledSubroutine(CompiledScopeNullable, AbstractSubroutineTypeWithSpecificParameters, String, ClassTypeNullable) extends CompiledStackFrameScope;
 fwdclass CompiledLibrary(CompilationEnvironment, String) extends CompiledStackFrameScope;
 fwdclass CompiledIntrinsicsLibrary(CompilationEnvironment, String) extends CompiledLibrary;
-fwdclass CompiledSubroutineWithSpecificParameters(CompiledScopeNullable, AbstractSubroutineTypeWithSpecificParameters, String, ClassTypeNullable) extends CompiledSubroutine;
-fwdclass CompiledGeneratedConstructorSubroutine(CompiledScopeNullable, AbstractSubroutineTypeWithSpecificParameters, String, ClassType) extends CompiledSubroutine;
-fwdclass BuiltInSubroutine(CompiledScopeNullable, AbstractSubroutineTypeWithSpecificParameters, String, ClassTypeNullable) extends CompiledSubroutineWithSpecificParameters;
+fwdclass MemberDescription(ClassType, String, Type, Boolean) extends Object;
+fwdclass CompiledSubroutine(CompiledScopeNullable, String, ClassTypeNullable) extends CompiledStackFrameScope;
+fwdclass CompiledSubroutineWithSpecificParameters(CompiledScopeNullable, String, ClassTypeNullable) extends CompiledSubroutine;
+fwdclass CompiledGeneratedConstructorSubroutine(CompiledScopeNullable, String, ClassType) extends CompiledSubroutine;
+fwdclass BuiltInSubroutine(CompiledScopeNullable, String, ClassTypeNullable) extends CompiledSubroutineWithSpecificParameters;
+fwdclass CompilerIntrinsic(CompiledScopeNullable, String, ClassTypeNullable) extends BuiltInSubroutine;
+fwdclass CompiledVarArgsSubroutine(CompiledScopeNullable, String, ClassTypeNullable) extends CompiledSubroutine;
 fwdclass BuiltInLenSubroutine(CompiledIntrinsicsLibrary) extends BuiltInSubroutine;
 fwdclass BuiltInDebuggerSubroutine(CompiledIntrinsicsLibrary) extends BuiltInSubroutine;
-fwdclass MemberDescription(ClassType, String, Type, Boolean) extends Object;
 fwdclass BuiltInGetterMethod(CompiledIntrinsicsLibrary, ClassType, MemberDescription) extends BuiltInSubroutine;
 fwdclass BuiltInSetterMethod(CompiledIntrinsicsLibrary, ClassType, MemberDescription) extends BuiltInSubroutine;
-fwdclass CompilerIntrinsic(CompiledScopeNullable, AbstractSubroutineTypeWithSpecificParameters, String, ClassTypeNullable) extends BuiltInSubroutine;
 fwdclass BuiltInReadFromAddressIntrinsic(CompiledIntrinsicsLibrary) extends CompilerIntrinsic;
 fwdclass BuiltInWriteToAddressIntrinsic(CompiledIntrinsicsLibrary) extends CompilerIntrinsic;
-fwdclass CompiledVarArgsSubroutine(CompiledScopeNullable, AbstractSubroutineTypeWithSpecificParameters, String, ClassTypeNullable) extends CompiledSubroutine;
 fwdclass IdentifierEntity() extends Object;
 fwdclass SubroutinePointerBucket(CompiledSubroutine, Boolean) extends ConstantBucket;
 fwdclass RootEnumPropertyType(TypeRegistry, String) extends NumericType;
@@ -95,6 +95,7 @@ fwdclassfield AssemblerLabel CompiledScope.classesLabel;
 fwdclassfield AssemblerLabel CompiledScope.subroutinesLabel;
 fwdclassfield CompiledScopeNullable CompiledScope.parent;
 fwdclassfield String CompiledScope.name;
+fwdclassfield DeferredBucket CompiledScope.closureBlock;
 fwdclassmethod CompilationEnvironment CompiledScope.environment();
 fwdclassmethod CompiledStackFrameScope CompiledScope.stackFrame();
 fwdclassmethod CompiledLibrary CompiledScope.globalScope();
@@ -106,6 +107,10 @@ fwdclassmethod Bucket CompiledScope.emitSubroutinePointerCall(Bucket, BucketList
 fwdclassmethod Bucket CompiledScope.emitIntrinsicCall(String, BucketList);
 fwdclassmethod Null CompiledScope.extractInstructionsInto(BoundInstructionList);
 fwdclassmethod Bucket CompiledScope.emitCopy(Bucket);
+fwdclassmethod Boolean CompiledScope.needsClosureBlock();
+
+// CompiledStackFrameScope
+fwdclassmethod Boolean CompiledStackFrameScope.isClosure();
 
 // CompiledSubroutine
 fwdclassfield AssemblerLabel CompiledSubroutine.functionPointerLabel;
@@ -260,9 +265,10 @@ class CompilationEnvironment extends TypeRegistry {
   String iteratorIntrinsicName = 'iterator';
   String currentIntrinsicName = 'current';
   String nextIntrinsicName = 'next';
-  String createMethodPointerIntrinsicName = '_createMethodPointer';
+  String createFunctionPointerIntrinsicName = '_createFunctionPointer';
   String dynamicLookupIntrinsicName = '_dynamicLookup';
   String listCastIntrinsicName = 'listCast#';
+  String allocateClosureBlockName = 'allocateClosureBlock#';
 
   Map intrinsics = Map(); // String -> CompiledSubroutine
 
@@ -551,7 +557,7 @@ class CompilationEnvironment extends TypeRegistry {
   // it is passed the element type of every type that is IterableType or AbstractListType
   // the returned types have their codes put into the generated table
   ConstantPartList _generateIterableConversionTypeTable(TypeFunction mapper, String tableName) {
-    IntegerListList iteratorTypes = []:IntegerList; // groups of 4 integers at a time
+    IntegerListList targetTypes = []:IntegerList; // groups of 4 integers at a time
     IntegerList buffer = []:Integer;
     IntegerList debugCodes = []:Integer;
     for (type in sortedTypes) {
@@ -559,11 +565,12 @@ class CompilationEnvironment extends TypeRegistry {
         append(debugCodes, type.code);
         if (type.isSubtypeOf(coreIterableType)) {
           if (type is IterableType) {
-            Type iteratorType = mapper((type as IterableType).elementType);
-            append(buffer, iteratorType.code);
+            Type targetType = mapper((type as IterableType).elementType);
+            append(buffer, targetType.code);
           } else if (type is AbstractListType) {
-            Type iteratorType = mapper((type as AbstractListType).elementType);
-            append(buffer, iteratorType.code);
+            Type targetType = mapper((type as AbstractListType).elementType);
+            assert(targetType.code != null, 'tried to get iterator with no code');
+            append(buffer, targetType.code);
           } else {
             throw(concat('Unrecognized iterable type: ', type));
           }
@@ -573,15 +580,15 @@ class CompilationEnvironment extends TypeRegistry {
       }
       if (len(buffer) == 4) {
         // we only print four codes on each line, because MASM doesn't like long lines
-        append(iteratorTypes, buffer);
+        append(targetTypes, buffer);
         buffer = []:Integer;
       }
     }
     if (len(buffer) > 0) {
-      append(iteratorTypes, buffer);
+      append(targetTypes, buffer);
       buffer = []:Integer;
     }
-    // now we generate the Constant from the iteratorTypes array
+    // now we generate the Constant from the targetTypes array
     assert(first(debugCodes) == 0, 'expected sorted type codes to start at zero');
     assert(last(debugCodes) == len(debugCodes) - 1, 'expected sorted type codes to be consecutive');
     Boolean isFirst = true;
@@ -596,7 +603,7 @@ class CompilationEnvironment extends TypeRegistry {
       // each code is 32 bits wide, so we use ow.DWord
       return ConstantPart(ow.DWord, map(buffer, buildIntegerDatumNoCommentName) as ImmediateDatumList, comment);
     }
-    return map(iteratorTypes, genLines) as ConstantPartList;
+    return map(targetTypes, genLines) as ConstantPartList;
   }
 
   Null _generateElementTypeTable(Assembler assembler, AssemblerLabel label) {
@@ -784,6 +791,10 @@ class EnvironmentConversionContext extends ConversionContext {
 // ============================================================================
 
 class Expression extends AstNode {
+  Null prepareIdentifiers(CompiledScope scope) {
+    abstract();
+  }
+
   // Expressions are expected to declare (or identify) a Bucket, and return it.
   Bucket generateInstructions(CompiledScope scope) {
     abstract();
@@ -993,6 +1004,7 @@ class FieldBucket extends Bucket {
   }
 }
 
+// TODO: see if we can remove this class and ReferenceDatum now that HeapUpdateInstruction has an offset argument
 class FieldPointerBucket extends Bucket {
   MemberDescription member;
   Bucket thisBucket;
@@ -1058,6 +1070,77 @@ class IdentifierEntity extends Object {
     }
     Bucket bucket = scope.emitCopy(forRead(scope));
     return generateInstructionsForSubroutinePointerCallExpression(scope, bucket, arguments, subroutineReference, sourceLocation);
+  }
+}
+
+class CapturedVariableIdentifierEntity extends IdentifierEntity {
+  Type _staticType;
+  String name;
+  CompiledScope homeScope;
+  Integer index;
+  Boolean _writeable;
+
+  //#override
+  Boolean isDeclared() { return true; }
+
+  //#override
+  Type staticType() { return _staticType; }
+
+  Bucket getStorageBucketPointer(CompiledScope referencingScope) {
+    Bucket result = referencingScope.closureBlock;
+    CompiledScope scope = referencingScope;
+    while (scope != homeScope) {
+      assert(scope.parent != null, 'broken CompiledScope parent chain');
+      assert(!(scope is CompiledLibrary), 'escaped scope chain unexpectedly');
+      scope = scope.parent!;
+      // TODO: skip the extra dereference for this scope if it does NOT have a closure block (and then optimize scopes to not have closure blocks!)
+      result = DereferenceWithStaticTypeBucket(
+        result,
+        scope.environment().integer(_gcBlockData + 8),
+        ow.QWord,
+        scope.environment().coreClosureType,
+        LazyComment('closure block of ', scope.name),
+      );
+    }
+    return result;
+  }
+
+  //#override
+  Bucket forRead(CompiledScope scope) {
+    return DereferenceWithOffsetsBucket(
+      getStorageBucketPointer(scope),
+      scope.environment().integer(_gcBlockData + 16 * index + 8),
+      scope.environment().integer(_gcBlockData + 16 * index),
+      ow.QWord,
+      _staticType,
+      LazyComment('captured variable ', name),
+    );
+  }
+
+  //#override
+  Boolean writeable() { return _writeable; }
+
+  Null _write(CompiledScope scope, Bucket value) { 
+    scope.emit(HeapUpdateInstruction(getStorageBucketPointer(scope), value, _gcBlockData + 16 * index, _staticType));
+  }
+
+  //#override
+  Null write(CompiledScope scope, Bucket value) { 
+    assert(_writeable, 'do not call write() on IdentifierEntities that return false from writable()');
+    _write(scope, value);
+  }
+
+  Null init(CompiledScope scope, Bucket value) { 
+    _write(scope, value);
+  }
+
+  Null constructor(Type staticTypeArg, String nameArg, Boolean writeableArg, CompiledScope homeScopeArg, Integer indexArg) {
+    super.constructor();
+    _staticType = staticTypeArg;
+    name = nameArg;
+    _writeable = writeableArg;
+    homeScope = homeScopeArg;
+    index = indexArg;
   }
 }
 
@@ -1244,7 +1327,7 @@ class FieldIdentifierEntity extends MemberIdentifierEntity {
 
   //#override
   Null write(CompiledScope scope, Bucket value) {
-    scope.emit(HeapUpdateInstruction(FieldPointerBucket(thisBucket, member, scope.environment().coreIntegerType), value, staticType()));
+    scope.emit(HeapUpdateInstruction(FieldPointerBucket(thisBucket, member, scope.environment().coreIntegerType), value, 0, staticType()));
   }
 
   //#override
@@ -1259,10 +1342,11 @@ class MethodIdentifierEntity extends MemberIdentifierEntity {
   Bucket forRead(CompiledScope scope) {
     staticType().markConstructed();
     return scope.emitIntrinsicCall(
-      scope.environment().createMethodPointerIntrinsicName,
+      scope.environment().createFunctionPointerIntrinsicName,
       [
         thisBucket,
         forCall(scope)!.codePointer,
+        scope.environment().coreNull,
         TypeCodeBucket(staticType(), scope.environment().coreIntegerType),
       ]:Bucket,
     );
@@ -1356,7 +1440,7 @@ class AmbiguousMemberIdentifierEntity extends MemberIdentifierEntity {
       null,
       null,
     );
-    scope.emit(HeapUpdateInstruction(FieldPointerBucket(thisBucket, member, scope.environment().coreIntegerType), value, staticType()));
+    scope.emit(HeapUpdateInstruction(FieldPointerBucket(thisBucket, member, scope.environment().coreIntegerType), value, 0, staticType()));
   }
 }
 
@@ -2012,6 +2096,8 @@ class LoopScopeInstruction extends BoundInstruction {
 // SCOPES
 // ============================================================================
 
+fwdclassmethod Boolean CompiledScope.internalPrepareIdentifierReferenceFor(String, CompiledStackFrameScope); // XXX needed to work around interpreter bug
+
 class CompiledScope extends Object {
   CompiledScopeNullable parent;
   String name;
@@ -2037,8 +2123,40 @@ class CompiledScope extends Object {
 
   // REGISTRIES
 
+  Map identifierReferrers = Map(); // String -> Set CompiledStackFrameScope
+
+  Null prepareIdentifier(String name) {
+    Set referrers = Set();
+    referrers.add(stackFrame());
+    identifierReferrers.set(name, referrers);
+  }
+
+  Null preparedIdentifierReferenceTo(CompiledScope targetScope) {
+    // no-op, subclasses are guaranteed that not calling this is ok
+    // subroutines mark themselves as closures when this happens if the scope is not their own stack frame
+  }
+
+  Boolean internalPrepareIdentifierReferenceFor(String name, CompiledStackFrameScope sourceScope) {
+    SetNullable referrers = identifierReferrers.get(name) as SetNullable;
+    if (referrers != null) {
+      referrers!.add(sourceScope);
+      sourceScope.preparedIdentifierReferenceTo(this);
+    } else if (parent != null) {
+      return parent!.internalPrepareIdentifierReferenceFor(name, sourceScope);
+    } else {
+      return false;
+    }
+    return true;
+  }
+
+  Boolean prepareIdentifierReferenceFor(String name) {
+    Boolean result = internalPrepareIdentifierReferenceFor(name, stackFrame());
+    return result;
+  }
+
   // variables namespace
   Map identifiers = Map(); // String -> IdentifierEntity (includes functions)
+
   Boolean isIdentifierDeclaredInLocalScope(String name) {
     IdentifierEntityNullable identifierEntity = identifiers.get(name) as IdentifierEntityNullable;
     return identifierEntity != null
@@ -2065,14 +2183,27 @@ class CompiledScope extends Object {
     return value;
   }
 
+  Integer capturedVariables = 0;
+  DeferredBucket closureBlock;
+
+  Boolean needsClosureBlock() {
+    return capturedVariables > 0 || stackFrame().isClosure();
+  }
+
   // Caller must incref variable if appropriate.
   // Libraries override this to register global variables.
   IdentifierEntity registerVariable(String name, Type type) {
     assert(!isIdentifierDeclaredInLocalScope(name), concat('tried to redeclare an identifier (', name, ') within a scope'));
-    LocalVariable variable = LocalVariable(type, environment().coreSentinel, name,);
-    IdentifierEntity result = LocalVariableIdentifierEntity(variable);
+    IdentifierEntity result;
+    if ((identifierReferrers.get(name) as Set).length > 1) {
+      capturedVariables += 1;
+      result = CapturedVariableIdentifierEntity(type, name, true, this, capturedVariables);
+    } else {
+      LocalVariable variable = LocalVariable(type, environment().coreSentinel, name);
+      result = LocalVariableIdentifierEntity(variable);
+      emit(VariableDeclarationInstruction(variable));
+    }
     identifiers.set(name, result);
-    emit(VariableDeclarationInstruction(variable));
     return result;
   }
 
@@ -2080,7 +2211,15 @@ class CompiledScope extends Object {
   Null registerImmutableValue(String name, Bucket value) {
     assert(!isIdentifierDeclaredInLocalScope(name), concat('tried to redeclare an identifier (', name, ') within a scope'));
     assert(!(value is LocalVariable), concat('registerImmutableValue used to register variable "', name, '"'));
-    identifiers.set(name, ImmutableVariableIdentifierEntity(value));
+    IdentifierEntity result;
+    if ((identifierReferrers.get(name) as Set).length > 1) {
+      capturedVariables += 1;
+      result = CapturedVariableIdentifierEntity(value.staticType, name, /*writeable:*/ false, this, capturedVariables);
+      (result as CapturedVariableIdentifierEntity).init(this, value);
+    } else {
+      result = ImmutableVariableIdentifierEntity(value);
+    }
+    identifiers.set(name, result);
   }
 
   Null registerConstant(String name, ConstantBucket value) {
@@ -2091,12 +2230,45 @@ class CompiledScope extends Object {
   }
 
   SubroutinePointerBucket registerSubroutine(CompiledSubroutine subroutine, Boolean isConstructor) { 
+    assert(!subroutine.isClosure(), 'closures should use registerClosure');
     assert(!isIdentifierDeclaredInLocalScope(subroutine.name), concat('tried to redeclare an identifier (', subroutine.name, ') within a scope'));
     SubroutinePointerBucket bucket = SubroutinePointerBucket(subroutine, isConstructor);
     identifiers.set(subroutine.name, SubroutineIdentifierEntity(bucket));
     subroutine.adoptBucket(bucket);
     environment().addSubroutine(subroutine);
     return bucket;
+  }
+
+  BucketNullable computeThisPointer() {
+    return null;
+  }
+
+  BucketNullable computeParentClosureBlock() {
+    assert(needsClosureBlock(), 'contract violation: do not call computeParentClosureBlock if we don\'t need a closure block');
+    stderr(name, 'isn\'t a subroutine');
+    return parent!.closureBlock;
+  }
+
+  Null registerClosure(CompiledSubroutine subroutine, Boolean isConstructor) {
+    assert(subroutine.isClosure(), 'only closures should use registerClosure, use registerSubroutine otherwise');
+    assert(!isIdentifierDeclaredInLocalScope(subroutine.name), concat('tried to redeclare an identifier (', subroutine.name, ') within a scope'));
+    assert(subroutine.parent == this, 'closures can only be registered in the scope where they are declared');
+    assert(!(this is CompiledLibrary), 'compiled libraries should never think they need closures');
+    BucketNullable thisPointer = stackFrame().computeThisPointer();
+    if (thisPointer == null) {
+      thisPointer = environment().coreNull;
+    }
+    Bucket functionPointer = emitIntrinsicCall(
+      environment().createFunctionPointerIntrinsicName,
+      [
+        thisPointer!,
+        subroutine.codePointer,
+        closureBlock,
+        TypeCodeBucket(subroutine.type, environment().coreIntegerType),
+      ]:Bucket,
+    );
+    registerImmutableValue(subroutine.name, functionPointer);
+    environment().addSubroutine(subroutine);
   }
 
 
@@ -2235,7 +2407,28 @@ class CompiledScope extends Object {
 
   Null appendHeader(BoundInstructionList result) { }
   Null appendBody(BoundInstructionList result) {
-    for (instruction in instructions) {
+    BoundInstructionList generatedInstructions = instructions;
+    if (needsClosureBlock()) {
+      assert(parent != null, 'if we have no parent it\'s not a captured variable it\'s a global!');
+      instructions = []:BoundInstruction;
+      CompilationEnvironment environment = environment();
+      Bucket parentClosureBlock;
+      if (parent!.needsClosureBlock()) {
+        parentClosureBlock = computeParentClosureBlock()!;
+      } else {
+        parentClosureBlock = environment.coreNull;
+      }
+      closureBlock.assignBucket(
+        emitIntrinsicCall(environment.allocateClosureBlockName, [
+          environment.integer(capturedVariables + 1),
+          parentClosureBlock,
+        ]:Bucket),
+      );
+      for (instruction in instructions) {
+        append(result, instruction.extract());
+      }
+    }
+    for (instruction in generatedInstructions) {
       append(result, instruction.extract());
     }
   }
@@ -2264,6 +2457,7 @@ class CompiledScope extends Object {
     super.constructor();
     name = nameArg;
     parent = parentArg as CompiledScopeNullable;
+    closureBlock = DeferredBucket(environment().coreClosureType, LazyComment('closure block of ', name));
     label = createLabel();
     classesLabel = label.deriveWith('class');
     subroutinesLabel = label.deriveWith('func');
@@ -2299,6 +2493,14 @@ class CompiledStackFrameScope extends CompiledScope {
   //#override
   CompiledStackFrameScope stackFrame() { 
     return this;
+  }
+
+  Boolean isClosure() {
+    abstract();
+  }
+
+  Null markAsClosure() {
+    abstract();
   }
 
   BucketList locallyCreatedBuckets() {
@@ -2337,6 +2539,45 @@ class CompiledSubroutine extends CompiledStackFrameScope {
   AssemblerLabel functionPointerLabel;
 
   Bucket codePointer; // set in constructor
+
+  Boolean _isClosure = false;
+
+  //#override
+  Boolean isClosure() {
+    return _isClosure;
+  }
+
+  //#override
+  Null markAsClosure() {
+    _isClosure = true;
+  }
+
+  //#override
+  Null preparedIdentifierReferenceTo(CompiledScope targetScope) {
+    CompiledStackFrameScope top = targetScope.stackFrame();
+    if (top != this && targetScope.globalScope() != targetScope) {
+      assert(!(parent is CompiledLibrary), 'a top-level subroutine marked itself as being a closure');
+      CompiledStackFrameScope current = this;
+      while (current != top) {
+        current.markAsClosure();
+        assert(current.parent != null, 'preparedIdentifierReferenceTo called with targetScope that is not ancestor of this');
+        current = current.parent!.stackFrame();
+      }
+    }
+  }
+
+  //#override
+  BucketNullable computeThisPointer() {
+    if (parentClass != null) {
+      return thisPointer;
+    }
+  }
+
+  //#override
+  BucketNullable computeParentClosureBlock() {
+    assert(isClosure(), 'computeParentClosureBlock called on non-closure');
+    return closurePointer;
+  }
 
   //#override
   AssemblerLabel createLabel() {
@@ -2453,10 +2694,9 @@ class CompiledSubroutine extends CompiledStackFrameScope {
     return result;
   }
 
-  Null constructor(CompiledScopeNullable parentArg, AbstractSubroutineTypeWithSpecificParameters typeArg, String nameArg, ClassTypeNullable parentClassArg) {
+  Null constructor(CompiledScopeNullable parentArg, String nameArg, ClassTypeNullable parentClassArg) {
     parentClass = parentClassArg as ClassTypeNullable;
     super.constructor(parentArg, nameArg);
-    type = typeArg;
     parameterCount = ParameterCountBucket(environment().coreIntegerType);
     returnValuePointer = ReturnValuePointerParameterBucket(environment().coreIntegerType);
     returnTypePointer = ReturnTypePointerParameterBucket(environment().coreIntegerType);
@@ -2481,6 +2721,10 @@ class CompiledSubroutine extends CompiledStackFrameScope {
     );
   }
 
+  Null setType(AbstractSubroutineTypeWithSpecificParameters typeArg) {
+    type = typeArg;
+  }
+
   //#override
   String toStringIndent(Integer indent) {
     StringList buffer = []:String;
@@ -2497,7 +2741,7 @@ class CompiledSubroutineWithSpecificParameters extends CompiledSubroutine {
     assert(!isIdentifierDeclaredInLocalScope(name), 'duplicate parameter names');
     ParameterBucket result = ParameterBucket(type, position, name);
     append(parameters, result);
-    identifiers.set(name, ImmutableVariableIdentifierEntity(result));
+    registerImmutableValue(name, result);
     return result;
   }
 
@@ -2671,8 +2915,8 @@ class CompiledGeneratedConstructorSubroutine extends CompiledSubroutine {
     subemit(result, ConstructorTrampolineInstruction(actualConstructor.label, thisPointerPin, closurePin, parameterCountPin).extract());
   }
 
-  Null constructor(CompiledScopeNullable parentArg, AbstractSubroutineTypeWithSpecificParameters typeArg, String nameArg, ClassType parentClassArg) {
-    super.constructor(parentArg, typeArg, nameArg, parentClassArg);
+  Null constructor(CompiledScopeNullable parentArg, String nameArg, ClassType parentClassArg) {
+    super.constructor(parentArg, nameArg, parentClassArg);
     thisPointerPin = LocalBucket(parentClass!, 'this pointer for user constructor');
     closurePin = LocalBucket(environment().coreSentinelType, 'closure for user constructor');
     parameterCountPin = LocalBucket(environment().coreIntegerType, 'parameter count for user constructor');
@@ -2695,8 +2939,13 @@ class BuiltInSubroutine extends CompiledSubroutineWithSpecificParameters {
     super.finalizeInstructions(assembler);
   }
 
-  Null constructor(CompiledScopeNullable parentArg, AbstractSubroutineTypeWithSpecificParameters typeArg, String nameArg, ClassTypeNullable parentClassArg) {
-    super.constructor(parentArg, typeArg, nameArg, parentClassArg);
+  Null constructor(CompiledScopeNullable parentArg, String nameArg, ClassTypeNullable parentClassArg) {
+    super.constructor(parentArg, nameArg, parentClassArg);
+  }
+
+  //#override
+  Null setType(AbstractSubroutineTypeWithSpecificParameters typeArg) {
+    super.setType(typeArg);
     SubroutineTypeWithSpecificParameters signature = type as SubroutineTypeWithSpecificParameters;
     Integer index = 0;
     while (index < len(signature.parameterTypes)) {
@@ -2733,10 +2982,11 @@ class BuiltInGetterMethod extends BuiltInSubroutine {
       member.staticType.markConstructed();
       emitReturnFrom(this, 
         emitIntrinsicCall(
-          environment().createMethodPointerIntrinsicName,
+          environment().createFunctionPointerIntrinsicName,
           [
             thisPointer,
             member.methodImplementation!.codePointer,
+            environment().coreNull,
             TypeCodeBucket(member.staticType, environment().coreIntegerType),
           ]:Bucket,
         ),
@@ -2754,10 +3004,10 @@ class BuiltInGetterMethod extends BuiltInSubroutine {
   Null constructor(CompiledIntrinsicsLibrary parentArg, ClassType classArg, MemberDescription memberArg) { 
     super.constructor(
       parentArg,
-      createOrFindSubroutineTypeWithSpecificParameters(parentArg.environment(), memberArg.staticType, []:Type),
       memberArg.name,
       classArg,
     );
+    setType(createOrFindSubroutineTypeWithSpecificParameters(parentArg.environment(), memberArg.staticType, []:Type));
     member = memberArg;
   }
 }
@@ -2787,10 +3037,10 @@ class BuiltInSetterMethod extends BuiltInSubroutine {
   Null constructor(CompiledIntrinsicsLibrary parentArg, ClassType classArg, MemberDescription memberArg) { 
     super.constructor(
       parentArg,
-      createOrFindSubroutineTypeWithSpecificParameters(parentArg.environment(), parentArg.environment().coreNullType, []:Type),
       memberArg.name,
       classArg,
     );
+    setType(createOrFindSubroutineTypeWithSpecificParameters(parentArg.environment(), parentArg.environment().coreNullType, []:Type));
     member = memberArg;
   }
 }
@@ -2837,13 +3087,15 @@ class BuiltInLenSubroutine extends BuiltInSubroutine {
   Null constructor(CompiledIntrinsicsLibrary parentArg) { 
     super.constructor(
       parentArg,
+      'len',
+      null /* parentClass */,
+    );
+    setType(
       createOrFindSubroutineTypeWithSpecificParameters(
         parentArg.environment(),
         parentArg.environment().coreIntegerType,
         [ createOrFindArrayType(parentArg.environment(), parentArg.environment().coreWhateverType) ]:Type,
       ),
-      'len',
-      null /* parentClass */,
     );
   }
 }
@@ -2868,13 +3120,15 @@ class BuiltInDebuggerSubroutine extends BuiltInSubroutine {
   Null constructor(CompiledIntrinsicsLibrary parentArg) { 
     super.constructor(
       parentArg,
+      '__debugger',
+      null /* parentClass */,
+    );
+    setType(
       createOrFindSubroutineTypeWithSpecificParameters(
         parentArg.environment(),
         parentArg.environment().coreNullType,
         []:Type,
       ),
-      '__debugger',
-      null /* parentClass */,
     );
   }
 }
@@ -2932,13 +3186,15 @@ class BuiltInReadFromAddressIntrinsic extends CompilerIntrinsic {
   Null constructor(CompiledIntrinsicsLibrary parentArg) { 
     super.constructor(
       parentArg,
+      '__readFromAddress',
+      null /* parentClass */,
+    );
+    setType(
       createOrFindSubroutineTypeWithSpecificParameters(
         parentArg.environment(),
         parentArg.environment().coreIntegerType,
         [ parentArg.environment().coreIntegerType ]:Type,
       ),
-      '__readFromAddress',
-      null /* parentClass */,
     );
   }
 }
@@ -2958,13 +3214,15 @@ class BuiltInWriteToAddressIntrinsic extends CompilerIntrinsic {
   Null constructor(CompiledIntrinsicsLibrary parentArg) { 
     super.constructor(
       parentArg,
+      '__writeToAddress',
+      null /* parentClass */,
+    );
+    setType(
       createOrFindSubroutineTypeWithSpecificParameters(
         parentArg.environment(),
         parentArg.environment().coreNullType,
         [ parentArg.environment().coreIntegerType, parentArg.environment().coreIntegerType ]:Type,
       ),
-      '__writeToAddress',
-      null /* parentClass */,
     );
   }
 }
@@ -2983,13 +3241,15 @@ class BuiltInByteCompareIntrinsic extends CompilerIntrinsic {
   Null constructor(CompiledIntrinsicsLibrary parentArg) { 
     super.constructor(
       parentArg,
+      '__byteCompare',
+      null /* parentClass */,
+    );
+    setType(
       createOrFindSubroutineTypeWithSpecificParameters(
         parentArg.environment(),
         parentArg.environment().coreBooleanType,
         [ parentArg.environment().coreIntegerType, parentArg.environment().coreIntegerType, parentArg.environment().coreIntegerType ]:Type,
-      ),
-      '__byteCompare',
-      null /* parentClass */,
+      )
     );
   }
 }
@@ -3009,10 +3269,10 @@ class GenericSystemCallSubroutine extends CompiledSubroutineWithSpecificParamete
   Null constructor(CompiledScope parentArg, Type returnTypeArg, TypeList argumentTypesArg, String libraryArg, String externalNameArg, String internalNameArg, StringList parameterNames) { 
     super.constructor(
       parentArg,
-      createOrFindSubroutineTypeWithSpecificParameters(parentArg.environment(), returnTypeArg, argumentTypesArg),
       internalNameArg,
       null /* parentClass */,
     );
+    setType(createOrFindSubroutineTypeWithSpecificParameters(parentArg.environment(), returnTypeArg, argumentTypesArg));
     library = libraryArg;
     externalName = externalNameArg;
     SubroutineTypeWithSpecificParameters signature = type as SubroutineTypeWithSpecificParameters;
@@ -3039,6 +3299,22 @@ class CompiledLibrary extends CompiledStackFrameScope {
     return compilationEnvironment;
   }
 
+  //#override
+  Boolean isClosure() {
+    return false;
+  }
+
+  //#override
+  Null markAsClosure() {
+    assert(false, 'libraries cannot be closures');
+  }
+
+  //#override
+  Boolean needsClosureBlock() {
+    // libraries can never need a closure block because it would be a singleton, and we can just use global variables instead
+    return false;
+  }
+
   CompiledLibraryList libraries = []:CompiledLibrary;
 
   Null importLibrary(CompiledLibrary library) {
@@ -3046,10 +3322,27 @@ class CompiledLibrary extends CompiledStackFrameScope {
     append(libraries, library);
   }
 
+  //#override
+  Boolean internalPrepareIdentifierReferenceFor(String name, CompiledStackFrameScope scope) {
+    if (!super.internalPrepareIdentifierReferenceFor(name, scope)) {
+      Integer index = len(libraries) - 1;
+      while (index >= 0) {
+        if (libraries[index].internalPrepareIdentifierReferenceFor(name, scope)) {
+          return true;
+        }
+        index -= 1;
+      }
+    } else {
+      return true;
+    }
+    return false;
+  }
+
   GlobalVariableList globalVariables = []:GlobalVariable;
 
   //#override
   IdentifierEntity registerVariable(String name, Type type) {
+    // TODO: if this identifier is only accessed from this stack frame then just use a local variable instead
     assert(!isIdentifierDeclaredInLocalScope(name), concat('tried to redeclare an identifier (', name, ') within a scope'));
     GlobalVariable variable = GlobalVariable(type, globalVariablesLabel, name);
     IdentifierEntity result = GlobalVariableIdentifierEntity(variable, true);
@@ -3061,6 +3354,7 @@ class CompiledLibrary extends CompiledStackFrameScope {
   // Caller must incref variable if appropriate.
   //#override
   Null registerImmutableValue(String name, Bucket value) {
+    // TODO: if this identifier is only accessed from this stack frame then just use a local variable instead
     assert(!isIdentifierDeclaredInLocalScope(name), concat('tried to redeclare an identifier (', name, ') within a scope'));
     assert(!(value is LocalVariable), concat('registerImmutableValue used to register variable "', name, '"'));
     GlobalVariable variable = GlobalVariable(value.staticType, globalVariablesLabel, name);
@@ -3207,18 +3501,25 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
     environment.coreSubroutineCodeAddressType.markDeclared();
     registerType(environment.coreListDataType);
     environment.coreListDataType.markDeclared();
+    registerType(environment.coreClosureType);
+    environment.coreClosureType.markDeclared();
     registerType(environment.coreRootEnumPropertyType);
     environment.coreRootEnumPropertyType.markDeclared();
     registerType(environment.coreRootReifiedEnumType);
     environment.coreRootReifiedEnumType.markDeclared();
 
     // built-in functions not used from compiler
+    prepareIdentifier('__debugger');
     registerSubroutine(BuiltInDebuggerSubroutine(this), false);
+    prepareIdentifier('len');
     registerSubroutine(BuiltInLenSubroutine(this), false);
 
     // intrinsic functions (functions that only work when inlined)
+    prepareIdentifier('__readFromAddress');
     registerSubroutine(BuiltInReadFromAddressIntrinsic(this), false);
+    prepareIdentifier('__writeToAddress');
     registerSubroutine(BuiltInWriteToAddressIntrinsic(this), false);
+    prepareIdentifier('__byteCompare');
     registerSubroutine(BuiltInByteCompareIntrinsic(this), false);
   }
 }

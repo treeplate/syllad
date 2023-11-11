@@ -234,6 +234,7 @@ class WhileStatement extends Statement {
   final bool catchReturns;
   @override
   StatementResult run(Scope scope) {
+    while (cond.eval(scope).valueC(scope, scope.stack, line, col, workspace, file)) {
     Scope whileScope = createParentScope
         ? Scope(
             false,
@@ -245,7 +246,6 @@ class WhileStatement extends Statement {
             intrinsics: scope.intrinsics,
           )
         : scope;
-    while (cond.eval(scope).valueC(whileScope, whileScope.stack, line, col, workspace, file)) {
       block:
       for (Statement statement in body) {
         StatementResult statementResult = statement.run(whileScope);

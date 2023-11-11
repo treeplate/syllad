@@ -1,0 +1,7 @@
+// expected error: unused variable
+// expected exit code is 0
+
+if (false) {
+} else {
+  Integer variable = 1;
+}

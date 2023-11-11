@@ -1,0 +1,21 @@
+// expected output: 3
+// expected output: 17
+
+Integer test(Boolean condition) {
+  Integer a = 1;
+  if (condition) {
+    a += 2;
+    //#ignore_unused
+    Integer a = 4;
+    a += 8;
+  } else {
+    a += 16;
+    //#ignore_unused
+    Integer a = 32;
+    a += 64;
+  }
+  return a;
+}
+
+println(test(true));
+println(test(false));

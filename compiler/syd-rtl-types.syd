@@ -1,4 +1,4 @@
-// RUNTIME LIBRARY - CLASSES, ENUMS
+// RUNTIME LIBRARY - CLASSES, ENUMS, FUNCTION POINTERS
 
 import 'syd-rtl-memory.syd';
 import 'syd-rtl-core-strings.syd';
@@ -44,9 +44,9 @@ Object# _classAllocator(Integer vmt) intrinsic# {
   Integer fieldCount = __readFromAddress(vmt + _vmtFieldCount);
   assert(fieldCount >= 2, 'unexpectedly small field count');
   Object# instance = _constructor(typeCode, fieldCount, fieldCount) as Object#;
-  __writeToAddress(instance __as__ Integer + _fieldVmt, __typeToCode Integer);
+  __writeToAddress(instance __as__ Integer + _fieldVmt, __typeCodeOf Integer);
   __writeToAddress(instance __as__ Integer + _fieldVmt + 8, vmt);
-  __writeToAddress(instance __as__ Integer + _fieldClassName, __typeToCode String);
+  __writeToAddress(instance __as__ Integer + _fieldClassName, __typeCodeOf String);
   __writeToAddress(instance __as__ Integer + _fieldClassName + 8, __readFromAddress(vmt + _vmtClassName));
   if (fieldCount > 2) {
     _fillQuadWords(instance __as__ Integer + _fieldsRemainder, (fieldCount - 2) * 16, 0);
@@ -64,19 +64,29 @@ class Object# intrinsic# {
   Null constructor() {}
 }
 
+Closure# allocateClosureBlock#(Integer size, Closure#Nullable parent) intrinsic# {
+  assert(parent == null || parent __as__ Integer != 0, 'called allocateClosureBlock with nullptr closure');
+  _gcLocked += 1;
+  Closure# result = _constructor(__typeCodeOf Closure#, size, size) as Closure#;
+  _gcLocked -= 1;
+  __writeToAddress(result __as__ Integer + _gcBlockData, __typeOf parent);
+  __writeToAddress(result __as__ Integer + _gcBlockData + 8, parent __as__ Integer);
+  return result;
+}
+
 // Code pointers are blocks with the following values:
 //  1: pointer to object; null for global scope function pointers
 //  2: pointer to closure; null for global scope function pointers
 //  3: pointer to code (with annotation at -8 bytes) as an Integer
 
-WhateverFunction _createMethodPointer(Object# receiver, __CodeAddress codePointer, Integer functionTypeCode) intrinsic# {
+WhateverFunction _createFunctionPointer(Object#Nullable receiver, __CodeAddress codePointer, Closure#Nullable closure, Integer functionTypeCode) intrinsic# {
   _gcLocked += 1;
   WhateverFunction result = _constructor(functionTypeCode, 2, 2) as WhateverFunction;
   __writeToAddress(result __as__ Integer + _subroutineReceiverType, __typeOf receiver);
   __writeToAddress(result __as__ Integer + _subroutineReceiverPointer, receiver __as__ Integer);
-  __writeToAddress(result __as__ Integer + _subroutineClosurePointer, 0);
-  __writeToAddress(result __as__ Integer + _subroutineClosureType, 0);
-  __writeToAddress(result __as__ Integer + _subroutineCodeType, __typeToCode Integer);
+  __writeToAddress(result __as__ Integer + _subroutineClosureType, __typeOf closure);
+  __writeToAddress(result __as__ Integer + _subroutineClosurePointer, closure __as__ Integer);
+  __writeToAddress(result __as__ Integer + _subroutineCodeType, __typeCodeOf Integer);
   __writeToAddress(result __as__ Integer + _subroutineCodePointer, codePointer __as__ Integer);
   _gcLocked -= 1;
   return result;
@@ -94,9 +104,10 @@ Whatever _dynamicLookup(Anything receiver, Integer methodId) intrinsic# {
     while (cursor < end) {
       Integer entry = __readFromAddress(cursor);
       if ((entry & 0x00000000FFFFFFFF) == methodId) {
-        WhateverFunction getter = _createMethodPointer(
+        WhateverFunction getter = _createFunctionPointer(
           receiver as Object#,
           __readFromAddress(vmt + (entry >> 32)) __as__ __CodeAddress,
+          null,
           __typeOf _WhateverFunctionPrototype,
         );
         return getter();

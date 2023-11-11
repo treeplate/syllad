@@ -2,7 +2,7 @@
 // expected output: 2
 // expected output: 3
 
-IntegerFunction func() {
+IntegerFunction createClosure() {
   Integer foo = 0;
   Integer closure() {
     foo += 1;
@@ -11,7 +11,7 @@ IntegerFunction func() {
   return closure;
 }
 
-IntegerFunction closure = func();
+IntegerFunction closure = createClosure();
 println(closure());
 println(closure());
 println(closure());

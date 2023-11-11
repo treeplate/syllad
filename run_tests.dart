@@ -78,8 +78,8 @@ int runTestSuite(List<File> files, String name, TestRunner testRunner) {
   int remaining = files.length;
   print('Running ${files.length} tests for $name...');
   for (File file in files) {
-    stdout.write(
-      '$passedCount passed ($newPasses new), $failedCount failed ($newFailures new), $skippedCount skipped; testing ${path.basename(file.path)} ($remaining remaining)\n',
+    print(
+      '$passedCount passed ($newPasses new), $failedCount failed ($newFailures new), $skippedCount skipped; testing ${path.basename(file.path)} ($remaining remaining)',
     );
     bool? result = runTest(file, testRunner);
     if (result == null) {
@@ -88,11 +88,13 @@ int runTestSuite(List<File> files, String name, TestRunner testRunner) {
       passedCount += 1;
       if (path.split(file.path).contains('not yet passing in $name') || path.split(file.path).contains('not yet passing anywhere')) {
         newPasses += 1;
+        print('NEW PASS: ${file.path}');
       }
     } else {
       failedCount += 1;
       if (!path.split(file.path).contains('not yet passing in $name') && !path.split(file.path).contains('not yet passing anywhere')) {
         newFailures += 1;
+        print('NEW FAILURE: ${file.path}');
       }
     }
     remaining -= 1;

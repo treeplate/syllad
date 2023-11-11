@@ -1,0 +1,34 @@
+// expected output: 0
+// expected output: 0
+// expected output: 1
+// expected output: 1
+// expected output: 2
+// expected output: 2
+// expected output: 3
+// expected output: 3
+// expected output: 4
+
+IntegerFunctionList indexedFunctions(Integer length) {
+  IntegerFunctionList result = []:IntegerFunction;
+  Integer i = 0;
+  while (i < length) {
+    Integer j = i;
+    Integer getIndex() {
+      return j;
+    }
+    append(result, getIndex);
+    i += 1;
+  }
+  return result;
+}
+
+IntegerFunctionList indexes = indexedFunctions(5);
+WhateverFunction nextFunction = println;
+for (func in indexes) {
+  nextFunction();
+  Null fun() {
+    println(func());
+  }
+  nextFunction = fun;
+  println(func());
+}

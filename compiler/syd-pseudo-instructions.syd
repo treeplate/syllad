@@ -318,11 +318,13 @@ class Annotation extends PseudoInstruction {
 class Label extends PseudoInstruction {
   AssemblerLabel label;
   String comment;
+  Boolean isPublic;
 
-  Null constructor(AssemblerLabel labelArg, String commentArg) {
+  Null constructor(AssemblerLabel labelArg, String commentArg, Boolean isPublicArg) {
     super.constructor();
     label = labelArg;
     comment = commentArg;
+    isPublic = isPublicArg;
   }
 }
 
@@ -1018,7 +1020,7 @@ class If extends BlockPseudoInstruction {
 
     // IF BLOCK
     Map ifBlockDatumStatuses = datumStatuses.copy();
-    append(output, Label(ifLabel, commentForIf));
+    append(output, Label(ifLabel, commentForIf, false));
     append(output, BlockStartMarker());
     terminated = false;
     for (instruction in block1) {
@@ -1040,7 +1042,7 @@ class If extends BlockPseudoInstruction {
 
     // ELSE BLOCK
     Map elseBlockDatumStatuses = datumStatuses.copy();
-    append(output, Label(elseLabel, commentForElse));
+    append(output, Label(elseLabel, commentForElse, false));
     append(output, BlockStartMarker());
     terminated = false;
     for (instruction in block2) {
@@ -1064,7 +1066,7 @@ class If extends BlockPseudoInstruction {
     }
     append(output, BlockEndMarker());
 
-    append(output, Label(endifLabel, concat('end of if/else block for ', condition.commentName)));
+    append(output, Label(endifLabel, concat('end of if/else block for ', condition.commentName), false));
     pop(blocks);
 
     return false; // "if" does not terminate code flow
@@ -1104,7 +1106,7 @@ class Loop extends BlockPseudoInstruction {
     append(blocks, BlockConfiguration(datumOrigins, datumDestinations, beforeLabel, afterLabel, true));
 
     Map datumStorage = Map(); // Datum -> Storage
-    append(output, Label(beforeLabel, 'top of loop'));
+    append(output, Label(beforeLabel, 'top of loop', false));
     append(output, BlockStartMarker());
     for (datum in datumsUsed.values()) {
       Storage storage = Storage();
@@ -1122,7 +1124,7 @@ class Loop extends BlockPseudoInstruction {
       append(output, Restore(datum as Datum, datumStorage.get(datum) as Storage));
     }
     append(output, BlockEndMarker());
-    append(output, Label(afterLabel, 'bottom of loop'));
+    append(output, Label(afterLabel, 'bottom of loop', false));
 
     for (variable in datumDestinations.keys()) {
       assert(datumStatuses.get(variable) != null, 'datumStatuses no longer contains expected variable');
@@ -1165,7 +1167,7 @@ class Block extends PseudoInstruction {
       }
     }
     append(output, BlockEndMarker());
-    append(output, Label(afterLabel, concat('end of ', name)));
+    append(output, Label(afterLabel, concat('end of ', name), false));
     pop(blocks);
     return false;
   }

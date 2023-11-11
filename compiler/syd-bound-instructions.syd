@@ -661,11 +661,13 @@ class CopyBucketInstruction extends BoundInstruction {
   }
 }
 
-// the location pointed to by targetPointer is assumed to _not_ be a GC root
+// the location pointed to by [targetPointer + offset] is assumed to _not_ be a GC root
 // (this is used for updating list values and object field values)
+// writes type of [source] to [targetPointer + offset] and value to [targetPointer + offset + 8]
 class HeapUpdateInstruction extends BoundInstruction {
   Bucket source;
   Bucket targetPointer;
+  Integer offset;
   Type targetType;
 
   //#override
@@ -676,26 +678,29 @@ class HeapUpdateInstruction extends BoundInstruction {
   //#override
   PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
     PseudoInstructionList output = []:PseudoInstruction;
-    Datum targetTypeDatum = compute(output, LoadQuad(targetPointer.currentValueDatum(), IntegerDatum(0x00, 'type offset'), concat('load type currently in ', targetPointer.commentName()), concat('old type of ', targetPointer.commentName())));
-    Datum targetValueDatum = compute(output, LoadQuad(targetPointer.currentValueDatum(), IntegerDatum(0x08, 'value offset'), concat('load value currently in ', targetPointer.commentName()), concat('old', targetPointer.commentName())));
-    Bucket original = DatumBucket(targetValueDatum, targetTypeDatum, targetType, false);
+    Datum targetTypeDatum = compute(output, LoadQuad(targetPointer.currentValueDatum(), IntegerDatum(offset + 0x00, 'type offset'), concat('load type currently in ', targetPointer.commentName()), concat('old type of ', targetPointer.commentName())));
+    Datum targetValueDatum = compute(output, LoadQuad(targetPointer.currentValueDatum(), IntegerDatum(offset + 0x08, 'value offset'), concat('load value currently in ', targetPointer.commentName()), concat('old', targetPointer.commentName())));
+    Bucket original = DatumBucket(targetValueDatum, targetTypeDatum, targetType, /*gcroot:*/ false);
     decref(output, original, context);
-    append(output, StoreQuad(source.currentTypeDatum(), targetPointer.currentValueDatum(), IntegerDatum(0x00, 'type offset'), concat('update type of ', targetPointer.commentName(), ' to ', source.currentTypeDatum().commentName)));
-    append(output, StoreQuad(source.currentValueDatum(), targetPointer.currentValueDatum(), IntegerDatum(0x08, 'value offset'), concat('update value of ', targetPointer.commentName(), ' to ', source.currentValueDatum().commentName)));
+    append(output, StoreQuad(source.currentTypeDatum(), targetPointer.currentValueDatum(), IntegerDatum(offset + 0x00, 'type offset'), concat('update type of ', targetPointer.commentName(), ' to ', source.currentTypeDatum().commentName)));
+    append(output, StoreQuad(source.currentValueDatum(), targetPointer.currentValueDatum(), IntegerDatum(offset + 0x08, 'value offset'), concat('update value of ', targetPointer.commentName(), ' to ', source.currentValueDatum().commentName)));
     // source itself might be GC root, so we can't incref it directly, so we make a new bucket that points to the same place but is marked non-gcroot
-    Bucket replacement = DatumBucket(source.currentValueDatum(), source.currentTypeDatum(), targetType, false);
+    Bucket replacement = DatumBucket(source.currentValueDatum(), source.currentTypeDatum(), targetType, /*gcroot:*/ false);
     incref(output, replacement, context);
     return output;
   }
 
-  Null constructor(Bucket targetArg, Bucket sourceArg, Type targetTypeArg) {
+  Null constructor(Bucket targetArg, Bucket sourceArg, Integer offsetArg, Type targetTypeArg) {
     super.constructor();
     targetPointer = targetArg;
     source = sourceArg;
+    offset = offsetArg;
     targetType = targetTypeArg;
   }
 }
 
+// writes value of [source] to [targetPointer]
+// does not do any increfs or decrefs
 class WriteToAddressInstruction extends BoundInstruction {
   Bucket targetPointer;
   Bucket source;
@@ -775,7 +780,7 @@ class LabelInstruction extends BoundInstruction {
 
   //#override
   PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
-    return [ Label(label, comment) ]:PseudoInstruction;
+    return [ Label(label, comment, true) ]:PseudoInstruction;
   }
   
   //#override
@@ -1086,6 +1091,8 @@ class IfBlockInstruction extends BoundInstruction {
       }
       for (variable in instruction.getModifiedLocalVariables()) {
         variables.add(variable);
+        assert((typeInferenceBefore.get(variable) as TypeInferenceNullable == null) || (typeInferenceBefore.get(variable) as TypeInference).debugEquals(variable.typeInference), 'internal inconsistency');
+        typeInferenceBefore.set(variable, variable.typeInference.copy());
       }
     }
     for (variable in localVariables.values()) {

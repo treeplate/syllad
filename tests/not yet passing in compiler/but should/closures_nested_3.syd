@@ -1,0 +1,37 @@
+// expected output: 7
+// expected output: 0
+// expected output: 1
+// expected output: 2
+// expected output: 3
+// expected output: 4
+
+IntegerFunctionFunction foo(Integer arg) {
+  Integer a = arg;
+  Integer bar() {
+    a += 1;
+    return a;
+  }
+  IntegerFunction baz() {
+    bar();
+    return bar;
+  }
+  return baz;
+}
+
+println(foo(5)()());
+
+
+Integer index = 0;
+IntegerFunctionList r = []:IntegerFunction;
+while (index < 5) {
+  Integer a = index;
+  Integer test() {
+    return a;
+  }
+  append(r, test);
+  index += 1;
+}
+
+for (f in r) {
+  println(f());
+}

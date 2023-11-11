@@ -17,7 +17,7 @@ import 'syd-rtl-memory.syd';
 WhateverList listConstructor#(Integer typeCode, Integer initialSize) intrinsic# {
   _gcLocked += 1;
   WhateverList list = _constructor(typeCode, 2, 2) as WhateverList;
-  __ListData data = _constructor(__typeToCode __ListData, 0, initialSize) as __ListData;
+  __ListData data = _constructor(__typeCodeOf __ListData, 0, initialSize) as __ListData;
   __writeToAddress(list __as__ Integer + _gcBlockData + 0, __typeOf initialSize);
   __writeToAddress(list __as__ Integer + _gcBlockData + 8, initialSize);
   __writeToAddress(list __as__ Integer + _gcBlockData + 16, __typeOf data);
@@ -29,7 +29,7 @@ WhateverList listConstructor#(Integer typeCode, Integer initialSize) intrinsic# 
 Null _growList(WhateverList list) {
   _gcLocked += 1;
   Integer newSize = len(list) * 2;
-  __ListData newData = _constructor(__typeToCode __ListData, len(list), newSize) as __ListData;
+  __ListData newData = _constructor(__typeCodeOf __ListData, len(list), newSize) as __ListData;
   __ListData oldData = __readFromAddress(list __as__ Integer + _gcBlockData + 16 + 8) __as__ __ListData;
   _moveBytes(oldData __as__ Integer + _gcBlockData, newData __as__ Integer + _gcBlockData, len(list) * 16);
   __writeToAddress(list __as__ Integer + _gcBlockData + 8, newSize);
@@ -111,7 +111,7 @@ WhateverIterator iterator(WhateverIterable iterable) intrinsic# {
   WhateverIterator result = _constructor(__iteratorTypeFrom __typeOf iterable, 2, 2) as WhateverIterator;
   __writeToAddress(result __as__ Integer + _gcBlockData + 0, __typeOf iterable);
   __writeToAddress(result __as__ Integer + _gcBlockData + 8, iterable __as__ Integer);
-  __writeToAddress(result __as__ Integer + _gcBlockData + 16, __typeToCode Integer);
+  __writeToAddress(result __as__ Integer + _gcBlockData + 16, __typeCodeOf Integer);
   __writeToAddress(result __as__ Integer + _gcBlockData + 24, -1);
   _gcLocked -= 1;
   return result;
@@ -142,7 +142,7 @@ WhateverList listCast#(WhateverList list, Integer type) intrinsic# {
 
 //#ignore_unused
 WhateverList filledList(Integer length, Whatever value) {
-  AnythingList result = listConstructor#(__typeToCode AnythingList, length);
+  AnythingList result = listConstructor#(__typeCodeOf AnythingList, length);
   Integer index = 0;
   while (index < length) {
     result[index] = value;

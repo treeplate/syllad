@@ -9,15 +9,39 @@
 // expected output: 18
 // expected output: 1
 IntegerFunctionFunction createCounterFactory() {
+  // allocates a block
+  //  - foo
   Integer foo = 0;
   IntegerFunction createCounter() {
+    // receives a block A containing foo
+    // allocates a block B:
+    //  - A
+    //    - foo
+    //  - bar
     Integer bar = 1;
-    Integer count() {
-      foo += bar;
-      bar += 1;
-      return foo;
+    IntegerFunction countFactory() {
+      // receives a block B containing a block A containing foo, and containing bar
+      // allocates a block C:
+      //  - B
+      //    - A
+      //      - foo
+      //    - bar
+      Integer count() {
+        // receives a block C
+        // allocates a block D:
+        //  - C
+        //    - B
+        //      - A
+        //        - foo
+        //      - bar
+        Integer one() { return 1; }
+        foo += bar;
+        bar += one();
+        return foo;
+      }
+      return count;
     }
-    return count;
+    return countFactory();
   }
   return createCounter;
 }

@@ -1462,13 +1462,13 @@ IfStatement parseIf(TokenIterator tokens, TypeValidator scope) {
   tokens.moveNext();
   tokens.expectChar(TokenType.openParen);
   Expression value = parseExpression(tokens, scope);
+  tokens.expectChar(TokenType.closeParen);
   if (!value.type.isSubtypeOf(booleanType)) {
     throw BSCException(
       'The if condition ($value, a ${value.type}) is not a Boolean        ${formatCursorPositionFromTokens(tokens)}',
       scope,
     );
   }
-  tokens.expectChar(TokenType.closeParen);
   tokens.expectChar(TokenType.openBrace);
   TypeValidator innerScope = TypeValidator([scope], NotLazyString('if statement'), false, false, false, scope.rtl);
   List<Statement> body = parseBlock(tokens, innerScope);
@@ -1485,7 +1485,12 @@ IfStatement parseIf(TokenIterator tokens, TypeValidator scope) {
       elseBody = [parsedIf];
     } else {
       tokens.expectChar(TokenType.openBrace);
-      elseBody = parseBlock(tokens, TypeValidator([scope], NotLazyString('if statement - else block'), false, false, false, scope.rtl));
+      TypeValidator elseBlock = TypeValidator([scope], NotLazyString('if statement - else block'), false, false, false, scope.rtl);
+      elseBody = parseBlock(tokens, elseBlock);
+      List<String> unusedForLoopVars = elseBlock.types.keys.where((element) => !elseBlock.usedVars.contains(element)).map((e) => e.name).toList();
+      if (!unusedForLoopVars.isEmpty) {
+        stderr.writeln('Unused vars for if statement (else block): ${formatCursorPositionFromTokens(tokens)}\n  ${unusedForLoopVars.join('\n  ')}');
+      }
       tokens.expectChar(TokenType.closeBrace);
     }
   }

@@ -119,6 +119,12 @@ for (library in libraries) {
   library.declareTypes(library.library!);
 }
 
+stderr('prepareIdentifiers...');
+for (library in libraries) {
+  stderr(concat('  ', library.name));
+  library.prepareIdentifiers(library.library!);
+}
+
 stderr('generateInstructions...');
 for (library in libraries) {
   stderr(concat('  ', library.name));

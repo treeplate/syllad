@@ -37,6 +37,10 @@ class TypeInference extends Object {
     }
     return result;
   }
+
+  Boolean debugEquals(TypeInference other) {
+    return other.definitelyNotSentinel == definitelyNotSentinel;
+  }
 }
 
 class LazyComment extends Object {
@@ -565,6 +569,55 @@ class CopyBucket extends DynamicBucket {
   }
 }
 
+// defers to another bucket assigned later
+// used for CompiledScope.closureBlock
+class DeferredBucket extends Bucket {
+  BucketNullable target = null;
+  LazyComment _commentName;
+
+  //#override
+  String commentName() {
+    if (target == null) {
+      return _commentName.flatten();
+    }
+    return target!.commentName();
+  }
+  
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    assert(target != null, concat('contract violation - call assignBucket before calling anything else on DeferredBucket: ', commentName()));
+    return target!.autoDecrefRepresentative();
+  }
+
+  //#override
+  Boolean isGCRoot() {
+    assert(target != null, concat('contract violation - call assignBucket before calling anything else on DeferredBucket: ', commentName()));
+    return target!.isGCRoot();
+  }
+
+  //#override
+  Datum currentValueDatum() {
+    assert(target != null, concat('contract violation - call assignBucket before calling anything else on DeferredBucket: ', commentName()));
+    return target!.currentValueDatum();
+  }
+
+  //#override
+  Datum currentTypeDatum() {
+    assert(target != null, concat('contract violation - call assignBucket before calling anything else on DeferredBucket: ', commentName()));
+    return target!.currentTypeDatum();
+  }
+
+  Null assignBucket(Bucket targetArg) {
+    target = targetArg;
+    typeInference = target!.typeInference;
+  }
+
+  Null constructor(Type staticTypeArg, LazyComment commentNameArg) {
+    super.constructor(staticTypeArg);
+    _commentName = commentNameArg;
+  }
+}
+
 // defers to another bucket except for the static type
 class StaticCastBucket extends Bucket {
   Bucket target;
@@ -774,7 +827,6 @@ class DereferenceWithOffsetsBucket extends Bucket {
   
   //#override
   Boolean isGCRoot() {
-    assert(false, 'might be worth thinking about why we\'re calling this');
     return false;
   }
 

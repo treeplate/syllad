@@ -13,6 +13,7 @@ fwdclassmethod Null X64Assembler.addLabel(Integer, AssemblerLabel, StringNullabl
 fwdclassmethod Null X64Assembler.addComment(Integer, String);
 fwdclassmethod Null X64Assembler.addPendingComment(Integer, String);
 fwdclassmethod Null X64Assembler.addIncludeLib(String);
+fwdclassmethod Null X64Assembler.registerSubroutine(AssemblerLabel);
 fwdclassmethod AssemblerLabel X64Assembler.addExternProc(String);
 
 class PlaceholderOperand extends Operand {
@@ -781,6 +782,10 @@ class X64Context extends Object {
     return _assembler.addExternProc(functionName);
   }
 
+  Null registerInternalFunction(AssemblerLabel label) {
+    return _assembler.registerSubroutine(label);
+  }
+
   Null resetForEpilog() {
     parameters = null;
     varArgsBaseAddress = null;
@@ -1085,6 +1090,9 @@ Null convertToX64(X64Context context, PseudoInstruction instruction) {
   } else if (instruction is Annotation) {
     append(context.output, X64Opcode(context.indent, 'dq', [DataAddressOperand((instruction as Annotation).label, 'annotation')]:Operand, null));
   } else if (instruction is Label) {
+    if ((instruction as Label).isPublic) {
+      context.registerInternalFunction((instruction as Label).label);
+    }
     append(context.output, X64Label(context.indent, (instruction as Label).label, (instruction as Label).comment));
   } else if (instruction is Mov) {
     append(context.output, X64Opcode(context.indent, 'mov', [
@@ -1466,6 +1474,12 @@ class X64Assembler extends Assembler {
     return result;
   }
 
+  AssemblerLabelList subroutines = []:AssemblerLabel;
+
+  Null registerSubroutine(AssemblerLabel label) {
+    append(subroutines, label);
+  }
+
   X64Context convertInstructionsToX64(PseudoInstructionList instructions) {
     X64Context context = X64Context(this);
     for (instruction in instructions) {
@@ -1839,9 +1853,17 @@ class X64Assembler extends Assembler {
     return join(buffer, '');
   }
 
+  String serializeSubroutineLabels() {
+    String mapper(AssemblerLabel label) {
+      return concat('public ', serializeLabel(label));
+    }
+    return join(map(subroutines, mapper) as StringList, '\n');
+  }
+
   String serializedConst;
   String serializedData;
   String serializedBss;
+  String serializedSubroutineLabels;
 
   //#override
   Null assemble(PseudoInstructionList pseudoInstructions) {
@@ -1867,6 +1889,8 @@ class X64Assembler extends Assembler {
     serializedData = serializeData(context, data);
     stderr('serializeBss...');
     serializedBss = serializeBss(context, uninitializedGlobals);
+    stderr('serializeSubroutineLabels...');
+    serializedSubroutineLabels = serializeSubroutineLabels();
   }
 
   //#override
@@ -1895,7 +1919,8 @@ class X64Assembler extends Assembler {
       '.code\n',
       '\n',
       'public main\n',
-      'main:\n',
+      serializedSubroutineLabels,
+      '\nmain:\n',
       join(code, '\n'),
       '\n',
       'end\n',

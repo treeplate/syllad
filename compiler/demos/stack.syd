@@ -5,7 +5,7 @@ Null callPointer(Integer pointer) {
   __writeToAddress((func __as__ Integer) + _subroutineReceiverPointer, 0);
   __writeToAddress((func __as__ Integer) + _subroutineClosurePointer, 0);
   __writeToAddress((func __as__ Integer) + _subroutineClosureType, 0);
-  __writeToAddress((func __as__ Integer) + _subroutineCodeType, __typeToCode Integer);
+  __writeToAddress((func __as__ Integer) + _subroutineCodeType, __typeCodeOf Integer);
   __writeToAddress((func __as__ Integer) + _subroutineCodePointer, pointer __as__ Integer);
   println('calling ', func, '...');
   func();
