@@ -1,0 +1,6 @@
+// expected output: BEFORE
+// expected output: AFTER
+
+println('BEFORE');
+((3 as Whatever) as Whatever);
+println('AFTER');

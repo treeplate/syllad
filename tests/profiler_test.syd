@@ -1,4 +1,4 @@
-// expected exit code is 0
+// expected output: 1000000
 
 Null foo() {}
 Integer i = 0;
@@ -6,3 +6,4 @@ while (i < 1000000) {
     i += 1;
     foo();
 }
+println(i);

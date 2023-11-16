@@ -1,0 +1,10 @@
+// expected error: runtime error
+// expected output: START
+// unexpected output: FAIL
+// unexpected output: 1FAIL2
+
+println('START');
+WhateverList foo = [1, 2]:Whatever;
+StringList bar = foo as StringList;
+String baz = join(bar, 'FAIL');
+println(baz);

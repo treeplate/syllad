@@ -1,6 +1,8 @@
 @ECHO OFF
 SETLOCAL EnableDelayedExpansion
 
+SET TIMETRAVEL=0
+
 IF NOT "%WindowsSdkDir%"=="" GOTO RUN
 ECHO CONFIGURING ENVIRONMENT...
 CALL "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" > NUL
@@ -10,7 +12,7 @@ ECHO COMPILING...
 SET TEMPFILE=%TEMP%\%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%%TIME:~9,2%.$$$
 SET TEMPFILE=%TEMPFILE: =0%
 REM add --observe to profile
-CALL "..\main.exe" --debug syd.syd %1 > %TEMPFILE%
+CALL "..\lib\syd-main.exe" --debug syd.syd %1 > %TEMPFILE%
 IF NOT !ERRORLEVEL! == 0 (
     ECHO Compilation failed with exit code %ERRORLEVEL%
     IF !ERRORLEVEL! == -1073741510 ECHO "0xC000013A: STATUS_CONTROL_C_EXIT"
@@ -53,12 +55,17 @@ IF NOT !ERRORLEVEL! == 0 (
         IF !ERRORLEVEL! == -1073741819 ECHO "0xC0000005: Access Violation"
         IF !ERRORLEVEL! == -1073741571 ECHO "0xC00000FD: Stack overflow"
         IF !ERRORLEVEL! == -1073740972 ECHO "0xC0000354: STATUS_DEBUGGER_INACTIVE"
-        ECHO DONE
+        IF "%TIMETRAVEL%" == "1" GOTO TIMETRAVEL
         IF EXIST "%~1.asm" DEL "%~1.asm" > NUL
         IF EXIST "%~1.exe" DEL "%~1.exe" > NUL
         IF EXIST "%~1.ilk" DEL "%~1.ilk" > NUL
         IF EXIST "%~1.pdb" DEL "%~1.pdb" > NUL
         IF EXIST "%~1.obj" DEL "%~1.obj" > NUL
+        GOTO FINISHED
+        :TIMETRAVEL
+        ECHO TIME TRAVEL MODE ENABLED - NOT DELETING FILES
+        :FINISHED
+        ECHO == DONE ==
         EXIT /B 0
     ) ELSE (
         ECHO == FAILED ==

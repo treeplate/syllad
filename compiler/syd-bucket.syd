@@ -57,6 +57,8 @@ class LazyComment extends Object {
         append(result, (part as Bucket).commentName());
       } else if (part is Type) {
         append(result, (part as Type).name);
+      } else if (part is AssemblerLabel) {
+        append(result, (part as AssemblerLabel).toString());
       } else {
         assert(false, 'contract violation');
       }
@@ -298,12 +300,14 @@ class DynamicBucket extends Bucket {
   DatumNullable _currentValueDatum = null;
   //#override
   Datum currentValueDatum() {
+    assert(_currentValueDatum != null, concat('datums of ', this, ' have not yet been set'));
     return _currentValueDatum!;
   }
 
   DatumNullable _currentTypeDatum = null;
   //#override
   Datum currentTypeDatum() {
+    assert(_currentTypeDatum != null, concat('datums of ', this, ' have not yet been set'));
     return _currentTypeDatum!;
   }
 
@@ -491,7 +495,7 @@ class ValueBucket extends DynamicBucket {
 
   //#override
   String toString() {
-    return concat('<', _commentName, '>');
+    return concat('<', _commentName.flatten(), '>');
   }
 
   //#override

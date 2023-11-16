@@ -133,6 +133,7 @@ blockListInit#(1024);
 Null growBlockList#() {
   assert(_gcLocked > 0, 'growBlockList# called without _gcLocked set');
   Integer oldLength = blockListEnd# - blockListStart#;
+  assert(oldLength > 0, 'blockList corrupted');
   Integer newLength = oldLength * 2;
   Integer newBlock = _alloc(newLength); // TODO: use realloc instead
   _moveBytes(blockListStart#, newBlock, oldLength);

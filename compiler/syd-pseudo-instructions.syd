@@ -1033,7 +1033,7 @@ class If extends BlockPseudoInstruction {
       // If we were not terminated (e.g. via Break or Continue) then
       // we will never have called normalizeVariables, so we need to do it now.
       for (variable in datumDestinations.keys()) {
-        assert(ifBlockDatumStatuses.get(variable) != null, 'datumStatuses no longer contains expected variable');
+        assert(ifBlockDatumStatuses.get(variable) != null, concat('datumStatuses no longer contains expected variable "', variable, '" (if)\ndatumStatuses: ', datumStatuses, '\ndatumDestinations: ', datumDestinations));
       }
       normalizeVariables(output, ifBlockDatumStatuses); // updates ifBlockDatumStatuses, not datumStatuses!
       append(output, Jmp(null, endifLabel, 'skip else block'));
@@ -1055,7 +1055,7 @@ class If extends BlockPseudoInstruction {
       // If we were not terminated (e.g. via Break or Continue) then
       // we will never have called normalizeVariables, so we need to do it now.
       for (variable in datumDestinations.keys()) {
-        assert(datumStatuses.get(variable) != null, 'datumStatuses no longer contains expected variable');
+        assert(elseBlockDatumStatuses.get(variable) != null, concat('datumStatuses no longer contains expected variable "', variable, '" (else)\ndatumStatuses: ', elseBlockDatumStatuses, '\ndatumDestinations: ', datumDestinations));
       }
       normalizeVariables(output, elseBlockDatumStatuses); // updates elseBlockDatumStatuses, not datumStatuses!
     }

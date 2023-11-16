@@ -1,10 +1,10 @@
-import 'lexer.dart';
-import 'parser-core.dart';
-import 'expressions.dart';
+import 'syd-lexer.dart';
+import 'syd-core.dart';
+import 'syd-expressions.dart';
 
 Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
   Token current = tokens.current;
-  while(current is CommentFeatureToken) {
+  while (current is CommentFeatureToken) {
     tokens.moveNext();
     current = tokens.current;
   }
@@ -12,15 +12,9 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
     case IntToken:
       int i = tokens.integer;
       tokens.moveNext();
-      return IntLiteralExpression(
-        i,
-        current.line,
-        current.col,
-        tokens.workspace,
-        tokens.file,
-      );
+      return IntLiteralExpression(i, current.line, current.col, tokens.workspace, tokens.file, scope);
     case IdentToken:
-      if (tokens.currentIdent == variables['super']) {
+      if (tokens.currentIdent == scope.variables['super']) {
         tokens.moveNext();
         tokens.expectChar(TokenType.period);
         Variable member = tokens.currentIdent;
@@ -31,15 +25,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         }
         if (scope.indirectlyStaticMethod) {
           tokens.moveNext();
-          return SuperExpression(
-            member,
-            scope,
-            current.line,
-            current.col,
-            tokens.workspace,
-            tokens.file,
-            true,
-          );
+          return SuperExpression(member, current.line, current.col, tokens.workspace, tokens.file, true, scope);
         }
         TypeValidator props = superclass.properties;
         if (props.igv(member, true, current.line, current.col, tokens.workspace, tokens.file, true, false, false, true) == null) {
@@ -49,16 +35,8 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           );
         }
         tokens.moveNext();
-        return SuperExpression(
-          member,
-          scope,
-          current.line,
-          current.col,
-          tokens.workspace,
-          tokens.file,
-          false,
-        );
-      } else if (tokens.currentIdent == (variables['assert'] ??= Variable('assert'))) {
+        return SuperExpression(member, current.line, current.col, tokens.workspace, tokens.file, false, scope);
+      } else if (tokens.currentIdent == (scope.variables['assert'] ??= Variable('assert'))) {
         tokens.moveNext();
         tokens.expectChar(TokenType.openParen);
         Expression condition = parseExpression(tokens, scope);
@@ -71,20 +49,21 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         return AssertExpression(
           condition,
           comment,
+          scope,
           current.line,
           current.col,
           tokens.workspace,
           tokens.file,
         );
-      } else if (tokens.currentIdent == variables['LINE']) {
+      } else if (tokens.currentIdent == scope.variables['LINE']) {
         tokens.moveNext();
-        return IntLiteralExpression(current.line, current.line, current.col, tokens.workspace, tokens.file);
-      } else if (tokens.currentIdent == variables['COL']) {
+        return IntLiteralExpression(current.line, current.line, current.col, tokens.workspace, tokens.file, scope);
+      } else if (tokens.currentIdent == scope.variables['COL']) {
         tokens.moveNext();
-        return IntLiteralExpression(current.col, current.line, current.col, tokens.workspace, tokens.file);
-      } else if (tokens.currentIdent == variables['FILE']) {
+        return IntLiteralExpression(current.col, current.line, current.col, tokens.workspace, tokens.file, scope);
+      } else if (tokens.currentIdent == scope.variables['FILE']) {
         tokens.moveNext();
-        return StringLiteralExpression(tokens.file, current.line, current.col, tokens.workspace, tokens.file);
+        return StringLiteralExpression(tokens.file, current.line, current.col, tokens.workspace, tokens.file, scope);
       }
       Expression e = GetExpr(
         tokens.currentIdent,
@@ -99,9 +78,10 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
     case StringToken:
       String s = tokens.string;
       tokens.moveNext();
-      return StringLiteralExpression(s, current.line, current.col, tokens.workspace, tokens.file);
+      return StringLiteralExpression(s, current.line, current.col, tokens.workspace, tokens.file, scope);
     case CommentFeatureToken:
-      assert(false, 
+      assert(
+        false,
         'comment feature was undetected by earlier loop ${formatCursorPositionFromTokens(tokens)}',
       );
     case CharToken:
@@ -120,11 +100,11 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           } else if (expr.type.name == whateverVariable) {
             // has been cast()-ed
           } else if (type != expr.type) {
-            type = anythingType;
+            type = scope.environment.anythingType;
           }
         }
         if (type == null) {
-          type = anythingType;
+          type = scope.environment.anythingType;
         }
         tokens.moveNext();
         if (tokens.current is CharToken && tokens.currentChar == TokenType.colon) {
@@ -147,7 +127,8 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           current.line,
           current.col,
           tokens.workspace,
-          tokens.file,scope,
+          tokens.file,
+          scope,
         );
       }
       if (tokens.currentChar == TokenType.openParen) {
@@ -177,6 +158,7 @@ Expression parseBitOr(TokenIterator tokens, TypeValidator scope) {
       tokens.current.col,
       tokens.workspace,
       tokens.file,
+      scope,
     );
   }
   return operandA;
@@ -194,6 +176,7 @@ Expression parseOr(TokenIterator tokens, TypeValidator scope) {
       tokens.current.col,
       tokens.workspace,
       tokens.file,
+      scope,
     );
   }
   return operandA;
@@ -211,6 +194,7 @@ Expression parseAnd(TokenIterator tokens, TypeValidator scope) {
       tokens.current.col,
       tokens.workspace,
       tokens.file,
+      scope,
     );
   }
   return operandA;
@@ -232,7 +216,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
         if (tokens.currentChar == TokenType.openSquare) {
           tokens.moveNext();
           Expression operandB = parseExpression(tokens, scope);
-          if (!operandB.type.isSubtypeOf(integerType)) {
+          if (!operandB.type.isSubtypeOf(scope.environment.integerType)) {
             throw BSCException("Attempted to subscript using non-integer index: $operandB. ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           tokens.expectChar(TokenType.closeSquare);
@@ -245,7 +229,8 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             tokens.current.line,
             tokens.current.col,
             tokens.workspace,
-            tokens.file,scope,
+            tokens.file,
+            scope,
           );
         } else if (tokens.currentChar == TokenType.period) {
           if (!result.type.memberAccesible()) {
@@ -282,10 +267,11 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             tokens.current.col,
             tokens.workspace,
             tokens.file,
+            scope,
           );
         } else if (tokens.currentChar == TokenType.bang) {
           tokens.moveNext();
-          if (!nullType.isSubtypeOf(result.type)) {
+          if (!scope.environment.nullType.isSubtypeOf(result.type)) {
             throw BSCException("Attempted unwrap of non-nullable type (${result.type}) ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           result = UnwrapExpression(
@@ -294,9 +280,10 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             tokens.current.col,
             tokens.workspace,
             tokens.file,
+            scope,
           );
         } else {
-          if (result.type is! ClassOfValueType && !result.type.isSubtypeOf(GenericFunctionValueType(anythingType, tokens.file, scope))) {
+          if (result.type is! ClassOfValueType && !result.type.isSubtypeOf(GenericFunctionValueType(scope.environment.anythingType, tokens.file, scope))) {
             throw BSCException("tried to call ${result.type} ($result) ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           tokens.moveNext();
@@ -307,7 +294,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
           } else if (result.type is GenericFunctionValueType) {
             funType = result.type as GenericFunctionValueType;
           } else {
-            funType = ValueType.create(anythingType, variables['AnythingFunction']!, 0, 0, '', '', scope) as GenericFunctionValueType;
+            funType = ValueType.create(scope.environment.anythingType, scope.variables['AnythingFunction']!, 0, 0, '', '', scope) as GenericFunctionValueType;
           }
           while (tokens.current is! CharToken || tokens.currentChar != TokenType.closeParen) {
             Expression expr = parseExpression(
@@ -346,6 +333,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             tokens.current.col,
             tokens.workspace,
             tokens.file,
+            scope,
           );
         }
       }
@@ -361,7 +349,7 @@ Expression parseExpression(TokenIterator tokens, TypeValidator scope) {
 }
 
 Expression parseExponentiation(TokenIterator tokens, TypeValidator scope) {
-  Expression operandA = parseNots(tokens, scope);
+  Expression operandA = parseUnaryOperators(tokens, scope);
   if (tokens.current is CharToken) {
     if (tokens.currentChar == TokenType.starStar) {
       tokens.moveNext();
@@ -373,6 +361,7 @@ Expression parseExponentiation(TokenIterator tokens, TypeValidator scope) {
         tokens.current.col,
         tokens.workspace,
         tokens.file,
+        scope,
       );
     }
   }
@@ -392,6 +381,7 @@ Expression parseMulDivRem(TokenIterator tokens, TypeValidator scope) {
         tokens.current.col,
         tokens.workspace,
         tokens.file,
+        scope,
       );
     } else if (tokens.currentChar == TokenType.divide) {
       tokens.moveNext();
@@ -403,6 +393,7 @@ Expression parseMulDivRem(TokenIterator tokens, TypeValidator scope) {
         tokens.current.col,
         tokens.workspace,
         tokens.file,
+        scope,
       );
     } else if (tokens.currentChar == TokenType.remainder) {
       tokens.moveNext();
@@ -414,6 +405,7 @@ Expression parseMulDivRem(TokenIterator tokens, TypeValidator scope) {
         tokens.current.col,
         tokens.workspace,
         tokens.file,
+        scope,
       );
     } else {
       break;
@@ -422,42 +414,62 @@ Expression parseMulDivRem(TokenIterator tokens, TypeValidator scope) {
   return operandA;
 }
 
-Expression parseNots(TokenIterator tokens, TypeValidator scope) {
+Expression parseUnaryOperators(TokenIterator tokens, TypeValidator scope) {
   if (tokens.current is CharToken) {
     if (tokens.currentChar == TokenType.bang) {
       tokens.moveNext();
-      Expression operandA = parseNots(tokens, scope);
+      Expression operandA = parseUnaryOperators(tokens, scope);
       return NotExpression(
         operandA,
         tokens.current.line,
         tokens.current.col,
         tokens.workspace,
         tokens.file,
+        scope,
       );
     } else if (tokens.currentChar == TokenType.tilde) {
       tokens.moveNext();
-      Expression operandA = parseNots(tokens, scope);
+      Expression operandA = parseUnaryOperators(tokens, scope);
       return BitNotExpression(
         operandA,
         tokens.current.line,
         tokens.current.col,
         tokens.workspace,
         tokens.file,
+        scope,
       );
     } else if (tokens.currentChar == TokenType.minus) {
       tokens.moveNext();
-      Expression operand = parseNots(tokens, scope);
+      Expression operand = parseUnaryOperators(tokens, scope);
       return SubtractExpression(
-        IntLiteralExpression(0, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file),
+        IntLiteralExpression(0, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope),
         operand,
         tokens.current.line,
         tokens.current.col,
         tokens.workspace,
         tokens.file,
+        scope,
       );
     } else if (tokens.currentChar == TokenType.plus) {
+      // xxx typecheck
       tokens.moveNext();
-      return parseNots(tokens, scope);
+      return parseUnaryOperators(tokens, scope);
+    } else if (tokens.currentChar == TokenType.typeOfIdent) {
+      tokens.moveNext();
+      Expression operand = parseUnaryOperators(tokens, scope);
+      return TypeOfExpression(
+        operand,
+        tokens.current.line,
+        tokens.current.col,
+        tokens.workspace,
+        tokens.file,
+        scope,
+      );
+    } else if (tokens.currentChar == TokenType.typeCodeOfIdent) {
+      tokens.moveNext();
+      ValueType type = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+      tokens.moveNext();
+      return BoringExpr(type.id, scope.environment.integerType, scope);
     }
   }
   Expression operand = parseFunCalls(tokens, scope);
@@ -472,6 +484,7 @@ Expression parseNots(TokenIterator tokens, TypeValidator scope) {
       tokens.current.col,
       tokens.workspace,
       tokens.file,
+      scope,
     );
   }
   if (tokens.current is CharToken && tokens.currentChar == TokenType.asIdent) {
@@ -485,6 +498,7 @@ Expression parseNots(TokenIterator tokens, TypeValidator scope) {
       tokens.current.col,
       tokens.workspace,
       tokens.file,
+      scope,
     );
   }
   return operand;
@@ -504,6 +518,7 @@ Expression parseAddSub(TokenIterator tokens, TypeValidator scope) {
           tokens.current.col,
           tokens.workspace,
           tokens.file,
+          scope,
         );
       } else if (tokens.currentChar == TokenType.minus) {
         tokens.moveNext();
@@ -515,6 +530,7 @@ Expression parseAddSub(TokenIterator tokens, TypeValidator scope) {
           tokens.current.col,
           tokens.workspace,
           tokens.file,
+          scope,
         );
       }
     }
@@ -535,6 +551,7 @@ Expression parseBitShifts(TokenIterator tokens, TypeValidator scope) {
         tokens.current.col,
         tokens.workspace,
         tokens.file,
+        scope,
       );
     } else if (tokens.currentChar == TokenType.rightShift) {
       tokens.moveNext();
@@ -546,6 +563,7 @@ Expression parseBitShifts(TokenIterator tokens, TypeValidator scope) {
         tokens.current.col,
         tokens.workspace,
         tokens.file,
+        scope,
       );
     } else {
       break;
@@ -560,10 +578,10 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
     if (tokens.currentChar == TokenType.less) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
-      if (!operandA.type.isSubtypeOf(integerType)) {
+      if (!operandA.type.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException("lhs of < is not an integer (is a ${operandA.type}) ${formatCursorPositionFromTokens(tokens)}", scope);
       }
-      if (!operandB.type.isSubtypeOf(integerType)) {
+      if (!operandB.type.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException("rhs of < is not an integer (is a ${operandB.type}) ${formatCursorPositionFromTokens(tokens)}", scope);
       }
       return LessExpression(
@@ -573,14 +591,15 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
         tokens.current.col,
         tokens.workspace,
         tokens.file,
+        scope,
       );
     } else if (tokens.currentChar == TokenType.lessEqual) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
-      if (!operandA.type.isSubtypeOf(integerType)) {
+      if (!operandA.type.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException("lhs of <= is not an integer (is a $operandA)", scope);
       }
-      if (!operandB.type.isSubtypeOf(integerType)) {
+      if (!operandB.type.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException("rhs of <= is not an integer (is a $operandB)", scope);
       }
       return OrExpression(
@@ -591,10 +610,12 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
           tokens.current.col,
           tokens.workspace,
           tokens.file,
+          scope,
         ),
         EqualsExpression(
           operandA,
           operandB,
+          scope,
           tokens.current.line,
           tokens.current.col,
           tokens.workspace,
@@ -604,14 +625,15 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
         tokens.current.col,
         tokens.workspace,
         tokens.file,
+        scope,
       );
     } else if (tokens.currentChar == TokenType.greater) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
-      if (!operandA.type.isSubtypeOf(integerType)) {
+      if (!operandA.type.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException("lhs of > is not an integer (is a $operandA)", scope);
       }
-      if (!operandB.type.isSubtypeOf(integerType)) {
+      if (!operandB.type.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException("rhs of > is not an integer (is a $operandB)", scope);
       }
       return GreaterExpression(
@@ -621,14 +643,15 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
         tokens.current.col,
         tokens.workspace,
         tokens.file,
+        scope,
       );
     } else if (tokens.currentChar == TokenType.greaterEqual) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
-      if (!operandA.type.isSubtypeOf(integerType)) {
+      if (!operandA.type.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException("lhs of >= is not an integer (is $operandA, a ${operandA.type}) ${formatCursorPositionFromTokens(tokens)}", scope);
       }
-      if (!operandB.type.isSubtypeOf(integerType)) {
+      if (!operandB.type.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException("rhs of >= is not an integer (is a $operandB ${formatCursorPositionFromTokens(tokens)})", scope);
       }
       return OrExpression(
@@ -639,10 +662,12 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
           tokens.current.col,
           tokens.workspace,
           tokens.file,
+          scope,
         ),
         EqualsExpression(
           operandA,
           operandB,
+          scope,
           tokens.current.line,
           tokens.current.col,
           tokens.workspace,
@@ -652,6 +677,7 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
         tokens.current.col,
         tokens.workspace,
         tokens.file,
+        scope,
       );
     }
   }
@@ -673,6 +699,7 @@ Expression parseEqNeq(TokenIterator tokens, TypeValidator scope) {
       return EqualsExpression(
         operandA,
         operandB,
+        scope,
         tokens.current.line,
         tokens.current.col,
         tokens.workspace,
@@ -691,6 +718,7 @@ Expression parseEqNeq(TokenIterator tokens, TypeValidator scope) {
         EqualsExpression(
           operandA,
           operandB,
+          scope,
           tokens.current.line,
           tokens.current.col,
           tokens.workspace,
@@ -700,6 +728,7 @@ Expression parseEqNeq(TokenIterator tokens, TypeValidator scope) {
         tokens.current.col,
         tokens.workspace,
         tokens.file,
+        scope,
       );
     }
   }
@@ -711,15 +740,16 @@ Expression parseBitAnd(TokenIterator tokens, TypeValidator scope) {
   if (tokens.current is CharToken && tokens.currentChar == TokenType.bitAnd) {
     tokens.moveNext();
     Expression operandB = parseBitAnd(tokens, scope);
-    if (!operandA.type.isSubtypeOf(integerType)) {
+    if (!operandA.type.isSubtypeOf(scope.environment.integerType)) {
       throw BSCException("lhs of & is not an integer (is $operandA, a ${operandA.type} ${formatCursorPositionFromTokens(tokens)})", scope);
     }
-    if (!operandB.type.isSubtypeOf(integerType)) {
+    if (!operandB.type.isSubtypeOf(scope.environment.integerType)) {
       throw BSCException("rhs of & is not an integer (is $operandB, a ${operandB.type} ${formatCursorPositionFromTokens(tokens)})", scope);
     }
     return BitAndExpression(
       operandA,
       operandB,
+      scope,
       tokens.current.line,
       tokens.current.col,
       tokens.workspace,
@@ -734,15 +764,16 @@ Expression parseBitXor(TokenIterator tokens, TypeValidator scope) {
   if (tokens.current is CharToken && tokens.currentChar == TokenType.bitXor) {
     tokens.moveNext();
     Expression operandB = parseBitXor(tokens, scope);
-    if (!operandA.type.isSubtypeOf(integerType)) {
+    if (!operandA.type.isSubtypeOf(scope.environment.integerType)) {
       throw BSCException("lhs of ^ is not an integer (is $operandA, a ${operandA.type} ${formatCursorPositionFromTokens(tokens)})", scope);
     }
-    if (!operandB.type.isSubtypeOf(integerType)) {
+    if (!operandB.type.isSubtypeOf(scope.environment.integerType)) {
       throw BSCException("rhs of ^ is not an integer (is $operandB, a ${operandB.type} ${formatCursorPositionFromTokens(tokens)})", scope);
     }
     return BitXorExpression(
       operandA,
       operandB,
+      scope,
       tokens.current.line,
       tokens.current.col,
       tokens.workspace,

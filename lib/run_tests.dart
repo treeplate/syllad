@@ -5,7 +5,7 @@ void main() {
   Stopwatch stopwatch = Stopwatch()..start();
   List<File> files = Directory('tests').listSync(recursive: true).whereType<File>().where((File file) => file.path.endsWith('.syd')).toList()
     ..sort((File a, File b) => a.path.compareTo(b.path));
-  Process.runSync('dart', ['compile', 'exe', 'main.dart']);
+  Process.runSync('dart', ['compile', 'exe', 'lib/syd-main.dart']);
   int failedCount = runTestSuite(files, 'interpreter', runInterpreter) + runTestSuite(files, 'compiler', runCompiler);
   print('Total time: ${stopwatch.elapsed}');
   if (failedCount > 0) {
@@ -295,7 +295,7 @@ TestResult? runInterpreter(File file) {
     return null;
   }
   ProcessResult result = Process.runSync(
-    'main.exe',
+    'lib/syd-main.exe',
     ['--debug', './' + file.path],
   );
   ResultCode resultCode;

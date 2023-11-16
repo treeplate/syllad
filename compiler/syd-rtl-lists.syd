@@ -15,6 +15,7 @@ import 'syd-rtl-memory.syd';
 // The list data just has the values.
 
 WhateverList listConstructor#(Integer typeCode, Integer initialSize) intrinsic# {
+  assert(initialSize > 0, 'listConstructor needs initialSize to be greater than 0');
   _gcLocked += 1;
   WhateverList list = _constructor(typeCode, 2, 2) as WhateverList;
   __ListData data = _constructor(__typeCodeOf __ListData, 0, initialSize) as __ListData;
@@ -27,6 +28,7 @@ WhateverList listConstructor#(Integer typeCode, Integer initialSize) intrinsic# 
 }
 
 Null _growList(WhateverList list) {
+  assert(len(list) > 0, '_growList got empty list');
   _gcLocked += 1;
   Integer newSize = len(list) * 2;
   __ListData newData = _constructor(__typeCodeOf __ListData, len(list), newSize) as __ListData;
@@ -44,6 +46,7 @@ Null append(WhateverList list, Anything element) intrinsic# {
   _gcLocked += 1;
   Integer intermediaryAddress = list __as__ Integer;
   Integer size = __readFromAddress(intermediaryAddress + _gcBlockData + 0 + 8);
+  assert(size > 0, '0 size list should not be possible');
   Integer dataAddress = __readFromAddress(intermediaryAddress + _gcBlockData + 16 + 8);
   Integer length = len(list);
   if (length == size) {
@@ -121,6 +124,9 @@ WhateverList copy(WhateverIterable iterable) {
   Integer length;
   if (iterable is WhateverList) {
     length = len(iterable as WhateverList);
+    if (length == 0) {
+      length = 1;
+    }
   } else {
     length = 1;
   }
@@ -131,9 +137,12 @@ WhateverList copy(WhateverIterable iterable) {
   return list;
 }
 
-WhateverList listCast#(WhateverList list, Integer type) intrinsic# {
-  for (value in list) {
-    if (!(value __dynamic_is__ type)) {
+WhateverList listCast#(Anything list, Integer type) intrinsic# {
+  if (!list is WhateverList) {
+    throw('cannot cast a non-list to a list type');
+  }
+  for (value in list as WhateverList) {
+    if (!(value __dynamic_is__ __elementTypeFrom type)) {
       throw('type error in list cast');
     }
   }
@@ -142,12 +151,30 @@ WhateverList listCast#(WhateverList list, Integer type) intrinsic# {
 
 //#ignore_unused
 WhateverList filledList(Integer length, Whatever value) {
-  AnythingList result = listConstructor#(__typeCodeOf AnythingList, length);
+  if (length < 0) {
+    throw('filledList expects non-negative length');
+  }
+  Integer size = length;
+  if (size == 0) {
+    size = 1;
+  }
+  AnythingList result = listConstructor#(__typeCodeOf AnythingList, size);
+  _gcLocked += 1;
+  Integer listPointer = result __as__ Integer;
+  Integer dataAddress = __readFromAddress(listPointer + _gcBlockData + 16 + 8);
+  __writeToAddress(dataAddress + _gcBlockHeaderLength, length);
   Integer index = 0;
   while (index < length) {
-    result[index] = value;
+    __writeToAddress(dataAddress + _gcBlockData + index * 16, __typeOf value);
+    __writeToAddress(dataAddress + _gcBlockData + index * 16 + 8, value __as__ Integer);
     index += 1;
   }
+  if (value is String && length > 0) {
+    Integer refcount = __readFromAddress(value __as__ Integer + _gcBlockHeaderRefCount);
+    if (refcount >= 0) {
+      __writeToAddress(value __as__ Integer + _gcBlockHeaderRefCount, refcount + length);
+    }
+  }
+  _gcLocked -= 1;
   return result;
 }
-

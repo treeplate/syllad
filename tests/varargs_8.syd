@@ -1,5 +1,4 @@
-// expected output: [1, 2, 3]
-// expected error: runtime error, cannot modify read-only list
+// expected error: compile time error, cannot assign Array to List
 
 AnythingList x;
 

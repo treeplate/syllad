@@ -251,6 +251,6 @@ stderr = stderr#;
 
 Null _error(Anything... arguments) intrinsic# {
   assert(len(arguments) >= 1, 'insufficient arguments to _error');
-  stderr(arguments[0]);
+  stderr#(arguments[0]);
   exit(1);
 }

@@ -27,7 +27,7 @@ fwdclassfield ListTypeList TypeRegistry.typesOfLists;
 fwdclassfield IterableTypeList TypeRegistry.typesOfIterables;
 fwdclassfield IteratorTypeList TypeRegistry.typesOfIterators;
 
-class Type extends Object {
+/* sealed */ class Type extends Object {
   IntegerNullable code = null;
   String name;
 
@@ -39,7 +39,23 @@ class Type extends Object {
     abstract();
   }
 
-  // This returns the opposite of isSubtypeOf, except for Whatever, where it always returns true.
+  // Given type |this| and type |other|, returns whether it is ever possible for a
+  // variable with static type |this| to _not_ be of type |other|.
+  //
+  // In other words, returns false if you know for sure that |this is other|, but some
+  // cases where |this is other| return true because you can't trust them, like if |other| is Whatever.
+  //
+  // Returns false if |this| would definitely fit in a variable of type |other|; returns true
+  // if we cannot guarantee it (including in cases where we can guarantee it cannot; use isSubtypeOf
+  // to check for that case).
+  //
+  // For example, a variable of type Whatever can always turn out to dynamically be of a type that is
+  // not a subtype of |other|, even though Whatever is always a subtype of |other|.
+  //
+  // Another tricky case is that a variable of type WhateverList or WhateverFunction can always turn
+  // out to dynamically _not_ be a subtype of |other|, even if |other| is a List or Function type
+  // respectively.
+  //
   // If this returns false, then you know that this.isSubtypeOf(other) is true.
   // If this returns true, you cannot assume the types are not statically known to be disjoint.
   Boolean needRuntimeTypeCheckFor(Type other) {
@@ -170,6 +186,17 @@ class NullableType extends Type {
     return other is AnythingType
         || other is WhateverType
         || (other is NullableType && subtype.isSubtypeOf((other as NullableType).subtype));
+  }
+
+  //#override
+  Boolean needRuntimeTypeCheckFor(Type other) {
+    // in addition to the other cases where we might need a runtime check,
+    // we need a runtime check if they're both nullable types and
+    // our subtype needs a runtime check for the other's subtype.
+    if (other is NullableType) {
+      return subtype.needRuntimeTypeCheckFor((other as NullableType).subtype);
+    }
+    return super.needRuntimeTypeCheckFor(other);
   }
 
   //#override
@@ -321,14 +348,43 @@ class AbstractSubroutineType extends Type {
     return concat(returnType.name, 'Function');
   }
 
+  Boolean parametersMatch(AbstractSubroutineType other) {
+    abstract();
+  }
+
   //#override
   Boolean isSubtypeOf(Type other) {
-    return (other is AbstractSubroutineType && returnType.isSubtypeOf((other as AbstractSubroutineType).returnType))
+    return (other is AbstractSubroutineType &&
+            returnType.isSubtypeOf((other as AbstractSubroutineType).returnType) &&
+            parametersMatch(other as AbstractSubroutineType))
         || other is AnythingType
         || other is WhateverType
         || other is GarbageCollectableType
         || other is ReferenceCountedType
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
+  }
+
+  Boolean needRuntimeTypeCheckForParameters(AbstractSubroutineType other) {
+    // this should typically be the same logic as parametersMatch except
+    // using needRuntimeTypeCheckFor instead of isSubtypeOf, and returning
+    // the logically opposite result.
+    abstract();
+  }
+
+  //#override
+  Boolean needRuntimeTypeCheckFor(Type other) {
+    // in addition to the other cases where we might need a runtime check,
+    // we need a runtime check if they're both subroutine types and
+    // our return type needs a runtime check for the other's return type,
+    // or any of our parameters need a runtime check for the other's
+    // equivalent parameter (see needRuntimeTypeCheckForParameters).
+    if (other is AbstractSubroutineType) {
+      if (returnType.needRuntimeTypeCheckFor((other as AbstractSubroutineType).returnType)) {
+        return true;
+      }
+      return needRuntimeTypeCheckForParameters(other as AbstractSubroutineType);
+    }
+    return super.needRuntimeTypeCheckFor(other);
   }
 
   //#override
@@ -343,6 +399,16 @@ class AbstractSubroutineType extends Type {
 }
 
 class SubroutineTypeWithAnyArguments extends AbstractSubroutineType {
+  //#override
+  Boolean parametersMatch(AbstractSubroutineType other) {
+    return true;
+  }
+
+  //#override
+  Boolean needRuntimeTypeCheckForParameters(AbstractSubroutineType other) {
+    return false;
+  }
+
   //#override
   Null markConstructed() {
     assert(false, concat(name, ' type cannot be constructed.'));
@@ -365,21 +431,6 @@ class AbstractSubroutineTypeWithSpecificParameters extends AbstractSubroutineTyp
     abstract();
   }
 
-  Boolean parametersMatch(AbstractSubroutineTypeWithSpecificParameters other) {
-    abstract();
-  }
-
-  //#override
-  Boolean isSubtypeOf(Type other) {
-    return super.isSubtypeOf(other)
-        && (!(other is AbstractSubroutineTypeWithSpecificParameters) || parametersMatch(other as AbstractSubroutineTypeWithSpecificParameters));
-  }
-
-  //#override
-  Null markUsedInTypeCheck() {
-    assert(false, concat(name, ' type cannot be used in a type check.'));
-  }
-
   Null verifyArguments(TypeList argumentTypes, SourceLocation callLocation, SourceLocationList sourceLocations) {
     abstract();
   }
@@ -397,17 +448,33 @@ class SubroutineTypeWithVarArgs extends AbstractSubroutineTypeWithSpecificParame
   Type parameterType;
 
   //#override
-  Boolean parametersMatch(AbstractSubroutineTypeWithSpecificParameters other) {
+  Boolean parametersMatch(AbstractSubroutineType other) {
     if (other is SubroutineTypeWithVarArgs) {
       return (other as SubroutineTypeWithVarArgs).parameterType.isSubtypeOf(parameterType);
     }
-    assert(other is SubroutineTypeWithSpecificParameters, 'unexpected subroutine type');
-    for (otherParameterType in (other as SubroutineTypeWithSpecificParameters).parameterTypes) {
-      if (!otherParameterType.isSubtypeOf(parameterType)) {
-        return false;
+    if (other is SubroutineTypeWithSpecificParameters) {
+      for (otherParameterType in (other as SubroutineTypeWithSpecificParameters).parameterTypes) {
+        if (!otherParameterType.isSubtypeOf(parameterType)) {
+          return false;
+        }
       }
     }
     return true;
+  }
+
+  //#override
+  Boolean needRuntimeTypeCheckForParameters(AbstractSubroutineType other) {
+    if (other is SubroutineTypeWithVarArgs) {
+      return (other as SubroutineTypeWithVarArgs).parameterType.needRuntimeTypeCheckFor(parameterType);
+    }
+    if (other is SubroutineTypeWithSpecificParameters) {
+      for (otherParameterType in (other as SubroutineTypeWithSpecificParameters).parameterTypes) {
+        if (otherParameterType.needRuntimeTypeCheckFor(parameterType)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   //#override
@@ -441,22 +508,45 @@ class SubroutineTypeWithSpecificParameters extends AbstractSubroutineTypeWithSpe
   TypeList parameterTypes;
 
   //#override
-  Boolean parametersMatch(AbstractSubroutineTypeWithSpecificParameters other) {
+  Boolean parametersMatch(AbstractSubroutineType other) {
     if (other is SubroutineTypeWithVarArgs) {
       return false;
     }
-    assert(other is SubroutineTypeWithSpecificParameters, 'unexpected subroutine type');
-    if (len((other as SubroutineTypeWithSpecificParameters).parameterTypes) != len(parameterTypes)) {
-      return false;
-    }
-    Integer index = 0;
-    while (index < len(parameterTypes)) {
-      if (!(other as SubroutineTypeWithSpecificParameters).parameterTypes[index].isSubtypeOf(parameterTypes[index])) {
+    if (other is SubroutineTypeWithSpecificParameters) {
+      SubroutineTypeWithSpecificParameters b = other as SubroutineTypeWithSpecificParameters;
+      if (len(b.parameterTypes) != len(parameterTypes)) {
         return false;
       }
-      index += 1;
+      Integer index = 0;
+      while (index < len(parameterTypes)) {
+        if (!b.parameterTypes[index].isSubtypeOf(parameterTypes[index])) {
+          return false;
+        }
+        index += 1;
+      }
     }
     return true;
+  }
+
+  //#override
+  Boolean needRuntimeTypeCheckForParameters(AbstractSubroutineType other) {
+    if (other is SubroutineTypeWithVarArgs) {
+      return true;
+    }
+    if (other is SubroutineTypeWithSpecificParameters) {
+      SubroutineTypeWithSpecificParameters b = other as SubroutineTypeWithSpecificParameters;
+      if (len(b.parameterTypes) != len(parameterTypes)) {
+        return true;
+      }
+      Integer index = 0;
+      while (index < len(parameterTypes)) {
+        if (b.parameterTypes[index].needRuntimeTypeCheckFor(parameterTypes[index])) {
+          return true;
+        }
+        index += 1;
+      }
+    }
+    return false;
   }
 
   //#override
@@ -573,16 +663,82 @@ class ListDataType extends Type {
   }
 }
 
-class AbstractListType extends Type {
+class IteratorType extends Type {
+  // pointer to heap-allocated structure
+
   Type elementType;
+
+  //#override
+  Boolean isSubtypeOf(Type other) {
+    return (other is IteratorType && elementType.isSubtypeOf((other as IteratorType).elementType))
+        || other is AnythingType
+        || other is WhateverType
+        || other is GarbageCollectableType
+        || other is ReferenceCountedType
+        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
+  }
+
+  //#override
+  Boolean needRuntimeTypeCheckFor(Type other) {
+    // in addition to the other cases where we might need a runtime check,
+    // we need a runtime check if they're both iterator types and
+    // our element type needs a runtime check for the other's element type.
+    if (other is IteratorType) {
+      return elementType.needRuntimeTypeCheckFor((other as IteratorType).elementType);
+    }
+    return super.needRuntimeTypeCheckFor(other);
+  }
 
   //#override
   Boolean neverReferenceCounted() {
     return false;
   }
 
+  Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
+    super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'Iterator'));
+    elementType = elementTypeArg;
+    append(typeRegistryArg.typesOfIterators, this);
+  }
+}
+
+IteratorType createOrFindIteratorType(TypeRegistry typeRegistry, Type elementType) {
+  for (entry in typeRegistry.typesOfIterators) {
+    if (entry.elementType == elementType) {
+      return entry;
+    }
+  }
+  IteratorType result = IteratorType(typeRegistry, elementType);
+  append(typeRegistry.typesOfIterators, result);
+  return result;
+}
+
+class AbstractListType extends Type {
+  Type elementType;
+  TypeRegistry typeRegistry;
+
+  //#override
+  Boolean neverReferenceCounted() {
+    return false;
+  }
+
+  //#override
+  Null markConstructed() {
+    super.markConstructed();
+    elementType.markUsedInTypeCheck();
+    createOrFindIteratorType(typeRegistry, elementType).markConstructed();
+    createOrFindIteratorType(typeRegistry, elementType).markUsedInTypeCheck();
+  }
+
+  //#override
+  Null markUsedInTypeCheck() {
+    super.markUsedInTypeCheck();
+    elementType.markUsedInTypeCheck();
+    createOrFindIteratorType(typeRegistry, elementType).markUsedInTypeCheck();
+  }
+
   Null constructor(TypeRegistry typeRegistryArg, String nameArg, Type elementTypeArg) {
     super.constructor(typeRegistryArg, nameArg);
+    typeRegistry = typeRegistryArg;
     elementType = elementTypeArg;
   }
 }
@@ -603,6 +759,22 @@ class ListType extends AbstractListType {
         || other is GarbageCollectableType
         || other is ReferenceCountedType
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
+  }
+
+  //#override
+  Boolean needRuntimeTypeCheckFor(Type other) {
+    if (other is ListType) {
+      Type otherElementType = (other as AbstractListType).elementType;
+      return elementType.needRuntimeTypeCheckFor(otherElementType)
+          || otherElementType.needRuntimeTypeCheckFor(elementType);
+    }
+    if (other is ArrayType) {
+      return elementType.needRuntimeTypeCheckFor((other as ArrayType).elementType);
+    }
+    if (other is IterableType) {
+      return elementType.needRuntimeTypeCheckFor((other as IterableType).elementType);
+    }
+    return super.needRuntimeTypeCheckFor(other);
   }
 
   Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
@@ -638,6 +810,17 @@ class ArrayType extends AbstractListType {
         || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
   }
 
+  //#override
+  Boolean needRuntimeTypeCheckFor(Type other) {
+    if (other is ArrayType) {
+      return elementType.needRuntimeTypeCheckFor((other as ArrayType).elementType);
+    }
+    if (other is IterableType) {
+      return elementType.needRuntimeTypeCheckFor((other as IterableType).elementType);
+    }
+    return super.needRuntimeTypeCheckFor(other);
+  }
+
   Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
     super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'Array'), elementTypeArg);
     append(typeRegistryArg.typesOfArrays, this);
@@ -659,6 +842,7 @@ class IterableType extends Type {
   // pointer to heap-allocated structure
 
   Type elementType;
+  TypeRegistry typeRegistry;
 
   //#override
   Boolean isSubtypeOf(Type other) {
@@ -671,6 +855,35 @@ class IterableType extends Type {
   }
 
   //#override
+  Boolean needRuntimeTypeCheckFor(Type other) {
+    // in addition to the other cases where we might need a runtime check,
+    // we need a runtime check if they're both iterable types and
+    // our element type needs a runtime check for the other's element type.
+    if (other is IterableType) {
+      return elementType.needRuntimeTypeCheckFor((other as IterableType).elementType);
+    }
+    return super.needRuntimeTypeCheckFor(other);
+  }
+
+  //#override
+  Null markConstructed() {
+    super.markConstructed();
+    elementType.markUsedInTypeCheck();
+    createOrFindIteratorType(typeRegistry, elementType).markConstructed();
+    createOrFindIteratorType(typeRegistry, elementType).markUsedInTypeCheck();
+    createOrFindListType(typeRegistry, elementType).markConstructed();
+    createOrFindListType(typeRegistry, elementType).markUsedInTypeCheck();
+  }
+
+  //#override
+  Null markUsedInTypeCheck() {
+    super.markUsedInTypeCheck();
+    elementType.markUsedInTypeCheck();
+    createOrFindIteratorType(typeRegistry, elementType).markUsedInTypeCheck();
+    createOrFindListType(typeRegistry, elementType).markUsedInTypeCheck();
+  }
+
+  //#override
   Boolean neverReferenceCounted() {
     return false;
   }
@@ -678,6 +891,7 @@ class IterableType extends Type {
   Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
     super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'Iterable'));
     elementType = elementTypeArg;
+    typeRegistry = typeRegistryArg;
     append(typeRegistryArg.typesOfIterables, this);
   }
 }
@@ -690,44 +904,6 @@ IterableType createOrFindIterableType(TypeRegistry typeRegistry, Type elementTyp
   }
   IterableType result = IterableType(typeRegistry, elementType);
   append(typeRegistry.typesOfIterables, result);
-  return result;
-}
-
-class IteratorType extends Type {
-  // pointer to heap-allocated structure
-
-  Type elementType;
-
-  //#override
-  Boolean isSubtypeOf(Type other) {
-    return (other is IteratorType && elementType.isSubtypeOf((other as IteratorType).elementType))
-        || other is AnythingType
-        || other is WhateverType
-        || other is GarbageCollectableType
-        || other is ReferenceCountedType
-        || (other is NullableType && isSubtypeOf((other as NullableType).subtype));
-  }
-
-  //#override
-  Boolean neverReferenceCounted() {
-    return false;
-  }
-
-  Null constructor(TypeRegistry typeRegistryArg, Type elementTypeArg) {
-    super.constructor(typeRegistryArg, concat(elementTypeArg.name, 'Iterator'));
-    elementType = elementTypeArg;
-    append(typeRegistryArg.typesOfIterators, this);
-  }
-}
-
-IteratorType createOrFindIteratorType(TypeRegistry typeRegistry, Type elementType) {
-  for (entry in typeRegistry.typesOfIterators) {
-    if (entry.elementType == elementType) {
-      return entry;
-    }
-  }
-  IteratorType result = IteratorType(typeRegistry, elementType);
-  append(typeRegistry.typesOfIterators, result);
   return result;
 }
 

@@ -872,6 +872,27 @@ class IsOperatorExpression extends Expression {
   }
 }
 
+// AST node for "(expression) as type_literal"
+//
+// The expression is "lhs" and the type literal is "rhs".
+// 
+// language semantics for this operator are a little special:
+//
+//  0. if:
+//       - rhs is not a subtype of lhs' static type, and
+//       - lhs' static type is not a subtype of rhs, and
+//       - (rhs is not list type, or 
+//         - lhs' static type is not list type, or 
+//         - (rhs' element type is not a subtype of lhs' static type's element type, and
+//           - lhs' static type's element type is not a subtype of rhs' element type)):
+//     compile time error.
+//  1. if lhs' dynamic type is a subtype of rhs:
+//     return lhs unchanged.
+//  2. if rhs is WhateverList and lhs' dynamic type is a list type:
+//     return lhs unchanged.
+//  3. if rhs is a list type, and lhs' dynamic type is a list type:
+//     return listCast(lhs, rhs).
+//  4. otherwise, throw at runtime.
 class AsOperatorExpression extends Expression {
   Expression expression;
   TypeIdentifier type;
@@ -888,28 +909,76 @@ class AsOperatorExpression extends Expression {
 
   //#override
   Bucket generateInstructions(CompiledScope scope) {
-    Bucket exprBucket = expression.generateInstructions(scope);
+    Bucket lhs = expression.generateInstructions(scope);
     Type rhs = type.lookup(scope.globalScope(), true);
-    if (rhs.isSubtypeOf(exprBucket.staticType)) {
-      scope.emit(TypeCheckInstruction(
-        exprBucket, 
-        rhs, 
-        'tried to cast but type mismatch (x as y)', 
-        true, 
-        LazyComment('check as operator cast is valid'),
-      ));
-      return exprBucket.asType(rhs);
-    }
-    if (rhs is AbstractListType) {
+    CompilationEnvironment environment = scope.environment();
+    if (!rhs.isSubtypeOf(lhs.staticType) && !lhs.staticType.isSubtypeOf(rhs)) {
+      if (!rhs is AbstractListType || !lhs.staticType is AbstractListType) {
+        throw(concat('Cannot cast ', lhs.staticType.name, ' to ', rhs.name, ' at ', sourceLocation));
+      }
+      // both are list types but they're not a simple static cast away from compatibility
+      AbstractListType lhsListType = lhs.staticType as AbstractListType;
+      AbstractListType rhsListType = rhs as AbstractListType;
+      if ((!rhsListType.elementType.isSubtypeOf(lhsListType.elementType)) &&
+          (!lhsListType.elementType.isSubtypeOf(rhsListType.elementType))) {
+        throw(concat('Cannot cast list of type ', lhs.staticType.name, ' to list of type ', rhs.name, ' at ', sourceLocation));
+      }
       return scope.emitIntrinsicCall(
-        scope.environment().listCastIntrinsicName,
+        environment.listCastIntrinsicName,
         [
-          exprBucket,
-          TypeCodeBucket(rhs, scope.environment().coreIntegerType),
+          lhs,
+          TypeCodeBucket(rhs, environment.coreIntegerType),
         ]:Bucket,
       ).asType(rhs);
     }
-    throw(concat('Cannot cast ', exprBucket.staticType.name, ' to ', rhs.name, ' at ', sourceLocation));
+    // TODO: whatever as whatever should not need runtime check
+    if (!lhs.staticType.needRuntimeTypeCheckFor(rhs)) {
+      return lhs.asType(rhs);
+    }
+    // either we think there's a chance the types are compatible
+    // or we know we need a dynamic check for it
+    LocalVariable result = LocalVariable(rhs, environment.coreSentinel, '$result$');
+    scope.emit(VariableDeclarationInstruction(result));
+    CompiledScope castScope = CompiledScope(scope, 'as operator runtime cast case');
+    CompiledScope listCheckScope = CompiledScope(scope, 'as operator list cast case');
+    scope.emit(IfScopeInstruction(
+      scope.compute(
+        StoreTypeCheckInstruction(
+          rhs,
+          lhs,
+          environment.coreBooleanType,
+          'dynamic type check for as operator',
+          LazyComment('result of type check for "as" operator'),
+        ),
+      ),
+      castScope,
+      listCheckScope,
+    ));
+    // castScope: (step 1 above)
+    castScope.emit(UpdateVariableInstruction(result, lhs.asType(rhs)));
+    // listCheckScope: (steps 2, 3, and 4 above)
+    if (rhs is AbstractListType) {
+      if ((rhs as AbstractListType).elementType is WhateverType) {
+        // WhateverList is magical in the language spec.
+        listCheckScope.emit(UpdateVariableInstruction(result, lhs.asType(rhs)));
+      } else {
+        listCheckScope.emit(
+          UpdateVariableInstruction(
+            result,
+            listCheckScope.emitIntrinsicCall( // (includes dynamic check for step 3)
+              environment.listCastIntrinsicName,
+              [
+                lhs,
+                TypeCodeBucket(rhs, environment.coreIntegerType),
+              ]:Bucket,
+            ).asType(rhs),
+          ),
+        );
+      }
+    } else {
+      listCheckScope.emit(ErrorInstruction('type error in "as" operator')); // TODO: more useful message
+    }
+    return result;
   }
 
   Null constructor(Expression expressionArg, TypeIdentifier typeArg, SourceLocation sourceLocationArg) {
@@ -967,7 +1036,15 @@ class DynamicIsOperatorExpression extends Expression {
   Bucket generateInstructions(CompiledScope scope) {
     Bucket lhs = expression.generateInstructions(scope);
     Bucket rhs = type.generateInstructions(scope);
-    return scope.compute(StoreDynamicTypeCheckInstruction(rhs, lhs, scope.environment().coreBooleanType, 'evaluate __dynamic_is_ operator', LazyComment('result of "__dynamic_is__" operator')));
+    return scope.compute(
+      StoreDynamicTypeCheckInstruction(
+        rhs,
+        lhs,
+        scope.environment().coreBooleanType,
+        'evaluate __dynamic_is_ operator',
+        LazyComment('result of "__dynamic_is__" operator'),
+      ),
+    );
   }
 
   Null constructor(Expression expressionArg, Expression typeArg, SourceLocation sourceLocationArg) {
@@ -1720,10 +1797,15 @@ class OperatorLogicalAndExpression extends Expression {
     );
   }
 
+  CompiledScope rhsScope;
+  CompiledScope falseScope;
+
   //#override
   Null prepareIdentifiers(CompiledScope scope) {
+    rhsScope = CompiledScope(scope, '&&');
+    falseScope = CompiledScope(scope, 'short-circuited &&');
     lhs.prepareIdentifiers(scope);
-    rhs.prepareIdentifiers(scope);
+    rhs.prepareIdentifiers(rhsScope);
   }
 
   //#override
@@ -1743,7 +1825,6 @@ class OperatorLogicalAndExpression extends Expression {
       LazyComment('check left hand side operand of ', describeOperator(), ' operator is valid type'),
     ));
     // create a scope for when lhs is not false, that returns rhs
-    CompiledScope rhsScope = CompiledScope(scope, '&&');
     Bucket rhsValue = rhs.generateInstructions(rhsScope);
     if (!rhsValue.staticType.isSubtypeOf(scope.environment().coreBooleanType)) {
       throw(concat('Expected Boolean, but found ', rhsValue.staticType.name, ', as rhs of binary ', describeOperator(), ' operator at ', sourceLocation));
@@ -1757,7 +1838,6 @@ class OperatorLogicalAndExpression extends Expression {
     ));
     rhsScope.emit(UpdateVariableInstruction(result, rhsValue));
     // create a scope for when lhs is false, that returns false
-    CompiledScope falseScope = CompiledScope(scope, '&&');
     falseScope.emit(UpdateVariableInstruction(result, scope.environment().coreFalse)); // 'short-circuited &&'
     // put it all together
     scope.emit(IfScopeInstruction(lhsValue, rhsScope, falseScope));
@@ -1790,10 +1870,15 @@ class OperatorLogicalOrExpression extends Expression {
     );
   }
 
+  CompiledScope trueScope;
+  CompiledScope rhsScope;
+
   //#override
   Null prepareIdentifiers(CompiledScope scope) {
+    trueScope = CompiledScope(scope, 'short-circuited ||');
+    rhsScope = CompiledScope(scope, '||');
     lhs.prepareIdentifiers(scope);
-    rhs.prepareIdentifiers(scope);
+    rhs.prepareIdentifiers(rhsScope);
   }
 
   //#override
@@ -1813,10 +1898,8 @@ class OperatorLogicalOrExpression extends Expression {
       LazyComment('check left hand side operand of ', describeOperator(), ' operator is valid type'),
     ));
     // create scope for when lhs is not false, that returns true
-    CompiledScope trueScope = CompiledScope(scope, '||');
     trueScope.emit(UpdateVariableInstruction(result, scope.environment().coreTrue)); // 'short-circuited ||'
     // create scope for when lhs is false, that returns rhs
-    CompiledScope rhsScope = CompiledScope(scope, '||');
     Bucket rhsValue = rhs.generateInstructions(rhsScope);
     if (!rhsValue.staticType.isSubtypeOf(scope.environment().coreBooleanType)) {
       throw(concat('Expected Boolean, but found ', rhsValue.staticType.name, ', as rhs of binary ', describeOperator(), ' operator at ', sourceLocation));
@@ -2579,11 +2662,28 @@ class ClassDeclaration extends AbstractClassDeclaration {
     classType.setConstructorSubroutine(scope.registerSubroutine(generatedConstructor, true));
   }
 
+  CompiledSubroutineNullable initializer = null;
+
   //#override
   Null prepareIdentifiers(CompiledScope scope) {
     scope.prepareIdentifier(identifier);
     for (member in members) {
-      member.prepareIdentifiers(scope);
+      if (member is FieldDeclarationStatement) {
+        if (initializer == null) {
+          CompilationEnvironment environment = scope.environment();
+          initializer = CompiledSubroutineWithSpecificParameters(
+            scope,
+            concat(classType.name, '.initializer#'),
+            classType,
+          );
+          initializer!.setType(createOrFindSubroutineTypeWithSpecificParameters(environment, environment.coreNullType, []:Type));
+          classType.setInitializerSubroutine(initializer!);
+          scope.registerSubroutine(initializer!, false);
+        }
+        member.prepareIdentifiers(initializer!);
+      } else {
+        member.prepareIdentifiers(scope);
+      }
     }
   }
   
@@ -2600,20 +2700,9 @@ class ClassDeclaration extends AbstractClassDeclaration {
       assert(superclassName != null, 'we were not defined');
       throw(concat('Cannot extend a class that has not yet been defined at ', superclassName!.sourceLocation));
     }
-    CompiledSubroutineNullable initializer = null;
     // register members on the class type
     for (member in members) {
       if (member is FieldDeclarationStatement) {
-        if (initializer == null) {
-          initializer = CompiledSubroutineWithSpecificParameters(
-            scope,
-            concat(classType.name, '.initializer#'),
-            classType,
-          );
-          initializer!.setType(createOrFindSubroutineTypeWithSpecificParameters(environment, environment.coreNullType, []:Type));
-          classType.setInitializerSubroutine(initializer!);
-          scope.registerSubroutine(initializer!, false);
-        }
         member.generateInstructions(initializer!);
       } else if (member is MethodDeclarationStatement) {
         member.generateInstructions(scope);
@@ -2629,7 +2718,7 @@ class ClassDeclaration extends AbstractClassDeclaration {
       generatedConstructorBucket.markConstructorAsDeclared();
     }
     CompiledGeneratedConstructorSubroutine generatedConstructorScope = generatedConstructorBucket.subroutine as CompiledGeneratedConstructorSubroutine;
-    Bucket thisPointer = generatedConstructorScope.emitIntrinsicCall(environment.classAllocatorIntrinsicName, [ VmtPointerBucket(environment, classType) ]:Bucket);
+    Bucket thisPointer = generatedConstructorScope.emitIntrinsicCall(environment.classAllocatorIntrinsicName, [ VmtPointerBucket(environment, classType) ]:Bucket).asType(classType);
     generatedConstructorScope.setThisPointer(thisPointer);
     // call initializers
     ClassType ancestorClassType = classType;
@@ -3412,8 +3501,8 @@ class WhileStatement extends Statement {
 
   //#override
   Null prepareIdentifiers(CompiledScope scope) {
-    expression.prepareIdentifiers(scope);
     loopScope = CompiledLoopScope(scope, 'while');
+    expression.prepareIdentifiers(loopScope);
     block.prepareIdentifiers(loopScope);
   }
 

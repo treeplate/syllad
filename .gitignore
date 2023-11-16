@@ -7,6 +7,7 @@ compiler/default.debugtarget
 test.syd
 
 # build products
+build/
 *.ilk
 *.pdb
 mllink$.lnk
@@ -21,3 +22,5 @@ compiler/temp.syd
 main.exe
 *.$$$
 test.dart
+coverage/lcov.info
+lib/syd-main.exe

@@ -8,21 +8,21 @@
             "name": "Debug",
             "request": "launch",
             "type": "dart",
-            "program": "main.dart",
+            "program": "lib/syd-main.dart",
             "args": ["--debug", "./compiler/syd.syd", "compiler/syd.syd"],
         },
         {
             "name": "Profile",
             "request": "launch",
             "type": "dart",
-            "program": "main.dart",
+            "program": "lib/syd-main.dart",
             "args": ["--profile", "./compiler/syd.syd", "compiler/syd.syd"],
         },
         {
             "name": "Fast Run",
             "request": "launch",
             "type": "dart",
-            "program": "main.dart",
+            "program": "lib/syd-main.dart",
             "args": ["./compiler/syd.syd", "compiler/syd.syd"],
         }
     ]

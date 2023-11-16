@@ -12,6 +12,8 @@ class ConversionContext extends Object {
   CodeLabelDatum equalityIntrinsic() { abstract(); }
   Bucket errorMessage(String value) { abstract(); }
   Bucket coreSentinel() { abstract(); }
+  Bucket coreFalse() { abstract(); }
+  Bucket coreTrue() { abstract(); }
   Set bucketsCreatedSoFar() { abstract(); }
   Null didCreateBucket(Bucket bucket) { abstract(); }
 }
@@ -159,9 +161,19 @@ class BoundInstruction extends Object {
     return compute(output, BitTest(byteValue, typeBit, concat('check the specific bit from the type table that corresponds to ', expressionComment), resultComment));
   }
 
+  // compute a runtime type check of |value| against |type| (i.e. return "value is type")
+  //
+  // trustValueStaticType:
+  //  - if true, the value's dynamic type is assumed to be a subtype of its static type.
+  //  - if false, the value is assumed to be of static type Anything rather than its declared static type.
+  //    this is used, for example, for parameters, as we might have been called without a caller-side type check.
+  // checkForRedundancies:
+  //  - if true, asserts that the type check is relevant and not redundant.
+  //  - if false, bypasses the asserts. This is used for the code that inserts implicit returns, because
+  //    those are allowed to violate the type system as we cannot generate default values of arbitary types.
   Datum typeCheck(PseudoInstructionList output, Bucket value, Type type, Boolean trustValueStaticType, Boolean checkForRedundancies, String resultComment) {
     assert(!checkForRedundancies || !trustValueStaticType || value.staticType.needRuntimeTypeCheckFor(type), 'contract violation - redundant, known to not need dynamic type check');
-    assert(!checkForRedundancies || type.isSubtypeOf(value.staticType), concat('contract violation - redundant, ', type, ' is known to not be subtype of ', value.staticType));
+    assert(!checkForRedundancies || value.staticType.isSubtypeOf(type) || type.isSubtypeOf(value.staticType), concat('contract violation - redundant, ', value.staticType, ' is entirely disjoint with ', type));
     type.markUsedInTypeCheck();
     Datum typeTableWidth = TypeTableWidthDatum('type table width (in bytes)');
     Datum typeBit = TypeBitDatum(type, concat('type bit of ', type.name));
@@ -814,7 +826,7 @@ class TypeCheckInstruction extends BoundInstruction {
     if (!trustValueStaticType || value.staticType.needRuntimeTypeCheckFor(staticType)) {
       append(output, Comment(concat('type check: ', reasonForTypeCheck.flatten())));
       append(output, If(
-       typeCheck(output, value, staticType, trustValueStaticType, true, 'type check result'),
+        typeCheck(output, value, staticType, trustValueStaticType, true, 'type check result'),
         []:PseudoInstruction,
         fail(errorMessage, context),
         scopeLabel.deriveWith('typeCheck'),
@@ -2093,7 +2105,14 @@ class StoreTypeCheckInstruction extends ComputationBoundInstruction {
   //#override
   PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
     PseudoInstructionList output = []:PseudoInstruction;
-    // TODO: if we can prove this statically, we should just set the result in a hard-coded fashion
+    if (!value.staticType.isSubtypeOf(type) && !type.isSubtypeOf(value.staticType)) {
+      target.assignDatums(context.coreFalse().currentValueDatum(), TypeCodeDatum(target.staticType));
+      return output;
+    }
+    if (!value.staticType.needRuntimeTypeCheckFor(type)) {
+      target.assignDatums(context.coreTrue().currentValueDatum(), TypeCodeDatum(target.staticType));
+      return output;
+    }
     append(output, Comment(typeCheckReason));
     Datum result = typeCheck(output, value, type, true, true, target.commentName());
     target.assignDatums(result, TypeCodeDatum(target.staticType));

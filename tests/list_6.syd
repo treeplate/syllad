@@ -1,0 +1,3 @@
+// expected output: []
+
+println([]:Whatever as StringList);

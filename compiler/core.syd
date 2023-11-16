@@ -672,7 +672,7 @@ String pathJoin(StringList paths) {
     }
   }
   if (absolute || leadingDotDots > 0) {
-    result = reverse(result);
+    result = reverse(result) as StringList;
     if (absolute) {
       assert(leadingDotDots == 0, 'absolute path cannot have ..');
       if (len(result) == 0) {
@@ -685,9 +685,9 @@ String pathJoin(StringList paths) {
         leadingDotDots -= 1;
       }
     }
-    result = reverse(result);
+    result = reverse(result) as StringList;
   }
-  return join(result as StringList, '/');
+  return join(result, '/');
 }
 
 // This assumes base points to a file, not a directory. #ignore_unused

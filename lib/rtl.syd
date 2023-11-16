@@ -1,4 +1,4 @@
-import 'compiler/syd-stdlib.syd';
+import '../compiler/syd-stdlib.syd';
 
 // #ignore_unused
 String padLeft(String line, Integer length, String padding) {

@@ -63,6 +63,7 @@ String readStringBuffer(StringBuffer buffer) {
   StringBufferPart#Nullable part = source.first!;
   while (part != null) {
     Integer segmentLength = _stringByteLength(part!.value);
+    assert(segmentLength > 0, 'empty part in stringbuffer');
     Integer segmentPointer = part!.value __as__ Integer;
     _moveBytes(segmentPointer + _gcBlockStringData, cursor, segmentLength);
     part = part!.next;
@@ -84,6 +85,7 @@ String readStringBufferBackwards#(StringBuffer buffer) {
   StringBufferPart#Nullable part = source.first!;
   while (part != null) {
     Integer segmentLength = _stringByteLength(part!.value);
+    assert(segmentLength > 0, 'empty part in stringbuffer');
     cursor -= segmentLength;
     Integer segmentPointer = part!.value __as__ Integer;
     _moveBytes(segmentPointer + _gcBlockStringData, cursor, segmentLength);
@@ -362,6 +364,7 @@ String substring(String string, Integer start, Integer end) {
   if (length == 0) {
     return '';
   }
+  assert(length > 0, 'end before start');
   Integer resultPointer = _alloc(16 + length);
   __writeToAddress(resultPointer, 0); // ref count
   __writeToAddress(resultPointer + _gcBlockHeaderLength, length);

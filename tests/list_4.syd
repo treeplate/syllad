@@ -1,0 +1,5 @@
+// expected output: PASS
+// unexpected output: FAIL
+
+assert(len([]) == 0, 'FAIL');
+println('PASS');

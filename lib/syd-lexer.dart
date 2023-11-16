@@ -1,12 +1,4 @@
-import 'parser-core.dart';
-
-String formatCursorPosition(int line, int col, String workspace, String file) {
-  return "$workspace/$file:$line:$col";
-}
-
-String formatCursorPositionFromTokens(TokenIterator tokens) {
-  return formatCursorPosition(tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
-}
+import 'syd-core.dart';
 
 enum TokenType {
   endOfStatement, // ;
@@ -14,7 +6,9 @@ enum TokenType {
 
   isIdent,
   asIdent,
-
+  typeOfIdent,
+  typeCodeOfIdent,
+  
   openParen, // (
   closeParen, // )
   openSquare, // [
@@ -145,7 +139,7 @@ enum _LexerState {
   commentHash,
 }
 
-Iterable<Token> lex(String file, String workspace, String filename) sync* {
+Iterable<Token> lex(String file, String workspace, String filename, Environment environment) sync* {
   // /* to */ multi-line comment, # or // single-line comments
 
   _LexerState state = _LexerState.top;
@@ -314,13 +308,14 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
         } else {
           throw BSCException(
             "Unrecognized ${String.fromCharCode(rune)} at ${formatCursorPosition(line, col, workspace, filename)} (U+${rune.toRadixString(16)} in Unicode)",
-            NoDataVG(),
+            NoDataVG(environment),
           );
         }
     }
   }
 
-  loop: for (int rune in file.runes) {
+  loop:
+  for (int rune in file.runes) {
     switch (state) {
       case _LexerState.top:
         yield* parseRuneFromTop(rune);
@@ -344,11 +339,13 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
           buffer.writeCharCode(rune);
         } else {
           yield IntToken(
-              buffer.toString() == '9223372036854775808' ? 0x8000000000000000 : int.tryParse(buffer.toString()) ??
-                  (throw BSCException(
-                    'bad integer: $buffer',
-                    NoDataVG(),
-                  )),
+              buffer.toString() == '9223372036854775808'
+                  ? 0x8000000000000000
+                  : int.tryParse(buffer.toString()) ??
+                      (throw BSCException(
+                        'bad integer: $buffer',
+                        NoDataVG(environment),
+                      )),
               line,
               col);
           buffer = StringBuffer();
@@ -393,6 +390,24 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
             yield* parseRuneFromTop(rune);
           } else if (str == 'as') {
             yield CharToken(TokenType.asIdent, startline, startcol);
+            startline = line;
+            startcol = col;
+            state = _LexerState.top;
+            buffer = StringBuffer();
+
+            yield* parseRuneFromTop(rune);
+          } else if (str == '__typeOf') {
+            // xxx factor this out
+            yield CharToken(TokenType.typeOfIdent, startline, startcol);
+            startline = line;
+            startcol = col;
+            state = _LexerState.top;
+            buffer = StringBuffer();
+
+            yield* parseRuneFromTop(rune);
+          } else if (str == '__typeCodeOf') {
+            // xxx factor this out
+            yield CharToken(TokenType.typeCodeOfIdent, startline, startcol);
             startline = line;
             startcol = col;
             state = _LexerState.top;
@@ -925,9 +940,9 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
   }
   switch (state) {
     case _LexerState.stringDq:
-      throw BSCException("Unterminated double-quoted string '${buffer.toString()}'", NoDataVG());
+      throw BSCException("Unterminated double-quoted string '${buffer.toString()}'", NoDataVG(environment));
     case _LexerState.stringSq:
-      throw BSCException("Unterminated single-quoted string '${buffer.toString()}'", NoDataVG());
+      throw BSCException("Unterminated single-quoted string '${buffer.toString()}'", NoDataVG(environment));
     case _LexerState.comment:
     case _LexerState.multiLineComment:
     // multi-line comments can be unterminated
@@ -935,7 +950,7 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
       break;
     case _LexerState.integer:
       yield IntToken(
-        int.tryParse(buffer.toString()) ?? (throw BSCException('bad integer: $buffer', NoDataVG())),
+        int.tryParse(buffer.toString()) ?? (throw BSCException('bad integer: $buffer', NoDataVG(environment))),
         line,
         col,
       );
@@ -995,9 +1010,9 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
       startcol = col;
 
     case _LexerState.stringDqBackslash:
-      throw BSCException("Unterminated double-quoted string ending in backslash '${buffer.toString()}'", NoDataVG());
+      throw BSCException("Unterminated double-quoted string ending in backslash '${buffer.toString()}'", NoDataVG(environment));
     case _LexerState.stringSqBackslash:
-      throw BSCException("Unterminated single-quoted string ending in backslash '${buffer.toString()}'", NoDataVG());
+      throw BSCException("Unterminated single-quoted string ending in backslash '${buffer.toString()}'", NoDataVG(environment));
     case _LexerState.multiLineCommentStar:
       break;
     case _LexerState.star:
@@ -1050,7 +1065,7 @@ Iterable<Token> lex(String file, String workspace, String filename) sync* {
       startcol = col;
   }
   if (buffer.isNotEmpty) {
-    throw BSCException("Unterminated string '${buffer.toString()}'", NoDataVG());
+    throw BSCException("Unterminated string '${buffer.toString()}'", NoDataVG(environment));
   }
   if (buffer.isNotEmpty) {
     yield IdentToken(buffer.toString(), startline, startcol);
@@ -1069,11 +1084,16 @@ class CommentFeatureToken extends Token {
 
   String toString() => "CommentFeatureToken($feature)";
 }
+String formatCursorPositionFromTokens(TokenIterator tokens) {
+  return formatCursorPosition(tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
+}
 
 class TokenIterator implements Iterator<Token> {
-  TokenIterator(this.tokens, this.workspace, this.file);
+  TokenIterator(this.tokens, this.workspace, this.file, this.variables, this.environment);
 
   final Iterator<Token> tokens;
+  final Map<String, Variable> variables;
+  final Environment environment;
   bool doneImports = false;
 
   final String workspace;
@@ -1085,12 +1105,12 @@ class TokenIterator implements Iterator<Token> {
     if (current is IdentToken) {
       return variables[(current as IdentToken).ident] ??= Variable((current as IdentToken).ident);
     }
-    throw BSCException("Expected identifier, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG());
+    throw BSCException("Expected identifier, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
   }
 
   TokenType get currentChar {
     if (current is! CharToken) {
-      throw BSCException("Expected character, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG());
+      throw BSCException("Expected character, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
     }
     return (current as CharToken).type;
   }
@@ -1099,21 +1119,21 @@ class TokenIterator implements Iterator<Token> {
     if (current is IntToken) {
       return (current as IntToken).integer;
     }
-    throw BSCException("Expected integer, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG());
+    throw BSCException("Expected integer, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
   }
 
   String get string {
     if (current is StringToken) {
       return (current as StringToken).str;
     }
-    throw BSCException("Expected string, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG());
+    throw BSCException("Expected string, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
   }
 
   String get commentFeature {
     if (current is CommentFeatureToken) {
       return (current as CommentFeatureToken).feature;
     }
-    throw BSCException("Expected comment feature (//#), got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG());
+    throw BSCException("Expected comment feature (//#), got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
   }
 
   Token? previous = null;
@@ -1133,7 +1153,7 @@ class TokenIterator implements Iterator<Token> {
 
   void expectChar(TokenType char) {
     if (current is! CharToken || char != currentChar) {
-      throw BSCException("Expected $char, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG());
+      throw BSCException("Expected $char, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
     }
     moveNext();
   }
@@ -1146,4 +1166,17 @@ class TokenIterator implements Iterator<Token> {
     }
     doingPrevious = true;
   }
+}
+
+List<T> parseArgList<T>(TokenIterator tokens, T Function(TokenIterator) parseArg) {
+  tokens.expectChar(TokenType.openParen);
+  List<T> params = [];
+  while (tokens.current is! CharToken || tokens.currentChar != TokenType.closeParen) {
+    params.add(parseArg(tokens));
+    if (tokens.currentChar != TokenType.closeParen) {
+      tokens.expectChar(TokenType.comma);
+    }
+  }
+  tokens.expectChar(TokenType.closeParen);
+  return params;
 }

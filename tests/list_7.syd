@@ -1,0 +1,4 @@
+// expected output: PASS
+
+Whatever x = ['PASS']:Anything as StringList;
+println(x[0]);
