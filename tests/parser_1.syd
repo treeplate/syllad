@@ -1,0 +1,6 @@
+// expected output: PASS
+
+Whatever x = 3;
+x as Whatever;
+x is Whatever;
+println('PASS');

@@ -1,4 +1,0 @@
-// expected output: 3
-
-Whatever x = 3;
-println(x as Whatever);

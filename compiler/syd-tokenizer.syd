@@ -3,8 +3,12 @@ import 'syd-utils.syd';
 
 // Tokenizer
 
-// TODO: add "as" as a separate token to be able to parse "foo as bar" as a statement (currently becomes a variable declaration)
-// TODO: add a test for this
+Set keywords = Set();
+keywords.add('is');
+keywords.add('as');
+keywords.add('__as__');
+keywords.add('__dynamic_is__');
+keywords.add('__dynamic_as__');
 
 enum ts { // TokenState
   Top
@@ -48,6 +52,7 @@ enum ts { // TokenState
 
 enum tt { // TokenType
   Identifier // String
+  Keyword // String
   String // String
   Integer // Integer
   OpenBrace
@@ -106,7 +111,11 @@ class Token extends Object {
 
   Null constructor(tt typeArg, SourceLocation sourceLocationArg, Anything dataArg) {
     super.constructor();
-    type = typeArg;
+    if (typeArg == tt.Identifier && keywords.has(dataArg as String)) {
+      type = tt.Keyword;
+    } else {
+      type = typeArg;
+    }
     sourceLocation = sourceLocationArg;
     data = dataArg;
   }
@@ -115,6 +124,9 @@ class Token extends Object {
   String toString() {
     if (type == tt.Identifier) {
       return concat('identifier "', data, '"');
+    }
+    if (type == tt.Keyword) {
+      return concat('keyword "', data, '"');
     }
     if (type == tt.String) {
       return concat('string literal');
@@ -261,7 +273,7 @@ class Token extends Object {
       return 'end of file';
     }
 
-    assert(false, concat('don\t know how to describe token with type ', type));
+    assert(false, concat('don\'t know how to describe token with type ', type));
     return concat(type);
   }
 }
@@ -274,7 +286,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
 
   Token createToken(tt typeArg, Anything dataArg) {
     return Token(
-      typeArg, 
+      typeArg,
       SourceLocation(startLineNo, startColNo, lineNo, colNo, filename),
       dataArg,
     );
@@ -917,6 +929,11 @@ class TokenConsumer extends Object {
     return token.type == tt.Identifier && token.data == identifier;
   }
   
+  Boolean isNextKeyword(String keyword) {
+    Token token = tokens[index];
+    return token.type == tt.Keyword && token.data == keyword;
+  }
+  
   String butFound(String what, String description) {
     return concat('Expected ', what, ' but found ', description, ' at ', tokens[index].sourceLocation);
   }
@@ -954,10 +971,20 @@ class TokenConsumer extends Object {
   
   Null expectIdentifier(String identifier) {
     if (!isNext(tt.Identifier)) {
-      throw(concat(expected(concat('"', identifier, '"'))));
+      throw(concat(expected(concat('identifier "', identifier, '"'))));
     }
     if (!isNextIdentifier(identifier)) {
-      throw(concat(expected(concat('"', identifier, '"'))));
+      throw(concat(expected(concat('identifier "', identifier, '"'))));
+    }
+    index = index + 1;
+  }
+  
+  Null expectKeyword(String keyword) {
+    if (!isNext(tt.Keyword)) {
+      throw(concat(expected(concat('keyword "', keyword, '"'))));
+    }
+    if (!isNextKeyword(keyword)) {
+      throw(concat(expected(concat('keyword "', keyword, '"'))));
     }
     index = index + 1;
   }

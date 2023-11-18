@@ -150,34 +150,35 @@ Expression parseUnaryExpression(TokenConsumer source) {
       result = UnwrapExpression(result, source.lastLocation());
       continue;
     }
-    if (source.isNextIdentifier('is')) {
-      source.expectIdentifier('is');
+    if (source.isNextKeyword('is')) {
+      source.expectKeyword('is');
       String typeName = source.readIdentifier();
       result = IsOperatorExpression(result, TypeIdentifier(typeName, source.lastLocation()), source.lastLocation());
       continue;
     }
-    if (source.isNextIdentifier('as')) {
-      source.expectIdentifier('as');
+    if (source.isNextKeyword('as')) {
+      source.expectKeyword('as');
       String typeName = source.readIdentifier();
       result = AsOperatorExpression(result, TypeIdentifier(typeName, source.lastLocation()), source.lastLocation());
       continue;
     }
-    if (source.isNextIdentifier('__as__')) {
-      source.expectIdentifier('__as__');
+    if (source.isNextKeyword('__as__')) {
+      source.expectKeyword('__as__');
       String typeName = source.readIdentifier();
       result = ReinterpretAsOperatorExpression(result, TypeIdentifier(typeName, source.lastLocation()), source.lastLocation());
       continue;
     }
-    if (source.isNextIdentifier('__dynamic_is__')) {
-      source.expectIdentifier('__dynamic_is__');
+    if (source.isNextKeyword('__dynamic_is__')) {
+      source.expectKeyword('__dynamic_is__');
       result = DynamicIsOperatorExpression(result, parseUnaryExpression(source), source.lastLocation());
       continue;
     }
-    if (source.isNextIdentifier('__dynamic_as__')) {
-      source.expectIdentifier('__dynamic_as__');
+    if (source.isNextKeyword('__dynamic_as__')) {
+      source.expectKeyword('__dynamic_as__');
       result = ReinterpretDynamicAsOperatorExpression(result, parseUnaryExpression(source), source.lastLocation());
       continue;
     }
+    assert(!source.isNext(tt.Keyword), 'unknown keyword');
     break;
   }
   return result;
@@ -802,7 +803,7 @@ Statement parseTopLevelStatement(TokenConsumer source) {
   if (source.isNextIdentifier('typedef#')) {
     source.expectIdentifier('typedef#');
     String name = source.readIdentifier();
-    source.expectIdentifier('is');
+    source.expectKeyword('is');
     source.expectIdentifier('GarbageCollectable');
     source.expectPunctuation(tt.Semicolon);
     return TypeIntrinsicDeclaration(name, source.lastLocation());
