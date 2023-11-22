@@ -91,7 +91,7 @@ Anything pop(WhateverList list) {
 // points before the beginning or after the end of the iterable
 // (i.e. if next() has not been called or has returned false)
 Whatever current(WhateverIterator iteratorArg) intrinsic# {
-  WhateverList list = (__readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 8) __dynamic_as__ __readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 0)) as WhateverList;
+  WhateverArray list = (__readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 8) __dynamic_as__ __readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 0)) as WhateverArray;
   Integer index = (__readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 24) __dynamic_as__ __readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 16)) as Integer;
   return list[index];
 }
@@ -100,7 +100,7 @@ Whatever current(WhateverIterator iteratorArg) intrinsic# {
 // return true if cursor is before end of iterable; current returns value at cursor
 // return false if cursor is after end of iterable
 Boolean next(WhateverIterator iteratorArg) intrinsic# {
-  WhateverList list = (__readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 8) __dynamic_as__ __readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 0)) as WhateverList;
+  WhateverArray list = (__readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 8) __dynamic_as__ __readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 0)) as WhateverArray;
   Integer index = (__readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 24) __dynamic_as__ __readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 16)) as Integer;
   index += 1;
   __writeToAddress(iteratorArg __as__ Integer + _gcBlockData + 24, index);
@@ -109,7 +109,7 @@ Boolean next(WhateverIterator iteratorArg) intrinsic# {
 
 // creates an iterator for the iterable
 WhateverIterator iterator(WhateverIterable iterable) intrinsic# {
-  assert(iterable is WhateverList, 'iterables are only implemented for lists');
+  assert(iterable is WhateverArray, 'iterables are only implemented for lists');
   _gcLocked += 1;
   WhateverIterator result = _constructor(__iteratorTypeFrom __typeOf iterable, 2, 2) as WhateverIterator;
   __writeToAddress(result __as__ Integer + _gcBlockData + 0, __typeOf iterable);
@@ -122,8 +122,8 @@ WhateverIterator iterator(WhateverIterable iterable) intrinsic# {
 
 WhateverList copy(WhateverIterable iterable) {
   Integer length;
-  if (iterable is WhateverList) {
-    length = len(iterable as WhateverList);
+  if (iterable is WhateverArray) {
+    length = len(iterable as WhateverArray);
     if (length == 0) {
       length = 1;
     }
@@ -137,6 +137,9 @@ WhateverList copy(WhateverIterable iterable) {
   return list;
 }
 
+// TODO: make this compatible with arrays
+// listCast# currently cannot propertly handle "FooArray as BarArray"
+// we want to make sure you can't do "FooArray as FooList".
 WhateverList listCast#(Anything list, Integer type) intrinsic# {
   if (!list is WhateverList) {
     throw('cannot cast a non-list to a list type');
@@ -176,5 +179,12 @@ WhateverList filledList(Integer length, Whatever value) {
     }
   }
   _gcLocked -= 1;
+  return result;
+}
+
+WhateverArray copyVarargs#(Integer baseAddress, Integer length) intrinsic# {
+  WhateverArray result = listConstructor#(__typeCodeOf WhateverList, length);
+  __writeToAddress(__readFromAddress(result __as__ Integer + _listBlockData) + _gcBlockHeaderLength, length);
+  _moveBytes(baseAddress, __readFromAddress(result __as__ Integer + _listBlockData) + _gcBlockData, length * 16);
   return result;
 }

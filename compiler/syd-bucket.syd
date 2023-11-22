@@ -1057,9 +1057,17 @@ class VarArgsParameterBucket extends Bucket {
     return false;
   }
 
+  BucketNullable value = null;
+
+  Null assignValue(Bucket valueArg) {
+    assert(value == null, 'do not assignValue twice');
+    value = valueArg;
+  }
+
   //#override
   Datum currentValueDatum() {
-    assert(false, 'it should not be possible to obtain the value of a varargs parameter');
+    assert(value != null, 'call assignValue before currentValueDatum on VarArgsParameterBucket');
+    return value!.currentValueDatum();
   }
 
   //#override

@@ -39,12 +39,12 @@ const Integer _gcBlockHeaderLength = 1 * 8;
 //#ignore_unused
 const Integer _gcBlockStringData = 2 * 8;
 //#ignore_unused
-const Integer _gcBlockHeaderScratchSpace = 2 * 8; // for completeness
+const Integer _gcBlockHeaderScratchSpace = 2 * 8;
 //#ignore_unused
-const Integer _gcBlockHeaderEntryPointer = 3 * 8; // for completeness
+const Integer _gcBlockHeaderEntryPointer = 3 * 8;
 const Integer _gcBlockData = 4 * 8;
 //#ignore_unused
-const Integer _listBlockSize = _gcBlockData + 0 * 16 + 8; // for completeness
+const Integer _listBlockSize = _gcBlockData + 0 * 16 + 8;
 const Integer _listBlockData = _gcBlockData + 1 * 16 + 8;
 
 const Integer _subroutineReceiverType = _gcBlockData + 0 * 16;
@@ -52,7 +52,7 @@ const Integer _subroutineReceiverPointer = _gcBlockData + 0 * 16 + 8;
 //#ignore_unused
 const Integer _subroutineClosureType = _gcBlockData + 1 * 16; // either sentinel or internal closure type
 const Integer _subroutineClosurePointer = _gcBlockData + 1 * 16 + 8;
-const Integer _subroutineCodeType = _gcBlockData + 2 * 16; // for completeness, always code address type
+const Integer _subroutineCodeType = _gcBlockData + 2 * 16; // always code address type
 const Integer _subroutineCodePointer = _gcBlockData + 2 * 16 + 8;
 
 //#ignore_unused

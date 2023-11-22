@@ -854,12 +854,14 @@ class CodeFlowPseudoInstruction extends PseudoInstruction {
       assert(datumStatuses.get(variable) != null, concat('Cannot find current status of variable "', variable, '".'));
       Datum currentDatum = datumStatuses.get(variable) as Datum;
       Datum destinationDatum = datumMap.get(variable) as Datum;
-      if (destinationDatum is LocalDatum && (currentDatum != destinationDatum)) {
-        append(output, Push(currentDatum, concat('restore ', destinationDatum.commentName, ' (from ', currentDatum.commentName, ') for ', statementName))); 
-        append(destinations, destinationDatum as LocalDatum);
-      } else {
-        throw(concat('Cannot restore ', destinationDatum.commentName, ' from a ', destinationDatum.className));
-        append(output, Comment(concat('cannot restore ', destinationDatum.commentName, ' from a ', destinationDatum.className)));
+      if (currentDatum != destinationDatum) {
+        if (destinationDatum is LocalDatum) {
+          append(output, Push(currentDatum, concat('restore ', destinationDatum.commentName, ' (from ', currentDatum.commentName, ') for ', statementName))); 
+          append(destinations, destinationDatum as LocalDatum);
+        } else {
+          throw(concat('Cannot restore ', destinationDatum.commentName, ' from a ', destinationDatum.className));
+          append(output, Comment(concat('cannot restore ', destinationDatum.commentName, ' from a ', destinationDatum.className)));
+        }
       }
     }
     for (destination in reverse(destinations)) {
@@ -917,7 +919,9 @@ class Continue extends CodeFlowPseudoInstruction {
       assert(index < len(blocks), 'invariant violation');
       assert(index >= 0, 'invariant violation');
       block = blocks[index];
-      restoreVariables(output, block.datumOrigins!, datumStatuses, 'continue');
+      if (block.datumOrigins != null) {
+        restoreVariables(output, block.datumOrigins!, datumStatuses, 'continue');
+      }
       if (block.isLoop) {
         break;
       }

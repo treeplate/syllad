@@ -61,3 +61,8 @@ Integer pow#(Integer base, Integer exponent) intrinsic# {
   }
   return result;
 }
+
+String stackTrace() {
+  // TODO: implement
+  return "<stack trace not implemented>";
+}

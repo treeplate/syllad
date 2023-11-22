@@ -84,8 +84,9 @@ class StringLiteralExpression extends Expression {
   String value;
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
     // no identifiers to prepare
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -112,8 +113,9 @@ class StringLiteralExpression extends Expression {
 
 class SourceLocationFileStringLiteralExpression extends Expression {
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
     // no identifiers to prepare
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -137,8 +139,9 @@ class IntegerLiteralExpression extends Expression {
   Integer value;
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
     // no identifiers to prepare
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -169,8 +172,9 @@ class IntegerLiteralExpression extends Expression {
 
 class SourceLocationLineIntegerLiteralExpression extends Expression {
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
     // no identifiers to prepare
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -187,8 +191,9 @@ class SourceLocationLineIntegerLiteralExpression extends Expression {
 
 class SourceLocationColumnIntegerLiteralExpression extends Expression {
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
     // no identifiers to prepare
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -220,10 +225,11 @@ class ListLiteralExpression extends Expression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
     for (value in values) {
-      value.prepareIdentifiers(scope);
+      value.prepareIdentifiers(scope).markAsUsed(false);
     }
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -351,8 +357,12 @@ class VariableExpression extends LValueExpression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
-    scope.prepareIdentifierReferenceFor(name);
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
+    ExpressionHandleNullable result = scope.prepareIdentifierReferenceFor(name);
+    if (result == null) {
+      return scope.createTrivialExpressionHandle();
+    }
+    return result!;
   }
 
   //#override
@@ -444,9 +454,10 @@ class SubscriptExpression extends LValueExpression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
-    list.prepareIdentifiers(scope);
-    argument.prepareIdentifiers(scope);
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
+    list.prepareIdentifiers(scope).markAsUsed(true);
+    argument.prepareIdentifiers(scope).markAsUsed(false);
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -485,8 +496,9 @@ class MemberAccessExpression extends LValueExpression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
-    object.prepareIdentifiers(scope);
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
+    object.prepareIdentifiers(scope).markAsUsed(false);
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -571,8 +583,9 @@ class SuperExpression extends Expression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
     // no identifiers to prepare
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -627,11 +640,12 @@ class SubroutineCallExpression extends Expression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
-    subroutineReference.prepareIdentifiers(scope);
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
+    subroutineReference.prepareIdentifiers(scope).markAsUsed(false);
     for (argument in arguments) {
-      argument.prepareIdentifiers(scope);
+      argument.prepareIdentifiers(scope).markAsUsed(false);
     }
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -677,11 +691,19 @@ class IdentifierSubroutineCallExpression extends Expression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
-    scope.prepareIdentifierReferenceFor(name);
-    for (argument in arguments) {
-      argument.prepareIdentifiers(scope);
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
+    ExpressionHandleNullable result = scope.prepareIdentifierReferenceFor(name);
+    Boolean isSubroutineThatCanHandleVarArgsAsOnlyArgument = false;
+    if (result != null) {
+      isSubroutineThatCanHandleVarArgsAsOnlyArgument = result!.isSubroutineThatCanHandleVarArgsAsOnlyArgument;
     }
+    for (argument in arguments) {
+      argument.prepareIdentifiers(scope).markAsUsed(isSubroutineThatCanHandleVarArgsAsOnlyArgument);
+    }
+    if (result == null) {
+      return scope.createTrivialExpressionHandle();
+    }
+    return result!;
   }
 
   //#override
@@ -716,11 +738,12 @@ class MemberAccessSubroutineCallExpression extends Expression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
-    object.prepareIdentifiers(scope);
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
+    object.prepareIdentifiers(scope).markAsUsed(false);
     for (argument in arguments) {
-      argument.prepareIdentifiers(scope);
+      argument.prepareIdentifiers(scope).markAsUsed(false);
     }
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -765,10 +788,11 @@ class SuperSubroutineCallExpression extends Expression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
     for (argument in arguments) {
-      argument.prepareIdentifiers(scope);
+      argument.prepareIdentifiers(scope).markAsUsed(false);
     }
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -801,8 +825,9 @@ class UnwrapExpression extends Expression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
-    lhs.prepareIdentifiers(scope);
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
+    lhs.prepareIdentifiers(scope).markAsUsed(false);
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -846,8 +871,9 @@ class IsOperatorExpression extends Expression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
-    expression.prepareIdentifiers(scope);
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
+    expression.prepareIdentifiers(scope).markAsUsed(false);
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -903,8 +929,9 @@ class AsOperatorExpression extends Expression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
-    expression.prepareIdentifiers(scope);
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
+    expression.prepareIdentifiers(scope).markAsUsed(false);
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -998,8 +1025,9 @@ class ReinterpretAsOperatorExpression extends Expression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
-    expression.prepareIdentifiers(scope);
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
+    expression.prepareIdentifiers(scope).markAsUsed(false);
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -1027,9 +1055,10 @@ class DynamicIsOperatorExpression extends Expression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
-    expression.prepareIdentifiers(scope);
-    type.prepareIdentifiers(scope);
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
+    expression.prepareIdentifiers(scope).markAsUsed(false);
+    type.prepareIdentifiers(scope).markAsUsed(false);
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -1064,9 +1093,10 @@ class ReinterpretDynamicAsOperatorExpression extends Expression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
-    expression.prepareIdentifiers(scope);
-    type.prepareIdentifiers(scope);
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
+    expression.prepareIdentifiers(scope).markAsUsed(false);
+    type.prepareIdentifiers(scope).markAsUsed(false);
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -1116,8 +1146,9 @@ class UnaryExpression extends Expression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
-    rhs.prepareIdentifiers(scope);
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
+    rhs.prepareIdentifiers(scope).markAsUsed(false);
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -1370,8 +1401,9 @@ class TypeToCodeExpression extends Expression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
     // no identifiers to prepare
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -1458,9 +1490,10 @@ class OperatorExpression extends Expression {
   }
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
-    lhs.prepareIdentifiers(scope);
-    rhs.prepareIdentifiers(scope);
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
+    lhs.prepareIdentifiers(scope).markAsUsed(false);
+    rhs.prepareIdentifiers(scope).markAsUsed(false);
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -1801,11 +1834,12 @@ class OperatorLogicalAndExpression extends Expression {
   CompiledScope falseScope;
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
     rhsScope = CompiledScope(scope, '&&');
     falseScope = CompiledScope(scope, 'short-circuited &&');
-    lhs.prepareIdentifiers(scope);
-    rhs.prepareIdentifiers(rhsScope);
+    lhs.prepareIdentifiers(scope).markAsUsed(false);
+    rhs.prepareIdentifiers(rhsScope).markAsUsed(false);
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -1874,11 +1908,12 @@ class OperatorLogicalOrExpression extends Expression {
   CompiledScope rhsScope;
 
   //#override
-  Null prepareIdentifiers(CompiledScope scope) {
-    trueScope = CompiledScope(scope, 'short-circuited ||');
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
     rhsScope = CompiledScope(scope, '||');
-    lhs.prepareIdentifiers(scope);
-    rhs.prepareIdentifiers(rhsScope);
+    trueScope = CompiledScope(scope, 'short-circuited ||');
+    lhs.prepareIdentifiers(scope).markAsUsed(false);
+    rhs.prepareIdentifiers(rhsScope).markAsUsed(false);
+    return scope.createTrivialExpressionHandle();
   }
 
   //#override
@@ -1987,7 +2022,7 @@ class FieldDeclarationStatement extends Statement {
   //#override
   Null prepareIdentifiers(CompiledScope scope) {
     if (rValue != null) {
-      rValue!.prepareIdentifiers(scope);
+      rValue!.prepareIdentifiers(scope).markAsUsed(false);
     }
   }
 
@@ -2022,7 +2057,7 @@ class ConstantDeclarationStatement extends Statement {
   
   //#override
   Null prepareIdentifiers(CompiledScope scope) {
-    rValue.prepareIdentifiers(scope);
+    rValue.prepareIdentifiers(scope).markAsUsed(false);
     scope.prepareIdentifier(identifier);
   }
 
@@ -2075,7 +2110,7 @@ class VariableDeclarationStatement extends Statement {
   //#override
   Null prepareIdentifiers(CompiledScope scope) {
     if (rValue != null) {
-      rValue!.prepareIdentifiers(scope);
+      rValue!.prepareIdentifiers(scope).markAsUsed(false);
     }
     scope.prepareIdentifier(identifier);
   }
@@ -2159,13 +2194,12 @@ class AbstractSubroutineDeclarationStatement extends Statement {
         compiledParameterTypes,
       );
     }
-    staticType.markConstructed();
   }
 
   //#override
   Null prepareIdentifiers(CompiledScope scope) {
     if (isVarArgs) {
-      subroutine = CompiledVarArgsSubroutine(scope, identifier, receiverType());
+      subroutine = CompiledVarArgsSubroutine(scope, identifier, parameters[0][1] as String, receiverType());
     } else {
       subroutine = CompiledSubroutineWithSpecificParameters(scope, identifier, receiverType());
     }
@@ -2946,7 +2980,7 @@ class ExpressionStatement extends Statement {
 
   //#override
   Null prepareIdentifiers(CompiledScope scope) {
-    expression.prepareIdentifiers(scope);
+    expression.prepareIdentifiers(scope).markAsUsed(true);
   }
 
   //#override
@@ -2974,7 +3008,7 @@ class ReturnStatement extends Statement {
   //#override
   Null prepareIdentifiers(CompiledScope scope) {
     if (expression != null) {
-      expression!.prepareIdentifiers(scope);
+      expression!.prepareIdentifiers(scope).markAsUsed(false);
     }
   }
 
@@ -3103,8 +3137,8 @@ class StraightAssignmentStatement extends Statement {
 
   //#override
   Null prepareIdentifiers(CompiledScope scope) {
-    lValue.prepareIdentifiers(scope);
-    rValue.prepareIdentifiers(scope);
+    lValue.prepareIdentifiers(scope).markAsUsed(true);
+    rValue.prepareIdentifiers(scope).markAsUsed(false);
   }
 
   //#override
@@ -3145,8 +3179,8 @@ class AssignmentStatement extends Statement {
 
   //#override
   Null prepareIdentifiers(CompiledScope scope) {
-    lValue.prepareIdentifiers(scope);
-    rValue.prepareIdentifiers(scope);
+    lValue.prepareIdentifiers(scope).markAsUsed(true);
+    rValue.prepareIdentifiers(scope).markAsUsed(false);
   }
 
   //#override
@@ -3393,7 +3427,7 @@ class IfStatement extends Statement {
 
   //#override
   Null prepareIdentifiers(CompiledScope scope) {
-    expression.prepareIdentifiers(scope);
+    expression.prepareIdentifiers(scope).markAsUsed(false);
     blockScope = CompiledScope(scope, 'if');
     block.prepareIdentifiers(blockScope);
     if (elseClause != null) {
@@ -3502,7 +3536,7 @@ class WhileStatement extends Statement {
   //#override
   Null prepareIdentifiers(CompiledScope scope) {
     loopScope = CompiledLoopScope(scope, 'while');
-    expression.prepareIdentifiers(loopScope);
+    expression.prepareIdentifiers(loopScope).markAsUsed(false);
     block.prepareIdentifiers(loopScope);
   }
 
@@ -3556,7 +3590,7 @@ class ForStatement extends Statement {
 
   //#override
   Null prepareIdentifiers(CompiledScope scope) {
-    iterable.prepareIdentifiers(scope);
+    iterable.prepareIdentifiers(scope).markAsUsed(true);
     loopScope = CompiledLoopScope(scope, 'for loop');
     loopScope.prepareIdentifier(variableName);
     block.prepareIdentifiers(loopScope);

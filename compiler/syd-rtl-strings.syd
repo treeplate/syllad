@@ -264,9 +264,9 @@ String stringifyImplementation#(Anything arg) {
   if (arg is StringList) {
     return concat('[', join(arg as StringList, ', '), ']');
   }
-  if (arg is WhateverList) {
+  if (arg is WhateverArray) {
     StringList new = []:String;
-    WhateverList old = arg as WhateverList;
+    WhateverArray old = arg as WhateverArray;
     Integer i = 0;
     while (i < len(old)) {
       // TODO: beware infinite loops from cyclic references

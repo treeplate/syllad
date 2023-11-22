@@ -74,7 +74,7 @@ fwdclass CompiledSubroutineWithSpecificParameters(CompiledScopeNullable, String,
 fwdclass CompiledGeneratedConstructorSubroutine(CompiledScopeNullable, String, ClassType) extends CompiledSubroutine;
 fwdclass BuiltInSubroutine(CompiledScopeNullable, String, ClassTypeNullable) extends CompiledSubroutineWithSpecificParameters;
 fwdclass CompilerIntrinsic(CompiledScopeNullable, String, ClassTypeNullable) extends BuiltInSubroutine;
-fwdclass CompiledVarArgsSubroutine(CompiledScopeNullable, String, ClassTypeNullable) extends CompiledSubroutine;
+fwdclass CompiledVarArgsSubroutine(CompiledScopeNullable, String, String, ClassTypeNullable) extends CompiledSubroutine;
 fwdclass BuiltInLenSubroutine(CompiledIntrinsicsLibrary) extends BuiltInSubroutine;
 fwdclass BuiltInDebuggerSubroutine(CompiledIntrinsicsLibrary) extends BuiltInSubroutine;
 fwdclass BuiltInGetterMethod(CompiledIntrinsicsLibrary, ClassType, MemberDescription) extends BuiltInSubroutine;
@@ -268,7 +268,8 @@ class CompilationEnvironment extends TypeRegistry {
   String createFunctionPointerIntrinsicName = '_createFunctionPointer';
   String dynamicLookupIntrinsicName = '_dynamicLookup';
   String listCastIntrinsicName = 'listCast#';
-  String allocateClosureBlockName = 'allocateClosureBlock#';
+  String allocateClosureBlockIntrinsicName = 'allocateClosureBlock#';
+  String copyVarargsIntrinsicName = 'copyVarargs#';
 
   Map intrinsics = Map(); // String -> CompiledSubroutine
 
@@ -315,6 +316,7 @@ class CompilationEnvironment extends TypeRegistry {
     assert(!subroutines.has(subroutine), ' redundant call to addSubroutine');
     subroutines.add(subroutine);
     append(subroutinesInDeclarationOrder, subroutine);
+    subroutine.type.markConstructed();
   }
 
   Null finalizeInstructions(Assembler assembler) {
@@ -795,8 +797,36 @@ class EnvironmentConversionContext extends ConversionContext {
 // SUBROUTINE CALLS AND AST NODE SHENANIGANS
 // ============================================================================
 
+class ExpressionHandle extends Object {
+  Boolean used = false;
+  Boolean needsCopyIfVarArgs = false;
+  String debugStackTrace;
+
+  // returns if this is an inlinable varArgs-capable intrinsic, like "len"
+  // TODO: "copy" should be special too
+  Boolean isSubroutineThatCanHandleVarArgsAsOnlyArgument = false;
+
+  // If the caller can handle an Expression's VarArgsParameterBucket using its baseAddress rather
+  // than trying to use its currentValueDatum, then canHandleVarArgs should be true.
+  //
+  // Otherwise, the scope will copy the varargs on entry.
+  //
+  // This should always be called on receipt of an ExpressionHandle, even if the bucket will be
+  // discarded without use.
+  Null markAsUsed(Boolean canHandleVarArgs) {
+    used = true;
+    needsCopyIfVarArgs ||= !canHandleVarArgs;
+  }
+
+  Null constructor(Boolean isSubroutineThatCanHandleVarArgsAsOnlyArgumentArg, String debugStackTraceArg) {
+    super.constructor();
+    isSubroutineThatCanHandleVarArgsAsOnlyArgument = isSubroutineThatCanHandleVarArgsAsOnlyArgumentArg;
+    debugStackTrace = debugStackTraceArg;
+  }
+}
+
 class Expression extends AstNode {
-  Null prepareIdentifiers(CompiledScope scope) {
+  ExpressionHandle prepareIdentifiers(CompiledScope scope) {
     abstract();
   }
 
@@ -2104,7 +2134,7 @@ class LoopScopeInstruction extends BoundInstruction {
 // SCOPES
 // ============================================================================
 
-fwdclassmethod Boolean CompiledScope.internalPrepareIdentifierReferenceFor(String, CompiledStackFrameScope); // XXX needed to work around interpreter bug
+fwdclassmethod ExpressionHandleNullable CompiledScope.internalPrepareIdentifierReferenceFor(String, CompiledStackFrameScope); // XXX needed to work around interpreter bug
 
 class CompiledScope extends Object {
   CompiledScopeNullable parent;
@@ -2144,22 +2174,34 @@ class CompiledScope extends Object {
     // subroutines mark themselves as closures when this happens if the scope is not their own stack frame
   }
 
-  Boolean internalPrepareIdentifierReferenceFor(String name, CompiledStackFrameScope sourceScope) {
+  Set trivialExpressionHandles = Set(); // ExpressionHandle
+
+  ExpressionHandle createTrivialExpressionHandle() {
+    ExpressionHandle result = ExpressionHandle(false, stackTrace());
+    trivialExpressionHandles.add(result);
+    return result;
+  }
+
+  ExpressionHandle createExpressionHandleFor(String name) {
+    return createTrivialExpressionHandle();
+  }
+
+  ExpressionHandleNullable internalPrepareIdentifierReferenceFor(String name, CompiledStackFrameScope sourceScope) {
     SetNullable referrers = identifierReferrers.get(name) as SetNullable;
     if (referrers != null) {
       referrers!.add(sourceScope);
       sourceScope.preparedIdentifierReferenceTo(this);
-    } else if (parent != null) {
-      return parent!.internalPrepareIdentifierReferenceFor(name, sourceScope);
-    } else {
-      return false;
+      return createExpressionHandleFor(name);
     }
-    return true;
+    if (parent != null) {
+      return parent!.internalPrepareIdentifierReferenceFor(name, sourceScope);
+    }
+    return null;
   }
 
   Set debugPreparedIdentifierReferences = Set(); // String
 
-  Boolean prepareIdentifierReferenceFor(String name) {
+  ExpressionHandleNullable prepareIdentifierReferenceFor(String name) {
     debugPreparedIdentifierReferences.add(name);
     return internalPrepareIdentifierReferenceFor(name, stackFrame());
   }
@@ -2433,7 +2475,7 @@ class CompiledScope extends Object {
         parentClosureBlock = environment.coreNull;
       }
       closureBlock.assignBucket(
-        emitIntrinsicCall(environment.allocateClosureBlockName, [
+        emitIntrinsicCall(environment.allocateClosureBlockIntrinsicName, [
           environment.integer(capturedVariables + 1),
           parentClosureBlock,
         ]:Bucket),
@@ -2458,7 +2500,16 @@ class CompiledScope extends Object {
     appendReturn(result);
   }
 
-  Null finalizeInstructions(Assembler assembler) {}
+
+  Null finalizeInstructions(Assembler assembler) {
+    Boolean debugCheckTrivialExpressionHandles() {
+      for (handle in trivialExpressionHandles.values() as ExpressionHandleList) {
+        assert(handle.used, concat('unused handle detected', handle.debugStackTrace));
+      }
+      return true;
+    }
+    assert(debugCheckTrivialExpressionHandles(), 'internal error');
+  }
 
   AssemblerLabel createLabel() {
     if (parent != null) {
@@ -2809,15 +2860,44 @@ class CompiledSubroutineWithSpecificParameters extends CompiledSubroutine {
 }
 
 class CompiledVarArgsSubroutine extends CompiledSubroutine {
+  String parameterName;
   VarArgsParameterBucketNullable parameters = null;
+  ExpressionHandle varArgsExpressionHandle = ExpressionHandle(false, stackTrace());
+
+  //#override
+  ExpressionHandle createExpressionHandleFor(String name) {
+    if (name == parameterName) {
+      return varArgsExpressionHandle;
+    }
+    return super.createExpressionHandleFor(name);
+  }
 
   VarArgsParameterBucket registerVarArgsParameter(String name, Type type) {
     assert(parameters == null, 'varargs subroutine expects to have only one parameter');
+    assert(parameterName == name, 'varargs subroutine was given inconsistent parameter name information');
     ArrayType listType = createOrFindArrayType(environment(), type);
     listType.markConstructed();
     assert(!isIdentifierDeclaredInLocalScope(name), 'duplicate parameter name');
     parameters = VarArgsParameterBucket(listType, parameterCount);
-    identifiers.set(name, VarArgsIdentifierEntity(parameters!));
+    if (varArgsExpressionHandle.needsCopyIfVarArgs || (identifierReferrers.get(name) as Set).length > 1) { // captured variables need to be copied no matter what
+      // TODO: for better performance in the non-captured case, we could use
+      // a VarArgsIdentifierEntity and manually do the stuff that
+      // registerImmutableValue does. We'd need to not do that in the captured
+      // case (because e.g. "len" in a closure can't treat a captured varargs
+      // parameter the same as a real varargs parameter).
+      parameters!.assignValue(
+        emitIntrinsicCall(
+          environment().copyVarargsIntrinsicName,
+          [
+            DatumBucket(VarArgsBaseAddressDatum('base address'), TypeCodeDatum(environment().coreIntegerType), environment().coreIntegerType, false),
+            DatumBucket(ParameterDatum(0, 'parameter count'), TypeCodeDatum(environment().coreIntegerType), environment().coreIntegerType, false),
+          ]:Bucket,
+        ),
+      );
+      registerImmutableValue(name, parameters!); 
+    } else {
+      identifiers.set(name, VarArgsIdentifierEntity(parameters!));
+    }
     return parameters!;
   }
 
@@ -2877,6 +2957,11 @@ class CompiledVarArgsSubroutine extends CompiledSubroutine {
     ));
     subemit(loopBlock, UpdateVariableInstruction(pointerToIndexthArg, subcompute(loopBlock, UnsignedAddInstruction(pointerToIndexthArg, environment.integer(0x10), environment.coreIntegerType, LazyComment('new value of ', pointerToIndexthArg)))));
     emit(LoopBlockInstruction(loopBlock));
+  }
+
+  Null constructor(CompiledScopeNullable parentArg, String nameArg, String parameterNameArg, ClassTypeNullable parentClassArg) {
+    super.constructor(parentArg, nameArg, parentClassArg);
+    parameterName = parameterNameArg;
   }
 }
 
@@ -3344,19 +3429,21 @@ class CompiledLibrary extends CompiledStackFrameScope {
   }
 
   //#override
-  Boolean internalPrepareIdentifierReferenceFor(String name, CompiledStackFrameScope scope) {
-    if (!super.internalPrepareIdentifierReferenceFor(name, scope)) {
+  ExpressionHandleNullable internalPrepareIdentifierReferenceFor(String name, CompiledStackFrameScope scope) {
+    ExpressionHandleNullable result = super.internalPrepareIdentifierReferenceFor(name, scope);
+    if (result == null) {
       Integer index = len(libraries) - 1;
       while (index >= 0) {
-        if (libraries[index].internalPrepareIdentifierReferenceFor(name, scope)) {
-          return true;
+        ExpressionHandleNullable result = libraries[index].internalPrepareIdentifierReferenceFor(name, scope);
+        if (result != null) {
+          return result;
         }
         index -= 1;
       }
     } else {
-      return true;
+      return result;
     }
-    return false;
+    return null;
   }
 
   GlobalVariableList globalVariables = []:GlobalVariable;
@@ -3500,6 +3587,16 @@ class CompiledLibrary extends CompiledStackFrameScope {
 }
 
 class CompiledIntrinsicsLibrary extends CompiledLibrary {
+  //#override
+  ExpressionHandle createExpressionHandleFor(String name) {
+    if (name == 'len') {
+      ExpressionHandle result = ExpressionHandle(true, stackTrace());
+      trivialExpressionHandles.add(result);
+      return result;
+    }
+    return super.createExpressionHandleFor(name);
+  }
+
   Null constructor(CompilationEnvironment environment, String name) {
     super.constructor(environment, name);
     registerType(environment.coreAnythingType);
