@@ -44,7 +44,7 @@ class AssertExpression extends Expression {
 }
 
 class GetExpr extends Expression {
-  final Variable name;
+  final Identifier name;
   late final ValueType staticType;
 
   bool isLValue(TypeValidator scope) => tv.igvnc(name); // xxx scope may not be needed
@@ -214,7 +214,7 @@ class SubscriptExpression extends Expression {
 
 class MemberAccessExpression extends Expression {
   final Expression a;
-  final Variable b;
+  final Identifier b;
   bool isLValue(TypeValidator scope) => false;
 
   late ValueType staticType = () {
@@ -498,7 +498,7 @@ class AddExpression extends Expression {
 
 class SuperExpression extends Expression {
   SuperExpression(this.member, int line, int col, String file, this.static, TypeValidator tv) : super(line, col, file, tv);
-  final Variable member;
+  final Identifier member;
   final bool static;
   bool isLValue(TypeValidator scope) => false;
 
@@ -522,7 +522,7 @@ class SuperExpression extends Expression {
     do {
       parent = parent.supertype ?? (throw BSCException('super expression failed to find $member in ${classType.supertype!} or supertypes', scope));
       superMethods = scope.getVar(
-          tv.variables['~${parent.name.name}~methods'] ??= Variable('~${parent.name.name}~methods'), line, col, '<internal error: no methods>', tv) as Scope;
+          tv.identifiers['~${parent.name.name}~methods'] ??= Identifier('~${parent.name.name}~methods'), line, col, '<internal error: no methods>', tv) as Scope;
     } while (!superMethods.values.containsKey(member));
     Object? superMethod = superMethods.getVar(member, line, col, file, tv);
     FunctionValueType superMethodType = getType(superMethod, scope, line, col, file) as FunctionValueType;

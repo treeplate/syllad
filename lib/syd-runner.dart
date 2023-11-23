@@ -16,7 +16,7 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics, Scope?
     assert(parent == null);
     assert(stack == null);
     intrinsics = Scope(false, false, rtl, tv.environment,
-        variables: tv.variables,
+        identifiers: tv.identifiers,
         debugName: NotLazyString('intrinsics'),
         stack: [NotLazyString('intrinsics')],
         profileMode: profileMode,
@@ -312,11 +312,11 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics, Scope?
           },
         }.map(
           (key, value) => MapEntry(
-            tv.variables[key] ??= Variable(key),
+            tv.identifiers[key] ??= Identifier(key),
             MaybeConstantValueWrapper(
                 value is Function ? SydFunction(
                   value as Object? Function(List<Object?>, List<LazyString>, [Scope?, ValueType?]),
-                  tv.igv(tv.variables[key]!, false) as ValueType<SydFunction>,
+                  tv.igv(tv.identifiers[key]!, false) as ValueType<SydFunction>,
                   'intrinsics::$key'
                 ) : value,
                 true),
@@ -329,7 +329,7 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics, Scope?
       parent: parent ?? rtl ?? intrinsics,
       stack: (stack ?? []) + [NotLazyString('$filename')],
       debugName: NotLazyString('$filename global scope'),
-      variables: tv.variables);
+      identifiers: tv.identifiers);
   for (Statement statement in ast) {
     StatementResult sr = statement.run(scope);
     switch (sr.type) {
@@ -351,41 +351,41 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics, Scope?
 
 Environment runFile(String fileContents, String rtlPath, String file, bool profileMode, bool debugMode, List<String> args, IOSink stdout, IOSink stderr,
     void Function(int) exit) {
-  Map<String, Variable> variables = {};
+  Map<String, Identifier> identifiers = {};
   Environment environment = Environment(TypeTable(), stderr);
-  handleVariable(whateverVariable, variables);
-  handleVariable(classMethodsVariable, variables);
-  handleVariable(fwdclassVariable, variables);
-  handleVariable(fwdclassfieldVariable, variables);
-  handleVariable(fwdstaticfieldVariable, variables);
-  handleVariable(fwdstaticmethodVariable, variables);
-  handleVariable(fwdclassmethodVariable, variables);
-  handleVariable(classVariable, variables);
-  handleVariable(importVariable, variables);
-  handleVariable(whileVariable, variables);
-  handleVariable(breakVariable, variables);
-  handleVariable(continueVariable, variables);
-  handleVariable(returnVariable, variables);
-  handleVariable(ifVariable, variables);
-  handleVariable(enumVariable, variables);
-  handleVariable(forVariable, variables);
-  handleVariable(constVariable, variables);
-  handleVariable(classNameVariable, variables);
-  handleVariable(constructorVariable, variables);
-  handleVariable(thisVariable, variables);
-  handleVariable(toStringVariable, variables);
-  handleVariable(throwVariable, variables);
-  handleVariable(stringBufferVariable, variables);
-  handleVariable(fileVariable, variables);
-  handleVariable(Variable('Anything'), variables);
-  handleVariable(Variable('Integer'), variables);
-  handleVariable(Variable('String'), variables);
-  handleVariable(Variable('Boolean'), variables);
-  handleVariable(Variable('Null'), variables);
-  handleVariable(Variable('~root_class'), variables);
-  handleVariable(Variable('~sentinel'), variables);
+  handleVariable(whateverVariable, identifiers);
+  handleVariable(classMethodsVariable, identifiers);
+  handleVariable(fwdclassVariable, identifiers);
+  handleVariable(fwdclassfieldVariable, identifiers);
+  handleVariable(fwdstaticfieldVariable, identifiers);
+  handleVariable(fwdstaticmethodVariable, identifiers);
+  handleVariable(fwdclassmethodVariable, identifiers);
+  handleVariable(classVariable, identifiers);
+  handleVariable(importVariable, identifiers);
+  handleVariable(whileVariable, identifiers);
+  handleVariable(breakVariable, identifiers);
+  handleVariable(continueVariable, identifiers);
+  handleVariable(returnVariable, identifiers);
+  handleVariable(ifVariable, identifiers);
+  handleVariable(enumVariable, identifiers);
+  handleVariable(forVariable, identifiers);
+  handleVariable(constVariable, identifiers);
+  handleVariable(classNameVariable, identifiers);
+  handleVariable(constructorVariable, identifiers);
+  handleVariable(thisVariable, identifiers);
+  handleVariable(toStringVariable, identifiers);
+  handleVariable(throwVariable, identifiers);
+  handleVariable(stringBufferVariable, identifiers);
+  handleVariable(fileVariable, identifiers);
+  handleVariable(Identifier('Anything'), identifiers);
+  handleVariable(Identifier('Integer'), identifiers);
+  handleVariable(Identifier('String'), identifiers);
+  handleVariable(Identifier('Boolean'), identifiers);
+  handleVariable(Identifier('Null'), identifiers);
+  handleVariable(Identifier('~root_class'), identifiers);
+  handleVariable(Identifier('~sentinel'), identifiers);
 
-  var rtl = parse(lex(File(rtlPath).readAsStringSync(), rtlPath, environment), rtlPath, null, false, variables, environment);
+  var rtl = parse(lex(File(rtlPath).readAsStringSync(), rtlPath, environment), rtlPath, null, false, identifiers, environment);
   var parseResult = parse(
     lex(
       fileContents,
@@ -395,7 +395,7 @@ Environment runFile(String fileContents, String rtlPath, String file, bool profi
     file,
     rtl,
     true,
-    variables,
+    identifiers,
     environment,
   );
   for (ValueType type in environment.typeTable.types.values) {

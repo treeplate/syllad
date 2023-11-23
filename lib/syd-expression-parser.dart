@@ -14,10 +14,10 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       return IntLiteralExpression(i, current.line, current.col, tokens.file, scope);
     case IdentToken:
-      if (tokens.currentIdent == scope.variables['super']) {
+      if (tokens.currentIdent == scope.identifiers['super']) {
         tokens.moveNext();
         tokens.expectChar(TokenType.period);
-        Variable member = tokens.currentIdent;
+        Identifier member = tokens.currentIdent;
         ValueType? superclass = scope.currentClassType.parent;
         if (superclass is! ClassValueType) {
           throw BSCException(
@@ -36,7 +36,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         }
         tokens.moveNext();
         return SuperExpression(member, current.line, current.col, tokens.file, false, scope);
-      } else if (tokens.currentIdent == (scope.variables['assert'] ??= Variable('assert'))) {
+      } else if (tokens.currentIdent == (scope.identifiers['assert'] ??= Identifier('assert'))) {
         tokens.moveNext();
         tokens.expectChar(TokenType.openParen);
         Expression condition = parseExpression(tokens, scope);
@@ -54,13 +54,13 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           current.col,
           tokens.file,
         );
-      } else if (tokens.currentIdent == scope.variables['LINE']) {
+      } else if (tokens.currentIdent == scope.identifiers['LINE']) {
         tokens.moveNext();
         return IntLiteralExpression(current.line, current.line, current.col, tokens.file, scope);
-      } else if (tokens.currentIdent == scope.variables['COL']) {
+      } else if (tokens.currentIdent == scope.identifiers['COL']) {
         tokens.moveNext();
         return IntLiteralExpression(current.col, current.line, current.col, tokens.file, scope);
-      } else if (tokens.currentIdent == scope.variables['FILE']) {
+      } else if (tokens.currentIdent == scope.identifiers['FILE']) {
         tokens.moveNext();
         return StringLiteralExpression(tokens.file, current.line, current.col, tokens.file, scope);
       }
@@ -230,7 +230,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             throw BSCException("tried to access member of ${result.staticType} ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           tokens.moveNext();
-          Variable operandB = tokens.currentIdent;
+          Identifier operandB = tokens.currentIdent;
           TypeValidator? properties;
           bool checkParent = false;
           if (result.staticType is ClassOfValueType) {
@@ -285,7 +285,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
           } else if (result.staticType is GenericFunctionValueType) {
             funType = result.staticType as GenericFunctionValueType;
           } else {
-            funType = ValueType.create(scope.environment.anythingType, scope.variables['AnythingFunction']!, 0, 0, '', scope) as GenericFunctionValueType;
+            funType = ValueType.create(scope.environment.anythingType, scope.identifiers['AnythingFunction']!, 0, 0, '', scope) as GenericFunctionValueType;
           }
           while (tokens.current is! CharToken || tokens.currentChar != TokenType.closeParen) {
             Expression expr = parseExpression(

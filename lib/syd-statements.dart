@@ -43,7 +43,7 @@ class ImportStatement extends Statement {
 }
 
 class NewVarStatement extends Statement {
-  final Variable name;
+  final Identifier name;
   final bool isConstant;
 
   final Expression? val;
@@ -76,7 +76,7 @@ class NewVarStatement extends Statement {
 }
 
 class StaticFieldStatement extends Statement {
-  final Variable name;
+  final Identifier name;
   final bool isConstant;
 
   final Expression val;
@@ -94,7 +94,7 @@ class StaticFieldStatement extends Statement {
 class FunctionStatement extends Statement {
   FunctionStatement(this.returnType, this.name, this.params, this.body, int line, int col, this.file, this.static, this.type, this.tv) : super(line, col);
   final ValueType returnType;
-  final Variable name;
+  final Identifier name;
 
   final String file;
   final Iterable<Parameter> params;
@@ -123,9 +123,9 @@ class FunctionStatement extends Statement {
           NotLazyString('.'),
         );
       }
-      Variable? ourProfile;
+      Identifier? ourProfile;
       if ((scope.intrinsics ?? scope).profileMode!) {
-        ourProfile = scope.variables["${fromClass}${name.name}"] ??= Variable("${fromClass}${name.name}");
+        ourProfile = scope.identifiers["${fromClass}${name.name}"] ??= Identifier("${fromClass}${name.name}");
 
         scope.environment.profile[ourProfile] ??= MapEntry(Stopwatch(), 0);
         scope.environment.profile[ourProfile]!.key.start();
@@ -147,7 +147,7 @@ class FunctionStatement extends Statement {
         declaringClass: scope.declaringClass,
         debugName: ConcatenateLazyString(fromClass, VariableLazyString(name)),
         intrinsics: scope.intrinsics,
-        variables: scope.variables,
+        identifiers: scope.identifiers,
       );
       if (params is List) {
         for (Object? aSub in a) {
@@ -186,7 +186,7 @@ class FunctionStatement extends Statement {
             throw BSCException("Continue outside while", scope);
           case StatementResultType.unwindAndThrow:
             if ((scope.intrinsics ?? scope).profileMode!) {
-              scope.environment.profile[scope.variables["${fromClass}${name.name}"] ??= Variable("${fromClass}${name.name}")]!.key.stop();
+              scope.environment.profile[scope.identifiers["${fromClass}${name.name}"] ??= Identifier("${fromClass}${name.name}")]!.key.stop();
             }
             throw value.value!;
         }
@@ -233,7 +233,7 @@ class WhileStatement extends Statement {
               stack: scope.stack,
               debugName: CursorPositionLazyString('while loop', line, col, file),
               intrinsics: scope.intrinsics,
-              variables: scope.variables,
+              identifiers: scope.identifiers,
             )
           : scope;
       block:
@@ -277,7 +277,7 @@ class IfStatement extends Statement {
             file,
           ),
           intrinsics: scope.intrinsics,
-          variables: scope.variables);
+          identifiers: scope.identifiers);
       for (Statement statement in body) {
         StatementResult statementResult = statement.run(ifScope);
         switch (statementResult.type) {
@@ -301,7 +301,7 @@ class IfStatement extends Statement {
             file,
           ),
           intrinsics: scope.intrinsics,
-          variables: scope.variables);
+          identifiers: scope.identifiers);
       for (Statement statement in elseBody!) {
         StatementResult statementResult = statement.run(elseScope);
         switch (statementResult.type) {
@@ -322,7 +322,7 @@ class IfStatement extends Statement {
 class ForStatement extends Statement {
   ForStatement(this.list, this.body, int line, int col, this.ident, this.file, this.tv, [this.catchBreakContinue = true]) : super(line, col);
   final Expression list;
-  final Variable ident;
+  final Identifier ident;
   final List<Statement> body;
   final bool catchBreakContinue;
   final String file;
@@ -350,7 +350,7 @@ class ForStatement extends Statement {
             file,
           ),
           intrinsics: scope.intrinsics,
-          variables: scope.variables);
+          identifiers: scope.identifiers);
       forScope.values[ident] = MaybeConstantValueWrapper(identVal, true);
       block:
       for (Statement statement in body) {
@@ -452,9 +452,9 @@ class ReturnStatement extends Statement {
 }
 
 class EnumStatement extends Statement {
-  final Variable name;
+  final Identifier name;
   final EnumValueType type;
-  final List<Variable> fields;
+  final List<Identifier> fields;
 
   final String file;
   final TypeValidator tv;
@@ -473,12 +473,12 @@ class EnumStatement extends Statement {
           col,
           file,
         ),
-        variables: scope.variables);
+        identifiers: scope.identifiers);
     scope.values[name] = MaybeConstantValueWrapper(
       SydEnum(newScope, type, name),
       true,
     );
-    for (Variable field in fields) {
+    for (Identifier field in fields) {
       newScope.values[field] = MaybeConstantValueWrapper(
         SydEnumValue(
           Concat(VariableLazyString(name), Concat('.', field.name)),
@@ -505,9 +505,9 @@ class ExpressionStatement extends Statement {
 
 class ClassStatement extends Statement {
   final List<Statement> block;
-  final Variable name;
+  final Identifier name;
   final ClassValueType type;
-  final Variable? superclass;
+  final Identifier? superclass;
 
   final String file;
   final ClassOfValueType classOfType;
@@ -527,15 +527,15 @@ class ClassStatement extends Statement {
           file,
         ),
         intrinsics: scope.intrinsics,
-        variables: scope.variables);
-    Object? superConst = superclass == null ? null : scope.internal_getVar(scope.variables['${superclass!.name}'] ??= Variable('${superclass!.name}')).$2;
+        identifiers: scope.identifiers);
+    Object? superConst = superclass == null ? null : scope.internal_getVar(scope.identifiers['${superclass!.name}'] ??= Identifier('${superclass!.name}')).$2;
     Scope staticMembers = Scope(false, true, scope.rtl, scope.environment,
         parent: superclass == null ? null : (superConst as Class).staticMembers,
         stack: [ConcatenateLazyString(NotLazyString('staticMembersOf'), VariableLazyString(name))],
         debugName: ConcatenateLazyString(NotLazyString('staticMembersOf'), VariableLazyString(name)),
         staticClassName: '${name.name}',
         intrinsics: scope.intrinsics,
-        variables: scope.variables);
+        identifiers: scope.identifiers);
     for (Statement s in block) {
       if (s is FunctionStatement) {
         if (s.static) {
@@ -548,7 +548,7 @@ class ClassStatement extends Statement {
         staticMembers.values[s.name] = MaybeConstantValueWrapper(s.val.eval(scope), s.isConstant);
       }
     }
-    scope.values[scope.variables['~${name.name}~methods'] ??= Variable('~${name.name}~methods')] = MaybeConstantValueWrapper(
+    scope.values[scope.identifiers['~${name.name}~methods'] ??= Identifier('~${name.name}~methods')] = MaybeConstantValueWrapper(
       methods,
       true,
     );
@@ -556,7 +556,7 @@ class ClassStatement extends Statement {
       if (superclass != null &&
           !scope
               .internal_getVar(
-                scope.variables['~${superclass!.name}~methods'] ??= Variable('~${superclass!.name}~methods'),
+                scope.identifiers['~${superclass!.name}~methods'] ??= Identifier('~${superclass!.name}~methods'),
               )
               .$1) {
         throwWithStack(
@@ -592,18 +592,18 @@ class ClassStatement extends Statement {
             true);
       } else {
         methods.values[constructorVariable] = MaybeConstantValueWrapper(
-          (scope.getVar(scope.variables['~${superclass!.name}~methods'] ??= Variable('~${superclass!.name}~methods'), line, col, 'TODO ($file) TODO', null)
+          (scope.getVar(scope.identifiers['~${superclass!.name}~methods'] ??= Identifier('~${superclass!.name}~methods'), line, col, 'TODO ($file) TODO', null)
                   as Scope)
               .getVar(constructorVariable, line, col, 'TODO TODO', null),
           true,
         );
       }
     }
-    scope.values[scope.variables['~${name.name}'] ??= Variable('~${name.name}')] = MaybeConstantValueWrapper(
+    scope.values[scope.identifiers['~${name.name}'] ??= Identifier('~${name.name}')] = MaybeConstantValueWrapper(
         SydFunction(
           (List<Object?> args, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
             if (superclass != null) {
-              (scope.getVar(scope.variables['~${superclass!.name}'] ??= Variable('~${superclass!.name}'), line, col, 'TODO', null) as SydFunction)
+              (scope.getVar(scope.identifiers['~${superclass!.name}'] ??= Identifier('~${superclass!.name}'), line, col, 'TODO', null) as SydFunction)
                   .function(<Object?>[], stack + [NotLazyString('~${superclass!.name}')], thisScope, thisType);
             }
 
@@ -650,7 +650,7 @@ class ClassStatement extends Statement {
       constructorParameters = superclass == null
           ? []
           : (getType(
-                  (scope.internal_getVar(scope.variables['~${superclass!.name}~methods'] ??= Variable('~${superclass!.name}~methods')).$2 as Scope)
+                  (scope.internal_getVar(scope.identifiers['~${superclass!.name}~methods'] ??= Identifier('~${superclass!.name}~methods')).$2 as Scope)
                       .internal_getVar(constructorVariable)
                       .$2,
                   scope,
@@ -674,10 +674,10 @@ class ClassStatement extends Statement {
               debugName: NotLazyString('instance of ${name.name}'),
               typeIfClass: type,
               intrinsics: scope.intrinsics,
-              variables: scope.variables,
+              identifiers: scope.identifiers,
             );
             thisScope.values[classNameVariable] = MaybeConstantValueWrapper(name.name, true);
-            (scope.getVar(scope.variables['~${name.name}'] ??= Variable('~${name.name}'), line, col, 'TODO', null) as SydFunction)
+            (scope.getVar(scope.identifiers['~${name.name}'] ??= Identifier('~${name.name}'), line, col, 'TODO', null) as SydFunction)
                 .function(<Object?>[], stack + [ConcatenateLazyString(NotLazyString('~'), VariableLazyString(name))], thisScope, type);
             (bool, Object?) constructor = thisScope.internal_getVar(constructorVariable);
             SydFunction constructorFunc;
@@ -693,7 +693,7 @@ class ClassStatement extends Statement {
               );
             } else {
               constructorFunc =
-                  (scope.internal_getVar(scope.variables['~${superclass!.name}~methods'] ??= Variable('~${superclass!.name}~methods')).$2 as Scope)
+                  (scope.internal_getVar(scope.identifiers['~${superclass!.name}~methods'] ??= Identifier('~${superclass!.name}~methods')).$2 as Scope)
                       .internal_getVar(constructorVariable)
                       .$2 as SydFunction;
             }

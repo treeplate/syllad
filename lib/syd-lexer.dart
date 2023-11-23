@@ -1089,10 +1089,10 @@ String formatCursorPositionFromTokens(TokenIterator tokens) {
 }
 
 class TokenIterator implements Iterator<Token> {
-  TokenIterator(this.tokens, this.file, this.variables, this.environment);
+  TokenIterator(this.tokens, this.file, this.identifiers, this.environment);
 
   final Iterator<Token> tokens;
-  final Map<String, Variable> variables;
+  final Map<String, Identifier> identifiers;
   final Environment environment;
   bool doneImports = false;
 
@@ -1101,9 +1101,9 @@ class TokenIterator implements Iterator<Token> {
 
   @override
   Token get current => doingPrevious ? previous ?? (throw 'help') : tokens.current;
-  Variable get currentIdent {
+  Identifier get currentIdent {
     if (current is IdentToken) {
-      return variables[(current as IdentToken).ident] ??= Variable((current as IdentToken).ident);
+      return identifiers[(current as IdentToken).ident] ??= Identifier((current as IdentToken).ident);
     }
     throw BSCException("Expected identifier, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
   }

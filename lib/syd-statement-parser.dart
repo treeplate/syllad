@@ -17,10 +17,10 @@ List<Statement> parseBlock(TokenIterator tokens, TypeValidator scope, [bool acce
 
 ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignoreUnused) {
   tokens.moveNext();
-  Variable name = tokens.currentIdent;
+  Identifier name = tokens.currentIdent;
   tokens.moveNext();
-  Variable? superclass;
-  if (tokens.current is IdentToken && tokens.currentIdent == scope.variables['extends']) {
+  Identifier? superclass;
+  if (tokens.current is IdentToken && tokens.currentIdent == scope.identifiers['extends']) {
     tokens.moveNext();
     superclass = tokens.currentIdent;
     scope.getVar(superclass, tokens.current.line, tokens.current.col, tokens.file, 'for subclassing', false);
@@ -41,10 +41,10 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
     throw BSCException('${superclass.name} nonexistent while trying to have ${name.name} extend it. ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   TypeValidator newScope = superclass == null
-      ? TypeValidator([scope], ConcatenateLazyString(NotLazyString('root class '), VariableLazyString(name)), true, false, false, scope.rtl, scope.variables,
+      ? TypeValidator([scope], ConcatenateLazyString(NotLazyString('root class '), VariableLazyString(name)), true, false, false, scope.rtl, scope.identifiers,
           scope.environment)
       : TypeValidator([scope.classes[superclass]!, scope], ConcatenateLazyString(NotLazyString('subclass '), VariableLazyString(name)), true, false, false,
-          scope.rtl, scope.variables, scope.environment);
+          scope.rtl, scope.identifiers, scope.environment);
   ClassValueType type = ClassValueType(name, supertype as ClassValueType?, newScope, tokens.file, false, scope);
   if (newScope != type.properties) {
     if (supertype != type.supertype) {
@@ -57,7 +57,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
   TypeValidator fwdProps = type.properties.copy();
   bool hasFwdDecl = newScope != type.properties;
   // newScope = type.properties..parents.addAll([scope]);
-  newScope = ClassTypeValidator(fwdProps, newScope.parents, type.properties.debugName, true, false, false, scope.rtl, scope.variables, scope.environment);
+  newScope = ClassTypeValidator(fwdProps, newScope.parents, type.properties.debugName, true, false, false, scope.rtl, scope.identifiers, scope.environment);
   type.properties.types = newScope.types;
   newScope.usedVars = type.properties.usedVars;
   type.properties.parents.add(fwdProps);
@@ -79,12 +79,12 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
   newScope.usedVars.add(classNameVariable);
   newScope.usedVars.add(toStringVariable);
   List<Statement> block = parseBlock(tokens, newScope);
-  ValueType? supertype1 = superclass != null ? scope.igv(scope.variables['${superclass.name}']!, true) : null;
+  ValueType? supertype1 = superclass != null ? scope.igv(scope.identifiers['${superclass.name}']!, true) : null;
   if (supertype1 is FunctionValueType) {
     throw BSCException('Cannot extend an class that has not been defined yet.', scope);
   }
   TypeValidator staticMembers = TypeValidator([if (superclass != null) (supertype1 as ClassOfValueType).staticMembers],
-      ConcatenateLazyString(NotLazyString('static members of '), VariableLazyString(name)), false, true, false, scope.rtl, scope.variables, scope.environment);
+      ConcatenateLazyString(NotLazyString('static members of '), VariableLazyString(name)), false, true, false, scope.rtl, scope.identifiers, scope.environment);
   for (Statement statement in block) {
     if (statement is StaticFieldStatement) {
       if (!statement.val.staticType.isSubtypeOf(
@@ -126,7 +126,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
   }
   if (!hasFwdDecl) {
     if (supertype != null) {
-      for (MapEntry<Variable, TVProp> property in newScope.types.entries) {
+      for (MapEntry<Identifier, TVProp> property in newScope.types.entries) {
         if (!property.value.type.isSubtypeOf(
               supertype.properties.igv(
                     property.key,
@@ -150,7 +150,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
     }
   }
   if (hasFwdDecl) {
-    for (MapEntry<Variable, TVProp> value in fwdProps.types.entries) {
+    for (MapEntry<Identifier, TVProp> value in fwdProps.types.entries) {
       if (value.key == constructorVariable) {
         if ((newScope.igv(value.key, false, -2, 0, '',true, false, false) ?? FunctionValueType(scope.environment.nullType, [], 'xxx', scope)) !=
             value.value.type) {
@@ -237,7 +237,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   int line = tokens.current.line;
   int col = tokens.current.col;
   bool static = false;
-  if (tokens.current is IdentToken && tokens.currentIdent == scope.variables['static']) {
+  if (tokens.current is IdentToken && tokens.currentIdent == scope.identifiers['static']) {
     static = true;
     tokens.moveNext();
   }
@@ -637,7 +637,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       );
     }
   }
-  Variable ident2 = tokens.currentIdent;
+  Identifier ident2 = tokens.currentIdent;
   tokens.moveNext();
   if (tokens.currentChar == TokenType.set) {
     tokens.expectChar(TokenType.set);
@@ -697,9 +697,9 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   }
   bool isVararg = false;
   bool isNormal = false;
-  Set<Variable> debugParams = {};
+  Set<Identifier> debugParams = {};
   Iterable<Parameter> params = parseArgList(tokens, (TokenIterator tokens) {
-    Variable type = tokens.currentIdent;
+    Identifier type = tokens.currentIdent;
     tokens.moveNext();
     if (tokens.current is CharToken && tokens.currentChar == TokenType.ellipsis) {
       tokens.moveNext();
@@ -713,7 +713,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     } else {
       isNormal = true;
     }
-    Variable name = tokens.currentIdent;
+    Identifier name = tokens.currentIdent;
     if (debugParams.contains(name)) {
       throw BSCException('${ident2.name} had duplicate parameter ${name.name} ${formatCursorPositionFromTokens(tokens)}', scope);
     }
@@ -739,7 +739,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   tokens.expectChar(TokenType.openBrace);
   Iterable<ValueType> typeParams = isVararg ? InfiniteIterable(params.first.type) : params.map((e) => e.type);
   TypeValidator tv = TypeValidator([scope], ConcatenateLazyString(NotLazyString('function '), VariableLazyString(ident2)), false, false, static, scope.rtl,
-      scope.variables, scope.environment)
+      scope.identifiers, scope.environment)
     ..types.addAll(isVararg
         ? {params.first.name: TVProp(false, ListValueType(params.first.type, 'internal', scope), false)}
         : Map.fromEntries(params.map((e) => MapEntry(e.name, TVProp(false, e.type, false)))))
@@ -787,24 +787,24 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
 }
 
 MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String file, MapEntry<List<Statement>, TypeValidator>? rtl,
-    bool isMain, Map<String, Variable> variables, Environment environment) {
-  TokenIterator tokens = TokenIterator(rtokens.iterator, file, variables, environment);
+    bool isMain, Map<String, Identifier> identifiers, Environment environment) {
+  TokenIterator tokens = TokenIterator(rtokens.iterator, file, identifiers, environment);
 
   tokens.moveNext();
-  TypeValidator intrinsics = TypeValidator([], NotLazyString('intrinsics'), false, false, false, rtl, variables, environment);
+  TypeValidator intrinsics = TypeValidator([], NotLazyString('intrinsics'), false, false, false, rtl, identifiers, environment);
   if (rtl == null) {
     try {
       environment.anythingType;
     } catch (e) {
-      environment.anythingType = ValueType.internal(null, variables['Anything']!, 'intrinsics', false, intrinsics, environment);
-      environment.integerType = ValueType.internal(environment.anythingType, variables['Integer']!, 'intrinsics', false, intrinsics, environment);
-      environment.stringType = ValueType.internal(environment.anythingType, variables['String']!, 'intrinsics', false, intrinsics, environment);
-      environment.booleanType = ValueType.internal(environment.anythingType, variables['Boolean']!, 'intrinsics', false, intrinsics, environment);
+      environment.anythingType = ValueType.internal(null, identifiers['Anything']!, 'intrinsics', false, intrinsics, environment);
+      environment.integerType = ValueType.internal(environment.anythingType, identifiers['Integer']!, 'intrinsics', false, intrinsics, environment);
+      environment.stringType = ValueType.internal(environment.anythingType, identifiers['String']!, 'intrinsics', false, intrinsics, environment);
+      environment.booleanType = ValueType.internal(environment.anythingType, identifiers['Boolean']!, 'intrinsics', false, intrinsics, environment);
       environment.nullType = NullType.internal(environment.anythingType, intrinsics);
-      environment.rootClassType = ValueType.internal(environment.anythingType, variables['~root_class']!, 'intrinsics', false, intrinsics, environment);
-      environment.stringBufferType = ValueType.internal(environment.anythingType, variables['StringBuffer']!, 'intrinsics', false, intrinsics, environment);
-      environment.fileType = ValueType.internal(environment.anythingType, variables['File']!, 'intrinsics', false, intrinsics, environment);
-      environment.sentinelType = ValueType.internal(environment.anythingType, variables['~sentinel']!, 'intrinsics', false, intrinsics, environment);
+      environment.rootClassType = ValueType.internal(environment.anythingType, identifiers['~root_class']!, 'intrinsics', false, intrinsics, environment);
+      environment.stringBufferType = ValueType.internal(environment.anythingType, identifiers['StringBuffer']!, 'intrinsics', false, intrinsics, environment);
+      environment.fileType = ValueType.internal(environment.anythingType, identifiers['File']!, 'intrinsics', false, intrinsics, environment);
+      environment.sentinelType = ValueType.internal(environment.anythingType, identifiers['~sentinel']!, 'intrinsics', false, intrinsics, environment);
     }
   }
   intrinsics.types = <String, ValueType>{
@@ -903,32 +903,32 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String f
     'readStringBuffer': FunctionValueType(environment.stringType, [environment.stringBufferType], 'intrinsics', intrinsics),
   }.map(
     (key, value) => MapEntry(
-      variables[key] ??= Variable(key),
+      identifiers[key] ??= Identifier(key),
       TVProp(false, value, false /* none of them are methods */),
     ),
   );
   String v = '~type${environment.anythingType.name.name}';
-  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, environment.anythingType, false);
+  intrinsics.types[identifiers[v] ??= Identifier(v)] = TVProp(false, environment.anythingType, false);
   v = '~type${environment.integerType.name.name}';
-  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, environment.integerType, false);
+  intrinsics.types[identifiers[v] ??= Identifier(v)] = TVProp(false, environment.integerType, false);
   v = '~type${environment.stringType.name.name}';
-  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, environment.stringType, false);
+  intrinsics.types[identifiers[v] ??= Identifier(v)] = TVProp(false, environment.stringType, false);
   v = '~type${environment.booleanType.name.name}';
-  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, environment.booleanType, false);
+  intrinsics.types[identifiers[v] ??= Identifier(v)] = TVProp(false, environment.booleanType, false);
   v = '~type${environment.nullType.name.name}';
-  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, environment.nullType, false);
+  intrinsics.types[identifiers[v] ??= Identifier(v)] = TVProp(false, environment.nullType, false);
   v = '~type${environment.rootClassType.name.name}';
-  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, environment.rootClassType, false);
+  intrinsics.types[identifiers[v] ??= Identifier(v)] = TVProp(false, environment.rootClassType, false);
   v = '~type${environment.stringBufferType.name.name}';
-  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, environment.stringBufferType, false);
+  intrinsics.types[identifiers[v] ??= Identifier(v)] = TVProp(false, environment.stringBufferType, false);
   v = '~type${environment.fileType.name.name}';
-  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, environment.fileType, false);
+  intrinsics.types[identifiers[v] ??= Identifier(v)] = TVProp(false, environment.fileType, false);
   v = '~type${environment.sentinelType.name.name}';
-  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, environment.sentinelType, false);
+  intrinsics.types[identifiers[v] ??= Identifier(v)] = TVProp(false, environment.sentinelType, false);
   intrinsics.directVars.addAll(intrinsics.types.keys);
 
   TypeValidator validator =
-      TypeValidator([intrinsics], ConcatenateLazyString(NotLazyString('file '), NotLazyString(file)), false, false, false, rtl, variables, environment);
+      TypeValidator([intrinsics], ConcatenateLazyString(NotLazyString('file '), NotLazyString(file)), false, false, false, rtl, identifiers, environment);
   if (rtl != null) {
     validator.types.addAll(rtl.value.types);
     validator.classes.addAll(rtl.value.classes);
@@ -936,12 +936,12 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String f
   }
   List<Statement> ast = parseBlock(tokens, validator, false);
   if (isMain) {
-    List<Variable> unusedGlobalscopeVars = validator.types.keys.where((element) => !validator.usedVars.contains(element)).toList();
+    List<Identifier> unusedGlobalscopeVars = validator.types.keys.where((element) => !validator.usedVars.contains(element)).toList();
     if (!unusedGlobalscopeVars.isEmpty) {
       validator.environment.stderr.writeln('Unused vars:\n  ${unusedGlobalscopeVars.map((e) => e.name).join('\n  ')}');
     }
     for (TypeValidator classTv in validator.classes.values) {
-      List<Variable> unusedClassVars = classTv.types.keys
+      List<Identifier> unusedClassVars = classTv.types.keys
           .where((element) => !classTv.usedVars.contains(element) && !classTv.parents.any((element2) => element2.igv(element, false) != null))
           .toList();
       if (!unusedClassVars.isEmpty) {
@@ -964,7 +964,7 @@ WhileStatement parseWhile(TokenIterator tokens, TypeValidator scope) {
   }
   tokens.expectChar(TokenType.closeParen);
   tokens.expectChar(TokenType.openBrace);
-  TypeValidator tv = TypeValidator([scope], NotLazyString('while loop'), false, false, false, scope.rtl, scope.variables, scope.environment);
+  TypeValidator tv = TypeValidator([scope], NotLazyString('while loop'), false, false, false, scope.rtl, scope.identifiers, scope.environment);
   List<Statement> body = parseBlock(tokens, tv);
   List<String> unusedWhileLoopVars = tv.types.keys.where((element) => !tv.usedVars.contains(element)).map((e) => e.name).toList();
   if (!unusedWhileLoopVars.isEmpty) {
@@ -1006,7 +1006,7 @@ ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
 
   MapEntry<List<Statement>, TypeValidator> result = scope.environment.filesLoaded[str] ??
       (scope.environment.filesLoaded[str] = parse(lex(File('${path.dirname(tokens.file)}/$str').readAsStringSync(), '${path.dirname(tokens.file)}/$str', scope.environment),
-          '${path.dirname(tokens.file)}/$str', scope.rtl, false, scope.variables, scope.environment));
+          '${path.dirname(tokens.file)}/$str', scope.rtl, false, scope.identifiers, scope.environment));
   scope.environment.loadedGlobalScopes[str] = result.value;
   scope.environment.filesStartedLoading.remove(str);
   scope.types.addAll(result.value.types);
@@ -1018,7 +1018,7 @@ ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
 
 class ValueTypePlaceholder {
   final ValueType? parent;
-  final Variable name;
+  final Identifier name;
   final int line;
   final int col;
   
@@ -1065,7 +1065,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
         scope.environment.stderr.writeln('Can\'t override classes ${formatCursorPositionFromTokens(tokens)}');
       }
       tokens.moveNext();
-      Variable cln = tokens.currentIdent;
+      Identifier cln = tokens.currentIdent;
       tokens.moveNext();
       List<ValueTypePlaceholder>? parameters;
       parameters = parseArgList(tokens, (TokenIterator tokens) {
@@ -1081,15 +1081,15 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       });
       ClassValueType? spt;
       TypeValidator props;
-      if (tokens.current is IdentToken && tokens.currentIdent == scope.variables['extends']) {
+      if (tokens.current is IdentToken && tokens.currentIdent == scope.identifiers['extends']) {
         spt = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope)
             as ClassValueType;
         props = TypeValidator([spt.properties], ConcatenateLazyString(NotLazyString('forward-declared subclass '), VariableLazyString(cln)), true, false, false,
-            scope.rtl, scope.variables, scope.environment);
+            scope.rtl, scope.identifiers, scope.environment);
         tokens.moveNext();
       } else {
         props = TypeValidator([scope], ConcatenateLazyString(NotLazyString('forward-declared root class '), VariableLazyString(cln)), true, false, false,
-            scope.rtl, scope.variables, scope.environment);
+            scope.rtl, scope.identifiers, scope.environment);
       }
       ClassValueType x = ClassValueType(cln, spt, props, tokens.file, true, scope);
       FunctionValueType? constructorType;
@@ -1102,10 +1102,10 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
         TypeValidator([
           scope,
           if (spt != null)
-            (ValueType.create(null, scope.variables[spt.name.name + 'Class'] ??= Variable(spt.name.name + 'Class'), tokens.current.line, tokens.current.col,
+            (ValueType.create(null, scope.identifiers[spt.name.name + 'Class'] ??= Identifier(spt.name.name + 'Class'), tokens.current.line, tokens.current.col,
                     tokens.file, scope) as ClassOfValueType)
                 .staticMembers,
-        ], NotLazyString('static members'), false, true, false, scope.rtl, scope.variables, scope.environment),
+        ], NotLazyString('static members'), false, true, false, scope.rtl, scope.identifiers, scope.environment),
         constructorType,
         tokens.file,
         scope,
@@ -1168,10 +1168,10 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       if (cl.properties.types[tokens.currentIdent] != null) {
         throw BSCException('fwdclassmethods should only be defined once per class ${formatCursorPositionFromTokens(tokens)}', scope);
       }
-      Variable methodName = tokens.currentIdent;
+      Identifier methodName = tokens.currentIdent;
       tokens.moveNext();
       List<ValueType> parameters = parseArgList(tokens, (tokens) {
-        Variable name = tokens.currentIdent;
+        Identifier name = tokens.currentIdent;
         tokens.moveNext();
         return ValueType.create(null, name, tokens.current.line, tokens.current.col, tokens.file, scope);
       });
@@ -1186,7 +1186,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       ValueType type = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope);
       ClassOfValueType cl = (ValueType.create(
           null,
-          scope.variables[(tokens..moveNext()).currentIdent.name + 'Class'] ??= Variable((tokens..moveNext()).currentIdent.name + 'Class'),
+          scope.identifiers[(tokens..moveNext()).currentIdent.name + 'Class'] ??= Identifier((tokens..moveNext()).currentIdent.name + 'Class'),
           tokens.current.line,
           tokens.current.col,
           tokens.file,
@@ -1214,10 +1214,10 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       if (overriden) {
         scope.environment.stderr.writeln('fwdstaticmethods should never be defined as override ${formatCursorPositionFromTokens(tokens)}');
       }
-      Variable methodName = tokens.currentIdent;
+      Identifier methodName = tokens.currentIdent;
       tokens.moveNext();
       List<ValueType> parameters = parseArgList(tokens, (tokens) {
-        Variable name = tokens.currentIdent;
+        Identifier name = tokens.currentIdent;
         tokens.moveNext();
         return ValueType.create(null, name, tokens.current.line, tokens.current.col, tokens.file, scope);
       });
@@ -1329,13 +1329,13 @@ Statement parseConst(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
   tokens.moveNext();
   bool static = false;
   Token start = tokens.current;
-  if (tokens.current is IdentToken && tokens.currentIdent == scope.variables['static']) {
+  if (tokens.current is IdentToken && tokens.currentIdent == scope.identifiers['static']) {
     tokens.moveNext();
     static = true;
   }
   ValueType type = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope);
   tokens.moveNext();
-  Variable name = tokens.currentIdent;
+  Identifier name = tokens.currentIdent;
   tokens.moveNext();
   tokens.expectChar(TokenType.set);
   Expression expr = parseExpression(
@@ -1359,9 +1359,9 @@ Statement parseConst(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
 Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnused) {
   tokens.moveNext();
   tokens.expectChar(TokenType.openParen);
-  Variable currentName = tokens.currentIdent;
+  Identifier currentName = tokens.currentIdent;
   tokens.moveNext();
-  if (tokens.currentIdent != (scope.variables['in'] ??= Variable('in'))) {
+  if (tokens.currentIdent != (scope.identifiers['in'] ??= Identifier('in'))) {
     throw BSCException('no \'in\' after name of new variable in the for loop ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   tokens.moveNext();
@@ -1369,11 +1369,11 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
     tokens,
     scope,
   );
-  if (!iterable.staticType.isSubtypeOf(ValueType.create(null, scope.variables['WhateverIterable'] ??= Variable('WhateverIterable'), tokens.current.line,
+  if (!iterable.staticType.isSubtypeOf(ValueType.create(null, scope.identifiers['WhateverIterable'] ??= Identifier('WhateverIterable'), tokens.current.line,
       tokens.current.col, tokens.file, scope))) {
     throw BSCException('tried to for loop over non-iterable (iterated over ${iterable.staticType}) ${formatCursorPositionFromTokens(tokens)}', scope);
   }
-  TypeValidator innerScope = TypeValidator([scope], NotLazyString('for loop'), false, false, false, scope.rtl, scope.variables, scope.environment);
+  TypeValidator innerScope = TypeValidator([scope], NotLazyString('for loop'), false, false, false, scope.rtl, scope.identifiers, scope.environment);
   innerScope.newVar(
     currentName,
     iterable.staticType is IterableValueType
@@ -1411,11 +1411,11 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
 
 Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
   tokens.moveNext();
-  Variable name = tokens.currentIdent;
+  Identifier name = tokens.currentIdent;
   tokens.moveNext();
-  List<Variable> body = [];
+  List<Identifier> body = [];
   TypeValidator tv = TypeValidator(
-      [], ConcatenateLazyString(VariableLazyString(name), NotLazyString('-enum')), false, false, false, scope.rtl, scope.variables, scope.environment);
+      [], ConcatenateLazyString(VariableLazyString(name), NotLazyString('-enum')), false, false, false, scope.rtl, scope.identifiers, scope.environment);
   EnumPropertyValueType propType = EnumPropertyValueType(name, tokens.file, scope);
   EnumValueType type = EnumValueType(name, tv, tokens.file, propType, scope);
   tokens.expectChar(TokenType.openBrace);
@@ -1463,7 +1463,7 @@ IfStatement parseIf(TokenIterator tokens, TypeValidator scope) {
     );
   }
   tokens.expectChar(TokenType.openBrace);
-  TypeValidator innerScope = TypeValidator([scope], NotLazyString('if statement'), false, false, false, scope.rtl, scope.variables, scope.environment);
+  TypeValidator innerScope = TypeValidator([scope], NotLazyString('if statement'), false, false, false, scope.rtl, scope.identifiers, scope.environment);
   List<Statement> body = parseBlock(tokens, innerScope);
   List<String> unusedForLoopVars = innerScope.types.keys.where((element) => !innerScope.usedVars.contains(element)).map((e) => e.name).toList();
   if (!unusedForLoopVars.isEmpty) {
@@ -1471,15 +1471,15 @@ IfStatement parseIf(TokenIterator tokens, TypeValidator scope) {
   }
   List<Statement> elseBody = [];
   tokens.expectChar(TokenType.closeBrace);
-  if (tokens.current is IdentToken && tokens.currentIdent == scope.variables['else']) {
+  if (tokens.current is IdentToken && tokens.currentIdent == scope.identifiers['else']) {
     tokens.moveNext();
-    if (tokens.current is IdentToken && tokens.currentIdent == scope.variables['if']) {
+    if (tokens.current is IdentToken && tokens.currentIdent == scope.identifiers['if']) {
       IfStatement parsedIf = parseIf(tokens, scope);
       elseBody = [parsedIf];
     } else {
       tokens.expectChar(TokenType.openBrace);
       TypeValidator elseBlock =
-          TypeValidator([scope], NotLazyString('if statement - else block'), false, false, false, scope.rtl, scope.variables, scope.environment);
+          TypeValidator([scope], NotLazyString('if statement - else block'), false, false, false, scope.rtl, scope.identifiers, scope.environment);
       elseBody = parseBlock(tokens, elseBlock);
       List<String> unusedForLoopVars = elseBlock.types.keys.where((element) => !elseBlock.usedVars.contains(element)).map((e) => e.name).toList();
       if (!unusedForLoopVars.isEmpty) {
