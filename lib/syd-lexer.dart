@@ -139,7 +139,7 @@ enum _LexerState {
   commentHash,
 }
 
-Iterable<Token> lex(String file, String workspace, String filename, Environment environment) sync* {
+Iterable<Token> lex(String file, String filename, Environment environment) sync* {
   // /* to */ multi-line comment, # or // single-line comments
 
   _LexerState state = _LexerState.top;
@@ -307,7 +307,7 @@ Iterable<Token> lex(String file, String workspace, String filename, Environment 
           state = _LexerState.identifier;
         } else {
           throw BSCException(
-            "Unrecognized ${String.fromCharCode(rune)} at ${formatCursorPosition(line, col, workspace, filename)} (U+${rune.toRadixString(16)} in Unicode)",
+            "Unrecognized ${String.fromCharCode(rune)} at ${formatCursorPosition(line, col, filename)} (U+${rune.toRadixString(16)} in Unicode)",
             NoDataVG(environment),
           );
         }
@@ -705,7 +705,7 @@ Iterable<Token> lex(String file, String workspace, String filename, Environment 
           startcol = col;
           state = _LexerState.top;
         } else {
-          print("TWO PERIODS ${formatCursorPosition(line, col, workspace, filename)}");
+          print("TWO PERIODS ${formatCursorPosition(line, col, filename)}");
           yield CharToken(TokenType.period, startline, startcol);
           startline = line;
           startcol = col;
@@ -991,7 +991,7 @@ Iterable<Token> lex(String file, String workspace, String filename, Environment 
       startcol = col;
 
     case _LexerState.periodperiod:
-      print("TWO PERIODS BEFORE EOF $workspace/$filename");
+      print("TWO PERIODS BEFORE EOF $filename");
       yield CharToken(TokenType.period, startline, startcol);
       startline = line;
       startcol = col;
@@ -1085,18 +1085,18 @@ class CommentFeatureToken extends Token {
   String toString() => "CommentFeatureToken($feature)";
 }
 String formatCursorPositionFromTokens(TokenIterator tokens) {
-  return formatCursorPosition(tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
+  return formatCursorPosition(tokens.current.line, tokens.current.col, tokens.file);
 }
 
 class TokenIterator implements Iterator<Token> {
-  TokenIterator(this.tokens, this.workspace, this.file, this.variables, this.environment);
+  TokenIterator(this.tokens, this.file, this.variables, this.environment);
 
   final Iterator<Token> tokens;
   final Map<String, Variable> variables;
   final Environment environment;
   bool doneImports = false;
 
-  final String workspace;
+  
   final String file;
 
   @override

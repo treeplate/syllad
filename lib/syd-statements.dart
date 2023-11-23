@@ -11,33 +11,32 @@ class SetStatement extends Statement {
 
   final Expression val;
   final String file;
-  final String workspace;
 
-  SetStatement(this.l, this.val, int line, int col, this.workspace, this.file) : super(line, col);
+  SetStatement(this.l, this.val, int line, int col, this.file) : super(line, col);
 
   @override
   StatementResult run(Scope scope) {
     var right = val.eval(scope);
-    scope.setVar(l, right, false, line, col, workspace, file);
+    scope.setVar(l, right, false, line, col, file);
     return StatementResult(StatementResultType.nothing);
   }
 }
 
 class ImportStatement extends Statement {
   final List<Statement> file;
-  final String workspace;
+
   final String filename;
   final String currentFilename;
   final TypeValidator typeValidator;
 
-  ImportStatement(this.file, this.filename, int line, int col, this.workspace, this.currentFilename, this.typeValidator) : super(line, col);
+  ImportStatement(this.file, this.filename, int line, int col, this.currentFilename, this.typeValidator) : super(line, col);
 
   @override
   StatementResult run(Scope scope) {
     List<LazyString> newStack = scope.stack.toList();
-    newStack[newStack.length - 1] = ConcatenateLazyString(newStack.last, CursorPositionLazyString('', line, col, workspace, currentFilename));
+    newStack[newStack.length - 1] = ConcatenateLazyString(newStack.last, CursorPositionLazyString('', line, col, currentFilename));
     scope.addParent((scope.environment.filesRan[filename] ??
-        (scope.environment.filesRan[filename] = runProgram(file, filename, workspace, scope.intrinsics, scope.rtl, typeValidator, false,
+        (scope.environment.filesRan[filename] = runProgram(file, filename, scope.intrinsics, scope.rtl, typeValidator, false,
             false /* debug and profile mode are only for the main program */, stdout, stderr, exit, ['INTERPRETER ERROR'], newStack))));
     return StatementResult(StatementResultType.nothing);
   }
@@ -50,30 +49,28 @@ class NewVarStatement extends Statement {
   final Expression? val;
   final ValueType type;
 
-  final String workspace;
   final String file;
 
   final TypeValidator tv;
 
   String toString() => "var $name = $val";
 
-  NewVarStatement(this.name, this.val, int line, int col, this.workspace, this.file, this.isConstant, this.type, this.tv) : super(line, col);
+  NewVarStatement(this.name, this.val, int line, int col, this.file, this.isConstant, this.type, this.tv) : super(line, col);
 
   @override
   StatementResult run(Scope scope) {
-    ValueWrapper<Object?>? eval = val?.eval(scope);
-    if (eval != null) {
-      if (!eval.typeC(scope, scope.stack, line, col, workspace, file, scope.environment).isSubtypeOf(type)) {
+    if (val == null) {
+      scope.values[name] = MaybeConstantValueWrapper(SydSentinel(scope.environment), isConstant);
+    } else {
+      Object? eval = val!.eval(scope);
+      if (!getType(eval, scope, line, col, file).isSubtypeOf(type)) {
         throw BSCException(
-            "Variable ${name.name} of type $type cannot be initialized to a value of type ${eval.typeC(scope, scope.stack, line, col, workspace, file, scope.environment)} ${formatCursorPosition(line, col, workspace, file)}",
+            "Variable ${name.name} of type $type cannot be initialized to a value of type ${getType(eval, scope, line, col, file)} ${formatCursorPosition(line, col, file)}",
             scope);
       }
+
+      scope.values[name] = MaybeConstantValueWrapper(eval, isConstant);
     }
-    scope.values[name] = MaybeConstantValueWrapper(
-        eval ??
-            ValueWrapper(ValueType.createNullable(null, scope.variables['Sentinel'] ??= Variable('Sentinel'), 'iddk', tv)!, "Sentinull",
-                VariableLazyString(name), false),
-        isConstant);
     return StatementResult(StatementResultType.nothing);
   }
 }
@@ -95,11 +92,10 @@ class StaticFieldStatement extends Statement {
 }
 
 class FunctionStatement extends Statement {
-  FunctionStatement(this.returnType, this.name, this.params, this.body, int line, int col, this.workspace, this.file, this.static, this.type, this.tv)
-      : super(line, col);
+  FunctionStatement(this.returnType, this.name, this.params, this.body, int line, int col, this.file, this.static, this.type, this.tv) : super(line, col);
   final ValueType returnType;
   final Variable name;
-  final String workspace;
+
   final String file;
   final Iterable<Parameter> params;
   final List<Statement> body;
@@ -108,7 +104,8 @@ class FunctionStatement extends Statement {
   final TypeValidator tv;
   @override
   StatementResult run(Scope scope) {
-    SydFunction<Object?> _value = (List<ValueWrapper> a, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
+    Object? Function(List<Object?> args, List<LazyString>, [Scope?, ValueType?]) _value =
+        (List<Object?> a, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
       LazyString fromClass;
       if (static) {
         fromClass = ConcatenateLazyString(
@@ -137,7 +134,7 @@ class FunctionStatement extends Statement {
       int i = 0;
       if (params is! InfiniteIterable && a.length != params.length) {
         throw BSCException(
-            "Wrong number of arguments to ${fromClass}${name.name}: args ${a.map((e) => e.toStringWithStack(stack, line, col, workspace, file, false, scope.environment))}, params $params ${formatCursorPosition(line, col, workspace, file)}\n ${stack.reversed.join('\n')} ",
+            "Wrong number of arguments to ${fromClass}${name.name}: args ${a.map((e) => toStringWithStacker(e, stack, line, col, file, false, scope.environment))}, params $params ${formatCursorPosition(line, col, file)}\n ${stack.reversed.join('\n')} ",
             scope);
       }
       Scope funscope = Scope(
@@ -153,20 +150,19 @@ class FunctionStatement extends Statement {
         variables: scope.variables,
       );
       if (params is List) {
-        for (ValueWrapper aSub in a) {
-          if (!aSub.typeC(funscope, funscope.stack, line, col, workspace, file, scope.environment).isSubtypeOf(params.elementAt(i).type)) {
+        for (Object? aSub in a) {
+          if (!getType(aSub, scope, line, col, file).isSubtypeOf(params.elementAt(i).type)) {
             throw BSCException(
-                "Argument $i of ${name.name}, ${aSub.toStringWithStack(funscope.stack, line, col, workspace, file, false, scope.environment)}, of wrong type (${aSub.typeC(funscope, funscope.stack, line, col, workspace, file, scope.environment)}) expected ${params.elementAt(i).type} ${formatCursorPosition(line, col, workspace, file)}",
+                "Argument $i of ${name.name}, ${toStringWithStacker(aSub, funscope.stack, line, col, file, false, scope.environment)}, of wrong type (${getType(aSub, scope, line, col, file)}) expected ${params.elementAt(i).type} ${formatCursorPosition(line, col, file)}",
                 scope);
           }
           funscope.values[(params as List)[i++].name] = MaybeConstantValueWrapper(aSub, true);
         }
       } else {
         funscope.values[params.first.name] = MaybeConstantValueWrapper(
-            ValueWrapper(
+            SydArray(
+              List<Object?>.unmodifiable(a),
               ArrayValueType(params.first.type, 'internal', tv),
-              List<ValueWrapper>.unmodifiable(a),
-              'varargs',
             ),
             true);
       }
@@ -180,9 +176,9 @@ class FunctionStatement extends Statement {
               scope.environment.profile[ourProfile]!.key.stop();
             }
 
-            if (value.value!.typeC(funscope, funscope.stack, line, col, workspace, file, scope.environment).isSubtypeOf(returnType)) return value.value!;
+            if (getType(value.value, scope, line, col, file).isSubtypeOf(returnType)) return value.value;
             throw BSCException(
-                "You cannot return a ${value.value!.typeC(funscope, funscope.stack, line, col, workspace, file, scope.environment)} (${value.value!.toStringWithStack(funscope.stack, line, col, workspace, file, false, scope.environment)}) from ${fromClass}${name.name}, which is supposed to return a $returnType!     ${formatCursorPosition(line, col, workspace, file)}\n${funscope.stack.reversed.join('\n')} ",
+                "You cannot return a ${getType(value.value!, scope, line, col, file)} (${toStringWithStacker(value.value!, funscope.stack, line, col, file, false, scope.environment)}) from ${fromClass}${name.name}, which is supposed to return a $returnType!     ${formatCursorPosition(line, col, file)}\n${funscope.stack.reversed.join('\n')} ",
                 scope);
           case StatementResultType.breakWhile:
             throw BSCException("Break outside while", scope);
@@ -196,16 +192,19 @@ class FunctionStatement extends Statement {
         }
       }
       if (!scope.environment.nullType.isSubtypeOf(returnType)) {
-        throw BSCException("${name.name} has no return statement ${formatCursorPosition(line, col, workspace, file)}", scope);
+        throw BSCException("${name.name} has no return statement ${formatCursorPosition(line, col, file)}", scope);
       }
       if ((scope.intrinsics ?? scope).profileMode!) {
         scope.environment.profile[ourProfile]!.key.stop();
       }
-      return ValueWrapper<Null>(scope.environment.nullType, null, 'default return value of functions');
+      return null;
     };
     scope.values[name] = MaybeConstantValueWrapper(
-        ValueWrapper<SydFunction<Object?>>(
-            FunctionValueType(returnType, params.map((e) => e.type), file, tv), _value, LazyInterpolatorSpace(VariableLazyString(name), 'function')),
+        SydFunction<Object?>(
+          _value,
+          FunctionValueType(returnType, params.map((e) => e.type), file, tv),
+          Concat(file, Concat('::', name.name)),
+        ),
         true);
     return StatementResult(StatementResultType.nothing);
   }
@@ -214,17 +213,16 @@ class FunctionStatement extends Statement {
 class WhileStatement extends Statement {
   final bool createParentScope;
   final String kind;
-  final String workspace;
+
   final String file;
 
-  WhileStatement(this.cond, this.body, int line, int col, this.kind, this.workspace, this.file, [this.catchReturns = true, this.createParentScope = true])
-      : super(line, col);
+  WhileStatement(this.cond, this.body, int line, int col, this.kind, this.file, [this.catchReturns = true, this.createParentScope = true]) : super(line, col);
   final Expression cond;
   final List<Statement> body;
   final bool catchReturns;
   @override
   StatementResult run(Scope scope) {
-    while (cond.eval(scope).valueC(scope, scope.stack, line, col, workspace, file, scope.environment)) {
+    while (cond.eval(scope) as bool) {
       Scope whileScope = createParentScope
           ? Scope(
               false,
@@ -233,7 +231,7 @@ class WhileStatement extends Statement {
               scope.environment,
               parent: scope,
               stack: scope.stack,
-              debugName: CursorPositionLazyString('while loop', line, col, workspace, file),
+              debugName: CursorPositionLazyString('while loop', line, col, file),
               intrinsics: scope.intrinsics,
               variables: scope.variables,
             )
@@ -245,11 +243,10 @@ class WhileStatement extends Statement {
           case StatementResultType.nothing:
             break;
           case StatementResultType.breakWhile:
-            if (statementResult.value!.valueC(whileScope, whileScope.stack, line, col, workspace, file, scope.environment) || catchReturns)
-              return StatementResult(StatementResultType.nothing);
+            if (statementResult.value as bool || catchReturns) return StatementResult(StatementResultType.nothing);
             return statementResult;
           case StatementResultType.continueWhile:
-            if (statementResult.value!.valueC(whileScope, whileScope.stack, line, col, workspace, file, scope.environment) || catchReturns) break block;
+            if (statementResult.value as bool || catchReturns) break block;
             return statementResult;
           case StatementResultType.returnFunction:
           case StatementResultType.unwindAndThrow:
@@ -262,16 +259,14 @@ class WhileStatement extends Statement {
 }
 
 class IfStatement extends Statement {
-  final String workspace;
-
-  IfStatement(this.cond, this.body, this.elseBody, int line, int col, this.workspace, this.file) : super(line, col);
+  IfStatement(this.cond, this.body, this.elseBody, int line, int col, this.file) : super(line, col);
   final Expression cond;
   final List<Statement> body;
   final List<Statement>? elseBody;
   final String file;
   @override
   StatementResult run(Scope scope) {
-    if (cond.eval(scope).valueC(scope, scope.stack, line, col, workspace, file, scope.environment)) {
+    if (cond.eval(scope) as bool) {
       Scope ifScope = Scope(false, false, scope.rtl, scope.environment,
           parent: scope,
           stack: scope.stack,
@@ -279,7 +274,6 @@ class IfStatement extends Statement {
             'if statement - \'if\' segment scope',
             line,
             col,
-            workspace,
             file,
           ),
           intrinsics: scope.intrinsics,
@@ -304,7 +298,6 @@ class IfStatement extends Statement {
             'if statement - \'else\' segment scope',
             line,
             col,
-            workspace,
             file,
           ),
           intrinsics: scope.intrinsics,
@@ -327,27 +320,26 @@ class IfStatement extends Statement {
 }
 
 class ForStatement extends Statement {
-  ForStatement(this.list, this.body, int line, int col, this.ident, this.workspace, this.file, this.tv, [this.catchBreakContinue = true]) : super(line, col);
+  ForStatement(this.list, this.body, int line, int col, this.ident, this.file, this.tv, [this.catchBreakContinue = true]) : super(line, col);
   final Expression list;
   final Variable ident;
   final List<Statement> body;
   final bool catchBreakContinue;
   final String file;
-  final String workspace;
+
   final TypeValidator tv;
 
-  late ValueType whateverIterableType =
-      IterableValueType<Object?>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', tv), 'TODO FORS', tv);
+  late ValueType whateverIterableType = IterableValueType<Object?>(ValueType.create(null, whateverVariable, -2, 0, 'intrinsics', tv), 'TODO FORS', tv);
 
   @override
   StatementResult run(Scope scope) {
-    ValueWrapper listVal = list.eval(scope);
-    if (!listVal.typeC(scope, scope.stack, line, col, workspace, file, scope.environment).isSubtypeOf(whateverIterableType)) {
+    SydIterable listVal = list.eval(scope) as SydIterable;
+    if (!getType(listVal, scope, line, col, file).isSubtypeOf(whateverIterableType)) {
       throw BSCException(
-          "$listVal ($list) is not a list - is a ${listVal.typeC(scope, scope.stack, line, col, workspace, file, scope.environment)} (tried to do a for statement) ${formatCursorPosition(line, col, workspace, file)}",
+          "$listVal ($list) is not a list - is a ${getType(listVal, scope, line, col, file)} (tried to do a for statement) ${formatCursorPosition(line, col, file)}",
           scope);
     }
-    for (ValueWrapper identVal in listVal.valueC(scope, scope.stack, line, col, workspace, file, scope.environment)) {
+    for (Object? identVal in listVal.iterable) {
       Scope forScope = Scope(false, false, scope.rtl, scope.environment,
           parent: scope,
           stack: scope.stack,
@@ -355,7 +347,6 @@ class ForStatement extends Statement {
             'for statement scope',
             line,
             col,
-            workspace,
             file,
           ),
           intrinsics: scope.intrinsics,
@@ -368,11 +359,10 @@ class ForStatement extends Statement {
           case StatementResultType.nothing:
             break;
           case StatementResultType.breakWhile:
-            if (statementResult.value!.valueC(forScope, forScope.stack, line, col, workspace, file, scope.environment) || catchBreakContinue)
-              return StatementResult(StatementResultType.nothing);
+            if (statementResult.value! as bool || catchBreakContinue) return StatementResult(StatementResultType.nothing);
             return statementResult;
           case StatementResultType.continueWhile:
-            if (statementResult.value!.valueC(forScope, forScope.stack, line, col, workspace, file, scope.environment) || catchBreakContinue) break block;
+            if (statementResult.value! as bool || catchBreakContinue) break block;
             return statementResult;
           case StatementResultType.returnFunction:
           case StatementResultType.unwindAndThrow:
@@ -389,7 +379,10 @@ class BreakStatement extends Statement {
   final bool alwaysBreakCurrent;
   @override
   StatementResult run(Scope scope) {
-    return StatementResult(StatementResultType.breakWhile, ValueWrapper(scope.environment.booleanType, alwaysBreakCurrent, 'internal'));
+    return StatementResult(
+      StatementResultType.breakWhile,
+      alwaysBreakCurrent,
+    );
   }
 
   factory BreakStatement.parse(TokenIterator tokens, TypeValidator scope) {
@@ -408,7 +401,10 @@ class ContinueStatement extends Statement {
   final bool alwaysContinueCurrent;
   @override
   StatementResult run(Scope scope) {
-    return StatementResult(StatementResultType.continueWhile, ValueWrapper(scope.environment.booleanType, alwaysContinueCurrent, 'internal'));
+    return StatementResult(
+      StatementResultType.continueWhile,
+      alwaysContinueCurrent,
+    );
   }
 
   factory ContinueStatement.parse(TokenIterator tokens, TypeValidator scope) {
@@ -441,9 +437,10 @@ class ReturnStatement extends Statement {
       );
     }
     Expression expr = parseExpression(tokens, scope);
-    if (!expr.type
+    if (!expr.staticType
         .isSubtypeOf(scope.returnType ?? (throw BSCException('Cannot return from outside a function ${formatCursorPositionFromTokens(tokens)}', scope)))) {
-      throw BSCException('Cannot return a ${expr.type} from a function that returns a ${scope.returnType} ${formatCursorPositionFromTokens(tokens)}', scope);
+      throw BSCException(
+          'Cannot return a ${expr.staticType} from a function that returns a ${scope.returnType} ${formatCursorPositionFromTokens(tokens)}', scope);
     }
     tokens.expectChar(TokenType.endOfStatement);
     return ReturnStatement(
@@ -458,11 +455,11 @@ class EnumStatement extends Statement {
   final Variable name;
   final EnumValueType type;
   final List<Variable> fields;
-  final String workspace;
+
   final String file;
   final TypeValidator tv;
 
-  EnumStatement(this.name, this.fields, this.type, super.line, super.col, this.file, this.workspace, this.tv);
+  EnumStatement(this.name, this.fields, this.type, super.line, super.col, this.file, this.tv);
 
   @override
   StatementResult run(Scope scope) {
@@ -474,24 +471,18 @@ class EnumStatement extends Statement {
           'enum scope',
           line,
           col,
-          workspace,
           file,
         ),
         variables: scope.variables);
     scope.values[name] = MaybeConstantValueWrapper(
-      ValueWrapper(
-        type,
-        Enum(newScope),
-        VariableLazyString(name),
-      ),
+      SydEnum(newScope, type, name),
       true,
     );
     for (Variable field in fields) {
       newScope.values[field] = MaybeConstantValueWrapper(
-        ValueWrapper(
-          ValueType.create(null, name, -2, 0, 'interr', "_internal", tv),
+        SydEnumValue(
           Concat(VariableLazyString(name), Concat('.', field.name)),
-          LazyInterpolatorSpace('enum field', VariableLazyString(field)),
+          type.propertyType,
         ),
         true,
       );
@@ -517,11 +508,11 @@ class ClassStatement extends Statement {
   final Variable name;
   final ClassValueType type;
   final Variable? superclass;
-  final String workspace;
+
   final String file;
   final ClassOfValueType classOfType;
   final TypeValidator tv;
-  ClassStatement(this.name, this.superclass, this.block, this.type, int line, int col, this.workspace, this.file, this.classOfType, this.tv) : super(line, col);
+  ClassStatement(this.name, this.superclass, this.block, this.type, int line, int col, this.file, this.classOfType, this.tv) : super(line, col);
 
   @override
   StatementResult run(Scope scope) {
@@ -533,14 +524,13 @@ class ClassStatement extends Statement {
           'class statement - methods scope',
           line,
           col,
-          workspace,
           file,
         ),
         intrinsics: scope.intrinsics,
         variables: scope.variables);
-    ValueWrapper? superConst = superclass == null ? null : scope.internal_getVar(scope.variables['${superclass!.name}'] ??= Variable('${superclass!.name}'));
+    Object? superConst = superclass == null ? null : scope.internal_getVar(scope.variables['${superclass!.name}'] ??= Variable('${superclass!.name}')).$2;
     Scope staticMembers = Scope(false, true, scope.rtl, scope.environment,
-        parent: superclass == null ? null : superConst!.valueC<Class>(scope, scope.stack, line, col, workspace, file, scope.environment).staticMembers,
+        parent: superclass == null ? null : (superConst as Class).staticMembers,
         stack: [ConcatenateLazyString(NotLazyString('staticMembersOf'), VariableLazyString(name))],
         debugName: ConcatenateLazyString(NotLazyString('staticMembersOf'), VariableLazyString(name)),
         staticClassName: '${name.name}',
@@ -559,29 +549,24 @@ class ClassStatement extends Statement {
       }
     }
     scope.values[scope.variables['~${name.name}~methods'] ??= Variable('~${name.name}~methods')] = MaybeConstantValueWrapper(
-      ValueWrapper(
-        ValueType.create(null, classMethodsVariable, -2, 0, 'interr', "_internal", tv),
-        methods,
-        'internal',
-      ),
+      methods,
       true,
     );
-    Variable constructorsClassName = name;
-    if (methods.internal_getVar(constructorVariable) == null) {
+    if (!methods.internal_getVar(constructorVariable).$1) {
       if (superclass != null &&
-          scope.internal_getVar(
+          !scope
+              .internal_getVar(
                 scope.variables['~${superclass!.name}~methods'] ??= Variable('~${superclass!.name}~methods'),
-              ) ==
-              null) {
+              )
+              .$1) {
         throwWithStack(
             scope,
             [
-              CursorPositionLazyString('main', 1, 0, workspace, file),
+              CursorPositionLazyString('main', 1, 0, file),
               CursorPositionLazyString(
                 'defining ${name.name} which extends ${superclass?.name}',
                 line,
                 col,
-                workspace,
                 file,
               ),
               NotLazyString('inheriting constructor'),
@@ -590,129 +575,138 @@ class ClassStatement extends Statement {
       }
       if (superclass == null) {
         methods.values[constructorVariable] = MaybeConstantValueWrapper(
-            ValueWrapper(FunctionValueType(type, [], file, tv), (List<ValueWrapper> args, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
-              if (args.length != 0) {
-                throwWithStack(
-                  scope,
-                  stack,
-                  'default constructor takes no arguments - passed ${args.length} arguments ${StackTrace.current}',
-                );
-              }
-              return ValueWrapper<Null>(scope.environment.nullType, null, 'null from default constructor a');
-            }, 'default constructor - aaaa'),
+            SydFunction(
+              (List<Object?> args, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
+                if (args.length != 0) {
+                  throwWithStack(
+                    scope,
+                    stack,
+                    'default constructor takes no arguments - passed ${args.length} arguments ${StackTrace.current}',
+                  );
+                }
+                return null;
+              },
+              FunctionValueType(type, [], file, tv),
+              Concat(name.name, '.defaultconstructor'),
+            ),
             true);
       } else {
-        constructorsClassName =
-            type.recursiveLookup(constructorVariable)?.value.name ?? (scope.variables['default constructor - bbbb'] ??= Variable('default constructor - bbbb'));
-        ;
         methods.values[constructorVariable] = MaybeConstantValueWrapper(
-          scope
-              .getVar(
-                  scope.variables['~${superclass!.name}~methods'] ??= Variable('~${superclass!.name}~methods'), line, col, 'interr', 'TODO ($file) TODO', null)
-              .valueC<Scope>(scope, scope.stack, line, col, workspace, file, scope.environment)
-              .getVar(constructorVariable, line, col, 'td', 'TODO TODO', null),
+          (scope.getVar(scope.variables['~${superclass!.name}~methods'] ??= Variable('~${superclass!.name}~methods'), line, col, 'TODO ($file) TODO', null)
+                  as Scope)
+              .getVar(constructorVariable, line, col, 'TODO TODO', null),
           true,
         );
       }
     }
     scope.values[scope.variables['~${name.name}'] ??= Variable('~${name.name}')] = MaybeConstantValueWrapper(
-        ValueWrapper(FunctionValueType(type, [], file, tv), (List<ValueWrapper> args, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
-          if (superclass != null) {
-            scope
-                    .getVar(scope.variables['~${superclass!.name}'] ??= Variable('~${superclass!.name}'), line, col, workspace, 'TODO', null)
-                    .valueC<SydFunction>(scope, scope.stack, line, col, workspace, file, scope.environment)(
-                <ValueWrapper>[], stack + [NotLazyString('~${superclass!.name}')], thisScope, thisType);
-          }
+        SydFunction(
+          (List<Object?> args, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
+            if (superclass != null) {
+              (scope.getVar(scope.variables['~${superclass!.name}'] ??= Variable('~${superclass!.name}'), line, col, 'TODO', null) as SydFunction)
+                  .function(<Object?>[], stack + [NotLazyString('~${superclass!.name}')], thisScope, thisType);
+            }
 
-          thisScope!.values[thisVariable] = MaybeConstantValueWrapper(ValueWrapper(thisType, thisScope, '\'this\' property'), true);
-          for (Statement s in block) {
-            if (s is NewVarStatement || s is FunctionStatement) {
-              if (s is FunctionStatement && methods.values.keys.contains(s.name)) {
-                MaybeConstantValueWrapper value = methods.values[s.name]!;
-                thisScope.values[s.name] = MaybeConstantValueWrapper(
-                    ValueWrapper(value.value.typeC(scope, scope.stack, line, col, workspace, file, scope.environment),
-                        (List<ValueWrapper> args2, List<LazyString> stack2, [Scope? thisScope2, ValueType? thisType2]) {
-                      return (value.value.valueC<SydFunction<Object?>>(scope, scope.stack, line, col, workspace, file, scope.environment))(
-                          args2, stack2, thisScope, thisType);
-                    }, 'method ${s.name == constructorVariable ? constructorsClassName.name : name.name}.${s.name.name}'),
-                    true);
-                continue;
-              }
-              StatementResult sr = s.run(thisScope);
-              switch (sr.type) {
-                case StatementResultType.nothing:
-                  break;
-                case StatementResultType.breakWhile:
-                case StatementResultType.continueWhile:
-                case StatementResultType.returnFunction:
-                  throw BSCException('Internal error', scope);
-                case StatementResultType.unwindAndThrow:
-                  throw sr.value!;
+            thisScope!.values[thisVariable] = MaybeConstantValueWrapper(thisScope, true);
+            for (Statement s in block) {
+              if (s is NewVarStatement || s is FunctionStatement) {
+                if (s is FunctionStatement && methods.values.keys.contains(s.name)) {
+                  MaybeConstantValueWrapper value = methods.values[s.name]!;
+                  thisScope.values[s.name] = MaybeConstantValueWrapper(
+                      SydFunction(
+                        (List<Object?> args2, List<LazyString> stack2, [Scope? thisScope2, ValueType? thisType2]) {
+                          return (value.value as SydFunction).function(args2, stack2, thisScope, thisType);
+                        },
+                        getType(value.value, scope, line, col, file) as ValueType<SydFunction>,
+                        Concat(name.name, Concat('.', s.name.name)),
+                      ),
+                      true);
+                  continue;
+                }
+                StatementResult sr = s.run(thisScope);
+                switch (sr.type) {
+                  case StatementResultType.nothing:
+                    break;
+                  case StatementResultType.breakWhile:
+                  case StatementResultType.continueWhile:
+                  case StatementResultType.returnFunction:
+                    throw BSCException('Internal error', scope);
+                  case StatementResultType.unwindAndThrow:
+                    throw sr.value!;
+                }
               }
             }
-          }
-          return ValueWrapper(scope.environment.nullType, null, Concat('return value of ~', VariableLazyString(name)));
-        }, 'internal'),
+            return null;
+          },
+          FunctionValueType(type, [], file, tv),
+          Concat('~', name.name),
+        ),
         true);
     bool hasConstructor = block.any((element) => element is FunctionStatement && element.name == constructorVariable);
+    Iterable<ValueType> constructorParameters;
+    if (hasConstructor) {
+      constructorParameters = block.whereType<FunctionStatement>().firstWhere((element) => element.name == constructorVariable).params.map((e) => e.type);
+    } else {
+      constructorParameters = superclass == null
+          ? []
+          : (getType(
+                  (scope.internal_getVar(scope.variables['~${superclass!.name}~methods'] ??= Variable('~${superclass!.name}~methods')).$2 as Scope)
+                      .internal_getVar(constructorVariable)
+                      .$2,
+                  scope,
+                  line,
+                  col,
+                  file) as FunctionValueType)
+              .parameters;
+    }
     scope.values[name] = MaybeConstantValueWrapper(
-        ValueWrapper(
-            classOfType,
-            Class(
-              staticMembers,
-              ValueWrapper(
-                FunctionValueType(
-                    type,
-                    hasConstructor
-                        ? block.whereType<FunctionStatement>().firstWhere((element) => element.name == constructorVariable).params.map((e) => e.type)
-                        : superclass == null
-                            ? []
-                            : (scope
-                                    .internal_getVar(scope.variables['~${superclass!.name}~methods'] ??= Variable('~${superclass!.name}~methods'))
-                                    ?.valueC<Scope>(scope, scope.stack, line, col, workspace, file, scope.environment)
-                                    .internal_getVar(constructorVariable)
-                                    ?.typeC(scope, scope.stack, line, col, workspace, file, scope.environment) as FunctionValueType)
-                                .parameters,
-                    file,
-                    tv),
-                (List<ValueWrapper> args, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
-                  Scope thisScope = Scope(
-                    true,
-                    false,
-                    scope.rtl,
-                    scope.environment,
-                    parent: scope,
-                    stack: stack + [NotLazyString('${name.name}-instance')],
-                    debugName: NotLazyString('instance of ${name.name}'),
-                    typeIfClass: type,
-                    intrinsics: scope.intrinsics,
-                    variables: scope.variables,
-                  );
-                  thisScope.values[classNameVariable] = MaybeConstantValueWrapper(ValueWrapper(scope.environment.stringType, name.name, 'className'), true);
-                  scope
-                          .getVar(scope.variables['~${name.name}'] ??= Variable('~${name.name}'), line, col, 'tdo', 'TODO', null)
-                          .valueC<SydFunction>(scope, scope.stack, line, col, workspace, file, scope.environment)(
-                      <ValueWrapper>[], stack + [ConcatenateLazyString(NotLazyString('~'), VariableLazyString(name))], thisScope, type);
-                  var constructorFunc = thisScope
-                          .internal_getVar(constructorVariable)
-                          ?.valueC<SydFunction<Object?>>(scope, scope.stack, line, col, workspace, file, scope.environment) ??
-                      (superclass == null
-                          ? (List<ValueWrapper> args, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
-                              return ValueWrapper<Null>(scope.environment.nullType, null, 'null from default constructor');
-                            }
-                          : (scope
-                                  .internal_getVar(scope.variables['~${superclass!.name}~methods'] ??= Variable('~${superclass!.name}~methods'))!
-                                  .valueC<Scope>(scope, scope.stack, line, col, workspace, file, scope.environment)
-                                  .internal_getVar(constructorVariable)!)
-                              .valueC<SydFunction<Object?>>(scope, stack, line, col, workspace, file, scope.environment));
-                  constructorFunc(args, stack + [NotLazyString('${name.name}.constructor (from generated constructor)')], thisScope, type);
-                  return ValueWrapper<Scope>(type, thisScope, 'instance of ${name.name}');
+      Class(
+        staticMembers,
+        SydFunction(
+          (List<Object?> args, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
+            Scope thisScope = Scope(
+              true,
+              false,
+              scope.rtl,
+              scope.environment,
+              parent: scope,
+              stack: stack + [NotLazyString('${name.name}-instance')],
+              debugName: NotLazyString('instance of ${name.name}'),
+              typeIfClass: type,
+              intrinsics: scope.intrinsics,
+              variables: scope.variables,
+            );
+            thisScope.values[classNameVariable] = MaybeConstantValueWrapper(name.name, true);
+            (scope.getVar(scope.variables['~${name.name}'] ??= Variable('~${name.name}'), line, col, 'TODO', null) as SydFunction)
+                .function(<Object?>[], stack + [ConcatenateLazyString(NotLazyString('~'), VariableLazyString(name))], thisScope, type);
+            (bool, Object?) constructor = thisScope.internal_getVar(constructorVariable);
+            SydFunction constructorFunc;
+            if (constructor.$1) {
+              constructorFunc = constructor.$2 as SydFunction;
+            } else if (superclass == null) {
+              constructorFunc = SydFunction(
+                (List<Object?> args, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
+                  return null;
                 },
-                VariableLazyString(constructorVariable),
-              ),
-            ),
-            NotLazyString('line ~638')),
-        true);
+                FunctionValueType(scope.environment.nullType, [], file, tv),
+                Concat(name.name, '.default-constructor'),
+              );
+            } else {
+              constructorFunc =
+                  (scope.internal_getVar(scope.variables['~${superclass!.name}~methods'] ??= Variable('~${superclass!.name}~methods')).$2 as Scope)
+                      .internal_getVar(constructorVariable)
+                      .$2 as SydFunction;
+            }
+            constructorFunc.function(args, stack + [NotLazyString('${name.name}.constructor (from generated constructor)')], thisScope, type);
+            return thisScope;
+          },
+          FunctionValueType(type, constructorParameters, file, tv),
+          Concat(name.name, '.generatedconstructor'),
+        ),
+        classOfType,
+      ),
+      true,
+    );
     return StatementResult(StatementResultType.nothing);
   }
 }

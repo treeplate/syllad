@@ -1867,7 +1867,7 @@ class X64Assembler extends Assembler {
 
   //#override
   Null assemble(PseudoInstructionList pseudoInstructions) {
-    stderr('convertInstructionsToX64...');
+    stderr('convertInstructionsToX64 with', len(pseudoInstructions), 'psuedo-instructions');
     X64Context context = convertInstructionsToX64(pseudoInstructions);
     X64LineList x64Lines = context.output;
     stderr('assignRegisterOperands...');

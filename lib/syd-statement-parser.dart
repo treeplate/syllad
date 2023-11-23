@@ -23,7 +23,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
   if (tokens.current is IdentToken && tokens.currentIdent == scope.variables['extends']) {
     tokens.moveNext();
     superclass = tokens.currentIdent;
-    scope.getVar(superclass, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, 'for subclassing', false);
+    scope.getVar(superclass, tokens.current.line, tokens.current.col, tokens.file, 'for subclassing', false);
     tokens.moveNext();
   }
   tokens.expectChar(TokenType.openBrace);
@@ -34,7 +34,6 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
           superclass,
           tokens.current.line,
           tokens.current.col,
-          tokens.workspace,
           tokens.file,
           scope,
         );
@@ -67,7 +66,6 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
     type,
     tokens.current.line,
     tokens.current.col,
-    tokens.workspace,
     tokens.file,
   );
   newScope.newVar(
@@ -75,7 +73,6 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
     scope.environment.stringType,
     tokens.current.line,
     tokens.current.col,
-    tokens.workspace,
     tokens.file,
   );
   newScope.usedVars.add(thisVariable);
@@ -90,29 +87,28 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
       ConcatenateLazyString(NotLazyString('static members of '), VariableLazyString(name)), false, true, false, scope.rtl, scope.variables, scope.environment);
   for (Statement statement in block) {
     if (statement is StaticFieldStatement) {
-      if (!statement.val.type.isSubtypeOf(
-          staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, true, false) ??
+      if (!statement.val.staticType.isSubtypeOf(
+          staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.file, true, false) ??
               scope.environment.anythingType)) {
         throw BSCException(
-          'Invalid override of static member ${statement.name.name} - expected ${staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, true, false)} but got ${statement.val.type} ${formatCursorPositionFromTokens(tokens)}',
+          'Invalid override of static member ${statement.name.name} - expected ${staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.file, true, false)} but got ${statement.val.staticType} ${formatCursorPositionFromTokens(tokens)}',
           scope,
         );
       }
       staticMembers.newVar(
         statement.name,
-        statement.val.type,
+        statement.val.staticType,
         statement.line,
         statement.col,
-        tokens.workspace,
         tokens.file,
       );
     }
     if (statement is FunctionStatement && statement.static) {
       if (!statement.type.isSubtypeOf(
-          staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, true, false) ??
+          staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.file, true, false) ??
               scope.environment.anythingType)) {
         throw BSCException(
-          'Invalid override of static member ${statement.name.name} - expected ${staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, true, false)} but got ${statement.type} ${formatCursorPositionFromTokens(tokens)}',
+          'Invalid override of static member ${statement.name.name} - expected ${staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.file, true, false)} but got ${statement.type} ${formatCursorPositionFromTokens(tokens)}',
           scope,
         );
       }
@@ -121,7 +117,6 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
         statement.type,
         statement.line,
         statement.col,
-        tokens.workspace,
         tokens.file,
       );
     }
@@ -139,7 +134,6 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
                     -2,
                     0,
                     'err',
-                    'err2',
                     true,
                     false,
                   ) ??
@@ -158,14 +152,14 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
   if (hasFwdDecl) {
     for (MapEntry<Variable, TVProp> value in fwdProps.types.entries) {
       if (value.key == constructorVariable) {
-        if ((newScope.igv(value.key, false, -2, 0, '', '', true, false, false) ?? FunctionValueType(scope.environment.nullType, [], 'xxx', scope)) !=
+        if ((newScope.igv(value.key, false, -2, 0, '',true, false, false) ?? FunctionValueType(scope.environment.nullType, [], 'xxx', scope)) !=
             value.value.type) {
           throw BSCException(
-              '${name.name}\'s constructor (${newScope.igv(value.key, false, -2, 0, '', '', true, false, false) ?? FunctionValueType(scope.environment.nullType, [], 'xxx', scope)}) does not match forward declaration (${value.value.type}) ${formatCursorPositionFromTokens(tokens)}',
+              '${name.name}\'s constructor (${newScope.igv(value.key, false, -2, 0, '', true, false, false) ?? FunctionValueType(scope.environment.nullType, [], 'xxx', scope)}) does not match forward declaration (${value.value.type}) ${formatCursorPositionFromTokens(tokens)}',
               scope);
         }
       } else {
-        ValueType? newType = newScope.igv(value.key, false, -2, 0, '', '', true, false, false);
+        ValueType? newType = newScope.igv(value.key, false, -2, 0, '',true, false, false);
         if (newType != value.value.type) {
           throw BSCException(
               '${name.name}.${value.key.name} (a ${newScope.igv(value.key, false)}) does not match forward declaration (a ${value.value.type}) ${formatCursorPositionFromTokens(tokens)}',
@@ -201,7 +195,6 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
     classOfType,
     tokens.current.line,
     tokens.current.col,
-    tokens.workspace,
     tokens.file,
   );
   if (ignoreUnused) {
@@ -209,7 +202,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
   }
   scope.nonconst.remove(name);
   tokens.expectChar(TokenType.closeBrace);
-  return ClassStatement(name, superclass, block, type, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, classOfType, scope);
+  return ClassStatement(name, superclass, block, type, tokens.current.line, tokens.current.col, tokens.file, classOfType, scope);
 }
 
 Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
@@ -255,7 +248,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   } else {
     expr = parseExpression(tokens, scope);
   }
-  if (expr is SubscriptExpression && expr.a.type is ArrayValueType && tokens.currentChar != TokenType.endOfStatement) {
+  if (expr is SubscriptExpression && expr.a.staticType is ArrayValueType && tokens.currentChar != TokenType.endOfStatement) {
     throw BSCException('Tried to modify array ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   if (tokens.current is CharToken && tokens.currentChar == TokenType.endOfStatement) {
@@ -282,19 +275,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       if (!expr.isLValue(scope)) {
         throw BSCException('$expr is not an lvalue for = ${formatCursorPositionFromTokens(tokens)}', scope);
       }
-      if (!value.type.isSubtypeOf(expr.type)) {
-        throw BSCException('attempted $expr=$value but $value was not a ${expr.type} ${formatCursorPositionFromTokens(tokens)}', scope);
+      if (!value.staticType.isSubtypeOf(expr.staticType)) {
+        throw BSCException('attempted $expr=$value but $value was not a ${expr.staticType} ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.expectChar(TokenType.endOfStatement);
-      return SetStatement(expr, value, line, col, tokens.workspace, tokens.file);
+      return SetStatement(expr, value, line, col, tokens.file);
     }
     if (tokens.currentChar == TokenType.plusEquals) {
-      if (!expr.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException('Attempted $expr (not an integer!) += ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
-      if (!value.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!value.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException(
           'attempted $expr+=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
           scope,
@@ -311,17 +304,15 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           value,
           line,
           col,
-          tokens.workspace,
           tokens.file,
           scope,
         ),
         line,
         col,
-        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.plusPlus) {
-      if (!expr.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException('Attempted $expr (not an integer!) ++ ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.expectChar(TokenType.plusPlus);
@@ -335,28 +326,25 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
             1,
             line,
             col,
-            tokens.workspace,
             tokens.file,
             scope,
           ),
           line,
           col,
-          tokens.workspace,
           tokens.file,
           scope,
         ),
         line,
         col,
-        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.minusEquals) {
-      if (!expr.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException('Attempted $expr (not an integer!) -= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
-      if (!value.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!value.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException(
           'attempted $expr-=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
           scope,
@@ -373,17 +361,15 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           value,
           line,
           col,
-          tokens.workspace,
           tokens.file,
           scope,
         ),
         line,
         col,
-        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.minusMinus) {
-      if (!expr.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException('Attempted $expr (not an integer!) -- ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.expectChar(TokenType.minusMinus);
@@ -397,28 +383,25 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
             1,
             line,
             col,
-            tokens.workspace,
             tokens.file,
             scope,
           ),
           line,
           col,
-          tokens.workspace,
           tokens.file,
           scope,
         ),
         line,
         col,
-        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.bitOrEquals) {
-      if (!expr.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException('Attempted $expr (not an integer!) |= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
-      if (!value.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!value.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException(
           'attempted $expr|=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
           scope,
@@ -435,22 +418,20 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           value,
           line,
           col,
-          tokens.workspace,
           tokens.file,
           scope,
         ),
         line,
         col,
-        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.bitAndEquals) {
-      if (!expr.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException('Attempted $expr (not an integer!) &= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
-      if (!value.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!value.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException(
           'attempted $expr&=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
           scope,
@@ -468,21 +449,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           scope,
           line,
           col,
-          tokens.workspace,
           tokens.file,
         ),
         line,
         col,
-        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.bitXorEquals) {
-      if (!expr.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException('Attempted $expr (not an integer!) ^= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
-      if (!value.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!value.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException(
           'attempted $expr^=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
           scope,
@@ -500,21 +479,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           scope,
           line,
           col,
-          tokens.workspace,
           tokens.file,
         ),
         line,
         col,
-        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.andandEquals) {
-      if (!expr.type.isSubtypeOf(scope.environment.booleanType)) {
+      if (!expr.staticType.isSubtypeOf(scope.environment.booleanType)) {
         throw BSCException('Attempted $expr (not an boolean!) &&= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
-      if (!value.type.isSubtypeOf(scope.environment.booleanType)) {
+      if (!value.staticType.isSubtypeOf(scope.environment.booleanType)) {
         throw BSCException(
           'attempted $expr&&=$value but $value was not an boolean ${formatCursorPositionFromTokens(tokens)}',
           scope,
@@ -531,22 +508,20 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           value,
           line,
           col,
-          tokens.workspace,
           tokens.file,
           scope,
         ),
         line,
         col,
-        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.ororEquals) {
-      if (!expr.type.isSubtypeOf(scope.environment.booleanType)) {
+      if (!expr.staticType.isSubtypeOf(scope.environment.booleanType)) {
         throw BSCException('Attempted $expr (not an boolean!) ||= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
-      if (!value.type.isSubtypeOf(scope.environment.booleanType)) {
+      if (!value.staticType.isSubtypeOf(scope.environment.booleanType)) {
         throw BSCException(
           'attempted $expr||=$value but $value was not an boolean ${formatCursorPositionFromTokens(tokens)}',
           scope,
@@ -563,22 +538,20 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           value,
           line,
           col,
-          tokens.workspace,
           tokens.file,
           scope,
         ),
         line,
         col,
-        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.divideEquals) {
-      if (!expr.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException('Attempted $expr (not an integer!) /= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
-      if (!value.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!value.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException(
           'attempted $expr/=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
           scope,
@@ -595,22 +568,20 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           value,
           line,
           col,
-          tokens.workspace,
           tokens.file,
           scope,
         ),
         line,
         col,
-        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.starEquals) {
-      if (!expr.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException('Attempted $expr (not an integer!) *= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
-      if (!value.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!value.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException(
           'attempted $expr*=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
           scope,
@@ -627,22 +598,20 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           value,
           line,
           col,
-          tokens.workspace,
           tokens.file,
           scope,
         ),
         line,
         col,
-        tokens.workspace,
         tokens.file,
       );
     } else if (tokens.currentChar == TokenType.remainderEquals) {
-      if (!expr.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException('Attempted $expr (not an integer!) %= ... ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Expression value = parseExpression(tokens, scope);
-      if (!value.type.isSubtypeOf(scope.environment.integerType)) {
+      if (!value.staticType.isSubtypeOf(scope.environment.integerType)) {
         throw BSCException(
           'attempted $expr%=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
           scope,
@@ -659,13 +628,11 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           value,
           line,
           col,
-          tokens.workspace,
           tokens.file,
           scope,
         ),
         line,
         col,
-        tokens.workspace,
         tokens.file,
       );
     }
@@ -675,11 +642,11 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   if (tokens.currentChar == TokenType.set) {
     tokens.expectChar(TokenType.set);
     Expression expr2 = parseExpression(tokens, scope);
-    if (!expr2.type.isSubtypeOf(
+    if (!expr2.staticType.isSubtypeOf(
       expr.asType,
     )) {
       throw BSCException(
-        '$expr2 is not of type $expr, which is expected by ${ident2.name}. (it\'s a ${expr2.type}) ${formatCursorPositionFromTokens(tokens)}',
+        '$expr2 is not of type $expr, which is expected by ${ident2.name}. (it\'s a ${expr2.staticType}) ${formatCursorPositionFromTokens(tokens)}',
         scope,
       );
     }
@@ -689,7 +656,6 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         expr.asType,
         line,
         col,
-        tokens.workspace,
         tokens.file,
       );
     }
@@ -700,7 +666,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     if (static) {
       return StaticFieldStatement(ident2, expr2, line, col, false);
     }
-    return NewVarStatement(ident2, expr2, line, col, tokens.workspace, tokens.file, false, expr.asType, scope);
+    return NewVarStatement(ident2, expr2, line, col, tokens.file, false, expr.asType, scope);
   }
   if (tokens.currentChar == TokenType.endOfStatement) {
     tokens.expectChar(TokenType.endOfStatement);
@@ -709,7 +675,6 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       expr.asType,
       line,
       col,
-      tokens.workspace,
       tokens.file,
     );
     if (ignoreUnused) {
@@ -718,10 +683,10 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     if (static) {
       throw BSCException('static declarations must have values ${formatCursorPositionFromTokens(tokens)}', scope);
     }
-    return NewVarStatement(ident2, null, line, col, tokens.workspace, tokens.file, false, expr.asType, scope);
+    return NewVarStatement(ident2, null, line, col, tokens.file, false, expr.asType, scope);
   }
   if (!static) {
-    if ((!scope.isClass && !scope.isClassOf) || scope.igv(ident2, false, -3, 0, '', '', true, false, false) == null) {
+    if ((!scope.isClass && !scope.isClassOf) || scope.igv(ident2, false, -3, 0, '', true, false, false) == null) {
       if (overriden) {
         throw BSCException('${ident2.name} incorrectly defined as override ${formatCursorPositionFromTokens(tokens)}', scope);
       }
@@ -760,7 +725,6 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           type,
           line,
           col,
-          tokens.workspace,
           tokens.file,
           scope,
         ),
@@ -790,7 +754,6 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       ),
       line,
       col,
-      tokens.workspace,
       tokens.file,
     );
   tv.returnType = expr.asType;
@@ -810,7 +773,6 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       type,
       line,
       col,
-      tokens.workspace,
       tokens.file,
       true,
       false,
@@ -821,12 +783,12 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     scope.igv(ident2, true);
   }
   scope.nonconst.remove(ident2);
-  return FunctionStatement(expr.asType, ident2, params, body, line, col, tokens.workspace, tokens.file, static, type, scope);
+  return FunctionStatement(expr.asType, ident2, params, body, line, col, tokens.file, static, type, scope);
 }
 
-MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String workspace, String file, MapEntry<List<Statement>, TypeValidator>? rtl,
+MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String file, MapEntry<List<Statement>, TypeValidator>? rtl,
     bool isMain, Map<String, Variable> variables, Environment environment) {
-  TokenIterator tokens = TokenIterator(rtokens.iterator, workspace, file, variables, environment);
+  TokenIterator tokens = TokenIterator(rtokens.iterator, file, variables, environment);
 
   tokens.moveNext();
   TypeValidator intrinsics = TypeValidator([], NotLazyString('intrinsics'), false, false, false, rtl, variables, environment);
@@ -842,6 +804,7 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String w
       environment.rootClassType = ValueType.internal(environment.anythingType, variables['~root_class']!, 'intrinsics', false, intrinsics, environment);
       environment.stringBufferType = ValueType.internal(environment.anythingType, variables['StringBuffer']!, 'intrinsics', false, intrinsics, environment);
       environment.fileType = ValueType.internal(environment.anythingType, variables['File']!, 'intrinsics', false, intrinsics, environment);
+      environment.sentinelType = ValueType.internal(environment.anythingType, variables['~sentinel']!, 'intrinsics', false, intrinsics, environment);
     }
   }
   intrinsics.types = <String, ValueType>{
@@ -856,7 +819,7 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String w
     'addLists': FunctionValueType(
         ListValueType(environment.anythingType, 'intrinsics', intrinsics),
         InfiniteIterable(
-            ArrayValueType<ValueWrapper>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)),
+            ArrayValueType(ValueType.create(null, whateverVariable, -2, 0,  'intrinsics', intrinsics), 'intrinsics', intrinsics)),
         'intrinsics',
         intrinsics),
     'charsOf': FunctionValueType(IterableValueType<String>(environment.stringType, 'intrinsics', intrinsics), [environment.stringType], 'intrinsics', intrinsics),
@@ -864,29 +827,29 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String w
     'split': FunctionValueType(ListValueType(environment.stringType, 'intrinsics', intrinsics), [environment.stringType, environment.stringType], 'intrinsics', intrinsics),
     'len': FunctionValueType(
         environment.integerType,
-        [IterableValueType<Object?>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)],
+        [IterableValueType<Object?>(ValueType.create(null, whateverVariable, -2, 0, 'intrinsics', intrinsics), 'intrinsics', intrinsics)],
         'intrinsics',
         intrinsics),
     'input': FunctionValueType(environment.stringType, [], 'intrinsics', intrinsics),
     'append': FunctionValueType(
         environment.anythingType,
         [
-          ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics),
+          ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'intrinsics', intrinsics), 'intrinsics', intrinsics),
           environment.anythingType
         ],
         'intrinsics',
         intrinsics),
     'iterator': FunctionValueType(
         IteratorValueType(environment.anythingType, 'intrinsics', intrinsics),
-        [IterableValueType<Object?>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)],
+        [IterableValueType<Object?>(ValueType.create(null, whateverVariable, -2, 0, 'intrinsics', intrinsics), 'intrinsics', intrinsics)],
         'intrinsics',
         intrinsics),
     'next': FunctionValueType(environment.booleanType, [IteratorValueType(environment.anythingType, 'intrinsics', intrinsics)], 'intrinsics', intrinsics),
     'current': FunctionValueType(environment.anythingType, [IteratorValueType(environment.anythingType, 'intrinsics', intrinsics)], 'intrinsics', intrinsics),
     'stringTimes': FunctionValueType(environment.stringType, [environment.stringType, environment.integerType], 'intrinsics', intrinsics),
     'copy': FunctionValueType(
-        ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics),
-        [IterableValueType<Object?>(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)],
+        ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'intrinsics', intrinsics), 'intrinsics', intrinsics),
+        [IterableValueType<Object?>(ValueType.create(null, whateverVariable, -2, 0, 'intrinsics', intrinsics), 'intrinsics', intrinsics)],
         'intrinsics',
         intrinsics),
     'hex': FunctionValueType(environment.stringType, [environment.integerType], 'intrinsics', intrinsics),
@@ -906,32 +869,32 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String w
     'println': FunctionValueType(environment.integerType, InfiniteIterable(environment.anythingType), 'intrinsics', intrinsics),
     'clear': FunctionValueType(
         environment.integerType,
-        [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)],
+        [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'intrinsics', intrinsics), 'intrinsics', intrinsics)],
         'intrinsics',
         intrinsics),
     'debug': FunctionValueType(environment.stringType, [environment.rootClassType], 'intrinsics', intrinsics),
     'throw': FunctionValueType(environment.nullType, [environment.stringType], 'intrinsics', intrinsics),
     'pop': FunctionValueType(
         environment.anythingType,
-        [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics)],
+        [ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'intrinsics', intrinsics), 'intrinsics', intrinsics)],
         'intrinsics',
         intrinsics),
     'substring': FunctionValueType(environment.stringType, [environment.stringType, environment.integerType, environment.integerType], 'intrinsics', intrinsics),
     'sublist': FunctionValueType(
-        ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics),
+        ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'intrinsics', intrinsics), 'intrinsics', intrinsics),
         [
-          ArrayValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics),
+          ArrayValueType(ValueType.create(null, whateverVariable, -2, 0, 'intrinsics', intrinsics), 'intrinsics', intrinsics),
           environment.integerType,
           environment.integerType
         ],
         'intrinsics',
         intrinsics),
     'filledList': FunctionValueType(
-        ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics),
+        ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'intrinsics', intrinsics), 'intrinsics', intrinsics),
         [environment.integerType, environment.anythingType],
         'intrinsics',
         intrinsics),
-    'sizedList': FunctionValueType(ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'interr', 'intrinsics', intrinsics), 'intrinsics', intrinsics),
+    'sizedList': FunctionValueType(ListValueType(ValueType.create(null, whateverVariable, -2, 0, 'intrinsics', intrinsics), 'intrinsics', intrinsics),
         [environment.integerType], 'intrinsics', intrinsics),
     'stackTrace': FunctionValueType(environment.stringType, [], 'intrinsics', intrinsics),
     'debugName': FunctionValueType(environment.stringType, [environment.rootClassType], 'intrinsics', intrinsics),
@@ -960,6 +923,8 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String w
   intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, environment.stringBufferType, false);
   v = '~type${environment.fileType.name.name}';
   intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, environment.fileType, false);
+  v = '~type${environment.sentinelType.name.name}';
+  intrinsics.types[variables[v] ??= Variable(v)] = TVProp(false, environment.sentinelType, false);
   intrinsics.directVars.addAll(intrinsics.types.keys);
 
   TypeValidator validator =
@@ -991,9 +956,9 @@ WhileStatement parseWhile(TokenIterator tokens, TypeValidator scope) {
   tokens.moveNext();
   tokens.expectChar(TokenType.openParen);
   Expression value = parseExpression(tokens, scope);
-  if (!value.type.isSubtypeOf(scope.environment.booleanType)) {
+  if (!value.staticType.isSubtypeOf(scope.environment.booleanType)) {
     throw BSCException(
-      'The while condition ($value, a ${value.type}) is not a Boolean       ${formatCursorPositionFromTokens(tokens)}',
+      'The while condition ($value, a ${value.staticType}) is not a Boolean       ${formatCursorPositionFromTokens(tokens)}',
       scope,
     );
   }
@@ -1011,7 +976,6 @@ WhileStatement parseWhile(TokenIterator tokens, TypeValidator scope) {
     body,
     tokens.current.line,
     tokens.current.col,
-    tokens.workspace,
     tokens.file,
     'while',
     true,
@@ -1041,15 +1005,15 @@ ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
   tokens.expectChar(TokenType.endOfStatement);
 
   MapEntry<List<Statement>, TypeValidator> result = scope.environment.filesLoaded[str] ??
-      (scope.environment.filesLoaded[str] = parse(lex(File('${path.dirname(tokens.file)}/$str').readAsStringSync(), '.', '${path.dirname(tokens.file)}/$str', scope.environment),
-          '.', '${path.dirname(tokens.file)}/$str', scope.rtl, false, scope.variables, scope.environment));
+      (scope.environment.filesLoaded[str] = parse(lex(File('${path.dirname(tokens.file)}/$str').readAsStringSync(), '${path.dirname(tokens.file)}/$str', scope.environment),
+          '${path.dirname(tokens.file)}/$str', scope.rtl, false, scope.variables, scope.environment));
   scope.environment.loadedGlobalScopes[str] = result.value;
   scope.environment.filesStartedLoading.remove(str);
   scope.types.addAll(result.value.types);
   scope.classes.addAll(result.value.classes);
   scope.usedVars.addAll(result.value.usedVars);
   tokens.getPrevious();
-  return ImportStatement(result.key, '${path.dirname(tokens.file)}/$str', tokens.current.line, tokens.current.col, tokens.workspace, (tokens..moveNext()).file, scope);
+  return ImportStatement(result.key, '${path.dirname(tokens.file)}/$str', tokens.current.line, tokens.current.col, (tokens..moveNext()).file, scope);
 }
 
 class ValueTypePlaceholder {
@@ -1057,14 +1021,14 @@ class ValueTypePlaceholder {
   final Variable name;
   final int line;
   final int col;
-  final String workspace;
+  
   final String file;
-  ValueTypePlaceholder(this.parent, this.name, this.line, this.col, this.workspace, this.file);
+  ValueTypePlaceholder(this.parent, this.name, this.line, this.col, this.file);
   @override
   String toString() => 'VTP($name)';
 
   ValueType toVT(TypeValidator scope) {
-    return ValueType.create(parent, name, line, col, workspace, file, scope);
+    return ValueType.create(parent, name, line, col, file, scope);
   }
 }
 
@@ -1110,7 +1074,6 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
           tokens.currentIdent,
           tokens.current.line,
           tokens.current.col,
-          tokens.workspace,
           tokens.file,
         );
         tokens.moveNext();
@@ -1119,7 +1082,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       ClassValueType? spt;
       TypeValidator props;
       if (tokens.current is IdentToken && tokens.currentIdent == scope.variables['extends']) {
-        spt = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope)
+        spt = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope)
             as ClassValueType;
         props = TypeValidator([spt.properties], ConcatenateLazyString(NotLazyString('forward-declared subclass '), VariableLazyString(cln)), true, false, false,
             scope.rtl, scope.variables, scope.environment);
@@ -1140,7 +1103,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
           scope,
           if (spt != null)
             (ValueType.create(null, scope.variables[spt.name.name + 'Class'] ??= Variable(spt.name.name + 'Class'), tokens.current.line, tokens.current.col,
-                    tokens.file, tokens.workspace, scope) as ClassOfValueType)
+                    tokens.file, scope) as ClassOfValueType)
                 .staticMembers,
         ], NotLazyString('static members'), false, true, false, scope.rtl, scope.variables, scope.environment),
         constructorType,
@@ -1148,7 +1111,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
         scope,
       );
       spt?.subtypes.add(x);
-      scope.newVar(x.name, y, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file);
+      scope.newVar(x.name, y, tokens.current.line, tokens.current.col, tokens.file);
       x.properties.types[thisVariable] = TVProp(true, x, false);
       if (ignoreUnused) {
         scope.igv(cln, true);
@@ -1156,9 +1119,9 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens.expectChar(TokenType.endOfStatement);
       return NopStatement();
     case fwdclassfieldVariable:
-      ValueType type = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+      ValueType type = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope);
       ValueType reciever =
-          ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+          ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope);
       if (reciever is! ClassValueType) {
         throw BSCException('fwdclassfields should only be defined on classes ${formatCursorPositionFromTokens(tokens)}', scope);
       }
@@ -1185,9 +1148,9 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       return NopStatement();
     case fwdclassmethodVariable:
       ValueType returnType =
-          ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+          ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope);
       ValueType reciever =
-          ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+          ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope);
       if (reciever is! ClassValueType) {
         throw BSCException('fwdclassmethods should only be defined on classes ${formatCursorPositionFromTokens(tokens)}', scope);
       }
@@ -1210,7 +1173,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       List<ValueType> parameters = parseArgList(tokens, (tokens) {
         Variable name = tokens.currentIdent;
         tokens.moveNext();
-        return ValueType.create(null, name, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+        return ValueType.create(null, name, tokens.current.line, tokens.current.col, tokens.file, scope);
       });
       ValueType type = FunctionValueType(returnType, parameters, tokens.file, scope);
       cl.properties.types[methodName] = TVProp(true, type, false);
@@ -1220,13 +1183,12 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens.expectChar(TokenType.endOfStatement);
       return NopStatement();
     case fwdstaticfieldVariable:
-      ValueType type = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+      ValueType type = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope);
       ClassOfValueType cl = (ValueType.create(
           null,
           scope.variables[(tokens..moveNext()).currentIdent.name + 'Class'] ??= Variable((tokens..moveNext()).currentIdent.name + 'Class'),
           tokens.current.line,
           tokens.current.col,
-          tokens.workspace,
           tokens.file,
           scope) as ClassOfValueType);
       tokens..moveNext();
@@ -1243,9 +1205,9 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       return NopStatement();
     case fwdstaticmethodVariable:
       ValueType returnType =
-          ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+          ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope);
       ClassValueType cl =
-          (ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope)
+          (ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope)
               as ClassValueType);
       tokens..moveNext();
       tokens.expectChar(TokenType.period);
@@ -1257,7 +1219,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       List<ValueType> parameters = parseArgList(tokens, (tokens) {
         Variable name = tokens.currentIdent;
         tokens.moveNext();
-        return ValueType.create(null, name, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+        return ValueType.create(null, name, tokens.current.line, tokens.current.col, tokens.file, scope);
       });
       ValueType type = FunctionValueType(returnType, parameters, tokens.file, scope);
       cl.properties.types[methodName] = TVProp(true, type, false);
@@ -1371,7 +1333,7 @@ Statement parseConst(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
     tokens.moveNext();
     static = true;
   }
-  ValueType type = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.workspace, tokens.file, scope);
+  ValueType type = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope);
   tokens.moveNext();
   Variable name = tokens.currentIdent;
   tokens.moveNext();
@@ -1380,8 +1342,8 @@ Statement parseConst(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
     tokens,
     scope,
   );
-  if (!expr.type.isSubtypeOf(type)) {
-    throw BSCException('attempted to assign $expr (a ${expr.type}) to $name, which is a const $type ${formatCursorPositionFromTokens(tokens)}', scope);
+  if (!expr.staticType.isSubtypeOf(type)) {
+    throw BSCException('attempted to assign $expr (a ${expr.staticType}) to $name, which is a const $type ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   tokens.expectChar(TokenType.endOfStatement);
   if (!static) scope.types[name] = TVProp(false, type, false);
@@ -1391,7 +1353,7 @@ Statement parseConst(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
   if (static) {
     return StaticFieldStatement(name, expr, start.line, start.col, true);
   }
-  return NewVarStatement(name, expr, start.line, start.col, tokens.workspace, tokens.file, true, type, scope);
+  return NewVarStatement(name, expr, start.line, start.col, tokens.file, true, type, scope);
 }
 
 Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnused) {
@@ -1407,23 +1369,22 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
     tokens,
     scope,
   );
-  if (!iterable.type.isSubtypeOf(ValueType.create(null, scope.variables['WhateverIterable'] ??= Variable('WhateverIterable'), tokens.current.line,
-      tokens.current.col, tokens.workspace, tokens.file, scope))) {
-    throw BSCException('tried to for loop over non-iterable (iterated over ${iterable.type}) ${formatCursorPositionFromTokens(tokens)}', scope);
+  if (!iterable.staticType.isSubtypeOf(ValueType.create(null, scope.variables['WhateverIterable'] ??= Variable('WhateverIterable'), tokens.current.line,
+      tokens.current.col, tokens.file, scope))) {
+    throw BSCException('tried to for loop over non-iterable (iterated over ${iterable.staticType}) ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   TypeValidator innerScope = TypeValidator([scope], NotLazyString('for loop'), false, false, false, scope.rtl, scope.variables, scope.environment);
   innerScope.newVar(
     currentName,
-    iterable.type is IterableValueType
-        ? (iterable.type as IterableValueType).genericParameter
-        : iterable.type is ListValueType
-            ? (iterable.type as ListValueType).genericParameter
-            : iterable.type is ArrayValueType
-                ? (iterable.type as ArrayValueType).genericParameter
+    iterable.staticType is IterableValueType
+        ? (iterable.staticType as IterableValueType).genericParameter
+        : iterable.staticType is ListValueType
+            ? (iterable.staticType as ListValueType).genericParameter
+            : iterable.staticType is ArrayValueType
+                ? (iterable.staticType as ArrayValueType).genericParameter
                 : scope.environment.anythingType,
     tokens.current.line,
     tokens.current.col,
-    tokens.workspace,
     tokens.file,
   );
   if (ignoreUnused) {
@@ -1443,7 +1404,6 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
     tokens.current.line,
     tokens.current.col,
     currentName,
-    tokens.workspace,
     tokens.file,
     scope,
   );
@@ -1465,7 +1425,6 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
       propType,
       tokens.current.line,
       tokens.current.col,
-      tokens.workspace,
       tokens.file,
     );
     body.add(
@@ -1479,7 +1438,6 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
     type,
     tokens.current.line,
     tokens.current.col,
-    tokens.workspace,
     tokens.file,
   );
   return EnumStatement(
@@ -1488,7 +1446,6 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
     type,
     tokens.current.line,
     tokens.current.col,
-    tokens.workspace,
     tokens.file,
     scope,
   );
@@ -1499,9 +1456,9 @@ IfStatement parseIf(TokenIterator tokens, TypeValidator scope) {
   tokens.expectChar(TokenType.openParen);
   Expression value = parseExpression(tokens, scope);
   tokens.expectChar(TokenType.closeParen);
-  if (!value.type.isSubtypeOf(scope.environment.booleanType)) {
+  if (!value.staticType.isSubtypeOf(scope.environment.booleanType)) {
     throw BSCException(
-      'The if condition ($value, a ${value.type}) is not a Boolean        ${formatCursorPositionFromTokens(tokens)}',
+      'The if condition ($value, a ${value.staticType}) is not a Boolean        ${formatCursorPositionFromTokens(tokens)}',
       scope,
     );
   }
@@ -1537,7 +1494,6 @@ IfStatement parseIf(TokenIterator tokens, TypeValidator scope) {
     elseBody,
     tokens.current.line,
     tokens.current.col,
-    tokens.workspace,
     tokens.file,
   );
 }

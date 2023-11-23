@@ -21,7 +21,7 @@ void main() {
             TestOutput output = TestOutput(errorOutput);
             int exitCode = 0;
             try {
-              runFile(file.readAsStringSync(), 'lib/rtl.syd', '.', file.path, false, true, [file.path], output, errorOutput, (e) {
+              runFile(file.readAsStringSync(), 'lib/rtl.syd', file.path, false, true, [file.path], output, errorOutput, (e) {
                 exitCode = e;
               });
             } on SydException catch (e) {

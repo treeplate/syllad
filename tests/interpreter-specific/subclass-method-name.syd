@@ -1,4 +1,4 @@
-// expected output: <function (method Pa.ss)>
+// expected output: <function (Pa.ss)>
 
 class Pa {
     Null ss() {

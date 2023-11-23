@@ -23,9 +23,8 @@ void main(List<String> args) {
         "This program takes 2+ arguments: the workspace of the file, and the filename, and then the arguments to the program it is running. You have passed in ${args.length}: ${args.map((e) => '|$e|').join(', ')}");
     exit(1);
   }
-  String workspace = '.';
   String file = args.first;
-  String fileContents = File(workspace + '/' + file).readAsStringSync();
+  String fileContents = File(file).readAsStringSync();
   if (fileContents.startsWith('// expected') || fileContents.startsWith('// unexpected')) {
     const String expectedOutput = '// expected output: ';
     const String expectedStderr = '// expected stderr: ';
@@ -53,7 +52,7 @@ void main(List<String> args) {
   try {
     String rtlDirectory = path.dirname(path.fromUri(Platform.script));
     String rtlPath = path.join(rtlDirectory, 'rtl.syd');
-    Environment environment = runFile(fileContents, rtlPath, workspace, file, profileMode, debugMode, args, stdout, stderr, exit);
+    Environment environment = runFile(fileContents, rtlPath, file, profileMode, debugMode, args, stdout, stderr, exit);
     File('profile.txt').writeAsStringSync((environment.profile.entries.toList()
           ..sort((kv2, kv1) => kv1.value.key.elapsedMilliseconds.compareTo(kv2.value.key.elapsedMilliseconds)))
         .map((kv) => '${kv.key.name} took ${kv.value.key.elapsedMilliseconds} milliseconds total across ${kv.value.value} calls.')
