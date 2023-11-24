@@ -301,6 +301,12 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics, Scope?
             StringBuffer buffer = l.first as StringBuffer;
             return buffer.toString();
           },
+          'startTimer': (List<Object?> l, [Scope? thisScope, ValueType? thisType]) {
+            return Stopwatch()..start();
+          },
+          'timerElapsed': (List<Object?> l, [Scope? thisScope, ValueType? thisType]) {
+            return (l.first as Stopwatch).elapsed.inMilliseconds;
+          },
         }.map(
           (key, value) => MapEntry(
             tv.identifiers[key] ??= Identifier(key),
@@ -374,6 +380,7 @@ Environment runFile(String fileContents, String rtlPath, String file, bool profi
   handleVariable(Identifier('Null'), identifiers);
   handleVariable(Identifier('~root_class'), identifiers);
   handleVariable(Identifier('~sentinel'), identifiers);
+  handleVariable(Identifier('Timer'), identifiers);
 
   var rtl = parse(lex(File(rtlPath).readAsStringSync(), rtlPath, environment), rtlPath, null, false, identifiers, environment);
   var parseResult = parse(

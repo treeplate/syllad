@@ -711,9 +711,9 @@ class CompilationEnvironment extends TypeRegistry {
     boundInstructions = generateDecrefInstructions(boundInstructions);
     stderr('convertBoundInstructions...');
     PseudoInstructionList pseudoInstructions = convertBoundInstructions(boundInstructions);
-    stderr('flattenInstructions with', len(pseudoInstructions), 'instructions');
+    stderr(concat('flattenInstructions... (', len(pseudoInstructions), ' top-level instructions)'));
     pseudoInstructions = flattenInstructions(pseudoInstructions); // gets rid of if and loop and replaces with jumps and labels
-    stderr('optimizePseudoInstructionsWithoutTypeCodes...');
+    stderr(concat('optimizePseudoInstructionsWithoutTypeCodes... (', len(pseudoInstructions), ' total instructions)'));
     pseudoInstructions = optimizePseudoInstructionsWithoutTypeCodes(pseudoInstructions);
     stderr('assignTypeCodes...');
     assignTypeCodes(); // inherited from TypeRegistry

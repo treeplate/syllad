@@ -268,6 +268,7 @@ class Environment {
   late final ValueType<StringBuffer> stringBufferType;
   late final ValueType<SydFile> fileType;
   late final ValueType<SydSentinel> sentinelType;
+  late final ValueType<Stopwatch> timerType;
   final List<BoolList> subtypeTable; // subtypeTable[a][b] is equivalent to a.isSubtypeOf(b)
   int currentTypeId; // xxx this should probably be an IntWrapper or something
   final List<LazyString> stack;
@@ -701,6 +702,8 @@ ValueType getType(Object? value, VariableGroup scope, int line, int col, String 
       return scope.environment.stringType;
     case StringBuffer():
       return scope.environment.stringBufferType;
+    case Stopwatch():
+      return scope.environment.timerType;
     case SydSentinel():
       throw BSCException('Tried to access uninitalized value ${formatCursorPosition(line, col, file)}', scope);
     case TypedValue(type: ValueType type):

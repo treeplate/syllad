@@ -794,7 +794,7 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String f
   TypeValidator intrinsics = TypeValidator([], NotLazyString('intrinsics'), false, false, false, rtl, identifiers, environment);
   if (rtl == null) {
     try {
-      environment.anythingType;
+      environment.anythingType; // TODO: better way to check if this is initialized
     } catch (e) {
       environment.anythingType = ValueType.internal(null, identifiers['Anything']!, 'intrinsics', false, intrinsics, environment);
       environment.integerType = ValueType.internal(environment.anythingType, identifiers['Integer']!, 'intrinsics', false, intrinsics, environment);
@@ -805,6 +805,7 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String f
       environment.stringBufferType = ValueType.internal(environment.anythingType, identifiers['StringBuffer']!, 'intrinsics', false, intrinsics, environment);
       environment.fileType = ValueType.internal(environment.anythingType, identifiers['File']!, 'intrinsics', false, intrinsics, environment);
       environment.sentinelType = ValueType.internal(environment.anythingType, identifiers['~sentinel']!, 'intrinsics', false, intrinsics, environment);
+      environment.timerType = ValueType.internal(environment.anythingType, identifiers['Timer']!, 'intrinsics', false, intrinsics, environment);
     }
   }
   intrinsics.types = <String, ValueType>{
@@ -901,6 +902,8 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String f
     'createStringBuffer': FunctionValueType(environment.stringBufferType, [], 'intrinsics', intrinsics),
     'writeStringBuffer': FunctionValueType(environment.nullType, [environment.stringBufferType, environment.stringType], 'intrinsics', intrinsics),
     'readStringBuffer': FunctionValueType(environment.stringType, [environment.stringBufferType], 'intrinsics', intrinsics),
+    'startTimer': FunctionValueType(environment.timerType, [], 'intrinsics', intrinsics),
+    'timerElapsed': FunctionValueType(environment.integerType, [environment.timerType], 'intrinsics', intrinsics),
   }.map(
     (key, value) => MapEntry(
       identifiers[key] ??= Identifier(key),
@@ -925,6 +928,8 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String f
   intrinsics.types[identifiers[v] ??= Identifier(v)] = TVProp(false, environment.fileType, false);
   v = '~type${environment.sentinelType.name.name}';
   intrinsics.types[identifiers[v] ??= Identifier(v)] = TVProp(false, environment.sentinelType, false);
+  v = '~type${environment.timerType.name.name}';
+  intrinsics.types[identifiers[v] ??= Identifier(v)] = TVProp(false, environment.timerType, false);
   intrinsics.directVars.addAll(intrinsics.types.keys);
 
   TypeValidator validator =

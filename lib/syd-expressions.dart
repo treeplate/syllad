@@ -636,16 +636,14 @@ class FunctionCallExpr extends Expression {
     }
     //print('evaluated arguments...');
     List<LazyString> stack = scope.environment.stack;
-    if (stack.last is NotLazyString) {
-      stack[stack.length - 1] = CursorPositionLazyString((stack.last as NotLazyString).str, line, col, file);
-    } else {
-      stack[stack.length - 1] = ConcatenateLazyString(stack.last, CursorPositionLazyString('', line, col, file));
-    }
+    stack[stack.length - 1] = ConcatenateLazyString(stack.last, CursorPositionLazyString('', line, col, file));
     try {
       if (type2 is ClassOfValueType) {
         aEval = (aEval as Class).constructor;
       }
-      return (aEval as SydFunction).function(args);
+      Object? result = (aEval as SydFunction).function(args);
+      stack[stack.length - 1] = (stack.last as ConcatenateLazyString).left;
+      return result;
     } on StackOverflowError {
       throw BSCException('Stack Overflow ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}', scope);
     }
