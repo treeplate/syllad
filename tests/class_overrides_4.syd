@@ -10,6 +10,7 @@ class X {
 }
 
 class Y extends X {
+  //#override
   Integer foo(A a) { println('PASS', a.className); }
 }
 

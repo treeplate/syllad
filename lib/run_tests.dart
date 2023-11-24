@@ -356,7 +356,7 @@ TestResult? runCompiler(File file) {
     return TestResult(normalizedStdout, normalizedStderr, result.exitCode,
         interpretation: resultCode); // failure is not set to true here because we might be expecting a failure
   }
-  File assembly = File('../${file.path}.asm');
+  File assembly = File('${file.path}.asm');
   if (assembly.existsSync()) {
     List<String> asm = assembly.readAsLinesSync();
     assembly.deleteSync();

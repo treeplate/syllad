@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'package:collection/collection.dart';
 import 'dart:io';
 
 class Concat {
@@ -32,12 +33,12 @@ class CursorPositionLazyString extends LazyString {
   CursorPositionLazyString(this.str, this.line, this.col, this.file);
 }
 
-class VariableLazyString extends LazyString {
+class IdentifierLazyString extends LazyString {
   final Identifier variable;
 
   String toString() => variable.name;
 
-  VariableLazyString(this.variable);
+  IdentifierLazyString(this.variable);
 }
 
 class ConcatenateLazyString extends LazyString {
@@ -169,9 +170,9 @@ class BSCException extends SydException {
   int get exitCode => -2;
 }
 
-Never throwWithStack(Scope scope, List<LazyString> stack, String value) {
+Never throwWithStack(Scope scope, String value) {
   SydFunction<Never> thrower = scope.getVar(throwVariable, -2, 0, 'in throwWithStack while throwing $value', null) as SydFunction<Never>;
-  return thrower.function([value, -2], stack);
+  return thrower.function([value, -2]);
 }
 
 class Identifier {
@@ -187,7 +188,7 @@ abstract class TypedValue<T> {
 }
 
 class SydFunction<T extends Object?> extends TypedValue<SydFunction<T>> {
-  final T Function(List<Object?> args, List<LazyString>, [Scope?, ValueType?]) function;
+  final T Function(List<Object?> args, [Scope?, ValueType?]) function;
   final ValueType<SydFunction<T>> type;
   final Object? debugName;
 
@@ -255,8 +256,6 @@ ValueType elementTypeOf(ValueType<SydIterable> iterable) {
 
 class TypeTable {
   final Map<Identifier, ValueType> types = {};
-  final List<List<bool>> subtypeTable = []; // subtypeTable[a][b] is equivalent to a.isSubtypeOf(b) (xxx this should go in environment)
-  int currentId = 0; // xxx this should go in environment
 }
 
 class Environment {
@@ -269,6 +268,9 @@ class Environment {
   late final ValueType<StringBuffer> stringBufferType;
   late final ValueType<SydFile> fileType;
   late final ValueType<SydSentinel> sentinelType;
+  final List<BoolList> subtypeTable; // subtypeTable[a][b] is equivalent to a.isSubtypeOf(b)
+  int currentTypeId; // xxx this should probably be an IntWrapper or something
+  final List<LazyString> stack;
   final TypeTable typeTable;
   final Map<String, Scope> filesRan;
   final Map<String, TypeValidator> loadedGlobalScopes;
@@ -277,20 +279,19 @@ class Environment {
   final List<String> filesStartedLoading;
   final IOSink stderr;
 
-  Environment copyWith(TypeTable typeTable) {
-    return Environment(typeTable, stderr, filesRan, loadedGlobalScopes, profile, filesLoaded, filesStartedLoading);
-  }
-
   Environment(this.typeTable, this.stderr,
       [Map<String, Scope>? filesRan,
       Map<String, TypeValidator>? loadedGlobalScopes,
       Map<Identifier, MapEntry<Stopwatch, int>>? profile,
       Map<String, MapEntry<List<Statement>, TypeValidator>>? filesLoaded,
-      List<String>? filesStartedLoading])
+      List<String>? filesStartedLoading, List<BoolList>? subtypeTable, List<LazyString>? stack, int? currentTypeId])
       : this.filesRan = filesRan ?? {},
         this.loadedGlobalScopes = loadedGlobalScopes ?? {},
         this.profile = profile ?? {},
         this.filesLoaded = filesLoaded ?? {},
+        this.subtypeTable = subtypeTable ?? [],
+        this.stack = stack ?? [NotLazyString('main')],
+        this.currentTypeId = currentTypeId ?? 0,
         this.filesStartedLoading = filesStartedLoading ?? [];
 }
 
@@ -557,7 +558,6 @@ class Scope extends VariableGroup implements TypedValue<Scope> {
     this.environment, {
     required this.intrinsics,
     Scope? parent,
-    required this.stack,
     this.declaringClass,
     required this.debugName,
     this.typeIfClass,
@@ -568,7 +568,6 @@ class Scope extends VariableGroup implements TypedValue<Scope> {
   }) : parents = [if (parent != null) parent];
   final LazyString debugName;
   final List<Scope> parents;
-  final List<LazyString> stack;
   final Scope? intrinsics;
   final Scope? rtl;
   final bool isStaticClass;
@@ -602,11 +601,11 @@ class Scope extends VariableGroup implements TypedValue<Scope> {
     throw "called Scope.toString()";
   }
 
-  String toStringWithStack(List<LazyString> stack2, int line, int col, String file, bool rethrowErrors) {
+  String toStringWithStack(int line, int col, String file, bool rethrowErrors) {
     try {
       return values.containsKey(identifiers['toString'])
-          ? (values[identifiers['toString']]!.value as SydFunction<Object?>).function([], stack2 + [NotLazyString("implicit toString")]) as String
-          : "<${values[identifiers['className']]?.value ?? '($debugName: stack: $stack)'}>";
+          ? (values[identifiers['toString']]!.value as SydFunction<Object?>).function([]) as String
+          : "<${values[identifiers['className']]?.value ?? '($debugName)'}>";
     } on SydException {
       if (rethrowErrors) rethrow;
       return '<$debugName>';
@@ -620,7 +619,7 @@ class Scope extends VariableGroup implements TypedValue<Scope> {
   }
 
   (bool, Object?) internal_getVar(Identifier name) {
-      var localResult = values[name];
+    MaybeConstantValueWrapper? localResult = values[name];
     if (localResult != null) {
       return (true, localResult.value);
     }
@@ -639,7 +638,7 @@ class Scope extends VariableGroup implements TypedValue<Scope> {
         ? val.$2
         : (validator?.classes.containsKey(name) ?? false
             ? (throw BSCException("class ${name.name} has not yet been defined ${formatCursorPosition(line, column, file)}", this))
-            : (throw BSCException("${name.name} nonexistent ${formatCursorPosition(line, column, file)} ${stack.reversed.join("\n")}", this)));
+            : (throw BSCException("${name.name} nonexistent ${formatCursorPosition(line, column, file)} ${environment.stack.reversed.join("\n")}", this)));
   }
 
   bool recursiveContains(Identifier variable) {
@@ -683,7 +682,7 @@ class Scope extends VariableGroup implements TypedValue<Scope> {
     buffer.write("\n${' ' * (indent + 2)}declaringClass: $declaringClass");
     buffer.write("\n${' ' * (indent + 2)}typeIfClass: $typeIfClass");
     buffer.write(
-      "${values.entries.map<String>((kv) => '\n${' ' * (indent + 2)}${kv.key.name}: ${toStringWithStackerNullable(kv.value.value, stack, -2, 0, 'file', false, environment) ?? 'uninitialized'}\n${' ' * (indent + 4)}type: ${kv.value.value is SydSentinel ? '<sentinel>' : (kv.value.value is Scope && (kv.value.value as Scope).typeIfClass == null) ? '<no type>' : getType(kv.value.value, this, -2, 0, 'in dumpIndent')}\n${' ' * (indent + 4)}isConstant: ${kv.value.isConstant}').join('')}",
+      "${values.entries.map<String>((kv) => '\n${' ' * (indent + 2)}${kv.key.name}: ${toStringWithStacker(kv.value.value, -2, 0, 'file', false)}\n${' ' * (indent + 4)}type: ${kv.value.value is SydSentinel ? '<sentinel>' : (kv.value.value is Scope && (kv.value.value as Scope).typeIfClass == null) ? '<no type>' : getType(kv.value.value, this, -2, 0, 'in dumpIndent')}\n${' ' * (indent + 4)}isConstant: ${kv.value.isConstant}').join('')}",
     );
     buffer.write("\n${' ' * (indent + 2)}parents: ${parents.map((e) => '\n${e.dumpIndent(indent + 4)}').join('')}");
     return buffer.toString();
@@ -715,7 +714,7 @@ class ValueType<T extends Object?> {
   final ValueType? parent;
   final Identifier name;
 
-  late int id = environment.typeTable.currentId++;
+  late int id = environment.currentTypeId++;
 
   bool memberAccesible() {
     // whether this is a valid reciever for member access
@@ -738,14 +737,13 @@ class ValueType<T extends Object?> {
     environment.typeTable.types[name] = this;
     tv.types[tv.identifiers['~type${name.name}'] ??= Identifier('~type${name.name}')] = TVProp(false, this, false);
     tv.igv(tv.identifiers['~type${name.name}']!, true);
-    assert(environment.typeTable.subtypeTable.length == id);
-    environment.typeTable.subtypeTable.add([]);
+    assert(environment.subtypeTable.length == id);
+    environment.subtypeTable.add(BoolList(id+1, growable: true));
     for (ValueType type in environment.typeTable.types.values) {
-      assert(type.id == environment.typeTable.subtypeTable[id].length);
-      environment.typeTable.subtypeTable[id].add(internal_isSubtypeOf(type));
+      environment.subtypeTable[id][type.id] = internal_isSubtypeOf(type);
       if (type.id == id) continue;
-      assert(id == environment.typeTable.subtypeTable[type.id].length);
-      environment.typeTable.subtypeTable[type.id].add(type.internal_isSubtypeOf(this));
+      assert(id == environment.subtypeTable[type.id].length);
+      environment.subtypeTable[type.id].add(type.internal_isSubtypeOf(this));
     }
   }
 
@@ -863,7 +861,7 @@ class ValueType<T extends Object?> {
   }
 
   bool isSubtypeOf(ValueType possibleParent) {
-    return environment.typeTable.subtypeTable[id][possibleParent.id];
+    return environment.subtypeTable[id][possibleParent.id];
   }
 
   ValueType withReturnType(ValueType x, String file) {
@@ -899,17 +897,9 @@ class ClassValueType extends ValueType<Scope> {
   }
 }
 
-String toStringWithStacker(Object? x, List<LazyString> s, int line, int col, String file, bool rethrowErrors, Environment environment) {
-  if (getType(x, NoDataVG(environment), line, col, file) is ClassValueType) {
-    return (x as Scope).toStringWithStack(s, line, col, file, rethrowErrors);
-  } else {
-    return x.toString();
-  }
-}
-
-String? toStringWithStackerNullable(Object? x, List<LazyString> s, int line, int col, String file, bool rethrowErrors, Environment environment) {
+String toStringWithStacker(Object? x, int line, int col, String file, bool rethrowErrors) {
   if (x is Scope) {
-    return x.toStringWithStack(s, line, col, file, rethrowErrors);
+    return x.toStringWithStack(line, col, file, rethrowErrors);
   } else {
     return x.toString();
   }

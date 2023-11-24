@@ -41,9 +41,9 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
     throw BSCException('${superclass.name} nonexistent while trying to have ${name.name} extend it. ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   TypeValidator newScope = superclass == null
-      ? TypeValidator([scope], ConcatenateLazyString(NotLazyString('root class '), VariableLazyString(name)), true, false, false, scope.rtl, scope.identifiers,
+      ? TypeValidator([scope], ConcatenateLazyString(NotLazyString('root class '), IdentifierLazyString(name)), true, false, false, scope.rtl, scope.identifiers,
           scope.environment)
-      : TypeValidator([scope.classes[superclass]!, scope], ConcatenateLazyString(NotLazyString('subclass '), VariableLazyString(name)), true, false, false,
+      : TypeValidator([scope.classes[superclass]!, scope], ConcatenateLazyString(NotLazyString('subclass '), IdentifierLazyString(name)), true, false, false,
           scope.rtl, scope.identifiers, scope.environment);
   ClassValueType type = ClassValueType(name, supertype as ClassValueType?, newScope, tokens.file, false, scope);
   if (newScope != type.properties) {
@@ -84,7 +84,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
     throw BSCException('Cannot extend an class that has not been defined yet.', scope);
   }
   TypeValidator staticMembers = TypeValidator([if (superclass != null) (supertype1 as ClassOfValueType).staticMembers],
-      ConcatenateLazyString(NotLazyString('static members of '), VariableLazyString(name)), false, true, false, scope.rtl, scope.identifiers, scope.environment);
+      ConcatenateLazyString(NotLazyString('static members of '), IdentifierLazyString(name)), false, true, false, scope.rtl, scope.identifiers, scope.environment);
   for (Statement statement in block) {
     if (statement is StaticFieldStatement) {
       if (!statement.val.staticType.isSubtypeOf(
@@ -738,7 +738,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   }
   tokens.expectChar(TokenType.openBrace);
   Iterable<ValueType> typeParams = isVararg ? InfiniteIterable(params.first.type) : params.map((e) => e.type);
-  TypeValidator tv = TypeValidator([scope], ConcatenateLazyString(NotLazyString('function '), VariableLazyString(ident2)), false, false, static, scope.rtl,
+  TypeValidator tv = TypeValidator([scope], ConcatenateLazyString(NotLazyString('function '), IdentifierLazyString(ident2)), false, false, static, scope.rtl,
       scope.identifiers, scope.environment)
     ..types.addAll(isVararg
         ? {params.first.name: TVProp(false, ListValueType(params.first.type, 'internal', scope), false)}
@@ -999,7 +999,7 @@ ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
   }
   scope.environment.filesStartedLoading.add(str);
   if (!File('${path.dirname(tokens.file)}/$str').existsSync()) {
-    throw BSCException('Attempted import of nonexistent file $str ${path.dirname(tokens.file)} ${tokens.file} $str ${formatCursorPositionFromTokens(tokens)}', scope);
+    throw BSCException('Attempted import of nonexistent file ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   tokens.moveNext();
   tokens.expectChar(TokenType.endOfStatement);
@@ -1084,11 +1084,11 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       if (tokens.current is IdentToken && tokens.currentIdent == scope.identifiers['extends']) {
         spt = ValueType.create(null, (tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope)
             as ClassValueType;
-        props = TypeValidator([spt.properties], ConcatenateLazyString(NotLazyString('forward-declared subclass '), VariableLazyString(cln)), true, false, false,
+        props = TypeValidator([spt.properties], ConcatenateLazyString(NotLazyString('forward-declared subclass '), IdentifierLazyString(cln)), true, false, false,
             scope.rtl, scope.identifiers, scope.environment);
         tokens.moveNext();
       } else {
-        props = TypeValidator([scope], ConcatenateLazyString(NotLazyString('forward-declared root class '), VariableLazyString(cln)), true, false, false,
+        props = TypeValidator([scope], ConcatenateLazyString(NotLazyString('forward-declared root class '), IdentifierLazyString(cln)), true, false, false,
             scope.rtl, scope.identifiers, scope.environment);
       }
       ClassValueType x = ClassValueType(cln, spt, props, tokens.file, true, scope);
@@ -1415,7 +1415,7 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
   tokens.moveNext();
   List<Identifier> body = [];
   TypeValidator tv = TypeValidator(
-      [], ConcatenateLazyString(VariableLazyString(name), NotLazyString('-enum')), false, false, false, scope.rtl, scope.identifiers, scope.environment);
+      [], ConcatenateLazyString(IdentifierLazyString(name), NotLazyString('-enum')), false, false, false, scope.rtl, scope.identifiers, scope.environment);
   EnumPropertyValueType propType = EnumPropertyValueType(name, tokens.file, scope);
   EnumValueType type = EnumValueType(name, tv, tokens.file, propType, scope);
   tokens.expectChar(TokenType.openBrace);

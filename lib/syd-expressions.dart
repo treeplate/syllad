@@ -22,7 +22,7 @@ class AssertExpression extends Expression {
     Object? conditionEval = condition.eval(scope);
     if (conditionEval is! bool) {
       throw BSCException(
-        'argument 0 of assert, ${toStringWithStacker(conditionEval, scope.stack, line, col, file, false, scope.environment)} ($condition), of wrong type (${getType(conditionEval, scope, line, col, file)}) expected boolean ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}',
+        'argument 0 of assert, ${toStringWithStacker(conditionEval,line, col, file, false)} ($condition), of wrong type (${getType(conditionEval, scope, line, col, file)}) expected boolean ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}',
         scope,
       );
     }
@@ -30,12 +30,12 @@ class AssertExpression extends Expression {
       Object? commentEval = comment.eval(scope);
       if (!getType(commentEval, scope, line, col, file).isSubtypeOf(tv.environment.stringType)) {
         throw BSCException(
-          'argument 1 of assert, $commentEval ($comment), of wrong type (${getType(commentEval, scope, line, col, file)}) expected string ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}',
+          'argument 1 of assert, $commentEval ($comment), of wrong type (${getType(commentEval, scope, line, col, file)}) expected string ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}',
           scope,
         );
       }
       throw AssertException(
-        (commentEval as String) + ' ($condition was not true) ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}',
+        (commentEval as String) + ' ($condition was not true) ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}',
         scope,
       );
     }
@@ -56,7 +56,7 @@ class GetExpr extends Expression {
   void write(Object? value, bool isConstant, Scope scope) {
     if (scope.values[name]?.isConstant ?? false) {
       throw BSCException(
-        'Cannot write to constant variable ${name.name} ${formatCursorPosition(line, col, file)} ${scope.stack.reversed.join('\n')}',
+        'Cannot write to constant variable ${name.name} ${formatCursorPosition(line, col, file)} ${scope.environment.stack.reversed.join('\n')}',
         scope,
       );
     }
@@ -64,7 +64,7 @@ class GetExpr extends Expression {
       if (!getType(value, scope, line, col, file).isSubtypeOf(staticType)) {
         // xxx shadowed variables
         throw BSCException(
-            'Tried to assign ${toStringWithStacker(value, scope.stack, line, col, file, false, scope.environment)} to ${name.name} but the new type, ${getType(value, scope, line, col, file)}, is not a subtype of the variable\'s type, $staticType ${formatCursorPosition(line, col, file)}',
+            'Tried to assign ${toStringWithStacker(value, line, col, file, false)} to ${name.name} but the new type, ${getType(value, scope, line, col, file)}, is not a subtype of the variable\'s type, $staticType ${formatCursorPosition(line, col, file)}',
             scope);
       }
       scope.values[name] = MaybeConstantValueWrapper(value, isConstant);
@@ -78,7 +78,7 @@ class GetExpr extends Expression {
       }
     }
     throw BSCException(
-      'Tried to write to nonexistent variable ${name.name} ${scope.recursiveContains(name)} ${formatCursorPosition(line, col, file)} ${scope.stack.reversed.join('\n')}',
+      'Tried to write to nonexistent variable ${name.name} ${scope.recursiveContains(name)} ${formatCursorPosition(line, col, file)} ${scope.environment.stack.reversed.join('\n')}',
       scope,
     );
   }
@@ -176,19 +176,19 @@ class SubscriptExpression extends Expression {
     Object? listType = getType(listValue, scope, line, col, file);
     if (listValue is! SydList) {
       throw BSCException(
-        '$a is not a list ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}',
+        '$a is not a list ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}',
         scope,
       );
     }
     if (listType is ArrayValueType) {
       throw BSCException(
-        '$a is an array which cannot be modified ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}',
+        '$a is an array which cannot be modified ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}',
         scope,
       );
     }
     if (listValue.list.length <= index || index < 0) {
       throw BSCException(
-        'RangeError: ${toStringWithStacker(listValue, scope.stack, line, col, file, false, scope.environment)} ($a) has ${listValue.list.length} elements, but it was subscripted with element $index. ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}',
+        'RangeError: ${toStringWithStacker(listValue, line, col, file, false)} ($a) has ${listValue.list.length} elements, but it was subscripted with element $index. ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}',
         scope,
       );
     }
@@ -204,7 +204,7 @@ class SubscriptExpression extends Expression {
     }
     if (list.array.length <= index || index < 0) {
       throw BSCException(
-        'RangeError: ${toStringWithStacker(list, scope.stack, line, col, file, false, scope.environment)} ($a) has ${list.array.length} elements, but it was subscripted with element $index. ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}',
+        'RangeError: ${toStringWithStacker(list, line, col, file, false)} ($a) has ${list.array.length} elements, but it was subscripted with element $index. ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}',
         scope,
       );
     }
@@ -236,7 +236,7 @@ class MemberAccessExpression extends Expression {
     ValueType type2 = getType(thisScopeWrapper, scope, line, col, file);
     if (type2 is! ClassValueType && type2 is! ClassOfValueType && type2 is! EnumValueType) {
       throw BSCException(
-        '$thisScopeWrapper ($a) is not an instance of a class or a class or an enum, it\'s a $type2 ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}',
+        '$thisScopeWrapper ($a) is not an instance of a class or a class or an enum, it\'s a $type2 ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}',
         scope,
       );
     }
@@ -317,7 +317,7 @@ class AsExpr extends Expression {
         () {
           if (!possibleChildType.isSubtypeOf(isType)) {
             throw BSCException(
-              'as failed; expected $isType got ${toStringWithStacker(possibleChildValue, scope.stack, line, col, file, false, scope.environment)} (a $possibleChildType) \n${formatCursorPosition(line, col, file)} ${scope.stack.reversed.join('\n')}',
+              'as failed; expected $isType got ${toStringWithStacker(possibleChildValue, line, col, file, false)} (a $possibleChildType) \n${formatCursorPosition(line, col, file)} ${scope.environment.stack.reversed.join('\n')}',
               scope,
             );
           }
@@ -438,10 +438,10 @@ class RemainderExpression extends Expression {
     if (!(getType(av, scope, line, col, file).isSubtypeOf(tv.environment.integerType) &&
         getType(bv, scope, line, col, file).isSubtypeOf(tv.environment.integerType))) {
       throw BSCException(
-          '$av ($a) or $bv ($b) is not an integer; attempted $a%$b ${formatCursorPosition(line, col, file)}\n ${scope.stack.reversed.join('\n')}', scope);
+          '$av ($a) or $bv ($b) is not an integer; attempted $a%$b ${formatCursorPosition(line, col, file)}\n ${scope.environment.stack.reversed.join('\n')}', scope);
     }
     if (bv == 0) {
-      throw BSCException('$a ($av) % $b (0) attempted ${formatCursorPosition(line, col, file)} stack ${scope.stack.join('\n')}', scope);
+      throw BSCException('$a ($av) % $b (0) attempted ${formatCursorPosition(line, col, file)} stack ${scope.environment.stack.reversed.join('\n')}', scope);
     }
     return av % bv;
   }
@@ -462,7 +462,7 @@ class SubtractExpression extends Expression {
     if (!(getType(av, scope, line, col, file).isSubtypeOf(tv.environment.integerType) &&
         getType(bv, scope, line, col, file).isSubtypeOf(tv.environment.integerType))) {
       throw BSCException(
-          '$av ($a) or $bv ($b) is not an integer; attempted $a-$b ${formatCursorPosition(line, col, file)}\n ${scope.stack.reversed.join('\n')}', scope);
+          '$av ($a) or $bv ($b) is not an integer; attempted $a-$b ${formatCursorPosition(line, col, file)}\n ${scope.environment.stack.reversed.join('\n')}', scope);
     }
     return av - bv;
   }
@@ -485,7 +485,7 @@ class AddExpression extends Expression {
     if (!(getType(av, scope, line, col, file).isSubtypeOf(tv.environment.integerType) &&
         getType(bv, scope, line, col, file).isSubtypeOf(tv.environment.integerType))) {
       throw BSCException(
-          '${toStringWithStacker(av, scope.stack, line, col, file, false, scope.environment)} ($a) or ${toStringWithStacker(bv, scope.stack, line, col, file, false, scope.environment)} ($b) is not an integer; attempted $a+$b ${formatCursorPosition(line, col, file)}\n ${scope.stack.reversed.join('\n')}',
+          '${toStringWithStacker(av, line, col, file, false)} ($a) or ${toStringWithStacker(bv, line, col, file, false)} ($b) is not an integer; attempted $a+$b ${formatCursorPosition(line, col, file)}\n ${scope.environment.stack.reversed.join('\n')}',
           scope);
     }
     return av + bv;
@@ -509,7 +509,7 @@ class SuperExpression extends Expression {
     if (classType == null) {
       Scope? staticClass = scope.currentStaticClass;
       if (staticClass == null) {
-        throw BSCException('Called super expression outside class\n${scope.stack.reversed.join('\n')}', scope);
+        throw BSCException('Called super expression outside class\n${scope.environment.stack.reversed.join('\n')}', scope);
       }
       return staticClass.parents.single.getVar(member, line, col, file, tv);
     }
@@ -528,8 +528,8 @@ class SuperExpression extends Expression {
     FunctionValueType superMethodType = getType(superMethod, scope, line, col, file) as FunctionValueType;
     superMethods.getVar(member, line, col, file, tv);
     assert(superMethod is SydFunction);
-    Object? x = SydFunction((List args, List<LazyString> stack, [Scope? thisScope, ValueType? thisType]) {
-      return (superMethod as SydFunction).function(args, stack, scope.getClass()!, classType);
+    Object? x = SydFunction((List args, [Scope? thisScope, ValueType? thisType]) {
+      return (superMethod as SydFunction).function(args, scope.getClass()!, classType);
     }, superMethodType, Concat('super.', member.name));
     return x;
   }
@@ -589,7 +589,7 @@ class UnwrapExpression extends Expression {
   Object eval(Scope scope) {
     Object? aval = a.eval(scope);
     if (aval == null) {
-      throw BSCException('Failed unwrap of null ($a) ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}', scope);
+      throw BSCException('Failed unwrap of null ($a) ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}', scope);
     }
     return aval;
   }
@@ -624,30 +624,30 @@ class FunctionCallExpr extends Expression {
     Object? aEval = a.eval(scope);
     ValueType type2 = getType(aEval, scope, line, col, file);
     if (!type2.isSubtypeOf(anythingFunctionType) && !(type2 is ClassOfValueType)) {
-      throw BSCException('tried to call non-function: $aEval, ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}', scope);
+      throw BSCException('tried to call non-function: $aEval, ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}', scope);
     }
     List<Object?> args = b.map((x) => x.eval(scope)).toList();
     for (int i = 0; i < args.length; i++) {
       if (a.staticType is FunctionValueType && !getType(args[i], scope, line, col, file).isSubtypeOf((type2 as FunctionValueType).parameters.elementAt(i))) {
         throw BSCException(
-            'argument #$i of $a, ${toStringWithStacker(args[i], scope.stack, line, col, file, false, scope.environment)} (${b[i]}), of wrong type (${getType(args[i], scope, line, col, file)}) expected ${type2.parameters.elementAt(i)} ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}',
+            'argument #$i of $a, ${toStringWithStacker(args[i], line, col, file, false)} (${b[i]}), of wrong type (${getType(args[i], scope, line, col, file)}) expected ${type2.parameters.elementAt(i)} ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}',
             scope);
       }
     }
     //print('evaluated arguments...');
-    List<LazyString> newStack = scope.stack.toList();
-    if (newStack.last is NotLazyString) {
-      newStack[newStack.length - 1] = CursorPositionLazyString((newStack.last as NotLazyString).str, line, col, file);
+    List<LazyString> stack = scope.environment.stack;
+    if (stack.last is NotLazyString) {
+      stack[stack.length - 1] = CursorPositionLazyString((stack.last as NotLazyString).str, line, col, file);
     } else {
-      newStack[newStack.length - 1] = ConcatenateLazyString(newStack.last, CursorPositionLazyString('', line, col, file));
+      stack[stack.length - 1] = ConcatenateLazyString(stack.last, CursorPositionLazyString('', line, col, file));
     }
     try {
       if (type2 is ClassOfValueType) {
         aEval = (aEval as Class).constructor;
       }
-      return (aEval as SydFunction).function(args, newStack);
+      return (aEval as SydFunction).function(args);
     } on StackOverflowError {
-      throw BSCException('Stack Overflow ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}', scope);
+      throw BSCException('Stack Overflow ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}', scope);
     }
   }
 }
@@ -664,7 +664,7 @@ class ListLiteralExpression extends Expression {
     for (Object? param in params) {
       if (!getType(param, scope, line, col, file).isSubtypeOf(genParam)) {
         throw BSCException(
-            'List literal element ${toStringWithStacker(param, scope.stack, line, col, file, false, scope.environment)} (${getType(param, scope, line, col, file)}) is not a subtype of $genParam ${formatCursorPosition(line, col, file)}\n${scope.stack.reversed.join('\n')}',
+            'List literal element ${toStringWithStacker(param, line, col, file, false)} (${getType(param, scope, line, col, file)}) is not a subtype of $genParam ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}',
             scope);
       }
     }
