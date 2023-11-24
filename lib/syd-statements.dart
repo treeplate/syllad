@@ -33,8 +33,6 @@ class ImportStatement extends Statement {
 
   @override
   StatementResult run(Scope scope) {
-    List<LazyString> stack = scope.environment.stack.toList();
-    stack[stack.length - 1] = ConcatenateLazyString(stack.last, CursorPositionLazyString('', line, col, currentFilename));
     scope.addParent((scope.environment.filesRan[filename] ??
         (scope.environment.filesRan[filename] = runProgram(file, filename, scope.intrinsics, scope.rtl, typeValidator, false,
             false /* debug and profile mode are only for the main program */, stdout, stderr, exit, ['INTERPRETER ERROR']))));
