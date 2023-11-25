@@ -107,7 +107,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         tokens.moveNext();
         if (tokens.current is CharToken && tokens.currentChar == TokenType.colon) {
           tokens.moveNext();
-          ValueType t = ValueType.create(null, tokens.currentIdent, current.line, current.col, tokens.file, scope);
+          ValueType t = ValueType.create(tokens.currentIdent, current.line, current.col, tokens.file, scope);
           for (Expression expr in elements) {
             if (!expr.staticType.isSubtypeOf(t)) {
               throw BSCException(
@@ -214,7 +214,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             throw BSCException("Attempted to subscript using non-integer index: $operandB. ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           tokens.expectChar(TokenType.closeSquare);
-          if (!result.staticType.isSubtypeOf(ArrayValueType(ValueType.create(null, whateverVariable, -2, 0, 'internal', scope), 'internal', scope))) {
+          if (!result.staticType.isSubtypeOf(ArrayValueType(ValueType.create(whateverVariable, -2, 0, 'internal', scope), 'internal', scope))) {
             throw BSCException("tried to subscript ${result.staticType} ($result) ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           result = SubscriptExpression(
@@ -285,7 +285,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
           } else if (result.staticType is GenericFunctionValueType) {
             funType = result.staticType as GenericFunctionValueType;
           } else {
-            funType = ValueType.create(scope.environment.anythingType, scope.identifiers['AnythingFunction']!, 0, 0, '', scope) as GenericFunctionValueType;
+            funType = ValueType.create(scope.identifiers['AnythingFunction']!, 0, 0, '', scope) as GenericFunctionValueType;
           }
           while (tokens.current is! CharToken || tokens.currentChar != TokenType.closeParen) {
             Expression expr = parseExpression(
@@ -449,7 +449,7 @@ Expression parseUnaryOperators(TokenIterator tokens, TypeValidator scope) {
       );
     } else if (tokens.currentChar == TokenType.typeCodeOfIdent) {
       tokens.moveNext();
-      ValueType type = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope);
+      ValueType type = ValueType.create(tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope);
       tokens.moveNext();
       return BoringExpr(type.id, scope.environment.integerType, scope);
     }
@@ -457,7 +457,7 @@ Expression parseUnaryOperators(TokenIterator tokens, TypeValidator scope) {
   Expression operand = parseFunCalls(tokens, scope);
   if (tokens.current is CharToken && tokens.currentChar == TokenType.isIdent) {
     tokens.moveNext();
-    ValueType type = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope);
+    ValueType type = ValueType.create(tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope);
     tokens.moveNext();
     return IsExpr(
       operand,
@@ -470,7 +470,7 @@ Expression parseUnaryOperators(TokenIterator tokens, TypeValidator scope) {
   }
   if (tokens.current is CharToken && tokens.currentChar == TokenType.asIdent) {
     tokens.moveNext();
-    ValueType type = ValueType.create(null, tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope);
+    ValueType type = ValueType.create(tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope);
     tokens.moveNext();
     return AsExpr(
       operand,

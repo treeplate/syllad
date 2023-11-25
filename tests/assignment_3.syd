@@ -1,0 +1,13 @@
+// expected output: 1
+// expected output: 2
+// expected output: 3
+// expected output: 4
+
+Integer a = 1;
+println(a);
+(a) += 1;
+println(a);
+IntegerList b = [a];
+(b[0]) += 1;
+println(b[0]);
+println(a * 2);

@@ -50,7 +50,7 @@ class GetExpr extends Expression {
   bool isLValue(TypeValidator scope) => tv.igvnc(name); // xxx scope may not be needed
 
   GetExpr(this.name, TypeValidator tv, int line, col, String file) : super(line, col, file, tv) {
-    staticType = tv.getVar(name, line, col, file, 'for a get expression', true);
+    staticType = tv.getVar(name, line, col, file, 'for a get expression');
   }
 
   void write(Object? value, Scope scope) {
@@ -84,10 +84,7 @@ class GetExpr extends Expression {
   }
 
   @override
-  ValueType get asType => ValueType.create(tv.environment.anythingType, name, line, col, file, tv);
-
-  @override
-  eval(Scope scope) {
+  Object? eval(Scope scope) {
     return scope.getVar(name, line, col, file, tv);
   }
 
@@ -156,7 +153,7 @@ class SubscriptExpression extends Expression {
 
   bool isLValue(TypeValidator scope) => true;
   ValueType get staticType => a.staticType.name == whateverVariable
-      ? ValueType.create(null, whateverVariable, -2, 0, '_', tv)
+      ? ValueType.create( whateverVariable, -2, 0, '_', tv)
       : a.staticType is ListValueType
           ? (a.staticType as ListValueType).genericParameter
           : (a.staticType as ArrayValueType).genericParameter;
@@ -539,7 +536,7 @@ class SuperExpression extends Expression {
 
   @override
   ValueType get staticType => static
-      ? ValueType.create(null, whateverVariable, 0, 0, '', tv)
+      ? ValueType.create(whateverVariable, 0, 0, '', tv)
       : (tv.currentClassType.parent is ClassValueType
               ? tv.currentClassType.parent as ClassValueType
               : (throw BSCException('${tv.currentClassType} has no supertype ${formatCursorPosition(line, col, file)}', tv)))

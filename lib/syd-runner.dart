@@ -10,7 +10,7 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics, Scope?
     IOSink stderr, void Function(int) exit,
     [List<String>? args, List<LazyString>? stack, Scope? parent]) {
   if (intrinsics == null) {
-    ValueType whateverIterableType = IterableValueType(ValueType.create(null, whateverVariable, -2, 0, 'intrinsics', tv), 'intrinsics', tv);
+    ValueType whateverIterableType = IterableValueType(ValueType.create( whateverVariable, -2, 0, 'intrinsics', tv), 'intrinsics', tv);
     ListValueType anythingListType = ListValueType<Object?>(tv.environment.anythingType, 'intrinsics', tv);
     ListValueType stringListType = ListValueType<String>(tv.environment.stringType, 'intrinsics', tv);
     assert(parent == null);

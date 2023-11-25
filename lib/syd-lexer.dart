@@ -1099,6 +1099,14 @@ class TokenIterator implements Iterator<Token> {
   
   final String file;
 
+  bool get next2Idents {
+    if(current is! IdentToken) return false;
+    moveNext();
+    bool result = current is IdentToken;
+    getPrevious();
+    return result;
+  }
+
   @override
   Token get current => doingPrevious ? previous ?? (throw 'help') : tokens.current;
   Identifier get currentIdent {
@@ -1110,7 +1118,7 @@ class TokenIterator implements Iterator<Token> {
 
   TokenType get currentChar {
     if (current is! CharToken) {
-      throw BSCException("Expected character, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
+      throw BSCException("Expected character, got $current on ${formatCursorPositionFromTokens(this)}", StringVariableGroup(StackTrace.current.toString(), environment));
     }
     return (current as CharToken).type;
   }

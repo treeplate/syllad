@@ -337,7 +337,7 @@ class ForStatement extends Statement {
 
   final TypeValidator tv;
 
-  late ValueType whateverIterableType = IterableValueType<Object?>(ValueType.create(null, whateverVariable, -2, 0, 'intrinsics', tv), 'TODO FORS', tv);
+  late ValueType whateverIterableType = IterableValueType<Object?>(ValueType.create( whateverVariable, -2, 0, 'intrinsics', tv), 'TODO FORS', tv);
 
   @override
   StatementResult run(Scope scope) {

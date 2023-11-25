@@ -67,7 +67,6 @@ abstract class Expression {
   }
 
   ValueType get staticType;
-  ValueType get asType => throw StateError('asType of $runtimeType is not defined');
   Expression get internal => this;
 }
 
@@ -418,7 +417,7 @@ class TypeValidator extends VariableGroup {
     }
   }
 
-  ValueType getVar(Identifier expr, int line, int col, String file, String context, bool canBeType) {
+  ValueType getVar(Identifier expr, int line, int col, String file, String context) {
     ValueType? realtype = igv(expr, true, line, col, file);
     if (realtype == null) {
       List<String> filenamesList = [];
@@ -439,14 +438,10 @@ class TypeValidator extends VariableGroup {
           filenames = filenamesList.sublist(0, filenamesList.length - 1).join(', ') + ' or ' + filenamesList.last;
       }
       ValueType? type = ValueType.createNullable(
-        environment.anythingType,
         expr,
         file,
         this,
       );
-      if (canBeType && type != null) {
-        return type;
-      }
       throw BSCException(
         "Attempted to retrieve ${expr.name}, which is undefined.  ${filenames.isEmpty ? '' : '(maybe you meant to import $filenames?) '}${type == null ? '' : '(that\'s a type, in case it helps) '}${formatCursorPosition(line, col, file)}",
         this,
@@ -742,12 +737,12 @@ class ValueType<T extends Object?> {
     }
   }
 
-  static ValueType create(ValueType? parent, Identifier name, int line, int col, String file, TypeValidator tv) {
-    return createNullable(parent, name, file, tv) ??
-        (throw BSCException("'${name.name}' type doesn't exist ${formatCursorPosition(line, col, file)}", NoDataVG(tv.environment)));
+  static ValueType create(Identifier name, int line, int col, String file, TypeValidator tv) {
+    return createNullable(name, file, tv) ??
+        (throw BSCException("'${name.name}' type doesn't exist ${formatCursorPosition(line, col, file)}", StringVariableGroup(StackTrace.current.toString(), tv.environment)));
   }
 
-  static ValueType? createNullable(ValueType? parent, Identifier name, String file, TypeValidator tv) {
+  static ValueType? createNullable(Identifier name, String file, TypeValidator tv) {
     //print(name.name + types.keys.map((e) => e.name).toList().toString());
     if (tv.environment.typeTable.types[name] != null && tv.igv(tv.identifiers['~type${name.name}'] ??= Identifier('~type${name.name}'), true) != null)
       return tv.environment.typeTable.types[name];
@@ -756,7 +751,6 @@ class ValueType<T extends Object?> {
     }
     if (name.name.endsWith("Iterable")) {
       var iterableOrNull = ValueType.createNullable(
-        tv.environment.anythingType,
         tv.identifiers[name.name.substring(0, name.name.length - 8)] ??= Identifier(name.name.substring(0, name.name.length - 8)),
         file,
         tv,
@@ -770,7 +764,6 @@ class ValueType<T extends Object?> {
     }
     if (name.name.endsWith("Iterator")) {
       var iteratorOrNull = ValueType.createNullable(
-        tv.environment.anythingType,
         tv.identifiers[name.name.substring(0, name.name.length - 8)] ??= Identifier(name.name.substring(0, name.name.length - 8)),
         file,
         tv,
@@ -784,7 +777,6 @@ class ValueType<T extends Object?> {
     }
     if (name.name.endsWith('List')) {
       var listOrNull = ValueType.createNullable(
-        tv.environment.anythingType,
         tv.identifiers[name.name.substring(0, name.name.length - 4)] ??= Identifier(name.name.substring(0, name.name.length - 4)),
         file,
         tv,
@@ -798,7 +790,6 @@ class ValueType<T extends Object?> {
     }
     if (name.name.endsWith('Array')) {
       var arrayOrNull = ValueType.createNullable(
-        tv.environment.anythingType,
         tv.identifiers[name.name.substring(0, name.name.length - 5)] ??= Identifier(name.name.substring(0, name.name.length - 5)),
         file,
         tv,
@@ -812,7 +803,6 @@ class ValueType<T extends Object?> {
     }
     if (name.name.endsWith("Function")) {
       var functionOrNull = ValueType.createNullable(
-        tv.environment.anythingType,
         tv.identifiers[name.name.substring(0, name.name.length - 8)] ??= Identifier(name.name.substring(0, name.name.length - 8)),
         file,
         tv,
@@ -826,7 +816,6 @@ class ValueType<T extends Object?> {
     }
     if (name.name.endsWith("Nullable")) {
       var nullableOrNull = ValueType.createNullable(
-        tv.environment.anythingType,
         tv.identifiers[name.name.substring(0, name.name.length - 8)] ??= Identifier(name.name.substring(0, name.name.length - 8)),
         file,
         tv,
@@ -844,7 +833,7 @@ class ValueType<T extends Object?> {
         tv,
       );
     }
-    return basicTypes(name, parent, file, tv);
+    return basicTypes(name,  file, tv);
   }
 
   bool internal_isSubtypeOf(ValueType possibleParent) {
@@ -902,9 +891,7 @@ String toStringWithStacker(Object? x, int line, int col, String file, bool rethr
     } else {
       result.write('(');
     }
-    for (Object? element in x.iterable) {
-      result.write('${toStringWithStacker(element, line, col, file, rethrowErrors)}, ');
-    }
+    result.write(x.iterable.map((e) => toStringWithStacker(e, line, col, file, rethrowErrors)).join(', '));
     if (x is SydArray) {
       result.write(']');
     } else {
@@ -967,17 +954,17 @@ class NullType extends ValueType<Null> {
   }
 }
 
-ValueType? basicTypes(Identifier name, ValueType? parent, String file, TypeValidator tv) {
+ValueType? basicTypes(Identifier name, String file, TypeValidator tv) {
   final Identifier? sentinel = tv.identifiers['~sentinel'];
   switch (name) {
     case whateverVariable:
     case classMethodsVariable:
       if (tv.environment.typeTable.types[name] != null) return tv.environment.typeTable.types[name];
-      return ValueType.internal(parent, name, file, name == whateverVariable, tv, tv.environment);
+      return ValueType.internal(tv.environment.anythingType, name, file, name == whateverVariable, tv, tv.environment);
     default:
       if (name == sentinel) {
         if (tv.environment.typeTable.types[name] != null) return tv.environment.typeTable.types[name];
-        return ValueType.internal(parent, name, file, name == whateverVariable, tv, tv.environment);
+        return ValueType.internal(tv.environment.anythingType, name, file, name == whateverVariable, tv, tv.environment);
       }
       return null;
   }
