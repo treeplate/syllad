@@ -62,7 +62,7 @@ abstract class Expression {
   Object? eval(Scope scope);
   bool isLValue(TypeValidator scope);
 
-  void write(Object? value, bool isConstant, Scope scope) {
+  void write(Object? value, Scope scope) {
     throw StateError('write of $runtimeType is not defined');
   }
 
@@ -170,11 +170,6 @@ class BSCException extends SydException {
   int get exitCode => -2;
 }
 
-Never throwWithStack(Scope scope, String value) {
-  SydFunction<Never> thrower = scope.getVar(throwVariable, -2, 0, 'in throwWithStack while throwing $value', null) as SydFunction<Never>;
-  return thrower.function([value, -2]);
-}
-
 class Identifier {
   final String name;
 
@@ -209,7 +204,7 @@ class SydIterable<T extends Object?> extends TypedValue<SydIterable<T>> {
   final ValueType<SydIterable<T>> type;
 
   String toString() {
-    return iterable.toString();
+    throw 'Don\'t call SydIterable.toString';
   }
 
   SydIterable(this.iterable, this.type);
@@ -615,10 +610,6 @@ class Scope extends VariableGroup implements TypedValue<Scope> {
 
   final Map<Identifier, MaybeConstantValueWrapper> values = HashMap();
 
-  void setVar(Expression expr, Object? value, bool isConstant, int line, int col, String file) {
-    expr.write(value, isConstant, this);
-  }
-
   (bool, Object?) internal_getVar(Identifier name) {
     MaybeConstantValueWrapper? localResult = values[name];
     if (localResult != null) {
@@ -683,14 +674,14 @@ class Scope extends VariableGroup implements TypedValue<Scope> {
     buffer.write("\n${' ' * (indent + 2)}declaringClass: $declaringClass");
     buffer.write("\n${' ' * (indent + 2)}typeIfClass: $typeIfClass");
     buffer.write(
-      "${values.entries.map<String>((kv) => '\n${' ' * (indent + 2)}${kv.key.name}: ${toStringWithStacker(kv.value.value, -2, 0, 'file', false)}\n${' ' * (indent + 4)}type: ${kv.value.value is SydSentinel ? '<sentinel>' : (kv.value.value is Scope && (kv.value.value as Scope).typeIfClass == null) ? '<no type>' : getType(kv.value.value, this, -2, 0, 'in dumpIndent')}\n${' ' * (indent + 4)}isConstant: ${kv.value.isConstant}').join('')}",
+      "${values.entries.map<String>((kv) => '\n${' ' * (indent + 2)}${kv.key.name}: ${toStringWithStacker(kv.value.value, -2, 0, 'file', false)}\n${' ' * (indent + 4)}type: ${(kv.value.value is Scope && (kv.value.value as Scope).typeIfClass == null) ? '<no type>' : getType(kv.value.value, this, -2, 0, 'in dumpIndent', false)}\n${' ' * (indent + 4)}isConstant: ${kv.value.isConstant}').join('')}",
     );
     buffer.write("\n${' ' * (indent + 2)}parents: ${parents.map((e) => '\n${e.dumpIndent(indent + 4)}').join('')}");
     return buffer.toString();
   }
 }
 
-ValueType getType(Object? value, VariableGroup scope, int line, int col, String file) {
+ValueType getType(Object? value, VariableGroup scope, int line, int col, String file, bool checkForSentinel) {
   switch (value) {
     case bool():
       return scope.environment.booleanType;
@@ -704,8 +695,9 @@ ValueType getType(Object? value, VariableGroup scope, int line, int col, String 
       return scope.environment.stringBufferType;
     case Stopwatch():
       return scope.environment.timerType;
-    case SydSentinel():
-      throw BSCException('Tried to access uninitalized value ${formatCursorPosition(line, col, file)}', scope);
+    case SydSentinel(type: ValueType type):
+      if (!checkForSentinel) return type;
+      throw BSCException('Tried to access uninitalized value ${formatCursorPosition(line, col, file)} ${scope.environment.stack.reversed.join('\n')}', scope);
     case TypedValue(type: ValueType type):
       return type;
     default:
@@ -903,6 +895,22 @@ class ClassValueType extends ValueType<Scope> {
 String toStringWithStacker(Object? x, int line, int col, String file, bool rethrowErrors) {
   if (x is Scope) {
     return x.toStringWithStack(line, col, file, rethrowErrors);
+  } else if (x is SydIterable) {
+    StringBuffer result = StringBuffer();
+    if (x is SydArray) {
+      result.write('[');
+    } else {
+      result.write('(');
+    }
+    for (Object? element in x.iterable) {
+      result.write('${toStringWithStacker(element, line, col, file, rethrowErrors)}, ');
+    }
+    if (x is SydArray) {
+      result.write(']');
+    } else {
+      result.write(')');
+    }
+    return result.toString();
   } else {
     return x.toString();
   }

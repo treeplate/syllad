@@ -121,22 +121,27 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics, Scope?
             );
           },
           'len': (List<Object?> l, [Scope? thisScope, ValueType? thisType]) {
-            if (!getType(l.single, tv, -2, 0, 'intrinsics').isSubtypeOf(whateverIterableType)) {
+            tv.environment.stack.add(NotLazyString('len'));
+            if (!getType(l.single, tv, -2, 0, 'intrinsics', false).isSubtypeOf(whateverIterableType)) {
               throw BSCException(
-                  'len() takes a list as its argument, not a ${getType(l.single, tv, -2, 0, 'intrinsics')} ${tv.environment.stack.reversed.join('\n')}', NoDataVG(tv.environment));
+                  'len() takes a list as its argument, not a ${getType(l.single, tv, -2, 0, 'intrinsics', false)} ${tv.environment.stack.reversed.join('\n')}',
+                  NoDataVG(tv.environment));
             }
+            tv.environment.stack.removeLast();
             return (l.single as SydIterable).iterable.length;
           },
           'input': (List<Object?> l, [Scope? thisScope, ValueType? thisType]) {
             return stdin.readLineSync();
           },
           'append': (List<Object?> l, [Scope? thisScope, ValueType? thisType]) {
-            if (!getType(l.last, tv, -2, 0, 'intrinsics').isSubtypeOf((getType(l.first, tv, -2, 0, 'intrinsics') as ListValueType).genericParameter)) {
+            tv.environment.stack.add(NotLazyString('append'));
+            if (!getType(l.last, tv, -2, 0, 'intrinsics', false).isSubtypeOf((getType(l.first, tv, -2, 0, 'intrinsics', false) as ListValueType).genericParameter)) {
               throw BSCException(
-                  'You cannot append a ${getType(l.last, tv, -2, 0, 'intrinsics')} to a ${getType(l.first, tv, -2, 0, 'intrinsics')}!\n${tv.environment.stack.reversed.join('\n')}',
+                  'You cannot append a ${getType(l.last, tv, -2, 0, 'intrinsics', false)} to a ${getType(l.first, tv, -2, 0, 'intrinsics', false)}!\n${tv.environment.stack.reversed.join('\n')}',
                   NoDataVG(tv.environment));
             }
             (l.first as SydList).list.add(l.last);
+            tv.environment.stack.removeLast();
             return l.last;
           },
           'pop': (List<Object?> l, [Scope? thisScope, ValueType? thisType]) {
@@ -258,27 +263,36 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics, Scope?
             throw ThrowException((l.single as String) + '\nstack:\n' + tv.environment.stack.reversed.join('\n'), NoDataVG(tv.environment));
           },
           'substring': (List<Object?> l, [Scope? thisScope, ValueType? thisType]) {
+            tv.environment.stack.add(NotLazyString('substring'));
             if (l[1] as int > (l[2] as int)) {
-              throw BSCException(
-                  'Cannot substring when the start (${l[1]}) is more than the end (${l[2]})!\n${tv.environment.stack.reversed.join('\n')}', NoDataVG(tv.environment));
-            }
-            if (l[1] as int < 0) {
-              throw BSCException('Cannot substring when the start (${l[1]}) is less than 0!\n${tv.environment.stack.reversed.join('\n')}', NoDataVG(tv.environment));
-            }
-            if (l[2] as int > (l[0] as String).length) {
-              throw BSCException('Cannot substring when the end (${l[2]}) is more than the length of the string (${l[1]})!\n${tv.environment.stack.reversed.join('\n')}',
+              throw BSCException('Cannot substring when the start (${l[1]}) is more than the end (${l[2]})!\n${tv.environment.stack.reversed.join('\n')}',
                   NoDataVG(tv.environment));
             }
+            if (l[1] as int < 0) {
+              throw BSCException(
+                  'Cannot substring when the start (${l[1]}) is less than 0!\n${tv.environment.stack.reversed.join('\n')}', NoDataVG(tv.environment));
+            }
+            if (l[2] as int > (l[0] as String).length) {
+              throw BSCException(
+                  'Cannot substring when the end (${l[2]}) is more than the length of the string (${l[1]})!\n${tv.environment.stack.reversed.join('\n')}',
+                  NoDataVG(tv.environment));
+            }
+            tv.environment.stack.removeLast();
             return (l[0] as String).substring(l[1] as int, l[2] as int);
           },
           'sublist': (List<Object?> l, [Scope? thisScope, ValueType? thisType]) {
+            tv.environment.stack.add(NotLazyString('substring'));
             if (l[2] as int < (l[1] as int)) {
-              throw BSCException('sublist called with ${l[2]} (end arg) < ${l[1]} (start arg) ${tv.environment.stack.reversed.join('\n')}', NoDataVG(tv.environment));
+              throw BSCException(
+                  'sublist called with ${l[2]} (end arg) < ${l[1]} (start arg) ${tv.environment.stack.reversed.join('\n')}', NoDataVG(tv.environment));
             }
-            return SydList(
+            SydList result = SydList(
               (l[0] as List<Object?>).sublist(l[1] as int, l[2] as int),
-              getType(l.first, tv, -2, 0, 'intrinsics') as ValueType<SydList>,
+              getType(l.first, tv, -2, 0, 'intrinsics', true) as ValueType<SydList>,
             );
+
+            tv.environment.stack.removeLast();
+            return result;
           },
           'stackTrace': (List<Object?> l, [Scope? thisScope, ValueType? thisType]) {
             return tv.environment.stack.reversed.join('\n');
@@ -311,21 +325,17 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics, Scope?
           (key, value) => MapEntry(
             tv.identifiers[key] ??= Identifier(key),
             MaybeConstantValueWrapper(
-                value is Function ? SydFunction(
-                  value as Object? Function(List<Object?>, [Scope?, ValueType?]),
-                  tv.igv(tv.identifiers[key]!, false) as ValueType<SydFunction>,
-                  'intrinsics::$key'
-                ) : value,
+                value is Function
+                    ? SydFunction(value as Object? Function(List<Object?>, [Scope?, ValueType?]), tv.igv(tv.identifiers[key]!, false) as ValueType<SydFunction>,
+                        'intrinsics::$key')
+                    : value,
                 true),
           ),
         ),
       );
   }
   Scope scope = Scope(false, false, rtl, tv.environment,
-      intrinsics: intrinsics,
-      parent: parent ?? rtl ?? intrinsics,
-      debugName: NotLazyString('$filename global scope'),
-      identifiers: tv.identifiers);
+      intrinsics: intrinsics, parent: parent ?? rtl ?? intrinsics, debugName: NotLazyString('$filename global scope'), identifiers: tv.identifiers);
   for (Statement statement in ast) {
     StatementResult sr = statement.run(scope);
     switch (sr.type) {
