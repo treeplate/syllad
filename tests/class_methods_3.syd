@@ -1,0 +1,14 @@
+// expected output: moomoomoo
+
+class Test {
+  Boolean method(Boolean recurse) {
+    print('moo');
+    if (recurse) {
+      method(false);
+    }
+    recurse && method(false);
+    return true;
+  }
+}
+
+Test().method(true);

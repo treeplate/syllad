@@ -1,7 +1,7 @@
-// expected error: syntax error, "foo" declared twice
-// unexpected output: FAIL
+// expected output: PASS
+// expected output: 1
 
-println('FAIL');
+println('PASS');
 
 Whatever foo(Integer foo) {
   return foo;

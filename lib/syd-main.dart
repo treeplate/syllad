@@ -1,29 +1,22 @@
 import 'dart:io';
+import 'package:args/args.dart';
+
 import 'syd-core.dart';
 import 'syd-runner.dart';
 import 'package:path/path.dart' as path;
 
 void main(List<String> args) {
-  bool profileMode = false;
-  if (args.first == '--profile') {
-    profileMode = true;
-    args = args.skip(1).toList();
-  }
-  bool debugMode = false;
-  if (args.first == '--debug') {
-    debugMode = true;
-    args = args.skip(1).toList();
-  }
-  if (args.first == '--profile') {
-    profileMode = true;
-    args = args.skip(1).toList();
-  }
-  if (!(args.length >= 1)) {
+  ArgParser parser = ArgParser(allowTrailingOptions: false);
+  parser.addFlag('profile', negatable: false);
+  parser.addFlag('debug', negatable: false);
+  parser.addFlag('timer', negatable: false);
+  ArgResults parsedArgs = parser.parse(args); 
+  if (!(parsedArgs.rest.length >= 1)) {
     stderr.writeln(
-        "This program takes 2+ arguments: the workspace of the file, and the filename, and then the arguments to the program it is running. You have passed in ${args.length}: ${args.map((e) => '|$e|').join(', ')}");
+        "This program takes 1+ arguments: the filename, and then the arguments to the program it is running. You have passed in ${parsedArgs.rest.length}: ${parsedArgs.rest.map((e) => '|$e|').join(', ')}");
     exit(1);
   }
-  String file = args.first;
+  String file = parsedArgs.rest.first;
   String fileContents = File(file).readAsStringSync();
   if (fileContents.startsWith('// expected') || fileContents.startsWith('// unexpected')) {
     const String expectedOutput = '// expected output: ';
@@ -52,7 +45,14 @@ void main(List<String> args) {
   try {
     String rtlDirectory = path.dirname(path.fromUri(Platform.script));
     String rtlPath = path.join(rtlDirectory, 'rtl.syd');
-    Environment environment = runFile(fileContents, rtlPath, file, profileMode, debugMode, args, stdout, stderr, exit);
+    late final Stopwatch watch;
+    if (parsedArgs['timer']) {
+      watch = Stopwatch()..start();
+    }
+    Environment environment = runFile(fileContents, rtlPath, file, parsedArgs['profile'], parsedArgs['debug'], parsedArgs.rest, stdout, stderr, exit);
+    if (parsedArgs['timer']) {
+      print(watch.elapsedMicroseconds / 1e6);
+    }
     File('profile.txt').writeAsStringSync((environment.profile.entries.toList()
           ..sort((kv2, kv1) => kv1.value.key.elapsedMilliseconds.compareTo(kv2.value.key.elapsedMilliseconds)))
         .map((kv) => '${kv.key.name} took ${kv.value.key.elapsedMilliseconds} milliseconds total across ${kv.value.value} calls.')
