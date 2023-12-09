@@ -1,0 +1,49 @@
+//5 27 94 20 50 7 98 41 67 34 | 34 9 20 90 7 77 44 71 27 12 98 1 79 96 24 51 25 84 67 41 5 13 78 31 26
+
+import '../../compiler/core.syd';
+
+String input = readFile(openFile('aoc/2023/day4.in', fileModeRead));
+StringList lines = split(input, '\r\n');
+Integer sum = len(lines);
+Integer e = 1;
+Integer one(String e) {
+  return 1;
+}
+IntegerList copyCount = map(lines, one) as IntegerList;
+Integer i = 0;
+for (line in lines) {
+  Integer subi = copyCount[i];
+  while (subi > 0) {
+    IntegerList parseInts(String list) {
+      Integer parsePrefixedInt(String int) {
+        if (int == '') {
+          e++;
+          return -e;
+        }
+        return parseInt(int);
+      }
+      return map(split(join(split(list, '  '), ' '), ' '), parsePrefixedInt) as IntegerList;
+    }
+    IntegerListList parts = map(split(last(split(line, ': ')), ' | '), parseInts) as IntegerListList;
+    IntegerList wins = parts[0];
+    IntegerList have = parts[1];
+    Integer intermediateSum = 0;
+    for (int in have) {
+      if (contains(wins, int)) {
+        intermediateSum++;
+      }
+    }
+    sum += intermediateSum;
+    Integer subii = i+1;
+    //println(i);
+    while (intermediateSum > 0) {
+      copyCount[subii]++;
+      intermediateSum--;
+      subii++;
+    }
+    subi--;
+  }
+  println(i, '/', len(lines));
+  i++;
+}
+print(sum);

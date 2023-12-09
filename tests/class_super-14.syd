@@ -1,0 +1,18 @@
+// expected output: meow
+// expected output: meow
+
+class Cat {
+  Null meow() {
+    println('meow');
+  }
+}
+class Housecat extends Cat {}
+class BabyHousecat extends Housecat {
+  //#override
+  Null meow() {
+    super.meow();
+    super.meow();
+  }
+}
+
+BabyHousecat().meow();

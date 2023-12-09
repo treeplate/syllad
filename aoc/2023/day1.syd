@@ -1,0 +1,153 @@
+import '../../compiler/core.syd';
+
+IntegerList possibleIntegers(Integer index, Integer next) {
+  if (index == 0) {
+    if (next == -122) {
+      return [0];
+    }
+    if (next == 111) {
+      return [1];
+    }
+    if (next == 116) {
+      return [2, 3];
+    }
+    if (next == 102) {
+      return [4, 5];
+    }
+    if (next == 115) {
+      return [6, 7];
+    }
+    if (next == 101) {
+      return [8];
+    }
+    if (next == 110) {
+      return [9];
+    }
+    return []:Integer;
+  }
+  if (index == 1) {
+    if (next == 101) {
+      return [0, 7];
+    }
+    if (next == 110) {
+      return [1];
+    }
+    if (next == 119) {
+      return [2];
+    }
+    if (next == 104) {
+      return [3];
+    }
+    if (next == 111) {
+      return [4];
+    }
+    if (next == 105) {
+      return [5, 6, 8, 9];
+    }
+    return []:Integer;
+  }
+  if (index == 2) {
+    if (next == 0) {
+      return [114, 111];
+    }
+    if (next == 1) {
+      return [101];
+    }
+    if (next == 2) {
+      return [111];
+    }
+    if (next == 3) {
+      return [114, 101, 101];
+    }
+    if (next == 4) {
+      return [117, 114];
+    }
+    if (next == 5) {
+      return [118, 101];
+    }
+    if (next == 6) {
+      return [120];
+    }
+    if (next == 7) {
+      return [118, 101, 110];
+    }
+    if (next == 8) {
+      return [103, 104, 116];
+    }
+    if (next == 9) {
+      return [110, 101];
+    }
+    throw('error');
+  }
+}
+
+String input = readFile(openFile('aoc/2023/day1.in', fileModeRead));
+StringList lines = split(input, '\r\n');
+Integer sum = 0;
+for (line in lines) {
+  IntegerNullable first = null;
+  Integer last;
+  Integer index = 0;
+  IntegerList validInts = [0,1,2,3,4,5,6,7,8,9];
+  IntegerList l = copy(scalarValues(line)) as IntegerList;
+  append(l, -1);
+  for (ch in l) {
+    if (index > 1) {
+      IntegerList chars = possibleIntegers(2, validInts[0]);
+        if (len(chars) == index-2) {
+          if (first == null) {
+            first = validInts[0];
+          }
+          last = validInts[0];
+          index = 0;
+          validInts = possibleIntegers(0, chars[len(chars)-1]);
+          if(len(validInts) != 0) {
+            index++;
+          }
+        } else {
+          if (chars[index-2] == ch) {
+            index++;
+          } else {
+            if (len(validInts) > 1) {
+              index = 1;
+            } else {
+              index = 0;
+            }
+          }
+        }
+      }
+      if (index == 1) {
+        IntegerList newvalidints = []:Integer;
+        for (int in possibleIntegers(1, ch)) {
+          if (contains(validInts, int)) {
+            append(newvalidints, int);
+          }
+        }
+        if (len(newvalidints) != 0) {
+          index++;
+        } else {
+          index--;
+        }
+        for (int in possibleIntegers(0, ch)) {
+          append(newvalidints, int);
+        }
+        validInts = newvalidints;
+      }
+       if (index == 0) {
+        validInts = possibleIntegers(0, ch);
+        if(len(validInts) != 0) {
+          index++;
+        }
+      }
+    if (ch >= 0x30 && ch <= 0x39) {
+      if (first == null) {
+        first = ch - 0x30;
+      }
+      last = ch - 0x30;
+    }
+    
+  }
+  println(line, first, last);
+  sum += first * 10 + last;
+}
+println(sum);

@@ -1,0 +1,149 @@
+import '../../compiler/core.syd';
+
+// Returns a value from 0 (inclusive) to 16 (exclusive). 13, 14, and 15 are currently unused.
+Integer scoreCard(String card) {
+  if (card == 'J') {
+    return 0;
+  }
+  if (card == '2') {
+    return 1;
+  }
+  if (card == '3') {
+    return 2;
+  }
+  if (card == '4') {
+    return 3;
+  }
+  if (card == '5') {
+    return 4;
+  }
+  if (card == '6') {
+    return 5;
+  }
+  if (card == '7') {
+    return 6;
+  }
+  if (card == '8') {
+    return 7;
+  }
+  if (card == '9') {
+    return 8;
+  }
+  if (card == 'T') {
+    return 9;
+  }
+  if (card == 'Q') {
+    return 10;
+  }
+  if (card == 'K') {
+    return 11;
+  }
+  if (card == 'A') {
+    return 12;
+  }
+}
+
+Integer scoreHand(String hand) {
+  IntegerList cards = map(copy(charsOf(hand)), scoreCard) as IntegerList;
+  Set cardSet = Set();
+  cardSet.addAll(cards as AnythingList);
+  Integer score = 0;
+  for (card in cards) {
+    score = score * 16 + card;
+  }
+  if (cardSet.has(0)) {
+    cardSet.remove(0);
+  }
+  assert(!contains(cardSet.values(), 0), 'inv');
+  if (cardSet.length == 5) {
+    println(hand);
+    return score;
+  }
+  if (cardSet.length == 4) {
+    return score + 0x100000;
+  }
+  if (cardSet.length == 3) {
+    // three of a kind or two pair
+    Integer oneC = 0;
+    Integer twoC = 0;
+    Integer threeC = 0;
+    AnythingList cardTypes = cardSet.values();
+    for (card in cards) {
+      if (cardTypes[0] == card) {
+        oneC++;
+      }
+      if (cardTypes[1] == card) {
+        twoC++;
+      }
+      if (cardTypes[2] == card) {
+        threeC++;
+      }
+      if (card == 0) {
+        oneC++;
+        twoC++;
+        threeC++;
+      }
+    }
+    if (oneC == 3 || twoC == 3 || threeC == 3) {
+      // three of a kind
+      return score + 0x300000;
+    } else {
+      // two pair
+      return score + 0x200000;
+    }
+  }
+  if (cardSet.length == 2) {
+    // four of a kind or full house
+    Integer oneC = 0;
+    Integer twoC = 0;
+    AnythingList cardTypes = cardSet.values();
+    for (card in cards) {
+      if (cardTypes[0] == card) {
+        oneC++;
+      }
+      if (cardTypes[1] == card) {
+        twoC++;
+      }
+      if (card == 0) {
+        oneC++;
+        twoC++;
+      }
+    }
+    if (oneC == 4 || twoC == 4) {
+      // four of a kind
+      return score + 0x500000;
+    } else {
+      // full house
+      return score + 0x400000;
+    }
+  }
+  return score + 0x600000;
+}
+
+String input = readFile(openFile('aoc/2023/day7.in', fileModeRead));
+StringList lines = split(input, '\r\n');
+class Hand {
+  Integer score;
+  Integer bid;
+  Null constructor(String line) {
+    StringList parts = split(line, ' ');
+    score = scoreHand(parts[0]);
+    bid = parseInt(parts[1]);
+  }
+}
+HandList hands = []:Hand;
+for (line in lines) {
+  append(hands, Hand(line));
+}
+Integer compareHands(Hand a, Hand b) {
+  return compareInteger(a.score, b.score);
+}
+sortWithComparator(hands, compareHands);
+Integer sum = 0;
+Integer index = 0;
+for (hand in hands) {
+  //println(hex(hand.score));
+  index++;
+  sum += index * hand.bid;
+}
+println(sum);

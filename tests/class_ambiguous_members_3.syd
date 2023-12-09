@@ -1,6 +1,7 @@
-// expected output: test
-// expected output: 2
-// expected error: cannot reassign foo, a constant (runtime error)
+// expected error: cannot override non-constant variable foo with constant variable (parsetime error)
+// unexpected output: test
+// unexpected output: 2
+// unexpected output: 1
 
 class A {
   IntegerFunction foo;

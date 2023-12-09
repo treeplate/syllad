@@ -1,0 +1,43 @@
+import '../../compiler/core.syd';
+
+String input = readFile(openFile('aoc/2023/day8.in', fileModeRead));
+StringList parts = split(input, '\r\n\r\n');
+StringIterable directions = charsOf(parts[0]);
+Map map = Map();
+for (line in split(parts[1], '\r\n')) {
+  StringList parts = split(line, ' = ');
+  StringList rhs = split(first(split(last(split(parts[1], '(')), ')')), ', ');
+  String lhs = parts[0];
+  map.set(lhs, rhs); 
+}
+Integer moveCount = 0;
+StringList positions = []:String;
+for (position in map.keys() as StringList) {
+  if (last(charsOf(position)) == 'A') {
+    append(positions, position);
+  }
+}
+while (true) {
+  for (dir in directions) {
+      moveCount++;
+    Integer index = 0;
+    Boolean end = true;
+    for (position in positions) {
+      Integer dirIndex = 1;
+      if (dir == 'L') {
+        dirIndex = 0;
+      }
+      positions[index] = (map.get(position) as StringList)[dirIndex];
+      if (last(charsOf(positions[index])) != 'Z') {
+        end = false;
+      } else {
+        println(positions[index]);
+      }
+      index++;
+    }
+    if (end) {
+      print(moveCount);
+      exit(0);
+    }
+  }
+}

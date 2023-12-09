@@ -1,0 +1,77 @@
+import '../../compiler/core.syd';
+
+fwdclass Range(Integer, Integer) extends Object;
+
+class Range extends Object {
+  Integer start;
+  Integer end;
+
+  Range offset(Integer offsetArg) {
+    return Range(start+offsetArg, end+offsetArg);
+  }
+  
+  //#override
+  String toString() {
+    return concat(start, '..', end);
+  }
+
+  Null constructor(Integer startArg, Integer endArg) {
+    start = startArg;
+    end = endArg;
+  }
+}
+
+String input = readFile(openFile('aoc/2023/day5.in', fileModeRead));
+StringList parts = split(input, '\r\n\r\n');
+IntegerList seedRanges = map(split(first(parts), ' '), parseInt) as IntegerList;
+Integer index = 0;
+RangeList seeds = []:Range;
+while (index < len(seedRanges)) {
+  append(seeds, Range(seedRanges[index], seedRanges[index] + seedRanges[index + 1]));
+  index += 2;
+}
+for (part in sublist(parts, 1, len(parts)) as StringList) {
+  StringList lines = split(part, '\r\n');
+  RangeList newSeeds = []:Range;
+  RangeList remainingRanges = seeds;
+  for (line in lines) {
+    IntegerList parts = map(split(line, ' '), parseInt) as IntegerList;
+    Integer index = 0;
+    for (seed in copy(remainingRanges) as RangeList) {
+      if (seed.start >= parts[1] && seed.end <= parts[1] + parts[2]) { // completely contained
+        append(newSeeds, seed.offset(parts[0] - parts[1]));
+        removeAt(remainingRanges, index);
+        continue;
+      }
+      if (seed.end > parts[1] && seed.end <= parts[1] + parts[2]) { // left half extends beyond
+        append(newSeeds, Range(parts[1], seed.end).offset(parts[0] - parts[1]));
+        append(remainingRanges, Range(seed.start, parts[1]));
+        removeAt(remainingRanges, index);
+        continue;
+      }
+      if (seed.start >= parts[1] && seed.start < parts[1] + parts[2]) { // right half extends beyond
+        append(newSeeds, Range(seed.start, parts[1] + parts[2]).offset(parts[0] - parts[1]));
+        append(remainingRanges, Range(parts[1] + parts[2], seed.end).offset(parts[0] - parts[1]));
+        removeAt(remainingRanges, index);
+        continue;
+      }
+      if (seed.end > parts[1] && seed.start < parts[1] + parts[2]) { // both halves extends beyond
+        append(newSeeds, Range(parts[1], parts[1] + parts[2]).offset(parts[0] - parts[1]));
+        append(remainingRanges, Range(seed.start, parts[1]));
+        append(remainingRanges, Range(parts[1] + parts[2], seed.end));
+        removeAt(remainingRanges, index);
+        continue;
+      }
+      index++;
+    }
+  }
+  seeds = addLists(newSeeds, remainingRanges) as RangeList;
+}
+  println(seeds);
+Integer least = 1000000000000000;
+for (seed in seeds) {
+  if (seed.start < least) {
+    least = seed.start;
+  }
+}
+println(least);

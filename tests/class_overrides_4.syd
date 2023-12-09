@@ -1,5 +1,4 @@
 // expected error: type error
-// unexpected output: PASS
 // unexpected output: FAIL
 
 class A { }
@@ -11,7 +10,7 @@ class X {
 
 class Y extends X {
   //#override
-  Integer foo(A a) { println('PASS', a.className); }
+  Integer foo(A a) { println('FAIL', a.className); }
 }
 
 Y().foo(B());

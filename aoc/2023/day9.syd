@@ -1,0 +1,43 @@
+import '../../compiler/core.syd';
+
+String input = readFile(openFile('aoc/2023/day9.in', fileModeRead));
+StringList lines = split(input, '\r\n');
+Integer sum = 0;
+for (line in lines) {
+  IntegerList integers = map(split(line, ' '), parseInt) as IntegerList;
+  IntegerList ends = []:Integer;
+  while (true) {
+    Boolean os = true;
+    for (int in integers) {
+      if (int != 0) {
+        os = false;
+      }
+    }
+    if (os) {
+      break;
+    }
+    Integer temp = integers[0];
+    IntegerList oldInts = sublist(integers, 1, len(integers));
+    if (true) {
+      append(ends, first(integers) as Integer);
+    } else {
+      append(ends, last(integers) as Integer);
+    }
+    integers = []:Integer;
+    for (integer in oldInts) {
+      append(integers, integer - temp);
+      temp = integer;
+    }
+  }
+  Integer temp = 0;
+  while (len(ends) != 0) {
+    if (true) {
+      temp = pop(ends) as Integer - temp;
+    } else {
+      temp += pop(ends) as Integer;
+    }
+  }
+  println(temp);
+  sum += temp;
+}
+println(sum);

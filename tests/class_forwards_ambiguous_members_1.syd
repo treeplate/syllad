@@ -1,4 +1,5 @@
-// expected output: hello
+// expected error: cannot override non-constant variable x with constant variable (parsetime error)
+// unexpected output: hello
 
 fwdclass A();
 fwdclassfield NullFunction A.x;

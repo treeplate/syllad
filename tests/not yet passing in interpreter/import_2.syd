@@ -2,7 +2,7 @@
 // unexpected output: 2A
 // unexpected output: FAIL
 
-import 'import_2a.syd';
-import 'import_2b.syd';
+import 'import_2a.syllad';
+import 'import_2b.syllad';
 
 println('FAIL');

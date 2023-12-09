@@ -1,0 +1,92 @@
+String input = readFile(openFile('aoc/2023/day3.in', fileModeRead));
+StringList lines = split(input, '\r\n');
+Integer length = len(split(first(lines), ''));
+IntegerList grid = copy(scalarValues(join(lines, ''))) as IntegerList;
+append(grid, -1);
+Integer x = 0;
+Integer y = 0;
+IntegerNullable numberStartX = null;
+IntegerNullable numberStartY = null;
+Integer buffer = 0;
+Integer sum = 0;
+Integer sum2 = 0;
+while (y < len(lines)) {
+  Integer ch = grid[y*length+x];
+  if (ch >= 0x30 && ch <= 0x39) {
+    if (numberStartX == null) {
+      numberStartX = x;
+      numberStartY = y;
+    }
+    buffer = buffer * 10 + ch - 0x30;
+  } else if (numberStartX != null) {
+    Integer tempX = numberStartX - 1;
+    Integer tempY = numberStartY - 1;
+    IntegerNullable symbol = null;
+    while (tempY < numberStartY + 2) {
+      if (tempX >= 0 && tempX < length && tempY >= 0 && tempY < len(lines) && (grid[tempX + tempY * length] < 0x30 || grid[tempX + tempY * length] > 0x39) && grid[tempX + tempY * length] != 46) {
+        symbol = grid[tempX + tempY * length];
+        break;
+      }
+      tempX++;
+      if (x != 0 && tempX > x || x == 0 && tempX == length) {
+        tempY++;
+        tempX = numberStartX - 1;
+      }
+    }
+    if (symbol != null) {
+      // println(buffer, utf8Decode([symbol!]), tempX, tempY, numberStartX, numberStartY);
+      sum += buffer;
+    }
+    buffer = 0;
+    numberStartX = null;
+    numberStartY = null;
+  }
+  if (ch == 42) {
+    Integer tempX = x - 1;
+    Integer tempY = y - 1;
+    IntegerNullable number1 = null;
+    IntegerNullable number2 = null;
+    Boolean number3 = false;
+    while (tempY < y + 2) {
+      if (tempX >= 0 && tempX < length && tempY >= 0 && tempY < len(lines) && grid[tempX + tempY * length] >= 0x30 && grid[tempX + tempY * length] <= 0x39) {
+        Integer tempX2 = tempX;
+        while (tempX2 >= 0 && grid[tempX2 + tempY * length] >= 0x30 && grid[tempX2 + tempY * length] <= 0x39) {
+          tempX2--;
+        }
+        Integer start = tempX2+1;
+        tempX2 = start;
+        Integer buffer2 = 0;
+        while (tempX2 < length && grid[tempX2 + tempY * length] >= 0x30 && grid[tempX2 + tempY * length] <= 0x39) {
+          buffer2 = buffer2 * 10 + grid[tempX2 + tempY * length] - 0x30;
+          tempX2++;
+        }
+        Integer end = tempX2 - 1;
+        if (number1 == null) {
+          number1 = buffer2;
+        } else if (number2 == null) {
+          number2 = buffer2;
+        } else {
+          number3 = true;
+          break;
+        }
+        tempX = end;
+      }
+      tempX++;
+      if (tempX > x + 1) {
+        tempY++;
+        tempX = x - 1;
+      }
+    }
+    if (number1 != null && number2 != null && !number3) {
+      sum2 += number1 * number2;
+    }
+  }
+  x++;
+  if (x == length) {
+    // println('end of', y);
+    y++;
+    x = 0;
+  }
+}
+println(sum);
+println(sum2);

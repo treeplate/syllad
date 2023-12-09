@@ -1,0 +1,28 @@
+String input = readFile(openFile('aoc/2023/day2.in', fileModeRead));
+StringList lines = split(input, '\r\n');
+Integer sum = 0;
+for (line in lines) {
+  StringList draws = split(last(split(line, ': ')), '; ');
+  Integer red = 0;
+  Integer blue = 0;
+  Integer green = 0;
+  for (draw in draws) {
+    StringList cubeSets = split(draw, ', ');
+    for (cubes in cubeSets) {
+      StringList parts = split(cubes, ' ');
+      Integer count = parseInt(parts[0]);
+      String color = last(parts);
+      if (color == 'red' && red < count) {
+        red = count;
+      }
+      if (color == 'blue' && blue < count) {
+        blue = count;
+      }
+      if (color == 'green' && green < count) {
+        green = count;
+      }
+    }
+  }
+  sum += red * blue * green;
+}
+print(sum);

@@ -1,18 +1,26 @@
-// expected output: 1
-// expected output: 2
-// expected error: parameter mismatch
-// unexpected output: ierror
-
-Null test(Integer foo) {
-  println(foo);
-}
+// expected error: Constructor cannot be a field.
+// unexpected output: rabbit
+// unexpected output: quail
 
 class A {
-  NullFunction constructor = test;
+  Null q() {
+    print('quail');
+  }
+
+  Null r() {
+    print('rabbit');
+  }
+
+  NullFunction constructor = q;
 }
 
-class B extends A { }
+class B extends A {
+  Null test() {
+    constructor = r;
+  }
 
-A(1);
-B(2);
-A();
+  //#ignore_unused
+  Null changeConstructor = test();
+}
+
+B();

@@ -83,7 +83,7 @@ class BunnyB extends BunnyA {
 }
 
 BunnyB().grab()();
-assert(result == 'BunnyB::test', 'failure (Bunnies)');
+assert(result == 'BunnyB::test', concat('failure (Bunnies) - ', result));
 
 
 // Ambiguous members

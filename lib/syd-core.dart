@@ -1,4 +1,6 @@
 import 'dart:collection';
+import 'dart:convert';
+import 'package:characters/characters.dart';
 import 'package:collection/collection.dart';
 import 'dart:io';
 
@@ -98,7 +100,6 @@ abstract class Statement {
 class LazyString {}
 
 const Identifier whateverVariable = Identifier("Whatever");
-const Identifier classMethodsVariable = Identifier("~class~methods");
 const Identifier fwdclassVariable = Identifier("fwdclass");
 const Identifier fwdclassfieldVariable = Identifier("fwdclassfield");
 const Identifier fwdclassmethodVariable = Identifier("fwdclassmethod");
@@ -263,42 +264,590 @@ class Environment {
   late final ValueType<SydFile> fileType;
   late final ValueType<SydSentinel> sentinelType;
   late final ValueType<Stopwatch> timerType;
-  final List<BoolList> subtypeTable; // subtypeTable[a][b] is equivalent to a.isSubtypeOf(b)
-  int currentTypeId; // xxx this should probably be an IntWrapper or something
-  final List<LazyString> stack;
+  final List<BoolList> subtypeTable = []; // subtypeTable[a][b] is equivalent to a.isSubtypeOf(b)
+  int currentTypeId = 0;
+  final List<LazyString> stack = [NotLazyString('main')];
   final TypeTable typeTable;
-  final Map<String, Scope> filesRan;
-  final Map<String, TypeValidator> loadedGlobalScopes;
-  final Map<Identifier, MapEntry<Stopwatch, int>> profile;
-  final Map<String, MapEntry<List<Statement>, TypeValidator>> filesLoaded;
-  final List<String> filesStartedLoading;
+  final Map<String, Scope> filesRan = {};
+  final Map<String, TypeValidator> loadedGlobalScopes = {};
+  final Map<Identifier, MapEntry<Stopwatch, int>> profile = {};
+  final Map<String, MapEntry<List<Statement>, TypeValidator>> filesLoaded = {};
+  final Map<Identifier, Object?> globals = {};
+  final List<String> filesStartedLoading = [];
+  final IOSink stdout;
   final IOSink stderr;
+  final List<String> commandLineArguments;
+  final void Function(int) exit;
 
-  Environment(this.typeTable, this.stderr,
-      [Map<String, Scope>? filesRan,
-      Map<String, TypeValidator>? loadedGlobalScopes,
-      Map<Identifier, MapEntry<Stopwatch, int>>? profile,
-      Map<String, MapEntry<List<Statement>, TypeValidator>>? filesLoaded,
-      List<String>? filesStartedLoading, List<BoolList>? subtypeTable, List<LazyString>? stack, int? currentTypeId])
-      : this.filesRan = filesRan ?? {},
-        this.loadedGlobalScopes = loadedGlobalScopes ?? {},
-        this.profile = profile ?? {},
-        this.filesLoaded = filesLoaded ?? {},
-        this.subtypeTable = subtypeTable ?? [],
-        this.stack = stack ?? [NotLazyString('main')],
-        this.currentTypeId = currentTypeId ?? 0,
-        this.filesStartedLoading = filesStartedLoading ?? [];
+  Environment(this.typeTable, this.stdout, this.stderr, this.commandLineArguments, this.exit) {
+    initIntrinsics();
+  }
+
+  final Map<String, Identifier> identifiers = {};
+  late final Map<String, Object?> intrinsics;
+
+  void initIntrinsics() {
+    handleVariable(whateverVariable, identifiers);
+    handleVariable(fwdclassVariable, identifiers);
+    handleVariable(fwdclassfieldVariable, identifiers);
+    handleVariable(fwdstaticfieldVariable, identifiers);
+    handleVariable(fwdstaticmethodVariable, identifiers);
+    handleVariable(fwdclassmethodVariable, identifiers);
+    handleVariable(classVariable, identifiers);
+    handleVariable(importVariable, identifiers);
+    handleVariable(whileVariable, identifiers);
+    handleVariable(breakVariable, identifiers);
+    handleVariable(continueVariable, identifiers);
+    handleVariable(returnVariable, identifiers);
+    handleVariable(ifVariable, identifiers);
+    handleVariable(enumVariable, identifiers);
+    handleVariable(forVariable, identifiers);
+    handleVariable(constVariable, identifiers);
+    handleVariable(classNameVariable, identifiers);
+    handleVariable(constructorVariable, identifiers);
+    handleVariable(thisVariable, identifiers);
+    handleVariable(toStringVariable, identifiers);
+    handleVariable(throwVariable, identifiers);
+    handleVariable(stringBufferVariable, identifiers);
+    handleVariable(fileVariable, identifiers);
+    handleVariable(Identifier('Anything'), identifiers);
+    handleVariable(Identifier('Integer'), identifiers);
+    handleVariable(Identifier('String'), identifiers);
+    handleVariable(Identifier('Boolean'), identifiers);
+    handleVariable(Identifier('Null'), identifiers);
+    handleVariable(Identifier('~root_class'), identifiers);
+    handleVariable(Identifier('~sentinel'), identifiers);
+    handleVariable(Identifier('Timer'), identifiers);
+    anythingType = ValueType.internal(null, identifiers['Anything']!, 'intrinsics', false, this);
+    integerType = ValueType.internal(anythingType, identifiers['Integer']!, 'intrinsics', false, this);
+    stringType = ValueType.internal(anythingType, identifiers['String']!, 'intrinsics', false, this);
+    booleanType = ValueType.internal(anythingType, identifiers['Boolean']!, 'intrinsics', false, this);
+    nullType = NullType.internal(anythingType, this);
+    rootClassType = ValueType.internal(anythingType, identifiers['~root_class']!, 'intrinsics', false, this);
+    stringBufferType = ValueType.internal(anythingType, identifiers['StringBuffer']!, 'intrinsics', false, this);
+    fileType = ValueType.internal(anythingType, identifiers['File']!, 'intrinsics', false, this);
+    sentinelType = ValueType.internal(anythingType, identifiers['~sentinel']!, 'intrinsics', false, this);
+    timerType = ValueType.internal(anythingType, identifiers['Timer']!, 'intrinsics', false, this);
+    VariableGroup dummyVariableGroup = NoDataVG(this);
+    intrinsics = {
+      'true': true,
+      'false': false,
+      'null': null,
+      'args': SydList(commandLineArguments, ListValueType<String>(stringType, 'intrinsics', this)),
+      'print': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          stdout.write(args
+              .map((e) => toStringWithStacker(
+                    e,
+                    -2,
+                    0,
+                    'interr',
+                    true,
+                  ))
+              .join(' '));
+          return 0;
+        },
+        FunctionValueType(integerType, InfiniteIterable(anythingType), 'intrinsics', this),
+        'print intrinsic',
+      ),
+      'debug': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return (args.single as Scope).dump();
+        },
+        FunctionValueType(stringType, [rootClassType], 'intrinsics', this),
+        'debug intrinsic',
+      ),
+      'stderr': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          stderr.writeln(args
+              .map((e) => toStringWithStacker(
+                    e,
+                    -2,
+                    0,
+                    'interr',
+                    true,
+                  ))
+              .join(' '));
+          return 0;
+        },
+        FunctionValueType(integerType, InfiniteIterable(anythingType), 'intrinsics', this),
+        'stderr intrinsic',
+      ),
+      'println': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          stdout.writeln(args
+              .map((e) => toStringWithStacker(
+                    e,
+                    -2,
+                    0,
+                    'interr',
+                    true,
+                  ))
+              .join(' '));
+          return 0;
+        },
+        FunctionValueType(integerType, InfiniteIterable(anythingType), 'intrinsics', this),
+        'println intrinsic',
+      ),
+      'concat': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return args
+              .map((x) => toStringWithStacker(
+                    x,
+                    -2,
+                    0,
+                    'interr',
+                    true,
+                  ))
+              .join('');
+        },
+        FunctionValueType(stringType, InfiniteIterable(anythingType), 'intrinsics', this),
+        'concat intrinsic',
+      ),
+      'addLists': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return SydList(args.expand((element) => (element as SydArray).array).toList(), ListValueType(anythingType, 'intrinsics', this));
+        },
+        FunctionValueType(
+          ListValueType(anythingType, 'intrinsics', this),
+          InfiniteIterable(ArrayValueType(ValueType.create(whateverVariable, -2, 0, 'intrinsics', this), 'intrinsics', this)),
+          'intrinsics',
+          this,
+        ),
+        'addLists intrinsic',
+      ),
+      'parseInt': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return int.parse(args.single as String);
+        },
+        FunctionValueType(integerType, [stringType], 'intrinsics', this),
+        'parseInt intrinsic',
+      ),
+      'split': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          if (args.first == '') {
+            return SydList(
+              [args.first],
+              ListValueType(stringType, 'intrinsics', this),
+            );
+          }
+          return SydList(
+            (args.first as String)
+                .split(
+                  args.last as String,
+                )
+                .toList(),
+            ListValueType(stringType, 'intrinsics', this),
+          );
+        },
+        FunctionValueType(ListValueType(stringType, 'intrinsics', this), [stringType, stringType], 'intrinsics', this),
+        'split intrinsic',
+      ),
+      'charsOf': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return SydIterable(
+            (args.single as String).characters,
+            IterableValueType(stringType, 'intrinsics', this),
+          );
+        },
+        FunctionValueType(IterableValueType<String>(stringType, 'intrinsics', this), [stringType], 'intrinsics', this),
+        'charsOf intrinsic',
+      ),
+      'scalarValues': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return SydIterable(
+            (args.single as String).runes,
+            IterableValueType(integerType, 'intrinsics', this),
+          );
+        },
+        FunctionValueType(IterableValueType<int>(integerType, 'intrinsics', this), [stringType], 'intrinsics', this),
+        'scalarValues intrinsic',
+      ),
+      'filledList': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return SydList<Object?>(List.filled(args.first as int, args.last, growable: true), ListValueType<Object?>(anythingType, 'intrinsics', this));
+        },
+        FunctionValueType(
+            ListValueType(ValueType.create(whateverVariable, -2, 0, 'intrinsics', this), 'intrinsics', this), [integerType, anythingType], 'intrinsics', this),
+        'filledList intrinsic',
+      ),
+      'sizedList': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return SydList<Object?>(
+            List.filled(args.first as int, SydSentinel(this), growable: true),
+            ListValueType<Object?>(anythingType, 'intrinsics', this),
+          );
+        },
+        FunctionValueType(ListValueType(ValueType.create(whateverVariable, -2, 0, 'intrinsics', this), 'intrinsics', this), [integerType], 'intrinsics', this),
+        'sizedList intrinsic',
+      ),
+      'len': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          stack.add(NotLazyString('len'));
+          if (!getType(args.single, dummyVariableGroup, -2, 0, 'intrinsics', false)
+              .isSubtypeOf(IterableValueType(ValueType.create(whateverVariable, -2, 0, 'intrinsics', this), 'intrinsics', this))) {
+            throw BSCException(
+                'len() takes a list as its argument, not a ${getType(args.single, dummyVariableGroup, -2, 0, 'intrinsics', false)} ${stack.reversed.join('\n')}',
+                dummyVariableGroup);
+          }
+          stack.removeLast();
+          return (args.single as SydIterable).iterable.length;
+        },
+        FunctionValueType(
+            integerType, [IterableValueType<Object?>(ValueType.create(whateverVariable, -2, 0, 'intrinsics', this), 'intrinsics', this)], 'intrinsics', this),
+        'len intrinsic',
+      ),
+      'input': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return stdin.readLineSync();
+        },
+        FunctionValueType(stringType, [], 'intrinsics', this),
+        'input intrinsic',
+      ),
+      'append': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          stack.add(NotLazyString('append'));
+          if (!getType(args.last, dummyVariableGroup, -2, 0, 'intrinsics', false)
+              .isSubtypeOf((getType(args.first, dummyVariableGroup, -2, 0, 'intrinsics', false) as ListValueType).genericParameter)) {
+            throw BSCException(
+                'You cannot append a ${getType(args.last, dummyVariableGroup, -2, 0, 'intrinsics', false)} to a ${getType(args.first, dummyVariableGroup, -2, 0, 'intrinsics', false)}!\n${stack.reversed.join('\n')}',
+                dummyVariableGroup);
+          }
+          (args.first as SydList).list.add(args.last);
+          stack.removeLast();
+          return args.last;
+        },
+        FunctionValueType(
+          anythingType,
+          [ListValueType(ValueType.create(whateverVariable, -2, 0, 'intrinsics', this), 'intrinsics', this), anythingType],
+          'intrinsics',
+          this,
+        ),
+        'append intrinsic',
+      ),
+      'pop': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          SydList list = args.first as SydList;
+          if (list.list.isEmpty) {
+            throw BSCException('Cannot pop from an empty list!\n${stack.reversed.join('\n')}', dummyVariableGroup);
+          }
+          return list.list.removeLast();
+        },
+        FunctionValueType(anythingType, [ListValueType(ValueType.create(whateverVariable, -2, 0, 'intrinsics', this), 'intrinsics', this)], 'intrinsics', this),
+        'pop intrinsic',
+      ),
+      'removeAt': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          SydList list = args.first as SydList;
+          if (list.list.isEmpty) {
+            throw BSCException('Cannot remove from an empty list!\n${stack.reversed.join('\n')}', dummyVariableGroup);
+          }
+          return list.list.removeAt(args.last as int);
+        },
+        FunctionValueType(anythingType, [ListValueType(ValueType.create(whateverVariable, -2, 0, 'intrinsics', this), 'intrinsics', this), integerType], 'intrinsics', this),
+        'pop intrinsic',
+      ),
+      'iterator': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return SydIterator(
+              (args.single as SydIterable).iterable.iterator, IteratorValueType(elementTypeOf((args.single as SydIterable).type), 'intrinsics', this));
+        },
+        FunctionValueType(IteratorValueType(anythingType, 'intrinsics', this),
+            [IterableValueType<Object?>(ValueType.create(whateverVariable, -2, 0, 'intrinsics', this), 'intrinsics', this)], 'intrinsics', this),
+        'iterator intrinsic',
+      ),
+      'next': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return (args.single as SydIterator).iterator.moveNext();
+        },
+        FunctionValueType(booleanType, [IteratorValueType(anythingType, 'intrinsics', this)], 'intrinsics', this),
+        'next intrinsic',
+      ),
+      'current': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return (args.single as SydIterator).iterator.current;
+        },
+        FunctionValueType(anythingType, [IteratorValueType(anythingType, 'intrinsics', this)], 'intrinsics', this),
+        'current intrinsic',
+      ),
+      'stringTimes': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return (args.first as String) * (args.last as int);
+        },
+        FunctionValueType(stringType, [stringType, integerType], 'intrinsics', this),
+        'stringTimes intrinsic',
+      ),
+      'copy': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return SydList(
+            (args.single as SydIterable).iterable.toList(),
+            ListValueType<Object?>(anythingType, 'intrinsics', this),
+          );
+        },
+        FunctionValueType(ListValueType(ValueType.create(whateverVariable, -2, 0, 'intrinsics', this), 'intrinsics', this),
+            [IterableValueType<Object?>(ValueType.create(whateverVariable, -2, 0, 'intrinsics', this), 'intrinsics', this)], 'intrinsics', this),
+        'copy intrinsic',
+      ),
+      'clear': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          (args.single as SydList).list.clear();
+          return 0;
+        },
+        FunctionValueType(integerType, [ListValueType(ValueType.create(whateverVariable, -2, 0, 'intrinsics', this), 'intrinsics', this)], 'intrinsics', this),
+        'clear intrinsic',
+      ),
+      'hex': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return (args.single as int).toRadixString(16);
+        },
+        FunctionValueType(stringType, [integerType], 'intrinsics', this),
+        'hex intrinsic',
+      ),
+      'chr': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return String.fromCharCode(args.single as int);
+        },
+        FunctionValueType(stringType, [integerType], 'intrinsics', this),
+        'chr intrinsic',
+      ),
+      'exit': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          exit(args.single as int);
+        },
+        FunctionValueType(nullType, [integerType], 'intrinsics', this),
+        'exit intrinsic',
+      ),
+      'fileExists': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          File file = File(args.single as String);
+          return file.existsSync();
+        },
+        FunctionValueType(booleanType, [stringType], 'intrinsics', this),
+        'fileExists intrinsic',
+      ),
+      'openFile': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          File file = File('${args.first}');
+          FileMode mode = switch (args.last as int) {
+            0 => FileMode.read,
+            1 => FileMode.writeOnly,
+            2 => FileMode.writeOnlyAppend,
+            int x => throw BSCException(
+                'openFile mode $x is not a valid mode\n${stack.reversed.join('\n')}',
+                StringVariableGroup(
+                  '$file',
+                  this,
+                )),
+          };
+          return SydFile(file.openSync(mode: mode), mode == FileMode.writeOnlyAppend, fileType);
+        },
+        FunctionValueType(fileType, [stringType, integerType], 'intrinsics', this),
+        'openFile intrinsic',
+      ),
+      'fileModeRead': 0,
+      'fileModeWrite': 1,
+      'fileModeAppend': 2,
+      'readFileBytes': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          try {
+            SydFile file = args.single as SydFile;
+            int length = file.file.lengthSync();
+            if (file.used) {
+              throw BSCException('${file.file.path} was read twice ${stack.reversed.join('\n')}', dummyVariableGroup);
+            }
+            file.used = true;
+            return SydList(
+              file.file.readSync(length),
+              ListValueType<int>(integerType, 'interr', this),
+            );
+          } catch (e) {
+            rethrow;
+          }
+        },
+        FunctionValueType(ListValueType(integerType, 'intrinsics', this), [fileType], 'intrinsics', this),
+        'readFileBytes intrinsic',
+      ),
+      'writeFile': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          try {
+            SydFile file = args.first as SydFile;
+            if (file.used && !file.appendMode) {
+              throw BSCException('${file.file.path} was written to twice ${stack.reversed.join('\n')}', dummyVariableGroup);
+            }
+            file.file.writeStringSync(args.last as String);
+            file.used = true;
+            return null;
+          } catch (e) {
+            rethrow;
+          }
+        },
+        FunctionValueType(nullType, [fileType, stringType], 'intrinsics', this),
+        'writeFile intrinsic',
+      ),
+      'closeFile': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          try {
+            SydFile file = args.single as SydFile;
+            file.file.closeSync();
+            return null;
+          } catch (e) {
+            rethrow;
+          }
+        },
+        FunctionValueType(nullType, [fileType], 'intrinsics', this),
+        'closeFile intrinsic',
+      ),
+      'deleteFile': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          File file = File(args.single as String);
+          file.deleteSync();
+          return null;
+        },
+        FunctionValueType(nullType, [stringType], 'intrinsics', this),
+        'deleteFile intrinsic',
+      ),
+      'utf8Decode': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          try {
+            SydArray<Object?> input = args.single as SydArray<Object?>;
+            return utf8.decode(input.array.cast());
+          } catch (e) {
+            throw BSCException(
+                'error $e when decoding utf8 ${toStringWithStacker(args.single, -2, 0, 'file', false)}\n${stack.reversed.join('\n')}', dummyVariableGroup);
+          }
+        },
+        FunctionValueType(stringType, [ListValueType(integerType, 'intrinsics', this)], 'intrinsics', this),
+        'utf8Decode intrinsic',
+      ),
+      'throw': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          if (args.length > 1) {
+            throw SydException((args.first as String) + '\nstack:\n' + stack.reversed.join('\n'), args.last as int, dummyVariableGroup);
+          }
+          throw ThrowException((args.single as String) + '\nstack:\n' + stack.reversed.join('\n'), dummyVariableGroup);
+        },
+        FunctionValueType(nullType, [stringType], 'intrinsics', this),
+        'throw intrinsic',
+      ),
+      'substring': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          stack.add(NotLazyString('substring'));
+          if (args[1] as int > (args[2] as int)) {
+            throw BSCException(
+                'Cannot substring when the start (${args[1]}) is more than the end (${args[2]})!\n${stack.reversed.join('\n')}', dummyVariableGroup);
+          }
+          if (args[1] as int < 0) {
+            throw BSCException('Cannot substring when the start (${args[1]}) is less than 0!\n${stack.reversed.join('\n')}', dummyVariableGroup);
+          }
+          if (args[2] as int > (args[0] as String).length) {
+            throw BSCException('Cannot substring when the end (${args[2]}) is more than the length of the string (${args[1]})!\n${stack.reversed.join('\n')}',
+                dummyVariableGroup);
+          }
+          stack.removeLast();
+          return (args[0] as String).substring(args[1] as int, args[2] as int);
+        },
+        FunctionValueType(stringType, [stringType, integerType, integerType], 'intrinsics', this),
+        'substring intrinsic',
+      ),
+      'sublist': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          stack.add(NotLazyString('substring'));
+          if (args[2] as int < (args[1] as int)) {
+            throw BSCException('sublist called with ${args[2]} (end arg) < ${args[1]} (start arg) ${stack.reversed.join('\n')}', dummyVariableGroup);
+          }
+          SydList result = SydList(
+            (args[0] as SydArray<Object?>).array.sublist(args[1] as int, args[2] as int),
+            getType(args.first, dummyVariableGroup, -2, 0, 'intrinsics', true) as ValueType<SydList>,
+          );
+
+          stack.removeLast();
+          return result;
+        },
+        FunctionValueType(
+          ListValueType(ValueType.create(whateverVariable, -2, 0, 'intrinsics', this), 'intrinsics', this),
+          [ArrayValueType(ValueType.create(whateverVariable, -2, 0, 'intrinsics', this), 'intrinsics', this), integerType, integerType],
+          'intrinsics',
+          this,
+        ),
+        'sublist intrinsic',
+      ),
+      'stackTrace': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return stack.reversed.join('\n');
+        },
+        FunctionValueType(stringType, [], 'intrinsics', this),
+        'stackTrace intrinsic',
+      ),
+      'containsString': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return (args.first as String).contains(args.last as String);
+        },
+        FunctionValueType(booleanType, [stringType, stringType], 'intrinsics', this),
+        'containsString intrinsic',
+      ),
+      'debugName': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return (args.single as Scope).debugName;
+        },
+        FunctionValueType(stringType, [rootClassType], 'intrinsics', this),
+        'debugName intrinsic',
+      ),
+      'createStringBuffer': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return StringBuffer();
+        },
+        FunctionValueType(stringBufferType, [], 'intrinsics', this),
+        'createStringBuffer intrinsic',
+      ),
+      'writeStringBuffer': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          StringBuffer buffer = args.first as StringBuffer;
+          buffer.write(args.last);
+          return null;
+        },
+        FunctionValueType(nullType, [stringBufferType, stringType], 'intrinsics', this),
+        'writeStringBuffer intrinsic',
+      ),
+      'readStringBuffer': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          StringBuffer buffer = args.first as StringBuffer;
+          return buffer.toString();
+        },
+        FunctionValueType(stringType, [stringBufferType], 'intrinsics', this),
+        'readStringBuffer intrinsic',
+      ),
+      'startTimer': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return Stopwatch()..start();
+        },
+        FunctionValueType(timerType, [], 'intrinsics', this),
+        'startTime intrinsic',
+      ),
+      'timerElapsed': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          return (args.first as Stopwatch).elapsed.inMilliseconds;
+        },
+        FunctionValueType(integerType, [timerType], 'intrinsics', this),
+        'timeElapsed intrinsic',
+      ),
+    };
+  }
 }
 
 class TVProp {
   final bool isFwd;
   final ValueType type;
   final bool validForSuper;
+  final int index;
 
-  TVProp(this.isFwd, this.type, this.validForSuper);
+  TVProp(this.isFwd, this.type, this.validForSuper, this.index);
 
   ValueType? notFwd() {
     return isFwd ? null : type;
+  }
+
+  String toString() {
+    return '<$type / ${isFwd ? '1' : '0'}${validForSuper ? '1' : '0'}>';
   }
 }
 
@@ -332,8 +881,9 @@ class NoDataVG extends VariableGroup {
 
 class TypeValidator extends VariableGroup {
   final LazyString debugName;
-  bool isClass;
-  bool isClassOf;
+  late bool inClass; // whether this scope is inside a class
+  late bool inStaticClass; // whether this scope is inside a static class
+  final bool globalScope;
   ValueType? returnType;
   final bool isStaticMethod;
   TypeValidator get intrinsics => parents.isEmpty ? this : parents.first.intrinsics;
@@ -350,9 +900,10 @@ class TypeValidator extends VariableGroup {
 
   String toString() => "$debugName";
 
-  TypeValidator(this.parents, this.debugName, this.isClass, this.isClassOf, this.isStaticMethod, this.rtl, this.identifiers, this.environment) {
-    if (parents.any((element) => element.isClass)) isClass = true;
-    if (parents.any((element) => element.isClassOf)) isClassOf = true;
+  TypeValidator(
+      this.parents, this.debugName, this.inClass, this.inStaticClass, this.isStaticMethod, this.rtl, this.identifiers, this.environment, this.globalScope) {
+    if (parents.any((element) => element.inClass)) inClass = true;
+    if (parents.any((element) => element.inStaticClass)) inStaticClass = true;
     returnType = parents.where((element) => element.returnType != null).firstOrNull?.returnType;
   }
   final List<TypeValidator> parents;
@@ -362,7 +913,7 @@ class TypeValidator extends VariableGroup {
       currentClassScope?.igv(thisVariable, true, -2, 0, 'thisshouldnotmatter', true, false) ??
       (throw ("Super called outside class (stack trace is dart stack trace, not syd stack trace)"));
   TypeValidator? get currentClassScope {
-    if (isClass) {
+    if (inClass) {
       return this;
     }
     return (parents.cast<TypeValidator?>()).firstWhere((element) => element!.currentClassScope != null, orElse: () => null)?.currentClassScope!;
@@ -390,6 +941,8 @@ class TypeValidator extends VariableGroup {
     }
   }
 
+  int currentIndex = 0;
+
   void newVar(
     Identifier name,
     ValueType type,
@@ -406,10 +959,16 @@ class TypeValidator extends VariableGroup {
         this,
       );
     }
+    if (types.containsKey(name) && nonconst.contains(name) && constant) {
+      throw BSCException(
+          'Cannot override non-constant variable ${name.name} with constant variable ${types[name]} ${nonconst.map((e) => e.name)} $this ${formatCursorPosition(line, col, file)}',
+          this);
+    }
     types[name] = TVProp(
       isFwd,
       type,
       validForSuper,
+      currentIndex++,
     );
     directVars.add(name);
     if (!constant) {
@@ -440,7 +999,7 @@ class TypeValidator extends VariableGroup {
       ValueType? type = ValueType.createNullable(
         expr,
         file,
-        this,
+        environment,
       );
       throw BSCException(
         "Attempted to retrieve ${expr.name}, which is undefined.  ${filenames.isEmpty ? '' : '(maybe you meant to import $filenames?) '}${type == null ? '' : '(that\'s a type, in case it helps) '}${formatCursorPosition(line, col, file)}",
@@ -458,23 +1017,49 @@ class TypeValidator extends VariableGroup {
       bool escapeClass = true,
       bool acceptFwd = true,
       bool forSuper = false]) {
-    assert(!checkParent || escapeClass || isClass || isClassOf, '${this.debugName}');
+    assert(!checkParent || escapeClass || inClass || inStaticClass, '${this.debugName}');
     if (addToUsedVars && !usedVars.contains(name)) {
       usedVars.add(name);
     }
     assert(!parents.contains(this));
-    ValueType? result = (acceptFwd && (!forSuper || (types[name]?.validForSuper ?? false))
-            ? types[name]?.type
-            : (!forSuper || (types[name]?.validForSuper ?? false))
-                ? types[name]?.notFwd()
-                : null) ??
-        (checkParent
-            ? parents
-                .map<ValueType?>((e) => e.isClass || e.isClassOf || escapeClass
-                    ? e.igv(name, addToUsedVars, debugLine, debugCol, debugFile, checkParent, escapeClass, acceptFwd)
-                    : null)
-                .firstWhere((e) => e != null, orElse: () => null)
-            : null);
+    TVProp? result = types[name];
+    if (!acceptFwd && result != null && result.isFwd) {
+      result = null;
+    }
+    if (forSuper && result != null && !result.validForSuper) {
+      result = null;
+    }
+    if (result != null) return result.type;
+    if (!checkParent) return null;
+    for (TypeValidator parent in parents) {
+      if (!escapeClass && !parent.inClass && !parent.inStaticClass) {
+        continue;
+      }
+      ValueType? result = parent.igv(name, addToUsedVars, debugLine, debugCol, debugFile, checkParent, escapeClass, acceptFwd);
+      if (result != null) return result;
+    }
+    return null;
+  }
+
+  List<int> findPathFor(Identifier name) {
+    assert(igv(name, false) != null);
+    List<int> result = [];
+    TypeValidator currentScope = this;
+    while (!currentScope.types.containsKey(name)) {
+      int index = currentScope.parents.indexWhere((element) => element.igv(name, false) != null);
+      if (index == -1) {
+        throw StateError('${name.name} in ${currentScope.debugName} but not in any parent');
+      }
+      currentScope = currentScope.parents[index];
+      result.add(index);
+    }
+    if (currentScope.inClass && currentScope.parents.every((element) => !element.inClass)) {
+      return const [-1];
+    }
+    result.add(currentScope.types[name]!.index);
+    if (currentScope.globalScope) {
+      return const [-2];
+    }
     return result;
   }
 
@@ -483,8 +1068,8 @@ class TypeValidator extends VariableGroup {
   }
 
   TypeValidator copy() {
-    return TypeValidator(
-        parents.toList(), ConcatenateLazyString(debugName, NotLazyString(' copy')), isClass, isClassOf, isStaticMethod, rtl, identifiers, environment)
+    return TypeValidator(parents.toList(), ConcatenateLazyString(debugName, NotLazyString(' copy')), inClass, inStaticClass, isStaticMethod, rtl, identifiers,
+        environment, globalScope)
       ..nonconst = nonconst.toList()
       ..types = types.map((key, value) => MapEntry(key, value));
   }
@@ -497,8 +1082,8 @@ class TypeValidator extends VariableGroup {
   String dumpIndent(int indent) {
     StringBuffer buffer = StringBuffer();
     buffer.write("${' ' * indent}$debugName");
-    buffer.write("\n${' ' * (indent + 2)}isClass: $isClass");
-    buffer.write("\n${' ' * (indent + 2)}isClassOf: $isClassOf");
+    buffer.write("\n${' ' * (indent + 2)}isClass: $inClass");
+    buffer.write("\n${' ' * (indent + 2)}isClassOf: $inStaticClass");
     buffer.write("\n${' ' * (indent + 2)}isStaticMethod: $isStaticMethod");
     buffer.write(
       "${types.entries.map((kv) => '\n${' ' * (indent + 2)}${kv.key.name}: ${kv.value.type}\n${' ' * (indent + 4)}nonconst: ${nonconst.contains(kv.key)}\n${' ' * (indent + 4)}direct: ${directVars.contains(kv.key)}\n${' ' * (indent + 4)}used: ${usedVars.contains(kv.key)}\n${' ' * (indent + 4)}fwd-declared: ${kv.value.isFwd}').join('')}",
@@ -508,10 +1093,11 @@ class TypeValidator extends VariableGroup {
   }
 }
 
+// TODO: this may not be needed anymore
 class ClassTypeValidator extends TypeValidator {
   final TypeValidator fwdProps;
-  ClassTypeValidator(
-      this.fwdProps, super.parents, super.debugName, super.isClass, super.isClassOf, super.isStaticMethod, super.rtl, super.identifiers, super.environment) {}
+  ClassTypeValidator(this.fwdProps, super.parents, super.debugName, super.inClass, super.inStaticClass, super.isStaticMethod, super.rtl, super.identifiers,
+      super.environment, super.globalScope) {}
 
   @override
   ValueType? igv(Identifier name, bool addToUsedVars,
@@ -520,19 +1106,12 @@ class ClassTypeValidator extends TypeValidator {
     if (result != null) {
       return result;
     }
-    if (acceptFwd) {
-      return fwdProps.igv(name, addToUsedVars, line, col, file, checkParent, escapeClass, acceptFwd, forSuper) ??
-          super.igv(name, addToUsedVars, line, col, file, checkParent, escapeClass, acceptFwd, forSuper);
-    }
+    // if (acceptFwd) {
+    //   return fwdProps.igv(name, addToUsedVars, line, col, file, checkParent, escapeClass, acceptFwd, forSuper) ??
+    //       super.igv(name, addToUsedVars, line, col, file, checkParent, escapeClass, acceptFwd, forSuper);
+    // }
     return super.igv(name, addToUsedVars, line, col, file, checkParent, escapeClass, acceptFwd, forSuper);
   }
-}
-
-class MaybeConstantValueWrapper {
-  final Object? value;
-  final bool isConstant;
-
-  MaybeConstantValueWrapper(this.value, this.isConstant);
 }
 
 class Scope extends VariableGroup implements TypedValue<Scope> {
@@ -588,56 +1167,76 @@ class Scope extends VariableGroup implements TypedValue<Scope> {
     return node;
   }
 
+  Scope? get currentClassScope {
+    Scope node = this;
+    while (!node.isClass) {
+      if (node.parents.isEmpty) {
+        return null;
+      }
+      node = node.parents.first;
+    }
+    return node;
+  }
+
   String toString() {
     throw "called Scope.toString()";
   }
 
   String toStringWithStack(int line, int col, String file, bool rethrowErrors) {
     try {
-      return values.containsKey(identifiers['toString'])
-          ? (values[identifiers['toString']]!.value as SydFunction<Object?>).function([]) as String
-          : "<${values[identifiers['className']]?.value ?? '($debugName)'}>";
+      if (!directlyContains(identifiers['toString']!)) {
+        return '<$debugName>';
+      }
+      return (getVarByName(identifiers['toString']!) as SydFunction<Object?>).function([]) as String;
     } on SydException {
       if (rethrowErrors) rethrow;
       return '<$debugName>';
     }
   }
 
-  final Map<Identifier, MaybeConstantValueWrapper> values = HashMap();
+  final Map<Identifier, int> _valueIndicies = HashMap();
 
-  (bool, Object?) internal_getVar(Identifier name) {
-    MaybeConstantValueWrapper? localResult = values[name];
-    if (localResult != null) {
-      return (true, localResult.value);
-    }
-    for (Scope parent in parents) {
-      (bool, Object?) subResult = parent.internal_getVar(name);
-      if (subResult.$1) {
-        return subResult;
-      }
-    }
-    return (false, null);
+  final List<Object?> _values = [];
+
+  bool directlyContains(Identifier name) {
+    return _valueIndicies.containsKey(name);
   }
 
-  Object? getVar(Identifier name, int line, int column, String file, TypeValidator? validator) {
-    var val = internal_getVar(name);
-    return val.$1
-        ? val.$2
-        : (validator?.classes.containsKey(name) ?? false
-            ? (throw BSCException("class ${name.name} has not yet been defined ${formatCursorPosition(line, column, file)}", this))
-            : (throw BSCException("${name.name} nonexistent ${formatCursorPosition(line, column, file)} ${environment.stack.reversed.join("\n")}", this)));
+  void newVar(Identifier name, Object? value) {
+    _valueIndicies[name] = _values.length;
+    _values.add(value);
+    if (environment.globals[name] == null) {
+      environment.globals[name] = value;
+    }
   }
 
-  bool recursiveContains(Identifier variable) {
-    if (values.containsKey(variable)) {
-      return true;
+  void writeTo(Identifier name, List<int> path, Object? value) {
+    Scope currentScope = this;
+    int index = 0;
+    while (index < path.length - 1) {
+      currentScope = currentScope.parents[path[index]];
+      index += 1;
     }
-    for (Scope parent in parents) {
-      if (parent.recursiveContains(variable)) {
-        return true;
-      }
+    currentScope._values[path[index]] = value;
+  }
+
+  void writeToByName(Identifier name, Object? value) {
+    _values[_valueIndicies[name]!] = value;
+  }
+
+  Object? getVar(List<int> path) {
+    Scope currentScope = this;
+    int index = 0;
+    while (index < path.length - 1) {
+      currentScope = currentScope.parents[path[index]];
+      index += 1;
     }
-    return false;
+    return currentScope._values[path[index]];
+  }
+
+  Object? getVarByName(Identifier name) {
+    assert(_valueIndicies.containsKey(name), '${name.name} not found');
+    return _values[_valueIndicies[name]!];
   }
 
   void addParent(Scope scope) {
@@ -668,9 +1267,10 @@ class Scope extends VariableGroup implements TypedValue<Scope> {
     buffer.write("\n${' ' * (indent + 2)}staticClassName: $staticClassName");
     buffer.write("\n${' ' * (indent + 2)}declaringClass: $declaringClass");
     buffer.write("\n${' ' * (indent + 2)}typeIfClass: $typeIfClass");
-    buffer.write(
-      "${values.entries.map<String>((kv) => '\n${' ' * (indent + 2)}${kv.key.name}: ${toStringWithStacker(kv.value.value, -2, 0, 'file', false)}\n${' ' * (indent + 4)}type: ${(kv.value.value is Scope && (kv.value.value as Scope).typeIfClass == null) ? '<no type>' : getType(kv.value.value, this, -2, 0, 'in dumpIndent', false)}\n${' ' * (indent + 4)}isConstant: ${kv.value.isConstant}').join('')}",
-    );
+    for (Identifier name in _valueIndicies.keys) {
+      buffer.write(
+          '\n${' ' * (indent + 2)}${name.name}: ${toStringWithStacker(getVarByName(name), -2, 0, 'internal', false)} (type: ${getType(getVarByName(name), this, -2, 0, 'internal', false)})');
+    }
     buffer.write("\n${' ' * (indent + 2)}parents: ${parents.map((e) => '\n${e.dumpIndent(indent + 4)}').join('')}");
     return buffer.toString();
   }
@@ -717,18 +1317,16 @@ class ValueType<T extends Object?> {
   bool operator ==(x) => x is ValueType && this.isSubtypeOf(x) && x.isSubtypeOf(this);
   final Environment environment;
 
-  ValueType.internal(this.parent, this.name, String file, this._memberAccesible, TypeValidator tv, this.environment) {
+  ValueType.internal(this.parent, this.name, String file, this._memberAccesible, this.environment) {
     if (environment.typeTable.types[name] != null) {
-      throw BSCException("Repeated creation of ${name.name} (file $file)", StringVariableGroup(StackTrace.current.toString(), tv.environment));
+      throw BSCException("Repeated creation of ${name.name} (file $file)", StringVariableGroup(StackTrace.current.toString(), environment));
     }
     if (environment.typeTable.types.keys.any((e) => e.name == name.name)) {
       throw StateError("Repeated creation of variable ${name.name} (file $file)");
     }
     environment.typeTable.types[name] = this;
-    tv.types[tv.identifiers['~type${name.name}'] ??= Identifier('~type${name.name}')] = TVProp(false, this, false);
-    tv.igv(tv.identifiers['~type${name.name}']!, true);
     assert(environment.subtypeTable.length == id);
-    environment.subtypeTable.add(BoolList(id+1, growable: true));
+    environment.subtypeTable.add(BoolList(id + 1, growable: true));
     for (ValueType type in environment.typeTable.types.values) {
       environment.subtypeTable[id][type.id] = internal_isSubtypeOf(type);
       if (type.id == id) continue;
@@ -737,103 +1335,102 @@ class ValueType<T extends Object?> {
     }
   }
 
-  static ValueType create(Identifier name, int line, int col, String file, TypeValidator tv) {
-    return createNullable(name, file, tv) ??
-        (throw BSCException("'${name.name}' type doesn't exist ${formatCursorPosition(line, col, file)}", StringVariableGroup(StackTrace.current.toString(), tv.environment)));
+  static ValueType create(Identifier name, int line, int col, String file, Environment environment) {
+    return createNullable(name, file, environment) ??
+        (throw BSCException(
+            "'${name.name}' type doesn't exist ${formatCursorPosition(line, col, file)}", StringVariableGroup(StackTrace.current.toString(), environment)));
   }
 
-  static ValueType? createNullable(Identifier name, String file, TypeValidator tv) {
-    //print(name.name + types.keys.map((e) => e.name).toList().toString());
-    if (tv.environment.typeTable.types[name] != null && tv.igv(tv.identifiers['~type${name.name}'] ??= Identifier('~type${name.name}'), true) != null)
-      return tv.environment.typeTable.types[name];
+  static ValueType? createNullable(Identifier name, String file, Environment environment) {
+    if (environment.typeTable.types[name] != null) return environment.typeTable.types[name];
     if (name.name.endsWith("Class")) {
       return null;
     }
     if (name.name.endsWith("Iterable")) {
       var iterableOrNull = ValueType.createNullable(
-        tv.identifiers[name.name.substring(0, name.name.length - 8)] ??= Identifier(name.name.substring(0, name.name.length - 8)),
+        environment.identifiers[name.name.substring(0, name.name.length - 8)] ??= Identifier(name.name.substring(0, name.name.length - 8)),
         file,
-        tv,
+        environment,
       );
       if (iterableOrNull == null) return null;
       return IterableValueType<Object?>(
         iterableOrNull,
         file,
-        tv,
+        environment,
       );
     }
     if (name.name.endsWith("Iterator")) {
       var iteratorOrNull = ValueType.createNullable(
-        tv.identifiers[name.name.substring(0, name.name.length - 8)] ??= Identifier(name.name.substring(0, name.name.length - 8)),
+        environment.identifiers[name.name.substring(0, name.name.length - 8)] ??= Identifier(name.name.substring(0, name.name.length - 8)),
         file,
-        tv,
+        environment,
       );
       if (iteratorOrNull == null) return null;
       return IteratorValueType(
         iteratorOrNull,
         file,
-        tv,
+        environment,
       );
     }
     if (name.name.endsWith('List')) {
       var listOrNull = ValueType.createNullable(
-        tv.identifiers[name.name.substring(0, name.name.length - 4)] ??= Identifier(name.name.substring(0, name.name.length - 4)),
+        environment.identifiers[name.name.substring(0, name.name.length - 4)] ??= Identifier(name.name.substring(0, name.name.length - 4)),
         file,
-        tv,
+        environment,
       );
       if (listOrNull == null) return null;
       return ListValueType<Object?>(
         listOrNull,
         file,
-        tv,
+        environment,
       );
     }
     if (name.name.endsWith('Array')) {
       var arrayOrNull = ValueType.createNullable(
-        tv.identifiers[name.name.substring(0, name.name.length - 5)] ??= Identifier(name.name.substring(0, name.name.length - 5)),
+        environment.identifiers[name.name.substring(0, name.name.length - 5)] ??= Identifier(name.name.substring(0, name.name.length - 5)),
         file,
-        tv,
+        environment,
       );
       if (arrayOrNull == null) return null;
       return ArrayValueType(
         arrayOrNull,
         file,
-        tv,
+        environment,
       );
     }
     if (name.name.endsWith("Function")) {
       var functionOrNull = ValueType.createNullable(
-        tv.identifiers[name.name.substring(0, name.name.length - 8)] ??= Identifier(name.name.substring(0, name.name.length - 8)),
+        environment.identifiers[name.name.substring(0, name.name.length - 8)] ??= Identifier(name.name.substring(0, name.name.length - 8)),
         file,
-        tv,
+        environment,
       );
       if (functionOrNull == null) return null;
       return GenericFunctionValueType(
         functionOrNull,
         file,
-        tv,
+        environment,
       );
     }
     if (name.name.endsWith("Nullable")) {
       var nullableOrNull = ValueType.createNullable(
-        tv.identifiers[name.name.substring(0, name.name.length - 8)] ??= Identifier(name.name.substring(0, name.name.length - 8)),
+        environment.identifiers[name.name.substring(0, name.name.length - 8)] ??= Identifier(name.name.substring(0, name.name.length - 8)),
         file,
-        tv,
+        environment,
       );
       if (nullableOrNull == null) return null;
       if (nullableOrNull is NullableValueType ||
-          nullableOrNull == tv.environment.nullType ||
-          nullableOrNull == tv.environment.anythingType ||
+          nullableOrNull == environment.nullType ||
+          nullableOrNull == environment.anythingType ||
           nullableOrNull.name == whateverVariable) {
-        throw BSCException("Type $nullableOrNull is already nullable, cannot make nullable version ${name.name}", NoDataVG(tv.environment));
+        throw BSCException("Type $nullableOrNull is already nullable, cannot make nullable version ${name.name}", NoDataVG(environment));
       }
       return NullableValueType<Object?>(
         nullableOrNull as ValueType<Object>,
         file,
-        tv,
+        environment,
       );
     }
-    return basicTypes(name,  file, tv);
+    return basicTypes(name, file, environment);
   }
 
   bool internal_isSubtypeOf(ValueType possibleParent) {
@@ -854,19 +1451,25 @@ class ValueType<T extends Object?> {
 }
 
 class ClassValueType extends ValueType<Scope> {
-  ClassValueType.internal(Identifier name, this.supertype, this.properties, String file, TypeValidator tv)
-      : super.internal(supertype ?? tv.environment.rootClassType, name, file, false, tv, tv.environment);
-  factory ClassValueType(Identifier name, ClassValueType? supertype, TypeValidator properties, String file, bool fwdDeclared, TypeValidator tv) {
-    if (tv.environment.typeTable.types[name] is! ClassValueType?) {
+  ClassValueType.internal(Identifier name, this.supertype, this.properties, String file, Environment environment)
+      : super.internal(supertype ?? environment.rootClassType, name, file, false, environment);
+  factory ClassValueType(Identifier name, ClassValueType? supertype, TypeValidator properties, String file, bool fwdDeclared, Environment environment) {
+    if (environment.typeTable.types[name] is! ClassValueType?) {
       throw BSCException("Tried to make class named ${name.name} but that is an existing non-class type (file: $file)", properties);
     }
-    return ((tv.environment.typeTable.types[name] ??= ClassValueType.internal(name, supertype, properties, file, tv)) as ClassValueType)
-      ..fwdDeclared = fwdDeclared;
+    ClassValueType classValueType =
+        ((environment.typeTable.types[name] ??= ClassValueType.internal(name, supertype, properties, file, environment)) as ClassValueType);
+    classValueType.forwardDeclared = classValueType.forwardDeclared || fwdDeclared;
+    return classValueType..notFullyDeclared = fwdDeclared;
   }
   final TypeValidator properties;
   final ClassValueType? supertype;
   final List<ClassValueType> subtypes = [];
-  bool fwdDeclared = true; // set to false when the class is fully declared
+  Scope? methods;
+  late final SydFunction fieldInitializer;
+  Class? generatedConstructor;
+  bool notFullyDeclared = true; // set to false at parsetime when the class is fully   declared
+  bool forwardDeclared = false; // set to true  at parsetime when the class is forward declared
 
   @override
   bool memberAccesible() {
@@ -898,6 +1501,8 @@ String toStringWithStacker(Object? x, int line, int col, String file, bool rethr
       result.write(')');
     }
     return result.toString();
+  } else if (x is Iterable) {
+    throw StateError('don\'t pass iterables to toStringWithStacker');
   } else {
     return x.toString();
   }
@@ -912,15 +1517,15 @@ class ClassOfValueType extends ValueType<Class> {
     return super.internal_isSubtypeOf(possibleParent) || (possibleParent is ClassOfValueType && classType.internal_isSubtypeOf(possibleParent.classType));
   }
 
-  factory ClassOfValueType(ClassValueType classType, TypeValidator staticMembers, GenericFunctionValueType constructor, String file, TypeValidator tv) {
-    if (classType.environment.typeTable.types[tv.identifiers['${classType.name.name}Class'] ??= Identifier('${classType.name.name}Class')] != null) {
-      return classType.environment.typeTable.types[tv.identifiers['${classType.name.name}Class']!] as ClassOfValueType;
+  factory ClassOfValueType(ClassValueType classType, TypeValidator staticMembers, GenericFunctionValueType constructor, String file, Environment environment) {
+    if (classType.environment.typeTable.types[environment.identifiers['${classType.name.name}Class'] ??= Identifier('${classType.name.name}Class')] != null) {
+      return classType.environment.typeTable.types[environment.identifiers['${classType.name.name}Class']!] as ClassOfValueType;
     }
-    return ClassOfValueType.internal(classType, staticMembers, constructor, file, tv);
+    return ClassOfValueType.internal(classType, staticMembers, constructor, file, environment);
   }
 
-  ClassOfValueType.internal(this.classType, this.staticMembers, this.constructor, String /*super.*/ file, TypeValidator tv)
-      : super.internal(tv.environment.anythingType, tv.identifiers['${classType.name.name}Class']!, file, false, tv, tv.environment);
+  ClassOfValueType.internal(this.classType, this.staticMembers, this.constructor, String /*super.*/ file, Environment environment)
+      : super.internal(environment.anythingType, environment.identifiers['${classType.name.name}Class']!, file, false, environment);
 
   @override
   bool memberAccesible() {
@@ -932,8 +1537,8 @@ class EnumValueType extends ValueType<SydEnum> {
   final TypeValidator staticMembers;
   final EnumPropertyValueType propertyType;
 
-  EnumValueType(Identifier name, this.staticMembers, String file, this.propertyType, TypeValidator tv)
-      : super.internal(tv.environment.anythingType, tv.identifiers[name.name + 'Enum'] ??= Identifier(name.name + 'Enum'), file, false, tv, tv.environment) {}
+  EnumValueType(Identifier name, this.staticMembers, String file, this.propertyType, Environment environment)
+      : super.internal(environment.anythingType, environment.identifiers[name.name + 'Enum'] ??= Identifier(name.name + 'Enum'), file, false, environment) {}
 
   @override
   bool memberAccesible() {
@@ -942,29 +1547,28 @@ class EnumValueType extends ValueType<SydEnum> {
 }
 
 class EnumPropertyValueType extends ValueType<SydEnumValue> {
-  EnumPropertyValueType(Identifier name, String file, TypeValidator tv) : super.internal(tv.environment.anythingType, name, file, false, tv, tv.environment) {}
+  EnumPropertyValueType(Identifier name, String file, Environment environment) : super.internal(environment.anythingType, name, file, false, environment) {}
 }
 
 class NullType extends ValueType<Null> {
-  NullType.internal(ValueType anythingType, TypeValidator tv)
-      : super.internal(tv.environment.anythingType, tv.identifiers['Null'] ??= Identifier('Null'), 'interr', false, tv, tv.environment);
+  NullType.internal(ValueType anythingType, Environment environment)
+      : super.internal(environment.anythingType, environment.identifiers['Null'] ??= Identifier('Null'), 'interr', false, environment);
 
   bool internal_isSubtypeOf(ValueType possibleParent) {
     return possibleParent is NullableValueType || super.internal_isSubtypeOf(possibleParent);
   }
 }
 
-ValueType? basicTypes(Identifier name, String file, TypeValidator tv) {
-  final Identifier? sentinel = tv.identifiers['~sentinel'];
+ValueType? basicTypes(Identifier name, String file, Environment environment) {
+  final Identifier? sentinel = environment.identifiers['~sentinel'];
   switch (name) {
     case whateverVariable:
-    case classMethodsVariable:
-      if (tv.environment.typeTable.types[name] != null) return tv.environment.typeTable.types[name];
-      return ValueType.internal(tv.environment.anythingType, name, file, name == whateverVariable, tv, tv.environment);
+      if (environment.typeTable.types[name] != null) return environment.typeTable.types[name];
+      return ValueType.internal(environment.anythingType, name, file, name == whateverVariable, environment);
     default:
       if (name == sentinel) {
-        if (tv.environment.typeTable.types[name] != null) return tv.environment.typeTable.types[name];
-        return ValueType.internal(tv.environment.anythingType, name, file, name == whateverVariable, tv, tv.environment);
+        if (environment.typeTable.types[name] != null) return environment.typeTable.types[name];
+        return ValueType.internal(environment.anythingType, name, file, name == whateverVariable, environment);
       }
       return null;
   }
@@ -973,12 +1577,12 @@ ValueType? basicTypes(Identifier name, String file, TypeValidator tv) {
 class NullableValueType<T> extends ValueType<T?> {
   final ValueType<T> genericParam;
 
-  NullableValueType.internal(this.genericParam, String file, TypeValidator tv)
-      : super.internal(tv.environment.anythingType, tv.identifiers[genericParam.name.name + 'Nullable'] ??= Identifier(genericParam.name.name + 'Nullable'), file,
-            false, tv, tv.environment);
-  factory NullableValueType(ValueType<Object> genericParam, String file, TypeValidator tv) {
-    return (tv.environment.typeTable.types[tv.identifiers["${genericParam}Nullable"] ??= Identifier("${genericParam}Nullable")] ??=
-        NullableValueType.internal(genericParam, file, tv)) as NullableValueType<T>;
+  NullableValueType.internal(this.genericParam, String file, Environment environment)
+      : super.internal(environment.anythingType,
+            environment.identifiers[genericParam.name.name + 'Nullable'] ??= Identifier(genericParam.name.name + 'Nullable'), file, false, environment);
+  factory NullableValueType(ValueType<Object> genericParam, String file, Environment environment) {
+    return (environment.typeTable.types[environment.identifiers["${genericParam}Nullable"] ??= Identifier("${genericParam}Nullable")] ??=
+        NullableValueType.internal(genericParam, file, environment)) as NullableValueType<T>;
   }
 
   bool internal_isSubtypeOf(ValueType other) {
@@ -987,14 +1591,13 @@ class NullableValueType<T> extends ValueType<T?> {
 }
 
 class GenericFunctionValueType<T> extends ValueType<SydFunction<T>> {
-  final TypeValidator tv;
-  GenericFunctionValueType.internal(this.returnType, String file, this.tv)
+  GenericFunctionValueType.internal(this.returnType, String file, Environment environment)
       : super.internal(
-            tv.environment.anythingType, tv.identifiers["${returnType}Function"] ??= Identifier("${returnType}Function"), file, false, tv, tv.environment);
+            environment.anythingType, environment.identifiers["${returnType}Function"] ??= Identifier("${returnType}Function"), file, false, environment);
   final ValueType returnType;
-  factory GenericFunctionValueType(ValueType returnType, String file, TypeValidator tv) {
-    return (tv.environment.typeTable.types[tv.identifiers["${returnType}Function"] ??= Identifier("${returnType}Function")] ??=
-        GenericFunctionValueType<T>.internal(returnType, file, tv)) as GenericFunctionValueType<T>;
+  factory GenericFunctionValueType(ValueType returnType, String file, Environment environment) {
+    return (environment.typeTable.types[environment.identifiers["${returnType}Function"] ??= Identifier("${returnType}Function")] ??=
+        GenericFunctionValueType<T>.internal(returnType, file, environment)) as GenericFunctionValueType<T>;
   }
   @override
   bool internal_isSubtypeOf(final ValueType possibleParent) {
@@ -1004,17 +1607,18 @@ class GenericFunctionValueType<T> extends ValueType<SydFunction<T>> {
   }
 
   GenericFunctionValueType withReturnType(ValueType rt, String file) {
-    return GenericFunctionValueType(rt, file, tv);
+    return GenericFunctionValueType(rt, file, environment);
   }
 }
 
 class IterableValueType<T> extends ValueType<SydIterable<T>> {
-  IterableValueType.internal(this.genericParameter, String file, TypeValidator tv)
-      : super.internal(tv.environment.anythingType, tv.identifiers["${genericParameter}Iterable"] ??= Identifier("${genericParameter}Iterable"), file, false, tv,
-            tv.environment);
-  factory IterableValueType(ValueType<T> genericParameter, String file, TypeValidator tv) {
-    return tv.environment.typeTable.types[tv.identifiers["${genericParameter}Iterable"] ??= Identifier("${genericParameter}Iterable")] as IterableValueType<T>? ??
-        IterableValueType<T>.internal(genericParameter, file, tv);
+  IterableValueType.internal(this.genericParameter, String file, Environment environment)
+      : super.internal(environment.anythingType, environment.identifiers["${genericParameter}Iterable"] ??= Identifier("${genericParameter}Iterable"), file,
+            false, environment);
+  factory IterableValueType(ValueType<T> genericParameter, String file, Environment environment) {
+    return environment.typeTable.types[environment.identifiers["${genericParameter}Iterable"] ??= Identifier("${genericParameter}Iterable")]
+            as IterableValueType<T>? ??
+        IterableValueType<T>.internal(genericParameter, file, environment);
   }
   final ValueType<T> genericParameter;
   @override
@@ -1025,12 +1629,13 @@ class IterableValueType<T> extends ValueType<SydIterable<T>> {
 }
 
 class IteratorValueType<T> extends ValueType<SydIterator<T>> {
-  IteratorValueType.internal(this.genericParameter, String file, TypeValidator tv)
-      : super.internal(tv.environment.anythingType, tv.identifiers["${genericParameter}Iterator"] ??= Identifier("${genericParameter}Iterator"), file, false, tv,
-            tv.environment);
-  factory IteratorValueType(ValueType<T> genericParameter, String file, TypeValidator tv) {
-    return tv.environment.typeTable.types[tv.identifiers["${genericParameter}Iterator"] ??= Identifier("${genericParameter}Iterator")] as IteratorValueType<T>? ??
-        IteratorValueType<T>.internal(genericParameter, file, tv);
+  IteratorValueType.internal(this.genericParameter, String file, Environment environment)
+      : super.internal(environment.anythingType, environment.identifiers["${genericParameter}Iterator"] ??= Identifier("${genericParameter}Iterator"), file,
+            false, environment);
+  factory IteratorValueType(ValueType<T> genericParameter, String file, Environment environment) {
+    return environment.typeTable.types[environment.identifiers["${genericParameter}Iterator"] ??= Identifier("${genericParameter}Iterator")]
+            as IteratorValueType<T>? ??
+        IteratorValueType<T>.internal(genericParameter, file, environment);
   }
   final ValueType<T> genericParameter;
   @override
@@ -1041,14 +1646,14 @@ class IteratorValueType<T> extends ValueType<SydIterator<T>> {
 }
 
 class ListValueType<T> extends ValueType<SydList<T>> {
-  final TypeValidator tv;
-  ListValueType.internal(this.genericParameter, String file, this.tv)
-      : super.internal(
-            tv.environment.anythingType, tv.identifiers["${genericParameter}List"] ??= Identifier("${genericParameter}List"), file, false, tv, tv.environment);
-  late Identifier name = tv.identifiers["${genericParameter}List"] ??= Identifier("${genericParameter}List");
-  factory ListValueType(ValueType<T> genericParameter, String file, TypeValidator tv) {
-    return tv.environment.typeTable.types[tv.identifiers["${genericParameter}List"] ??= Identifier("${genericParameter}List")] as ListValueType<T>? ??
-        ListValueType<T>.internal(genericParameter, file, tv);
+  ListValueType.internal(this.genericParameter, String file, Environment environment)
+      : name = environment.identifiers["${genericParameter}List"] ??= Identifier("${genericParameter}List"),
+        super.internal(
+            environment.anythingType, environment.identifiers["${genericParameter}List"] ??= Identifier("${genericParameter}List"), file, false, environment);
+  final Identifier name;
+  factory ListValueType(ValueType<T> genericParameter, String file, Environment environment) {
+    return environment.typeTable.types[environment.identifiers["${genericParameter}List"] ??= Identifier("${genericParameter}List")] as ListValueType<T>? ??
+        ListValueType<T>.internal(genericParameter, file, environment);
   }
   final ValueType<T> genericParameter;
   @override
@@ -1063,14 +1668,13 @@ class ListValueType<T> extends ValueType<SydList<T>> {
 }
 
 class ArrayValueType<T> extends ValueType<SydList<T>> {
-  final TypeValidator tv;
-  ArrayValueType.internal(this.genericParameter, String file, this.tv)
+  ArrayValueType.internal(this.genericParameter, String file, Environment environment)
       : super.internal(
-            tv.environment.anythingType, tv.identifiers["${genericParameter}Array"] ??= Identifier("${genericParameter}Array"), file, false, tv, tv.environment);
-  late Identifier name = tv.identifiers["${genericParameter}Array"] ??= Identifier("${genericParameter}Array");
-  factory ArrayValueType(ValueType genericParameter, String file, TypeValidator tv) {
-    return tv.environment.typeTable.types[tv.identifiers["${genericParameter}Array"] ??= Identifier("${genericParameter}Array")] as ArrayValueType<T>? ??
-        ArrayValueType<T>.internal(genericParameter, file, tv);
+            environment.anythingType, environment.identifiers["${genericParameter}Array"] ??= Identifier("${genericParameter}Array"), file, false, environment);
+  late Identifier name = environment.identifiers["${genericParameter}Array"] ??= Identifier("${genericParameter}Array");
+  factory ArrayValueType(ValueType genericParameter, String file, Environment environment) {
+    return environment.typeTable.types[environment.identifiers["${genericParameter}Array"] ??= Identifier("${genericParameter}Array")] as ArrayValueType<T>? ??
+        ArrayValueType<T>.internal(genericParameter, file, environment);
   }
   final ValueType genericParameter;
   @override
@@ -1087,20 +1691,21 @@ class FunctionValueType<T extends Object?> extends GenericFunctionValueType<T> {
   Iterable<ValueType> parameters;
   ValueType returnType;
   late final String stringParams = parameters.toString();
-  late final Identifier name = tv.identifiers["${returnType}Function(${stringParams.substring(1, stringParams.length - 1)})"] ??=
+  late final Identifier name = environment.identifiers["${returnType}Function(${stringParams.substring(1, stringParams.length - 1)})"] ??=
       Identifier("${returnType}Function(${stringParams.substring(1, stringParams.length - 1)})");
 
-  FunctionValueType.internal(this.returnType, this.parameters, String file, TypeValidator tv) : super.internal(returnType, file, tv);
+  FunctionValueType.internal(this.returnType, this.parameters, String file, Environment environment) : super.internal(returnType, file, environment);
   FunctionValueType withReturnType(ValueType rt, String file) {
-    return FunctionValueType(rt, parameters, file, tv);
+    return FunctionValueType(rt, parameters, file, environment);
   }
 
-  factory FunctionValueType(ValueType returnType, Iterable<ValueType> parameters, String file, TypeValidator tv) {
-    return tv.environment.typeTable.types[tv.identifiers["${returnType}Function(${parameters.toString().substring(1, parameters.toString().length - 1)})"] ??=
-        Identifier("${returnType}Function(${parameters.toString().substring(1, parameters.toString().length - 1)})")] = tv.environment.typeTable.types[
-            tv.identifiers["${returnType}Function(${parameters.toString().substring(1, parameters.toString().length - 1)})"] ??=
+  factory FunctionValueType(ValueType returnType, Iterable<ValueType> parameters, String file, Environment environment) {
+    return environment.typeTable.types[environment
+            .identifiers["${returnType}Function(${parameters.toString().substring(1, parameters.toString().length - 1)})"] ??=
+        Identifier("${returnType}Function(${parameters.toString().substring(1, parameters.toString().length - 1)})")] = environment.typeTable.types[
+            environment.identifiers["${returnType}Function(${parameters.toString().substring(1, parameters.toString().length - 1)})"] ??=
                 Identifier("${returnType}Function(${parameters.toString().substring(1, parameters.toString().length - 1)})")] as FunctionValueType<T>? ??
-        FunctionValueType<T>.internal(returnType, parameters, file, tv);
+        FunctionValueType<T>.internal(returnType, parameters, file, environment);
   }
   @override
   bool internal_isSubtypeOf(ValueType possibleParent) {

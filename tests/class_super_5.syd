@@ -1,6 +1,5 @@
-// expected error: runtime type error
-// expected output: PASS
-// expected output: CREATING
+// expected error: cannot override non-constant variable foo with constant variable (parsetime error)
+// unexpected output: CREATING
 // unexpected output: FAIL
 
 Whatever zap() {
@@ -17,6 +16,6 @@ class B extends A {
   Integer foo() { return 1; }
 }
 
-println('PASS');
+println('FAIL');
 B().foo();
 println('FAIL');
