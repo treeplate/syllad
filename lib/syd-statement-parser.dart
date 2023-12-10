@@ -35,6 +35,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
           tokens.current.col,
           tokens.file,
           scope.environment,
+          scope.typeTable,
         );
   if (supertype is! ClassValueType?) {
     throw BSCException('${superclass!.name} not a class while trying to have ${name.name} extend it. ${formatCursorPositionFromTokens(tokens)}', scope);
@@ -56,7 +57,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
       assert(newScope.igv(property.key, false, -2, 0, '', true, false, false) == property.value.type);
     }
   }
-  ClassValueType type = ClassValueType(name, supertype, newScope, tokens.file, false, scope.environment);
+  ClassValueType type = ClassValueType(name, supertype, newScope, tokens.file, false, scope.environment, scope.typeTable);
   if (newScope != type.properties) {
     if (supertype != type.supertype) {
       throw BSCException(
@@ -112,7 +113,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
     throw BSCException('Cannot extend an class that has not been defined yet.', scope);
   }
   TypeValidator staticMembers = TypeValidator(
-      [if (superclass != null) (supertype1 as ClassOfValueType).staticMembers],
+      [if (superclass != null) (supertype1 as ClassOfValueType).staticMembers else scope],
       ConcatenateLazyString(NotLazyString('static members of '), IdentifierLazyString(name)),
       false,
       true,
@@ -155,7 +156,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
       );
     }
   }
-  if (!(newScope.igv(constructorVariable, true)?.isSubtypeOf(GenericFunctionValueType(scope.environment.nullType, tokens.file, scope.environment)) ?? true)) {
+  if (!(newScope.igv(constructorVariable, true)?.isSubtypeOf(GenericFunctionValueType(scope.environment.nullType, tokens.file, scope.environment, scope.typeTable)) ?? true)) {
     throw BSCException('Bad constructor type: ${newScope.igv(constructorVariable, true)} ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   if (!hasFwdDecl) {
@@ -186,7 +187,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
   if (hasFwdDecl) {
     for (MapEntry<Identifier, TVProp> value in fwdProps.types.entries) {
       if (value.key == constructorVariable) {
-        if ((newScope.igv(value.key, false, -2, 0, '', true, false, false) ?? FunctionValueType(scope.environment.nullType, [], 'xxx', scope.environment)) !=
+        if ((newScope.igv(value.key, false, -2, 0, '', true, false, false) ?? FunctionValueType(scope.environment.nullType, [], 'xxx', scope.environment, scope.typeTable)) !=
             value.value.type) {
           throw BSCException(
               '${name.name}\'s constructor (${newScope.igv(value.key, false, -2, 0, '', true, false, false) ?? 'NullFunction() - default'}) does not match forward declaration (${value.value.type}) ${formatCursorPositionFromTokens(tokens)}',
@@ -215,14 +216,15 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
     scope.directVars.remove(name); // will be re-added in a few lines
   }
   GenericFunctionValueType constructorType = (type.recursiveLookup(constructorVariable)?.key is FunctionValueType?
-      ? FunctionValueType(type, (type.recursiveLookup(constructorVariable)?.key as FunctionValueType?)?.parameters ?? [], tokens.file, scope.environment)
-      : GenericFunctionValueType(type, tokens.file, scope.environment));
+      ? FunctionValueType(type, (type.recursiveLookup(constructorVariable)?.key as FunctionValueType?)?.parameters ?? [], tokens.file, scope.environment, scope.typeTable)
+      : GenericFunctionValueType(type, tokens.file, scope.environment, scope.typeTable));
   ClassOfValueType classOfType = ClassOfValueType(
     type,
     staticMembers,
     constructorType,
     tokens.file,
     scope.environment,
+    scope.typeTable,
   );
   if (!hasFwdDecl) {
     scope.newVar(
@@ -680,7 +682,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       throw BSCException('unexpected token <${tokens.current}> after <$expr>, ${formatCursorPositionFromTokens(tokens)}', scope);
     }
   }
-  ValueType type = ValueType.create(tokens.currentIdent, line, col, tokens.file, scope.environment);
+  ValueType type = ValueType.create(tokens.currentIdent, line, col, tokens.file, scope.environment, scope.typeTable);
   tokens.moveNext();
   Identifier ident2 = tokens.currentIdent;
   tokens.moveNext();
@@ -771,6 +773,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           col,
           tokens.file,
           scope.environment,
+          scope.typeTable,
         ),
         name);
   });
@@ -782,7 +785,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   }
   tokens.expectChar(TokenType.openBrace);
   Iterable<ValueType> typeParams = isVararg ? InfiniteIterable(params.first.type) : params.map((e) => e.type);
-  ValueType functionType = FunctionValueType(type, typeParams, tokens.file, scope.environment);
+  ValueType functionType = FunctionValueType(type, typeParams, tokens.file, scope.environment, scope.typeTable);
   if (!static) {
     scope.newVar(
       ident2,
@@ -798,7 +801,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
   TypeValidator tv = TypeValidator([scope], ConcatenateLazyString(NotLazyString('function '), IdentifierLazyString(ident2)), false, false, static, scope.rtl,
       scope.identifiers, scope.environment, false);
   for (Parameter param in isVararg ? [params.first] : params) {
-    tv.newVar(param.name, isVararg ? ArrayValueType(param.type, tokens.file, tv.environment) : param.type, line, col, tokens.file, true);
+    tv.newVar(param.name, isVararg ? ArrayValueType(param.type, tokens.file, tv.environment, tv.typeTable) : param.type, line, col, tokens.file, true);
   }
   tv.returnType = type;
   List<Statement> body = parseBlock(tokens, tv);
@@ -822,7 +825,7 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String f
   TokenIterator tokens = TokenIterator(rtokens.iterator, file, identifiers, environment);
 
   tokens.moveNext();
-  TypeValidator intrinsics = TypeValidator([], NotLazyString('intrinsics'), false, false, false, rtl, identifiers, environment, true);
+  TypeValidator intrinsics = TypeValidator([], NotLazyString('intrinsics'), false, false, false, rtl, identifiers, environment, true, environment.rootTypeTable);
   environment.intrinsics.forEach((String name, Object? value) {
     intrinsics.newVar(
       environment.identifiers[name] ??= Identifier(name),
@@ -917,6 +920,7 @@ ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
   scope.environment.loadedGlobalScopes[str] = result.value;
   scope.environment.filesStartedLoading.remove(str);
   scope.parents.add(result.value);
+  scope.typeTable.parents.add(result.value.typeTable);
   tokens.getPrevious();
   return ImportStatement(result.key, '${path.dirname(tokens.file)}/$str', tokens.current.line, tokens.current.col, (tokens..moveNext()).file, scope);
 }
@@ -932,7 +936,7 @@ class ValueTypePlaceholder {
   String toString() => 'VTP($name)';
 
   ValueType toVT(TypeValidator scope) {
-    return ValueType.create(name, line, col, file, scope.environment);
+    return ValueType.create(name, line, col, file, scope.environment, scope.typeTable);
   }
 }
 
@@ -985,7 +989,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       ClassValueType? spt;
       TypeValidator props;
       if (tokens.current is IdentToken && tokens.currentIdent == scope.identifiers['extends']) {
-        spt = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment) as ClassValueType;
+        spt = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable) as ClassValueType;
         props = TypeValidator([spt.properties], ConcatenateLazyString(NotLazyString('forward-declared subclass '), IdentifierLazyString(cln)), true, false,
             false, scope.rtl, scope.identifiers, scope.environment, false);
         tokens.moveNext();
@@ -993,9 +997,9 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
         props = TypeValidator([scope], ConcatenateLazyString(NotLazyString('forward-declared root class '), IdentifierLazyString(cln)), true, false, false,
             scope.rtl, scope.identifiers, scope.environment, false);
       }
-      ClassValueType x = ClassValueType(cln, spt, props, tokens.file, true, scope.environment);
+      ClassValueType x = ClassValueType(cln, spt, props, tokens.file, true, scope.environment, scope.typeTable);
       FunctionValueType? constructorType;
-      constructorType = FunctionValueType(scope.environment.nullType, parameters.map((e) => e.toVT(scope)), tokens.file, scope.environment);
+      constructorType = FunctionValueType(scope.environment.nullType, parameters.map((e) => e.toVT(scope)), tokens.file, scope.environment, scope.typeTable);
 
       props.newVar(constructorVariable, constructorType, tokens.current.line, tokens.current.col, tokens.file, true, true, true);
       constructorType = constructorType.withReturnType(x, tokens.file);
@@ -1005,12 +1009,13 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
           scope,
           if (spt != null)
             (ValueType.create(scope.identifiers[spt.name.name + 'Class'] ??= Identifier(spt.name.name + 'Class'), tokens.current.line, tokens.current.col,
-                    tokens.file, scope.environment) as ClassOfValueType)
+                    tokens.file, scope.environment, scope.typeTable) as ClassOfValueType)
                 .staticMembers,
         ], NotLazyString('static members'), false, true, false, scope.rtl, scope.identifiers, scope.environment, false),
         constructorType,
         tokens.file,
         scope.environment,
+        scope.typeTable,
       );
       spt?.subtypes.add(x);
       scope.newVar(x.name, y, tokens.current.line, tokens.current.col, tokens.file, true);
@@ -1021,8 +1026,8 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens.expectChar(TokenType.endOfStatement);
       return ForwardClassStatement(cln, y, tokens.current.line, tokens.current.col);
     case fwdclassfieldVariable:
-      ValueType type = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment);
-      ValueType reciever = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment);
+      ValueType type = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable);
+      ValueType reciever = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable);
       if (reciever is! ClassValueType) {
         throw BSCException('fwdclassfields should only be defined on classes ${formatCursorPositionFromTokens(tokens)}', scope);
       }
@@ -1048,8 +1053,8 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens.expectChar(TokenType.endOfStatement);
       return NopStatement();
     case fwdclassmethodVariable:
-      ValueType returnType = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment);
-      ValueType reciever = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment);
+      ValueType returnType = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable);
+      ValueType reciever = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable);
       if (reciever is! ClassValueType) {
         throw BSCException('fwdclassmethods should only be defined on classes ${formatCursorPositionFromTokens(tokens)}', scope);
       }
@@ -1072,9 +1077,9 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       List<ValueType> parameters = parseArgList(tokens, (tokens) {
         Identifier name = tokens.currentIdent;
         tokens.moveNext();
-        return ValueType.create(name, tokens.current.line, tokens.current.col, tokens.file, scope.environment);
+        return ValueType.create(name, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable);
       });
-      ValueType type = FunctionValueType(returnType, parameters, tokens.file, scope.environment);
+      ValueType type = FunctionValueType(returnType, parameters, tokens.file, scope.environment, scope.typeTable);
       cl.properties.newVar(methodName, type, tokens.current.line, tokens.current.col, tokens.file, true, true, true);
       if (ignoreUnused) {
         cl.properties.igv(methodName, true);
@@ -1082,13 +1087,13 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens.expectChar(TokenType.endOfStatement);
       return NopStatement();
     case fwdstaticfieldVariable:
-      ValueType type = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment);
+      ValueType type = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable);
       ClassOfValueType cl = (ValueType.create(
           scope.identifiers[(tokens..moveNext()).currentIdent.name + 'Class'] ??= Identifier((tokens..moveNext()).currentIdent.name + 'Class'),
           tokens.current.line,
           tokens.current.col,
           tokens.file,
-          scope.environment) as ClassOfValueType);
+          scope.environment, scope.typeTable) as ClassOfValueType);
       tokens..moveNext();
       tokens.expectChar(TokenType.period);
       if (overriden) {
@@ -1102,9 +1107,9 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens.expectChar(TokenType.endOfStatement);
       return NopStatement();
     case fwdstaticmethodVariable:
-      ValueType returnType = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment);
+      ValueType returnType = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable);
       ClassValueType cl =
-          (ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment) as ClassValueType);
+          (ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable) as ClassValueType);
       tokens..moveNext();
       tokens.expectChar(TokenType.period);
       if (overriden) {
@@ -1115,9 +1120,9 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       List<ValueType> parameters = parseArgList(tokens, (tokens) {
         Identifier name = tokens.currentIdent;
         tokens.moveNext();
-        return ValueType.create(name, tokens.current.line, tokens.current.col, tokens.file, scope.environment);
+        return ValueType.create(name, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable);
       });
-      ValueType type = FunctionValueType(returnType, parameters, tokens.file, scope.environment);
+      ValueType type = FunctionValueType(returnType, parameters, tokens.file, scope.environment, scope.typeTable);
       cl.properties.newVar(methodName, type, tokens.current.line, tokens.current.col, tokens.file);
       if (ignoreUnused) {
         cl.properties.igv(methodName, true);
@@ -1235,7 +1240,7 @@ Statement parseConst(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
     tokens.moveNext();
     static = true;
   }
-  ValueType type = ValueType.create(tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment);
+  ValueType type = ValueType.create(tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable);
   tokens.moveNext();
   Identifier name = tokens.currentIdent;
   tokens.moveNext();
@@ -1272,7 +1277,7 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
     scope,
   );
   if (!iterable.staticType.isSubtypeOf(ValueType.create(
-      scope.identifiers['WhateverIterable'] ??= Identifier('WhateverIterable'), tokens.current.line, tokens.current.col, tokens.file, scope.environment))) {
+      scope.identifiers['WhateverIterable'] ??= Identifier('WhateverIterable'), tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable))) {
     throw BSCException('tried to for loop over non-iterable (iterated over ${iterable.staticType}) ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   TypeValidator innerScope = TypeValidator([scope], NotLazyString('for loop'), false, false, false, scope.rtl, scope.identifiers, scope.environment, false);
@@ -1316,10 +1321,13 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
   Identifier name = tokens.currentIdent;
   tokens.moveNext();
   List<Identifier> body = [];
-  TypeValidator tv = TypeValidator([], ConcatenateLazyString(IdentifierLazyString(name), NotLazyString('-enum')), false, false, false, scope.rtl,
+  TypeValidator tv = TypeValidator([scope], ConcatenateLazyString(IdentifierLazyString(name), NotLazyString('-enum')), false, false, false, scope.rtl,
       scope.identifiers, scope.environment, false);
-  EnumPropertyValueType propType = EnumPropertyValueType(name, tokens.file, scope.environment);
-  EnumValueType type = EnumValueType(name, tv, tokens.file, propType, scope.environment);
+      if (ValueType.hasTypeSuffix(name)) {
+        throw BSCException('Cannot declare enum type with reserved type name ${name.name} ${formatCursorPositionFromTokens(tokens)}', scope);
+      }
+  EnumPropertyValueType propType = EnumPropertyValueType(name, tokens.file, scope.environment, scope.typeTable);
+  EnumValueType type = EnumValueType(name, tv, tokens.file, propType, scope.environment, scope.typeTable);
   tokens.expectChar(TokenType.openBrace);
   while (tokens.current is! CharToken || tokens.currentChar != TokenType.closeBrace) {
     tv.newVar(
@@ -1335,6 +1343,7 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
     tokens.moveNext();
   }
   tokens.moveNext();
+  print('enum ${name.name} ${type.staticMembers.types.keys.map((e) => e.name)}');
   scope.newVar(
     name,
     type,

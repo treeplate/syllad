@@ -55,6 +55,9 @@ class GetExpr extends Expression {
     _isLValue = tv.igvnc(name);
     staticType = tv.getVar(name, line, col, file, 'for a get expression');
     variablePath = tv.findPathFor(name);
+    if (name == tv.identifiers['Happy']) {
+      print(variablePath);
+    }
   }
 
   void write(Object? value, Scope scope) {
@@ -146,7 +149,7 @@ class SubscriptExpression extends Expression {
 
   bool isLValue(TypeValidator scope) => true;
   ValueType get staticType => a.staticType.name == whateverVariable
-      ? ValueType.create(whateverVariable, -2, 0, '_', tv.environment)
+      ? ValueType.create(whateverVariable, -2, 0, '_', tv.environment, tv.typeTable)
       : a.staticType is ListValueType
           ? (a.staticType as ListValueType).genericParameter
           : (a.staticType as ArrayValueType).genericParameter;
@@ -533,7 +536,7 @@ class SuperExpression extends Expression {
 
   @override
   ValueType get staticType => static
-      ? ValueType.create(whateverVariable, 0, 0, '', tv.environment)
+      ? ValueType.create(whateverVariable, 0, 0, '', tv.environment, tv.typeTable)
       : (tv.currentClassType.parent is ClassValueType
               ? tv.currentClassType.parent as ClassValueType
               : (throw BSCException('${tv.currentClassType} has no supertype ${formatCursorPosition(line, col, file)}', tv)))
@@ -611,7 +614,7 @@ class FunctionCallExpr extends Expression {
   }
 
   String toString() => '$a(${b.join(', ')})';
-  late ValueType anythingFunctionType = GenericFunctionValueType(tv.environment.anythingType, 'interr', validator.environment);
+  late ValueType anythingFunctionType = GenericFunctionValueType(tv.environment.anythingType, 'interr', validator.environment, validator.typeTable);
   FunctionCallExpr(this.a, this.b, this.validator, int line, int col, String file, TypeValidator tv) : super(line, col, file, tv);
   @override
   Object? eval(Scope scope) {
@@ -620,21 +623,21 @@ class FunctionCallExpr extends Expression {
     if (aEval is Class) {
       aEval = aEval.constructor;
     }
-    ValueType type2 = getType(aEval, scope, line, col, file, false);
-    if (!type2.isSubtypeOf(anythingFunctionType) && !(type2 is ClassOfValueType)) {
+    ValueType type = getType(aEval, scope, line, col, file, false);
+    if (!type.isSubtypeOf(anythingFunctionType) && !(type is ClassOfValueType)) {
       throw BSCException('tried to call non-function: $aEval, ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}', scope);
     }
     List<Object?> args = b.map((x) => x.eval(scope)).toList();
-    if (type2 is FunctionValueType) {
-      if (type2.parameters is! InfiniteIterable && type2.parameters.length != args.length) {
+    if (type is FunctionValueType) {
+      if (type.parameters is! InfiniteIterable && type.parameters.length != args.length) {
         throw BSCException(
-            'tried to call function $aEval with wrong number of arguments: passed in ${args.length} (${args.map((e) => toStringWithStacker(e, line, col, file, false))}), expected ${type2.parameters.length} ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}',
+            'tried to call function $aEval with wrong number of arguments: passed in ${args.length} (${args.map((e) => toStringWithStacker(e, line, col, file, false))}), expected ${type.parameters.length} ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}',
             scope);
       }
       for (int i = 0; i < args.length; i++) {
-        if (!getType(args[i], scope, line, col, file, false).isSubtypeOf(type2.parameters.elementAt(i))) {
+        if (!getType(args[i], scope, line, col, file, false).isSubtypeOf(type.parameters.elementAt(i))) {
           throw BSCException(
-              'argument #$i of $a (${toStringWithStacker(aEval, line, col, file, false)}), ${toStringWithStacker(args[i], line, col, file, false)} (${b[i]}), of wrong type (${getType(args[i], scope, line, col, file, false)}) expected ${type2.parameters.elementAt(i)} ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}',
+              'argument #$i of $a (${toStringWithStacker(aEval, line, col, file, false)}), ${toStringWithStacker(args[i], line, col, file, false)} (${b[i]}), of wrong type (${getType(args[i], scope, line, col, file, false)}) expected ${type.parameters.elementAt(i)} ${formatCursorPosition(line, col, file)}\n${scope.environment.stack.reversed.join('\n')}',
               scope);
         }
       }
@@ -655,7 +658,7 @@ class ListLiteralExpression extends Expression {
   ListLiteralExpression(this.n, this.genParam, int line, int col, String file, TypeValidator tv) : super(line, col, file, tv);
   final List<Expression> n;
   final ValueType genParam;
-  ValueType get staticType => ListValueType(genParam, file, tv.environment);
+  ValueType get staticType => ListValueType(genParam, file, tv.environment, tv.typeTable);
   String toString() => '$n:$genParam';
   bool isLValue(TypeValidator scope) => false;
   SydList<Object?> eval(Scope scope) {
@@ -669,7 +672,7 @@ class ListLiteralExpression extends Expression {
     }
     return SydList(
       params,
-      ListValueType(genParam, file, tv.environment),
+      ListValueType(genParam, file, tv.environment, tv.typeTable),
     );
   }
 }

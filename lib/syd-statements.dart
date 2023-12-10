@@ -184,7 +184,7 @@ class FunctionStatement extends Statement {
           params.first.name,
           SydArray(
             List<Object?>.unmodifiable(a),
-            ArrayValueType(params.first.type, 'internal', tv.environment),
+            ArrayValueType(params.first.type, 'internal', tv.environment, tv.typeTable),
           ),
         );
       }
@@ -224,7 +224,7 @@ class FunctionStatement extends Statement {
     };
     function = SydFunction<Object?>(
       _value,
-      FunctionValueType(returnType, params.map((e) => e.type), file, tv.environment),
+      FunctionValueType(returnType, params.map((e) => e.type), file, tv.environment, tv.typeTable),
       Concat(file, Concat('::', name.name)),
     );
     scope.newVar(
@@ -352,7 +352,7 @@ class ForStatement extends Statement {
   final TypeValidator tv;
 
   late ValueType whateverIterableType =
-      IterableValueType<Object?>(ValueType.create(whateverVariable, -2, 0, 'intrinsics', tv.environment), 'TODO FORS', tv.environment);
+      IterableValueType<Object?>(ValueType.create(whateverVariable, -2, 0, 'intrinsics', tv.environment, tv.typeTable), 'TODO FORS', tv.environment, tv.typeTable);
 
   @override
   StatementResult run(Scope scope) {
@@ -589,7 +589,7 @@ class ClassStatement extends Statement {
             }
             return null;
           },
-          FunctionValueType(type, [], file, tv.environment),
+          FunctionValueType(type, [], file, tv.environment, tv.typeTable),
           Concat(name.name, '.defaultconstructor'),
         );
       } else {
@@ -638,7 +638,7 @@ class ClassStatement extends Statement {
         }
         return null;
       },
-      FunctionValueType(type, [], file, tv.environment),
+      FunctionValueType(type, [], file, tv.environment, tv.typeTable),
       Concat('~', name.name),
     );
     // Generated Constructor
@@ -669,7 +669,7 @@ class ClassStatement extends Statement {
           userConstructor!.function(args, thisScope, type);
           return thisScope;
         },
-        FunctionValueType(type, InfiniteIterable(tv.environment.anythingType), file, tv.environment),
+        FunctionValueType(type, InfiniteIterable(tv.environment.anythingType), file, tv.environment, tv.typeTable),
         Concat(name.name, '.generatedconstructor'),
       ),
       classOfType,

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:path/path.dart' as path;
 import 'package:test/test.dart';
 import 'package:syllad/syd-core.dart';
 import 'package:syllad/syd-runner.dart';
@@ -9,10 +10,8 @@ import 'package:syllad/run_tests.dart';
 void main() {
   for (File file in Directory('tests').listSync(recursive: true).whereType<File>().where((File file) => file.path.endsWith('.syd')).toList()
     ..sort((File a, File b) => a.path.compareTo(b.path))) {
-    if(file.path.contains('compiler-specific')) {
-      continue;
-    }
     test(
+      skip: path.split(file.path).contains('compiler-specific') || path.split(file.path).contains('test-manually'),
       '${file.path}',
       () {
         expect(

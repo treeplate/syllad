@@ -60,7 +60,7 @@ void main(List<String> args) {
   } on SydException catch (e) {
     stderr.writeln("$e");
     stderr.writeln("generating scope dump...");
-    File('error-dump.txt').writeAsStringSync(e.toString() + '\n\n' + e.scope.dump() + e.scope.environment.typeTable.types.values.map((value) => '${value.name.name}: ${value.id}').join('\n'));
+    File('error-dump.txt').writeAsStringSync(e.toString() + '\n\n' + e.scope.dump() + e.scope.environment.allTypes.map((value) => '${value.name.name}: ${value.id}').join('\n'));
     stderr.writeln("done");
     exit(e.exitCode);
   } on UnsupportedError catch (e, st) {

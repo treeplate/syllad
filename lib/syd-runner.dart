@@ -48,7 +48,7 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics, Scope?
 
 Environment runFile(String fileContents, String rtlPath, String file, bool profileMode, bool debugMode, List<String> commandLineArguments, IOSink stdout,
     IOSink stderr, void Function(int) exit) {
-  final Environment environment = Environment(TypeTable(), stdout, stderr, commandLineArguments, exit);
+  final Environment environment = Environment(TypeTable([]), stdout, stderr, commandLineArguments, exit);
   final Map<String, Identifier> identifiers = environment.identifiers;
 
   var rtl = parse(lex(File(rtlPath).readAsStringSync(), rtlPath, environment), rtlPath, null, false, identifiers, environment);
@@ -64,7 +64,7 @@ Environment runFile(String fileContents, String rtlPath, String file, bool profi
     identifiers,
     environment,
   );
-  for (ValueType type in environment.typeTable.types.values) {
+  for (ValueType type in environment.allTypes) {
     if (type is ClassValueType && type.notFullyDeclared) {
       throw BSCException('$type forward-declared but never declared', parseResult.value);
     }
