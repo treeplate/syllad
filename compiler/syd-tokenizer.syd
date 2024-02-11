@@ -410,7 +410,6 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           break;
         } else {
           throw(concat('Unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename), ': ', chr(ch)));
-          break;
         }
       } else if (state == ts.Identifier) {
         if ((ch >= 0x30 && ch <= 0x39) || // 0-9

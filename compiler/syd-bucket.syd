@@ -93,10 +93,6 @@ class Bucket extends Object {
     abstract();
   }
 
-  DatumList datumsUsed() {
-    return [currentValueDatum(), currentTypeDatum()];
-  }
-
   // this casts the bucket to the given type (it doesn't turn it into a type!)
   Bucket asType(Type newStaticType) {
     return StaticCastBucket(this, newStaticType);
@@ -523,19 +519,18 @@ class ValueBucket extends DynamicBucket {
 
 // copied once per code flow (i.e. at runtime) (modulo loops), using .copy() (not mov)
 class CopyBucket extends DynamicBucket {
+  Bucket _source;
   Boolean _copied = false;
   Boolean _isGCRoot;
-  String _commentName;
 
   //#override
   String commentName() {
-    assert(_copied, 'invariant and contract violation');
-    return _commentName;
+    return concat(_source.commentName(), '\'');
   }
 
   //#override
   String toString() {
-    return concat('<CopyBucket:', _commentName, '>');
+    return concat('<CopyBucket:', commentName(), '>');
   }
 
   //#override
@@ -550,26 +545,30 @@ class CopyBucket extends DynamicBucket {
   }
 
   // Caller is responsible for incrementing the reference count of the source bucket.
-  Null copy(Bucket source, PseudoInstructionList output) {
+  Null copy(PseudoInstructionList output) {
     assert(!_copied, 'contract violation');
     _copied = true;
-    _commentName = concat(source.commentName(), '\'');
-    if (source.currentValueDatum().canChange()) {
-      LocalDatum valueDatum = LocalDatum(concat(_commentName, ' value'));
-      append(output, Mov(valueDatum, source.currentValueDatum(), concat('copy ', source.currentValueDatum().commentName)));
+    if (_source.currentValueDatum().canChange()) {
+      LocalDatum valueDatum = LocalDatum(concat(commentName(), ' value'));
+      append(output, Mov(valueDatum, _source.currentValueDatum(), concat('copy ', _source.currentValueDatum().commentName)));
       _currentValueDatum = valueDatum;
     } else {
-      _currentValueDatum = source.currentValueDatum();
+      _currentValueDatum = _source.currentValueDatum();
     }
-    if (source.currentTypeDatum().canChange()) {
-      LocalDatum typeDatum = LocalDatum(concat(_commentName, ' type'));
-      append(output, Mov(typeDatum, source.currentTypeDatum(), concat('copy ', source.currentTypeDatum().commentName)));
+    if (_source.currentTypeDatum().canChange()) {
+      LocalDatum typeDatum = LocalDatum(concat(commentName(), ' type'));
+      append(output, Mov(typeDatum, _source.currentTypeDatum(), concat('copy ', _source.currentTypeDatum().commentName)));
       _currentTypeDatum = typeDatum;
     } else {
-      _currentTypeDatum = source.currentTypeDatum();
+      _currentTypeDatum = _source.currentTypeDatum();
     }
-    typeInference = source.typeInference;
-    _isGCRoot = source.isGCRoot();
+    typeInference = _source.typeInference;
+    _isGCRoot = _source.isGCRoot();
+  }
+
+  Null constructor(Bucket sourceArg) {
+    super.constructor(sourceArg.staticType);
+    _source = sourceArg;
   }
 }
 
@@ -1073,11 +1072,6 @@ class VarArgsParameterBucket extends Bucket {
   //#override
   Datum currentTypeDatum() {
     return TypeCodeDatum(staticType);
-  }
-
-  //#override
-  DatumList datumsUsed() {
-    return [baseAddress];
   }
 
   Null constructor(Type staticTypeArg, Bucket parameterCountArg) {

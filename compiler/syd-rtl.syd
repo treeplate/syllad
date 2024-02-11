@@ -62,6 +62,23 @@ Integer pow#(Integer base, Integer exponent) intrinsic# {
   return result;
 }
 
+Integer abs(Integer number) {
+  if (number < 0) {
+    return -number;
+  }
+  return number;
+}
+
+Integer mod#(Integer dividend, Integer divisor) intrinsic# {
+  // TODO: surely there's a more efficient way of implementing mod
+  Integer absoluteDivisor = abs(divisor);
+  Integer result = dividend - absoluteDivisor * (dividend / absoluteDivisor);
+  if (result < 0) {
+    result += absoluteDivisor;
+  }
+  return result;
+}
+
 String stackTrace() {
   // TODO: implement
   return "<stack trace not implemented>";

@@ -214,7 +214,8 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             throw BSCException("Attempted to subscript using non-integer index: $operandB. ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           tokens.expectChar(TokenType.closeSquare);
-          if (!result.staticType.isSubtypeOf(ArrayValueType(ValueType.create(whateverVariable, -2, 0, 'internal', scope.environment, scope.typeTable), 'internal', scope.environment, scope.typeTable))) {
+          if (!result.staticType.isSubtypeOf(ArrayValueType(
+              ValueType.create(whateverVariable, -2, 0, 'internal', scope.environment, scope.typeTable), 'internal', scope.environment, scope.typeTable))) {
             throw BSCException("tried to subscript ${result.staticType} ($result) ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           result = SubscriptExpression(
@@ -244,8 +245,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             properties = (result.staticType as ClassValueType).properties;
             checkParent = true;
           }
-          if (properties != null &&
-              properties.igv(operandB, true, tokens.current.line, tokens.current.col, tokens.file, checkParent, false) == null) {
+          if (properties != null && properties.igv(operandB, true, tokens.current.line, tokens.current.col, tokens.file, checkParent, false) == null) {
             throw BSCException(
               "tried to access nonexistent member '${operandB.name}' of ${result.staticType} ${properties.types.keys.map((e) => e.name)} ${formatCursorPositionFromTokens(tokens)}",
               scope,
@@ -274,7 +274,8 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             scope,
           );
         } else {
-          if (result.staticType is! ClassOfValueType && !result.staticType.isSubtypeOf(GenericFunctionValueType(scope.environment.anythingType, tokens.file, scope.environment, scope.typeTable))) {
+          if (result.staticType is! ClassOfValueType &&
+              !result.staticType.isSubtypeOf(GenericFunctionValueType(scope.environment.anythingType, tokens.file, scope.environment, scope.typeTable))) {
             throw BSCException("tried to call ${result.staticType} ($result) ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           tokens.moveNext();
@@ -451,7 +452,7 @@ Expression parseUnaryOperators(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       ValueType type = ValueType.create(tokens.currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable);
       tokens.moveNext();
-      return BoringExpr(type.id, scope.environment.integerType, scope);
+      return IntLiteralExpression(type.id, tokens.current.line, tokens.current.col, tokens.file, scope);
     }
   }
   Expression operand = parseFunCalls(tokens, scope);

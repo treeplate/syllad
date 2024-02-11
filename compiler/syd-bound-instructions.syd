@@ -9,6 +9,7 @@ class ConversionContext extends Object {
   CodeLabelDatum freeIntrinsic() { abstract(); }
   CodeLabelDatum errorIntrinsic() { abstract(); }
   CodeLabelDatum exponentiationIntrinsic() { abstract(); }
+  CodeLabelDatum modulusIntrinsic() { abstract(); }
   CodeLabelDatum equalityIntrinsic() { abstract(); }
   Bucket errorMessage(String value) { abstract(); }
   Bucket coreSentinel() { abstract(); }
@@ -417,6 +418,24 @@ class FinalReturnInstruction extends BoundInstruction {
   }
 }
 
+class CreateBucketInstruction extends BoundInstruction {
+  Bucket bucket;
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    context.didCreateBucket(bucket);
+    return [
+      CreateDatumInstruction(bucket.currentValueDatum()),
+      CreateDatumInstruction(bucket.currentTypeDatum()),
+    ]:PseudoInstruction;
+  }
+
+  Null constructor(Bucket bucketArg) {
+    super.constructor();
+    bucket = bucketArg;
+  }
+}
+
 class DecrefInstruction extends BoundInstruction {
   Bucket target;
   
@@ -643,8 +662,8 @@ class UpdateGlobalVariableInstruction extends BoundInstruction {
 }
 
 class CopyBucketInstruction extends BoundInstruction {
-  CopyBucket target;
   Bucket source;
+  CopyBucket target;
 
   //#override
   BucketList bucketsUsed() {
@@ -660,7 +679,7 @@ class CopyBucketInstruction extends BoundInstruction {
   PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
     PseudoInstructionList output = []:PseudoInstruction;
     append(output, Comment(concat('copying ', source.commentName())));
-    target.copy(source, output);
+    target.copy(output);
     incref(output, target, context);
     context.didCreateBucket(target);
     return output;
@@ -668,8 +687,42 @@ class CopyBucketInstruction extends BoundInstruction {
 
   Null constructor(Bucket sourceArg) {
     super.constructor();
-    target = CopyBucket(sourceArg.staticType);
     source = sourceArg;
+    target = CopyBucket(source);
+  }
+}
+
+// the location pointed to by [targetPointer + offset] is assumed to _not_ be a GC root
+// (this is used for settings stack locations to their initial values)
+// writes type of [source] to [targetPointer + offset] and value to [targetPointer + offset + 8]
+class HeapInitInstruction extends BoundInstruction {
+  Bucket source;
+  Bucket targetPointer;
+  Integer offset;
+  Type targetType;
+
+  //#override
+  BucketList bucketsUsed() {
+    return [source, targetPointer]:Bucket;
+  }
+
+  //#override
+  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
+    PseudoInstructionList output = []:PseudoInstruction;
+    append(output, StoreQuad(source.currentTypeDatum(), targetPointer.currentValueDatum(), IntegerDatum(offset + 0x00, 'type offset'), concat('set type of ', targetPointer.commentName(), ' to ', source.currentTypeDatum().commentName)));
+    append(output, StoreQuad(source.currentValueDatum(), targetPointer.currentValueDatum(), IntegerDatum(offset + 0x08, 'value offset'), concat('set value of ', targetPointer.commentName(), ' to ', source.currentValueDatum().commentName)));
+    // source itself might be GC root, so we can't incref it directly, so we make a new bucket that points to the same place but is marked non-gcroot
+    Bucket replacement = DatumBucket(source.currentValueDatum(), source.currentTypeDatum(), targetType, /*gcroot:*/ false);
+    incref(output, replacement, context);
+    return output;
+  }
+
+  Null constructor(Bucket targetArg, Bucket sourceArg, Integer offsetArg, Type targetTypeArg) {
+    super.constructor();
+    targetPointer = targetArg;
+    source = sourceArg;
+    offset = offsetArg;
+    targetType = targetTypeArg;
   }
 }
 
@@ -690,8 +743,8 @@ class HeapUpdateInstruction extends BoundInstruction {
   //#override
   PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
     PseudoInstructionList output = []:PseudoInstruction;
-    Datum targetTypeDatum = compute(output, LoadQuad(targetPointer.currentValueDatum(), IntegerDatum(offset + 0x00, 'type offset'), concat('load type currently in ', targetPointer.commentName()), concat('old type of ', targetPointer.commentName())));
-    Datum targetValueDatum = compute(output, LoadQuad(targetPointer.currentValueDatum(), IntegerDatum(offset + 0x08, 'value offset'), concat('load value currently in ', targetPointer.commentName()), concat('old', targetPointer.commentName())));
+    Datum targetTypeDatum = compute(output, LoadQuad(targetPointer.currentValueDatum(), IntegerDatum(offset + 0x00, 'type offset'), concat('load type currently in ', targetPointer.commentName()), concat('old type of *', targetPointer.commentName())));
+    Datum targetValueDatum = compute(output, LoadQuad(targetPointer.currentValueDatum(), IntegerDatum(offset + 0x08, 'value offset'), concat('load value currently in ', targetPointer.commentName()), concat('old *', targetPointer.commentName())));
     Bucket original = DatumBucket(targetValueDatum, targetTypeDatum, targetType, /*gcroot:*/ false);
     decref(output, original, context);
     append(output, StoreQuad(source.currentTypeDatum(), targetPointer.currentValueDatum(), IntegerDatum(offset + 0x00, 'type offset'), concat('update type of ', targetPointer.commentName(), ' to ', source.currentTypeDatum().commentName)));
@@ -1228,7 +1281,7 @@ class LoopBlockInstruction extends BoundInstruction {
     Set localVariables = Set(); // LocalVariables -- variables created in this block - DO NOT include these in the datumDestinations
     Set variables = Set(); // LocalVariables -- this will provide the keys for our datumDestinations (two keys per variable: value and type)
     Map typeInferenceBefore = Map(); // LocalVariable -> TypeInference
-    Set datumsUsed = Set();
+    PseudoInstructionList output = []:PseudoInstruction;
     for (instruction in block) {
       for (variable in instruction.getCreatedLocalVariables()) {
         localVariables.add(variable);
@@ -1237,17 +1290,11 @@ class LoopBlockInstruction extends BoundInstruction {
         variables.add(variable);
         typeInferenceBefore.set(variable, variable.typeInference.copy());
       }
-      for (bucket in instruction.bucketsUsed()) {
-        if (context.bucketsCreatedSoFar().has(bucket)) {
-          datumsUsed.addAll(bucket.datumsUsed() as AnythingList);
-        }
-      }
     }
     for (variable in localVariables.values()) {
       variables.remove(variable);
       typeInferenceBefore.remove(variable);
     }
-    PseudoInstructionList output = []:PseudoInstruction;
     Map datumDestinations = Map(); // Object -> LocalDatum
     for (v in variables.values()) {
       LocalVariable variable = v as LocalVariable;
@@ -1273,7 +1320,6 @@ class LoopBlockInstruction extends BoundInstruction {
       convertedBlock,
       scopeLabel.deriveWith('loop'),
       datumDestinations,
-      datumsUsed,
     ));
     for (v in variables.values()) {
       LocalVariable variable = v as LocalVariable;
@@ -1762,6 +1808,7 @@ class SignedDivideInstruction extends ComputationBoundInstruction {
 }
 
 // sets type of remainder to integer
+// uses euclidean division to compute remainder
 class SignedModulusInstruction extends ComputationBoundInstruction {
   Bucket dividend;
   Bucket divisor;
@@ -1777,8 +1824,7 @@ class SignedModulusInstruction extends ComputationBoundInstruction {
     assert(divisor.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
     assert(target.staticType.isSubtypeOf(context.types().coreIntegerType), 'contract violation');
     PseudoInstructionList output = []:PseudoInstruction;
-    Datum remainderDatum = compute(output, SignedModulus(dividend.currentValueDatum(), divisor.currentValueDatum(), concat('signed modulus of ', dividend.commentName(), ' by ', divisor.commentName()), target.commentName()));
-    target.assignDatums(remainderDatum, TypeCodeDatum(target.staticType));
+    callFunction(output, context.modulusIntrinsic(), [dividend, divisor]:Bucket, target);
     context.didCreateBucket(target);
     return output;
   }

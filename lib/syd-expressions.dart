@@ -55,9 +55,6 @@ class GetExpr extends Expression {
     _isLValue = tv.igvnc(name);
     staticType = tv.getVar(name, line, col, file, 'for a get expression');
     variablePath = tv.findPathFor(name);
-    if (name == tv.identifiers['Happy']) {
-      print(variablePath);
-    }
   }
 
   void write(Object? value, Scope scope) {
@@ -396,6 +393,8 @@ class DivideExpression extends Expression {
   final Expression b;
   bool isLValue(TypeValidator scope) => false;
 
+  String toString() => '$a / $b';
+
   DivideExpression(this.a, this.b, int line, int col, String file, TypeValidator tv) : super(line, col, file, tv);
   @override
   int eval(Scope scope) {
@@ -563,20 +562,20 @@ class StringLiteralExpression extends Expression {
   bool isLValue(TypeValidator scope) => false;
 }
 
-class BoringExpr extends Expression {
+class NullExpr extends Expression {
   final Object? value;
   bool isLValue(TypeValidator scope) => false;
 
   final ValueType staticType;
 
-  BoringExpr(this.value, this.staticType, TypeValidator tv) : super(-2, 0, 'TODO (boring expr line,column, filename)', tv);
+  NullExpr(this.value, this.staticType, TypeValidator tv) : super(-2, 0, 'TODO (null expr line,column, filename)', tv);
 
   @override
   eval(Scope scope) {
-    return value;
+    return null;
   }
 
-  String toString() => '$value**';
+  String toString() => '$value(nullexpr)';
 }
 
 class UnwrapExpression extends Expression {

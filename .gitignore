@@ -24,3 +24,7 @@ main.exe
 test.dart
 coverage/lcov.info
 lib/syd-main.exe
+lib/transpiler-output.dart
+compiler/compiler.exe
+compiler/compiler1.exe
+compiler/compiler2.exe

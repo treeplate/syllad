@@ -3,28 +3,5 @@
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Debug",
-            "request": "launch",
-            "type": "dart",
-            "program": "lib/syd-main.dart",
-            "args": ["--debug", "./compiler/syd.syd", "compiler/syd.syd"],
-        },
-        {
-            "name": "Profile",
-            "request": "launch",
-            "type": "dart",
-            "program": "lib/syd-main.dart",
-            "args": ["--profile", "./compiler/syd.syd", "compiler/syd.syd"],
-        },
-        {
-            "name": "Fast Run",
-            "request": "launch",
-            "type": "dart",
-            "program": "lib/syd-main.dart",
-            "args": ["./compiler/syd.syd", "compiler/syd.syd"],
-        }
-    ]
-    
+    "configurations": []
 }

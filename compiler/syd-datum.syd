@@ -10,10 +10,9 @@ Integer bytesFor(ow size) {
     return 2;
   } else if (size == ow.DWord) {
     return 4;
-  } else if (size == ow.QWord) {
-    return 8;
   } else {
-    assert(false, 'contract violation');
+    assert(size == ow.QWord, 'contract violation');
+    return 8;
   }
 }
 
@@ -174,7 +173,7 @@ class BaseAndOffsetDatum extends Datum {
   Datum base;
   Datum offset;
   ow width;
-
+  
   Null constructor(Datum baseArg, Datum offsetArg, ow widthArg, String commentNameArg) {
     super.constructor(commentNameArg);
     base = baseArg;

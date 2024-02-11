@@ -16,10 +16,9 @@ String describeComparison(Comparison comparison) {
     return '<=';
   } else if (comparison == Comparison.GreaterThanOrEqual) {
     return '>=';
-  } else if (comparison == Comparison.GreaterThan) {
-    return '>';
   } else {
-    assert(false, 'unreachable');
+    assert(comparison == Comparison.GreaterThan, 'unreachable');
+    return '>';
   }
 }
 
@@ -58,21 +57,6 @@ class BlockConfiguration extends Object {
   }
 }
 
-class Storage extends Object {
-  Anything data = null;
-
-  Null save(Anything newData) {
-    assert(data == null, 'contract violation');
-    assert(newData != null, 'contract violation');
-    data = newData;
-  }
-
-  //#override
-  String toString() {
-    return concat('Storage(', data, ')');
-  }
-}
-
 class PseudoInstruction extends Object {
   // returns true if the instruction terminates code flow in the current block
   Boolean flatten(PseudoInstructionList output, Map datumStatuses, BlockConfigurationList blocks) {
@@ -83,6 +67,10 @@ class PseudoInstruction extends Object {
   // used to replace datums (f is called for each datum, and must return a replacement datum, or the given datum)
   // types must be compatible (e.g. LocalDatums cannot become IntegerDatums)
   Null walkDatums(DatumFunction f) { }
+
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    abstract();
+  }
 }
 
 enum PrologType { library subroutine varArgsSubroutine generatedConstructor }
@@ -90,15 +78,24 @@ enum PrologType { library subroutine varArgsSubroutine generatedConstructor }
 class Prolog extends PseudoInstruction {
   PrologType type;
 
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) { }
+
   Null constructor(PrologType typeArg) {
     super.constructor();
     type = typeArg;
   }
 }
 
-class Epilog extends PseudoInstruction { }
+class Epilog extends PseudoInstruction {
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) { }
+}
 
-class FinalReturn extends PseudoInstruction { }
+class FinalReturn extends PseudoInstruction {
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) { }
+}
 
 class PrepareConstructorTrampoline extends PseudoInstruction {
   Datum thisPointer;
@@ -108,6 +105,11 @@ class PrepareConstructorTrampoline extends PseudoInstruction {
   LocalDatum closurePin;
   Datum parameterCount;
   LocalDatum parameterCountPin;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    assert(false, 'should not be called - PrepareConstructorTrampoline not in loop, reportDatums() only called for instructions in loops');
+  }
 
   Null constructor(Datum thisPointerArg, LocalDatum thisPointerPinArg, Datum thisTypeArg, LocalDatum thisTypePinArg, LocalDatum closurePinArg, Datum parameterCountArg, LocalDatum parameterCountPinArg) {
     super.constructor();
@@ -124,6 +126,9 @@ class PrepareConstructorTrampoline extends PseudoInstruction {
 class ConstructorTrampoline extends PseudoInstruction {
   AssemblerLabel actualConstructor;
 
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) { }
+
   Null constructor(AssemblerLabel actualConstructorArg) {
     super.constructor();
     actualConstructor = actualConstructorArg;
@@ -132,6 +137,9 @@ class ConstructorTrampoline extends PseudoInstruction {
 
 class AstNodeReference extends PseudoInstruction {
   AstNode node;
+  
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) { }
 
   Null constructor(AstNode nodeArg) {
     super.constructor();
@@ -139,14 +147,47 @@ class AstNodeReference extends PseudoInstruction {
   }
 }
 
-class BlockStartMarker extends PseudoInstruction { }
+class CreateDatumInstruction extends PseudoInstruction {
+  Datum datum;
 
-class BlockEndMarker extends PseudoInstruction { }
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    datumsCreated.add(datum);
+  }
+
+  //#override
+  Boolean flatten(PseudoInstructionList output, Map datumStatuses, BlockConfigurationList blocks) {
+    // no-op; this instruction is specifically for reportDatums and that happens during flatten
+    return false;
+  }
+
+  Null constructor(Datum datumArg) {
+    super.constructor();
+    datum = datumArg;
+  }
+}
+
+class BlockStartMarker extends PseudoInstruction {
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) { } 
+}
+
+class BlockEndMarker extends PseudoInstruction {
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) { }
+}
 
 class Mov extends PseudoInstruction {
   LocalDatum target;
   Datum source;
   String comment;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    datumsUsed.add(target);
+    datumsUsed.add(source);
+    datumsCreated.add(target);
+  }
 
   //#override
   Null walkDatums(DatumFunction f) {
@@ -168,6 +209,11 @@ class Push extends PseudoInstruction {
   String comment;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    datumsUsed.add(source);
+  }
+
+  //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
     source = f(source); 
@@ -183,6 +229,12 @@ class Push extends PseudoInstruction {
 class Pop extends PseudoInstruction {
   LocalDatum target;
   String comment;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    datumsUsed.add(target);
+    datumsCreated.add(target);
+  }
 
   //#override
   Null walkDatums(DatumFunction f) {
@@ -201,6 +253,11 @@ class KeepAlive extends PseudoInstruction {
   Datum target;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    datumsUsed.add(target);
+  }
+
+  //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
     target = f(target);
@@ -212,55 +269,16 @@ class KeepAlive extends PseudoInstruction {
   }
 }
 
-// Tells the architecture-specific code that we are
-// going to need to restore another Datum to this one
-// later (used in loops).
-//
-// Storage is architecture-specific.
-class Save extends PseudoInstruction {
-  Datum target;
-  Storage storage;
-
-  //#override
-  Null walkDatums(DatumFunction f) {
-    super.walkDatums(f);
-    target = f(target);
-  }
-
-  Null constructor(Datum targetArg, Storage storageArg) {
-    super.constructor();
-    target = targetArg;
-    storage = storageArg;
-  }
-}
-
-// Tells the architecture-specific code to restore a
-// Datum back to wherever "storage" says it should be
-// (used in loops).
-//
-// Storage is architecture-specific and is filled during
-// the processing of a Save instruction.
-class Restore extends PseudoInstruction {
-  Datum target;
-  Storage storage;
-
-  //#override
-  Null walkDatums(DatumFunction f) {
-    super.walkDatums(f);
-    target = f(target);
-  }
-
-  Null constructor(Datum targetArg, Storage storageArg) {
-    super.constructor();
-    target = targetArg;
-    storage = storageArg;
-  }
-}
-
 class ReplaceParameter extends PseudoInstruction {
   ParameterDatum target;
   Datum source;
   String comment;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    datumsUsed.add(target);
+    datumsUsed.add(source);
+  }
 
   //#override
   Null walkDatums(DatumFunction f) {
@@ -282,6 +300,12 @@ class UpdateGlobalVariable extends PseudoInstruction {
   Datum source;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    datumsUsed.add(target);
+    datumsUsed.add(source);
+  }
+
+  //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
     target = f(target) as GlobalVariableDatum;
@@ -295,10 +319,16 @@ class UpdateGlobalVariable extends PseudoInstruction {
   }
 }
 
-class Separator extends PseudoInstruction { }
+class Separator extends PseudoInstruction { 
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {}
+}
 
 class Comment extends PseudoInstruction {
   String comment;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {}
 
   Null constructor(String commentArg) {
     super.constructor();
@@ -308,6 +338,9 @@ class Comment extends PseudoInstruction {
 
 class Annotation extends PseudoInstruction {
   AssemblerLabel label;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {}
 
   Null constructor(AssemblerLabel labelArg) {
     super.constructor();
@@ -319,6 +352,9 @@ class Label extends PseudoInstruction {
   AssemblerLabel label;
   String comment;
   Boolean isPublic;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {}
 
   Null constructor(AssemblerLabel labelArg, String commentArg, Boolean isPublicArg) {
     super.constructor();
@@ -333,6 +369,13 @@ class Jmp extends PseudoInstruction {
   DatumNullable condition;
   AssemblerLabel label;
   String comment;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    if (condition != null) {
+      datumsUsed.add(condition);
+    }
+  }
 
   //#override
   Null walkDatums(DatumFunction f) {
@@ -357,6 +400,12 @@ class StoreByte extends PseudoInstruction {
   String comment;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    datumsUsed.add(targetPointer);
+    datumsUsed.add(source);
+  }
+
+  //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
     source = f(source);
@@ -376,6 +425,13 @@ class StoreQuad extends PseudoInstruction {
   Datum targetPointer;
   Datum offset;
   String comment;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    datumsUsed.add(targetPointer);
+    datumsUsed.add(source);
+    datumsUsed.add(offset);
+  }
 
   //#override
   Null walkDatums(DatumFunction f) {
@@ -399,6 +455,12 @@ class PseudoComputation extends PseudoInstruction {
   String comment;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    datumsCreated.add(result);
+    datumsUsed.add(result);
+  }
+
+  //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
     result = f(result) as LocalDatum;
@@ -419,6 +481,13 @@ Datum compute(PseudoInstructionList result, PseudoComputation instruction) {
 class Call extends PseudoComputation {
   Datum target;
   DatumList arguments;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(target);
+    datumsUsed.addAll(arguments as AnythingList);
+  }
 
   //#override
   Null walkDatums(DatumFunction f) {
@@ -444,6 +513,12 @@ class CallSystem extends PseudoComputation {
   DatumList arguments;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.addAll(arguments as AnythingList);
+  }
+
+  //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
     Integer i = 0;
@@ -465,6 +540,12 @@ class LoadByte extends PseudoComputation {
   Datum source;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(source);
+  }
+
+  //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
     source = f(source); 
@@ -479,6 +560,13 @@ class LoadByte extends PseudoComputation {
 class LoadQuad extends PseudoComputation {
   Datum source;
   Datum offset;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(source);
+    datumsUsed.add(offset);
+  }
 
   //#override
   Null walkDatums(DatumFunction f) {
@@ -503,6 +591,12 @@ class LoadAddress extends PseudoComputation {
     source = f(source); 
   }
 
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(source);
+  }
+
   Null constructor(Datum sourceArg, String commentArg, String resultCommentArg) {
     super.constructor(commentArg, resultCommentArg);
     source = sourceArg;
@@ -513,6 +607,13 @@ class Cmp extends PseudoComputation {
   Datum left;
   Datum right;
   Comparison comparison;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(left);
+    datumsUsed.add(right);
+  }
 
   //#override
   Null walkDatums(DatumFunction f) {
@@ -532,6 +633,13 @@ class Cmp extends PseudoComputation {
 class BitTest extends PseudoComputation {
   Datum bitBase;
   Datum bitOffset;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(bitBase);
+    datumsUsed.add(bitOffset);
+  }
 
   //#override
   Null walkDatums(DatumFunction f) {
@@ -555,6 +663,14 @@ class ByteSequenceCompare extends PseudoComputation {
   Integer rightOffset;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(length);
+    datumsUsed.add(left);
+    datumsUsed.add(right);
+  }
+
+  //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
     length = f(length);
@@ -576,6 +692,12 @@ class MonoOperandPseudoComputation extends PseudoComputation {
   Datum operand;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(operand);
+  }
+
+  //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
     operand = f(operand);
@@ -594,6 +716,13 @@ class Negate extends MonoOperandPseudoComputation { }
 class BiOperandPseudoComputation extends PseudoComputation {
   Datum left;
   Datum right;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(left);
+    datumsUsed.add(right);
+  }
 
   //#override
   Null walkDatums(DatumFunction f) {
@@ -618,6 +747,13 @@ class SignedAdd extends PseudoComputation {
   Datum addend;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(augend);
+    datumsUsed.add(addend);
+  }
+
+  //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
     augend = f(augend);
@@ -634,6 +770,13 @@ class SignedAdd extends PseudoComputation {
 class SignedSubtract extends PseudoComputation {
   Datum minuend;
   Datum subtrahend;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(minuend);
+    datumsUsed.add(subtrahend);
+  }
 
   //#override
   Null walkDatums(DatumFunction f) {
@@ -654,6 +797,13 @@ class SignedMultiply extends PseudoComputation {
   Datum multiplier;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(multiplicand);
+    datumsUsed.add(multiplier);
+  }
+
+  //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
     multiplicand = f(multiplicand);
@@ -670,6 +820,13 @@ class SignedMultiply extends PseudoComputation {
 class SignedDivide extends PseudoComputation {
   Datum dividend;
   Datum divisor;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(dividend);
+    datumsUsed.add(divisor);
+  }
 
   //#override
   Null walkDatums(DatumFunction f) {
@@ -690,6 +847,13 @@ class SignedModulus extends PseudoComputation {
   Datum divisor;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(dividend);
+    datumsUsed.add(divisor);
+  }
+
+  //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
     dividend = f(dividend);
@@ -706,6 +870,13 @@ class SignedModulus extends PseudoComputation {
 class UnsignedAdd extends PseudoComputation {
   Datum augend;
   Datum addend;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(augend);
+    datumsUsed.add(addend);
+  }
 
   //#override
   Null walkDatums(DatumFunction f) {
@@ -726,6 +897,13 @@ class UnsignedSubtract extends PseudoComputation {
   Datum subtrahend;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(minuend);
+    datumsUsed.add(subtrahend);
+  }
+
+  //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
     minuend = f(minuend);
@@ -742,6 +920,13 @@ class UnsignedSubtract extends PseudoComputation {
 class UnsignedMultiply extends PseudoComputation {
   Datum multiplicand;
   Datum multiplier;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(multiplicand);
+    datumsUsed.add(multiplier);
+  }
 
   //#override
   Null walkDatums(DatumFunction f) {
@@ -762,6 +947,13 @@ class UnsignedDivide extends PseudoComputation {
   Datum divisor;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(dividend);
+    datumsUsed.add(divisor);
+  }
+
+  //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
     dividend = f(dividend);
@@ -778,6 +970,13 @@ class UnsignedDivide extends PseudoComputation {
 class UnsignedModulus extends PseudoComputation {
   Datum dividend;
   Datum divisor;
+  
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(dividend);
+    datumsUsed.add(divisor);
+  }
 
   //#override
   Null walkDatums(DatumFunction f) {
@@ -798,6 +997,13 @@ class ShiftPseudoComputation extends PseudoComputation {
   Datum rhs;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    super.reportDatums(datumsUsed, datumsCreated);
+    datumsUsed.add(lhs);
+    datumsUsed.add(rhs);
+  }
+
+  //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
     lhs = f(lhs);
@@ -815,6 +1021,9 @@ class ShiftLeft extends ShiftPseudoComputation { }
 class ShiftRight extends ShiftPseudoComputation { }
 
 class CodeFlowPseudoInstruction extends PseudoInstruction {
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {}
+
   // Moves variables to consistent locations after a block.
   //
   // arguments:
@@ -830,12 +1039,12 @@ class CodeFlowPseudoInstruction extends PseudoInstruction {
       Datum currentDatum = datumStatuses.get(variable) as Datum;
       LocalDatum destinationDatum = datumMap.get(variable) as LocalDatum;
       if (currentDatum != destinationDatum) {
-        append(output, Push(currentDatum, concat('move datums for ', statementName))); 
+        append(output, Push(currentDatum, concat('save ', destinationDatum.commentName, ' (from ', currentDatum.commentName, ') for ', statementName))); 
         append(destinations, destinationDatum);
       }
     }
-    for (destination in reverse(destinations)) {
-      append(output, Pop(destination, concat('move datums for ', statementName)));
+    for (destination in reverse(destinations) as LocalDatumList) {
+      append(output, Pop(destination, concat('restore ', destination.commentName, ' for ', statementName)));
     }
   }
 
@@ -856,22 +1065,26 @@ class CodeFlowPseudoInstruction extends PseudoInstruction {
       Datum destinationDatum = datumMap.get(variable) as Datum;
       if (currentDatum != destinationDatum) {
         if (destinationDatum is LocalDatum) {
-          append(output, Push(currentDatum, concat('restore ', destinationDatum.commentName, ' (from ', currentDatum.commentName, ') for ', statementName))); 
+          append(output, Push(currentDatum, concat('save ', destinationDatum.commentName, ' (from ', currentDatum.commentName, ') for ', statementName))); 
           append(destinations, destinationDatum as LocalDatum);
         } else {
           throw(concat('Cannot restore ', destinationDatum.commentName, ' from a ', destinationDatum.className));
-          append(output, Comment(concat('cannot restore ', destinationDatum.commentName, ' from a ', destinationDatum.className)));
         }
       }
     }
     for (destination in reverse(destinations)) {
       append(output, Pop(destination, concat('restore ', destination.commentName, ' for ', statementName))); 
+    }
+    for (destination in destinations) {
       append(output, KeepAlive(destination));
     }
   }
 }
 
 class Return extends CodeFlowPseudoInstruction {
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {}
+
   //#override
   Boolean flatten(PseudoInstructionList output, Map datumStatuses, BlockConfigurationList blocks) {
     Integer index = len(blocks) - 1;
@@ -888,6 +1101,9 @@ class Return extends CodeFlowPseudoInstruction {
 }
 
 class Break extends CodeFlowPseudoInstruction {
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {}
+
   //#override
   Boolean flatten(PseudoInstructionList output, Map datumStatuses, BlockConfigurationList blocks) {
     Integer index = len(blocks) - 1;
@@ -911,6 +1127,8 @@ class Break extends CodeFlowPseudoInstruction {
 }
 
 class Continue extends CodeFlowPseudoInstruction {
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {}
   //#override
   Boolean flatten(PseudoInstructionList output, Map datumStatuses, BlockConfigurationList blocks) {
     Integer index = len(blocks) - 1;
@@ -940,6 +1158,11 @@ class VariableDeclaration extends PseudoInstruction {
   Datum datum;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    datumsUsed.add(datum);
+  }
+
+  //#override
   Boolean flatten(PseudoInstructionList output, Map datumStatuses, BlockConfigurationList blocks) {
     assert(datumStatuses.get(variable) == null, 'variable existed before being declared');
     assert(len(blocks) == 0 || (last(blocks) as BlockConfiguration).datumOrigins == null || (last(blocks) as BlockConfiguration).datumOrigins!.get(variable) == null, 'variable had an origin before existing');
@@ -958,6 +1181,11 @@ class VariableDeclaration extends PseudoInstruction {
 class UpdateVariable extends PseudoInstruction {
   Object variable;
   Datum datum;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    datumsUsed.add(datum);
+  }
 
   //#override
   Boolean flatten(PseudoInstructionList output, Map datumStatuses, BlockConfigurationList blocks) {
@@ -995,6 +1223,17 @@ class If extends BlockPseudoInstruction {
   String commentForElse;
 
   //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    datumsUsed.add(condition);
+    for (instruction in block1) {
+      instruction.reportDatums(datumsUsed, datumsCreated);
+    }
+    for (instruction in block2) {
+      instruction.reportDatums(datumsUsed, datumsCreated);
+    }
+  }
+
+  //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
     condition = f(condition);
@@ -1003,7 +1242,9 @@ class If extends BlockPseudoInstruction {
 
   Null normalizeVariables(PseudoInstructionList block, Map datumStatuses) {
     for (variable in datumDestinations.keys()) {
-      Datum currentDatum = datumStatuses.get(variable) as Datum;
+      DatumNullable status = datumStatuses.get(variable) as DatumNullable;
+      assert(status != null, 'forgot to declare variable');
+      Datum currentDatum = status as Datum;
       LocalDatum destinationDatum = datumDestinations.get(variable) as LocalDatum;
       if (currentDatum != destinationDatum) {
         append(block, Mov(destinationDatum, currentDatum, concat('fix variable "', destinationDatum.commentName, '" for end of block')));
@@ -1090,12 +1331,32 @@ class If extends BlockPseudoInstruction {
 class Loop extends BlockPseudoInstruction {
   PseudoInstructionList block;
   AssemblerLabel parentLabel;
-  Set datumsUsed;
+
+  SetNullable datumsUsedInThisBlock = null;
+  SetNullable datumsCreatedInThisBlock = null;
 
   //#override
   Null walkDatums(DatumFunction f) {
     super.walkDatums(f);
-    unimplemented(); // block, datumsUsed
+    unimplemented(); // we would need to walk block
+  }
+
+  Null populateSets() {
+    if (datumsUsedInThisBlock == null) {
+      assert(datumsCreatedInThisBlock == null, 'invariant violation');
+      datumsUsedInThisBlock = Set();
+      datumsCreatedInThisBlock = Set();
+      for (instruction in block) {
+        instruction.reportDatums(datumsUsedInThisBlock!, datumsCreatedInThisBlock!);
+      }
+    }
+  }
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    populateSets();
+    datumsUsed.addAll(datumsUsedInThisBlock!.values());
+    datumsCreated.addAll(datumsCreatedInThisBlock!.values());
   }
 
   //#override
@@ -1109,14 +1370,8 @@ class Loop extends BlockPseudoInstruction {
     AssemblerLabel afterLabel = parentLabel.deriveWith('after');
     append(blocks, BlockConfiguration(datumOrigins, datumDestinations, beforeLabel, afterLabel, true));
 
-    Map datumStorage = Map(); // Datum -> Storage
     append(output, Label(beforeLabel, 'top of loop', false));
     append(output, BlockStartMarker());
-    for (datum in datumsUsed.values()) {
-      Storage storage = Storage();
-      datumStorage.set(datum, storage);
-      append(output, Save(datum as Datum, storage));
-    }
     Boolean terminated = false;
     for (instruction in block) {
       terminated = instruction.flatten(output, datumStatuses, blocks);   
@@ -1124,11 +1379,16 @@ class Loop extends BlockPseudoInstruction {
         break;
       }
     }
-    for (datum in datumsUsed.values()) {
-      append(output, Restore(datum as Datum, datumStorage.get(datum) as Storage));
-    }
+    assert(terminated, 'invariant violation');
     append(output, BlockEndMarker());
     append(output, Label(afterLabel, 'bottom of loop', false));
+    populateSets();
+    for (datum in datumsUsedInThisBlock!.values() as DatumList) {
+      if (datumsCreatedInThisBlock!.has(datum)) {
+        continue;
+      }
+      append(output, KeepAlive(datum));
+    }
 
     for (variable in datumDestinations.keys()) {
       assert(datumStatuses.get(variable) != null, 'datumStatuses no longer contains expected variable');
@@ -1139,11 +1399,11 @@ class Loop extends BlockPseudoInstruction {
     return false;
   }
 
-  Null constructor(PseudoInstructionList blockArg, AssemblerLabel parentLabelArg, Map datumDestinationsArg, Set datumsUsedArg) {
+  Null constructor(PseudoInstructionList blockArg, AssemblerLabel parentLabelArg, Map datumDestinationsArg) {
     super.constructor(datumDestinationsArg);
     block = blockArg;
+    assert(last(block) is Continue, 'contract violation: Loop block must end in Continue');
     parentLabel = parentLabelArg;
-    datumsUsed = datumsUsedArg;
   }
 }
 
@@ -1152,6 +1412,13 @@ class Block extends PseudoInstruction {
   PseudoInstructionList block;
   AssemblerLabel parentLabel;
   String name;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    for (instruction in block) {
+      instruction.reportDatums(datumsUsed, datumsCreated);
+    }
+  }
 
   //#override
   Null walkDatums(DatumFunction f) {
@@ -1184,4 +1451,7 @@ class Block extends PseudoInstruction {
   }
 }
 
-class Debugger extends PseudoInstruction { }
+class Debugger extends PseudoInstruction { 
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {}
+}

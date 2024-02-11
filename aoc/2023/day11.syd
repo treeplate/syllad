@@ -1,0 +1,93 @@
+String input = readFile(openFile('aoc/2023/day11.in', fileModeRead));
+StringList lines = split(input, '\r\n');
+Integer xLength = len(split(first(lines), ''));
+Integer yLength = xLength;
+StringList grid = copy(charsOf(join(lines, ''))) as StringList;
+Integer x = 0;
+Integer y = 0;
+Boolean rowEmpty = true;
+IntegerListList galaxies = []:IntegerList;
+while (y < yLength) {
+  if (grid[x+y*xLength] == '#') {
+    rowEmpty = false;
+  }
+  x++;
+  if (x == xLength) {
+    y++;
+    x = 0;
+    if (rowEmpty) {
+      for (dot in filledList(xLength, '.')) {
+        insert(grid, x + y * xLength, dot);
+      }
+      yLength++;
+      y++;
+    }
+    rowEmpty = true;
+  }
+}
+
+y = 0;
+
+while (y < yLength) {
+  if (grid[x+y*xLength] == '#') {
+  } else {
+  }
+  x++;
+  if (x == xLength) {
+    y++;
+    x = 0;
+  }
+}
+  
+y = 0;
+while (x < xLength) {
+  if (grid[x+y*xLength] == '#') {
+    rowEmpty = false;
+  }
+  y++;
+  if (y == yLength) {
+    x++;
+    y = 0;
+    if (rowEmpty) {
+      xLength++;
+      for (dot in filledList(yLength, '.')) {
+        insert(grid, x + y * xLength, dot);
+        y++;
+      }
+      x++;
+      y = 0;
+    }
+    rowEmpty = true;
+  }
+}
+x = 0;
+
+while (y < yLength) {
+  if (grid[x+y*xLength] == '#') {
+    append(galaxies, [x, y]);
+  } else {
+  }
+  x++;
+  if (x == xLength) {
+    y++;
+    x = 0;
+  }
+}
+
+Integer abs(Integer a) {
+  if (a < 0) {
+    return -a;
+  }
+  return a;
+}
+Integer sum = 0;
+Integer numA = 1;
+for (a in galaxies) {
+  Integer numB = 1;
+  for (b in galaxies) {
+    sum += abs(a[0] - b[0]) + abs(a[1] - b[1]);
+    numB++;
+  }
+  numA++;
+}
+println(sum/2);

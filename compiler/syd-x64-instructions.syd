@@ -33,7 +33,7 @@ class PlaceholderOperand extends Operand {
       actualOperand!.assignOperand(newOperand);
       return;
     }
-    assert(actualOperand == null, concat('cannot assign a placeholder operand to two different actual operands: ', actualOperand!.toString(), ' and ', newOperand.toString()));
+    assert(actualOperand == null, concat('cannot assign a placeholder operand to two different actual operands: ', actualOperand, ' and ', newOperand));
     actualOperand = newOperand;
   }
 
@@ -76,7 +76,7 @@ class PlaceholderOperand extends Operand {
   String toString() {
     String isPinned = '';
     if (pinned) {
-      isPinned = ' 📌';
+      isPinned = ' [pin]'; // ' 📌';
     }
     if (actualOperand != null) {
       return concat('<#', internalObjectId, ' as ', actualOperand!.toString(), isPinned, '>');
@@ -196,15 +196,18 @@ class X64Prolog extends X64Line {
       }
     }
     Integer stackAdjustment;
-    // TODO: should list what variables we're allocating space for here
-    // TODO: if stackSize > 8KB (0x2000), call __chkstk__
-    assert(stackSize < 0x2000, 'need to implement calling __chkstk__');
     if ((stackSize + count * 0x08) % 0x10 != 0) {
       stackAdjustment = stackSize;
     } else {
       stackAdjustment = stackSize + 0x08;
     }
-    if (stackAdjustment != 0) {
+    if (stackAdjustment >= 0x2000) {
+      assembler.addCode(indentLevel, 'mov', [rax, ImmediateIntegerOperand(stackAdjustment, '')]:Operand, 'prepare stack size for __chkstk');
+      assembler.addIncludeLib('msvcrt.lib');
+      AssemblerLabel chkstk = assembler.addExternProc('__chkstk');
+      assembler.addCode(indentLevel, 'call', [CodeAddressOperand(chkstk, '__chkstk')]:Operand, 'probe new stack to ensure pages are allocated');
+      assembler.addCode(indentLevel, 'sub', [rsp, rax]:Operand, 'allocate space for stack and align to 16 byte boundary');
+    } else if (stackAdjustment > 0) {
       assembler.addCode(indentLevel, 'sub', [rsp, ImmediateIntegerOperand(stackAdjustment, '')]:Operand, 'allocate space for stack and align to 16 byte boundary');
     }
     assembler.addCode(indentLevel, 'lea', [rbp, RawAddressComputationOperand(rsp, null, 1, stackAdjustment + count * 0x08 - 0x08, ow.QWord, '')]:Operand, 'set up frame pointer');
@@ -653,70 +656,6 @@ class X64KeepAlive extends X64Instruction {
   }
 }
 
-fwdclass X64Save(Integer, Operand, Storage) extends X64Instruction;
-
-class X64Save extends X64Instruction {
-  Storage storage;
-
-  //#override
-  String toString() {
-    return concat(stringTimes(' ', indentLevel), ' ; saving ', single(operands));
-  }
-
-  //#override
-  Integer allowedOperandVarieties() {
-    return 0x000000000000000f;
-  }
-
-  //#override
-  Null generateAssembler(X64Assembler assembler) { }
-
-  //#override
-  X64Line withOperands(OperandList newOperands) {
-    assert(len(newOperands) == 1, 'contract violation');
-    X64Save result = X64Save(indentLevel, single(newOperands) as Operand, storage);
-    copySettingsOnto(result);
-    return result;
-  }
-  
-  Null constructor(Integer indentLevelArg, Operand operandArg, Storage storageArg) {
-    super.constructor(indentLevelArg, 'nop', [operandArg]:Operand, null);
-    storage = storageArg;
-  }
-}
-
-fwdclass X64Restore(Integer, Operand, Storage) extends X64Instruction;
-
-class X64Restore extends X64Instruction {
-  Storage storage;
-
-  //#override
-  String toString() {
-    return concat(stringTimes(' ', indentLevel), ' ; restoring ', single(operands), ' to ', storage.data);
-  }
-
-  //#override
-  Integer allowedOperandVarieties() {
-    return 0x000000000000000f;
-  }
-
-  //#override
-  Null generateAssembler(X64Assembler assembler) { }
-
-  //#override
-  X64Line withOperands(OperandList newOperands) {
-    assert(len(newOperands) == 1, 'contract violation');
-    X64Restore result = X64Restore(indentLevel, single(newOperands) as Operand, storage);
-    copySettingsOnto(result);
-    return result;
-  }
-  
-  Null constructor(Integer indentLevelArg, Operand operandArg, Storage storageArg) {
-    super.constructor(indentLevelArg, 'nop', [operandArg]:Operand, null);
-    storage = storageArg;
-  }
-}
-
 class X64Context extends Object {
   Map assignedDatums = Map(); // Datum -> PlaceholderOperand
   X64LineList output = []:X64Line;
@@ -760,7 +699,7 @@ class X64Context extends Object {
         append(output, X64DerefOpcode(indent, 'lea', 1, [varArgsBaseAddress!, rbp]:Operand, concat('initialize ', varArgsBaseAddress!.commentName), 0x40));
       } else {
         while (len(parameters!) < 4) {
-          append(parameters!, PlaceholderOperand(concat('reserved (os parameter ', len(parameters!), ')')));
+          append(parameters!, PlaceholderOperand(concat('reserved (os parameter ', len(parameters!) + 1, ')')));
         }
       }
     }
@@ -772,7 +711,7 @@ class X64Context extends Object {
       return parameters![index];
     }
     while (index >= len(parameters!)) {
-      append(parameters!, ParameterOperand(len(parameters!), concat('os parameter ', len(parameters!))));
+      append(parameters!, ParameterOperand(len(parameters!), concat('os parameter ', len(parameters!) + 1)));
     }
     return parameters![index];
   }
@@ -911,6 +850,47 @@ Operand _convertToX64Operand(X64Context context, Datum datum) {
   if (datum is ReferenceDatum) {
     return dereferenceDatums(context, 'lea', datum as ReferenceDatum);
   } 
+  throw(concat('Unknown Datum type in convertToX64Operand: ', datum.className));
+}
+
+// TODO: rename
+OperandList operandsForKeepAlive(X64Context context, Datum datum) {
+  if (datum is LocalDatum) {
+    return [convertToWritableX64Operand(context, datum as LocalDatum)]:Operand;
+  } 
+  if (datum is StackDatum) {
+    return [convertToStackX64Operand(context, datum as StackDatum)]:Operand;
+  } 
+  if (datum is ScratchDatum) {
+    return []:Operand;
+  } 
+  if (datum is CompileTimeNumericDatum) {
+    return []:Operand;
+  }
+  if (datum is GlobalVariableDatum) {
+    return []:Operand;
+  }
+  if (datum is DataLabelDatum) {
+    return []:Operand;
+  } 
+  if (datum is CodeLabelDatum) {
+    return []:Operand;
+  } 
+  if (datum is ConstantDatum) {
+    return []:Operand;
+  } 
+  if (datum is StringDatum) {
+    return []:Operand;
+  } 
+  if (datum is ParameterDatum) {
+    return [context.getParameter((datum as ParameterDatum).index)]:Operand;
+  } 
+  if (datum is VarArgsBaseAddressDatum) {
+    return [context.varArgsBaseAddress!]:Operand;
+  } 
+  if (datum is BaseAndOffsetDatum) {
+    return addLists(operandsForKeepAlive(context, (datum as BaseAndOffsetDatum).base), operandsForKeepAlive(context, (datum as BaseAndOffsetDatum).offset)) as OperandList;
+  }
   throw(concat('Unknown Datum type in convertToX64Operand: ', datum.className));
 }
 convertToX64Operand = _convertToX64Operand;
@@ -1108,16 +1088,11 @@ Null convertToX64(X64Context context, PseudoInstruction instruction) {
     append(context.output, opcode);
     opcode.setStackDelta(-1, 0);
   } else if (instruction is KeepAlive) {
-    append(context.output, X64KeepAlive(context.indent, [convertToX64Operand(context, (instruction as KeepAlive).target)]));
-  } else if (instruction is Save) {
-    append(context.output, X64Save(context.indent, convertToX64Operand(context, (instruction as Save).target), (instruction as Save).storage));
-  } else if (instruction is Restore) {
-    append(context.output, X64Restore(context.indent, convertToX64Operand(context, (instruction as Restore).target), (instruction as Restore).storage));
+    append(context.output, X64KeepAlive(context.indent, operandsForKeepAlive(context, (instruction as KeepAlive).target)));
   } else if (instruction is UpdateGlobalVariable) {
     // instruction.target is a GlobalVariableDatum, which is
     // a special case that we know is directly writable, which
     // is why we don't use convertToWritableX64Operand.
-    assert((instruction as UpdateGlobalVariable).target is GlobalVariableDatum, 'api contract violation');
     append(context.output, X64Opcode(context.indent, 'mov', [
       convertToX64Operand(context, (instruction as UpdateGlobalVariable).target),
       convertToX64Operand(context, (instruction as UpdateGlobalVariable).source),
@@ -1126,7 +1101,6 @@ Null convertToX64(X64Context context, PseudoInstruction instruction) {
     // instruction.target is a ParameterDatum, which is
     // a special case that we know is directly writable, which
     // is why we don't use convertToWritableX64Operand.
-    assert((instruction as ReplaceParameter).target is ParameterDatum, 'api contract violation');
     append(context.output, X64Opcode(context.indent, 'mov', [
       convertToX64Operand(context, (instruction as ReplaceParameter).target),
       convertToX64Operand(context, (instruction as ReplaceParameter).source),
@@ -1523,7 +1497,7 @@ class X64Assembler extends Assembler {
       OperandLifetime lifeB = operandUsages.get(b) as OperandLifetime;
       return (lifeA.end - lifeA.start) - (lifeB.end - lifeB.start);
     }
-    // list every operand that needs assignment in the interval tree, along with its total lifetime
+
     sortWithComparator(operands, compareOperand);
 
     for (operand in operands) {
@@ -1750,19 +1724,6 @@ class X64Assembler extends Assembler {
         registersUsed = stackRegisters;
         prolog = null;
         emit(epilog);
-      } else if (instruction is X64Save) {
-        X64Save save = instruction as X64Save;
-        Operand operand = (single(save.operands) as Operand).unwrap();
-        save.storage.save(operand);
-      } else if (instruction is X64Restore) {
-        X64Restore restore = instruction as X64Restore;
-        Operand original = restore.storage.data as Operand;
-        Operand current = (single(restore.operands) as Operand).unwrap();
-        if (!original.equals(current)) {
-          assert(original.isOperandKind(memory | register), concat('invariant violation: ', original, '#', original.internalObjectId, ' (', original.className, ') is not a memory or register (', hex(memory | register), '), but it became ', current, '#', current.internalObjectId, ' (', current.className, '), "', current.commentName, '"'));
-          assert(current.isOperandKind(memory | register), concat('invariant violation: ', current, ' is not a memory or register'));
-          emit(X64Opcode(restore.indentLevel, 'mov', [original.snapshot(stackMetrics, pushLevel), current.snapshot(stackMetrics, pushLevel)], concat('restore ', original.commentName)));
-        }
       } else if (instruction is X64Instruction) {
         X64Instruction instruction = instruction as X64Instruction;
         pushLevel += instruction.stackDeltaBefore;
@@ -1783,6 +1744,17 @@ class X64Assembler extends Assembler {
 
   X64LineList optimizeX64Lines(X64LineList instructions) {
     return instructions;
+  }
+
+  String serializeDebugComments(X64Context context, StringListList data) {
+    StringList buffer = []:String;
+    for (entry in data) {
+      for (line in entry) {
+        // TODO: handle linebreaks in comments
+        append(buffer, concat('; ', line, '\n'));
+      }
+    }
+    return join(buffer, '');
   }
 
   String serializeData(X64Context context, ConstantList data) {
@@ -1860,6 +1832,7 @@ class X64Assembler extends Assembler {
     return join(map(subroutines, mapper) as StringList, '\n');
   }
 
+  String serializedDebugComments;
   String serializedConst;
   String serializedData;
   String serializedBss;
@@ -1885,7 +1858,8 @@ class X64Assembler extends Assembler {
       line.generateAssembler(this);
     }
     stderr('serializeData...');
-    serializedConst = serializeData(context, const);
+    serializedDebugComments = serializeDebugComments(context, debugComments);
+    serializedConst = serializeData(context, constants);
     serializedData = serializeData(context, data);
     stderr('serializeBss...');
     serializedBss = serializeBss(context, uninitializedGlobals);
@@ -1906,6 +1880,8 @@ class X64Assembler extends Assembler {
       '\n\n',
       '; externs\n',
       join(externs, '\n'),
+      '\n\n',
+      serializedDebugComments,
       '\n\n',
       '.const\n',
       serializedConst,

@@ -1,0 +1,60 @@
+import '../../compiler/core.syd';
+
+String input = readFile(openFile('aoc/2023/day12.in', fileModeRead));
+StringList lines = split(input, '\r\n');
+Integer sum = 0;
+Integer lineN = 0;
+for (line in lines) {
+  StringList parts = split(line, ' ');
+  IntegerList goal = map(split(parts[1], ','), parseInt) as IntegerList;
+  StringIterable chars = charsOf(parts[0]);
+  Integer qs = 0;
+  for (char in chars) {
+    if (char == '?') {
+      qs++;
+    }
+  }
+  Integer index = 0;
+  while (index < 2**qs) {
+    Integer temp = index;
+    IntegerList counts = []:Integer;
+    Integer currentConsequtive = 0;
+    for (rchar in chars) {
+      Boolean char;
+      if (rchar == '.') {
+        char = false;
+      } else if (rchar == '#') {
+        char = true;
+      } else {
+        assert(rchar == '?', concat('unexpected ', rchar));
+        if (temp % 2 == 0) {
+          char = false;
+        } else {
+          char = true;
+        }
+        temp = temp >> 1;
+      }
+      if (char) {
+        //print('#');
+        currentConsequtive++;
+      } else {
+        //print('.');
+        if (currentConsequtive > 0) {
+          append(counts, currentConsequtive);
+          currentConsequtive = 0;
+        }
+      }
+    }
+    //println();
+    if (currentConsequtive > 0) {
+      append(counts, currentConsequtive);
+    }
+    if (listEquals(counts, goal)) {
+      sum++;
+    }
+    index++;
+  }
+  println(lineN);
+  lineN++;
+}
+println(sum);

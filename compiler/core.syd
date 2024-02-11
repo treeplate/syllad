@@ -33,7 +33,7 @@ Null appendAll(WhateverList list, WhateverList other) {
 }
 
 //#ignore_unused
-WhateverList reverse(WhateverList list) { // TODO: this could return an Iterable instead
+WhateverList reverse(WhateverList list) { // TODO: this should return an Iterable instead
   Integer length = len(list);
   if (length < 2) {
     return copy(list);

@@ -1,3 +1,5 @@
+// make sure to turn off timetravel mode in [build.bat] before running this
+
 import 'dart:io';
 import 'package:path/path.dart' as path;
 
@@ -7,6 +9,9 @@ void main() {
     ..sort((File a, File b) => a.path.compareTo(b.path));
   ProcessResult result = Process.runSync('dart', ['compile', 'exe', 'lib/syd-main.dart']);
   print(result.stderr);
+  result = Process.runSync('cmd.exe', ['/C', 'transpile-compiler.bat'], workingDirectory: 'lib');
+  print(result.stderr);
+  print(result.stdout);
   int failedCount = runTestSuite(files, 'interpreter', runInterpreter) + runTestSuite(files, 'compiler', runCompiler);
   print('Total time: ${stopwatch.elapsed}');
   if (failedCount > 0) {
@@ -317,6 +322,30 @@ TestResult? runInterpreter(File file) {
   return TestResult(result.stdout, result.stderr, result.exitCode, interpretation: resultCode);
 }
 
+TestResult? runTranspiler(File file) {
+  if (path.split(file.path).contains('compiler-specific')) {
+    return null;
+  }
+  Process.runSync(
+    'dart',
+    ['run', 'lib/syd-transpiler.dart', './' + file.path],
+  );
+  ProcessResult result = Process.runSync(
+    'dart',
+    ['run', '--enable-asserts', 'lib/transpiler-output.dart',],
+  );
+  ResultCode resultCode;
+  switch (result.exitCode) {
+    case 254:
+      resultCode = ResultCode.testSourceError; // test itself was found to have an error and could not be run
+    case 255:
+      resultCode = ResultCode.testFailed; // test reported an error (threw or asserted)
+    default:
+      resultCode = ResultCode.unknown; // test completed
+  }
+  return TestResult(result.stdout, result.stderr, result.exitCode, interpretation: resultCode);
+}
+
 TestResult? runCompiler(File file) {
   if (path.split(file.path).contains('interpreter-specific')) {
     return null;
@@ -325,8 +354,8 @@ TestResult? runCompiler(File file) {
   String normalizedStdout = result.stdout.replaceAll('\r\n', '\n');
   String normalizedStderr = result.stderr.replaceAll('\r\n', '\n');
   if (result.exitCode != 0) {
-    return TestResult(normalizedStdout, '${normalizedStderr}\nbatch file returned non-zero exit code (${result.exitCode})', result.exitCode,
-        interpretation: ResultCode.executerError);
+    return TestResult(normalizedStdout, '${normalizedStderr}', result.exitCode,
+        interpretation: ResultCode.testSourceError);
   }
 
   List<String> normalizedStdoutLines = normalizedStdout.split('\n');
@@ -342,14 +371,12 @@ TestResult? runCompiler(File file) {
     }
     ResultCode resultCode;
     switch (exitCode) {
-      case -2: // compiler itself could not be compiled
+      case 254: // compiler itself could not be compiled
         resultCode = ResultCode.sourceError;
-      case -4: // test itself was found to have an error and could not be run
+      case 255: // test itself was found to have an error and could not be run
         resultCode = ResultCode.testSourceError;
       case 0:
         throw StateError('FAILED with zero exit code');
-      case -3: // compiler itself had an internal error
-      case -1: // stack overflow in interpreter while running compiler
       default: // compiler exit with unexpected error code
         resultCode = ResultCode.executerError;
     }
@@ -363,31 +390,36 @@ TestResult? runCompiler(File file) {
     return TestResult(normalizedStdout, '${normalizedStderr}\nsyd.asm contents:\n${asm.join('\n')}', result.exitCode, interpretation: ResultCode.executerError);
   }
   // STDOUT
-  int startStdout = normalizedStdoutLines.indexOf('= START STDOUT =================');
-  int endStdout = normalizedStdoutLines.indexOf('= END STDOUT ===================');
+  const String markerStartStdout = '= START STDOUT =================\n';
+  const String markerEndStdout = '= END STDOUT ===================\n';
+  const String markerStartStderr = '= START STDERR =================\n';
+  const String markerEndStderr = '= END STDERR ===================\n';
+  int startStdout = normalizedStdout.indexOf(markerStartStdout);
+  int endStdout = normalizedStdout.indexOf(markerEndStdout);
   if (startStdout == -1 || endStdout == -1) {
-    print('stdout: $normalizedStdoutLines');
     return TestResult(normalizedStdout, '${normalizedStderr}\ncould not find start/end STDOUT markers (start=$startStdout, end=$endStdout)', result.exitCode,
         interpretation: ResultCode.executerError);
   }
-  String filteredStdout = normalizedStdoutLines.sublist(startStdout + 1, endStdout).join('\n');
+  String filteredStdout = normalizedStdout.substring(startStdout + markerStartStdout.length, endStdout);
   if (filteredStdout.isNotEmpty) {
     filteredStdout = '$filteredStdout\n';
   }
   // STDERR
-  List<String> normalizedStderrLines = normalizedStderr.split('\n');
-  int startStderr = normalizedStderrLines.indexOf('= START STDERR =================');
-  int endStderr = normalizedStderrLines.indexOf('= END STDERR ===================');
+  int startStderr = normalizedStderr.indexOf(markerStartStderr);
+  int endStderr = normalizedStderr.indexOf(markerEndStderr);
   if (startStderr == -1 || endStderr == -1) {
     return TestResult(normalizedStdout, '${normalizedStderr}\ncould not find start/end STDERR markers (start=$startStderr, end=$endStderr)', result.exitCode,
         interpretation: ResultCode.executerError);
   }
-  String filteredStderr = normalizedStderrLines.sublist(startStderr + 1, endStderr).join('\n');
+  String filteredStderr = normalizedStderr.substring(startStderr + markerStartStderr.length, endStderr);
   if (filteredStderr.isNotEmpty) {
     filteredStderr = '$filteredStderr\n';
   }
   // EXIT CODE
-  int? exitCode = int.tryParse(normalizedStdoutLines[endStdout + 1].substring('test exit code: '.length));
+  int? exitCode = int.tryParse(normalizedStdout.substring(
+    endStdout + markerEndStdout.length + 'test exit code: '.length,
+    normalizedStdout.indexOf('\n', endStdout + markerEndStdout.length + 1),
+  ));
   if (exitCode == null) {
     return TestResult(normalizedStdout, '${normalizedStderr}\ncould not parse exit code ("${normalizedStdoutLines[endStdout + 1]}")', result.exitCode,
         interpretation: ResultCode.executerError);

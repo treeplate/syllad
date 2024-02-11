@@ -147,6 +147,8 @@ String digitToStr#(Integer digit) {
   exit(digit);
 }
 
+// TODO: intToStr() and hex() use % twice per digit, we should improve this by making two digitToStrs that do all the 10-x%10 stuff (one per base)
+
 //#ignore_unused
 String intToStr(Integer value) {
   if (value >= 0 && value < 10) {
@@ -154,13 +156,14 @@ String intToStr(Integer value) {
   }
   StringBuffer buffer = createStringBuffer();
   Integer newValue = value; // parameters are final
+  // this is using negative numbers because of -9223372036854775808 - negating it makes it still negative due to two's complement weirdness
   if (newValue > 0) {
     newValue = -newValue;
   }
   while (newValue < 0) {
     Integer digit = newValue % 10;
     newValue = newValue / 10;
-    writeStringBuffer(buffer, digitToStr#(-digit));
+    writeStringBuffer(buffer, digitToStr#((10 - digit) % 10));
   }
   if (value < 0) {
     writeStringBuffer(buffer, '-');
@@ -175,13 +178,14 @@ String hex(Integer value) {
   }
   StringBuffer buffer = createStringBuffer();
   Integer newValue = value; // parameters are final
+  // this is using negative numbers because of -8000000000000000 - negating it makes it still negative due to two's complement weirdness
   if (newValue > 0) {
     newValue = -newValue;
   }
   while (newValue < 0) {
     Integer digit = newValue % 16;
     newValue = newValue / 16;
-    writeStringBuffer(buffer, digitToStr#(-digit));
+    writeStringBuffer(buffer, digitToStr#((16 - digit) % 16));
   }
   if (value < 0) {
     writeStringBuffer(buffer, '-');

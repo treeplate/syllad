@@ -1,0 +1,27 @@
+// expected output: 100
+// expected output: 101
+// expected output: 101
+// expected output: 5
+
+Integer a = 5;
+
+class Foo {
+  Integer a;
+  IntegerFunction method() {
+    Integer inner() {
+      a = a + 1;
+      return a;
+    }
+    return inner;
+  }
+  Null constructor(Integer arg) {
+    a = arg;
+  }
+}
+
+Foo foo = Foo(100);
+IntegerFunction increment = foo.method();
+println(foo.a); // 100
+println(increment()); // 101
+println(foo.a); // 101
+println(a); // 5

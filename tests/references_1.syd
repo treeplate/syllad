@@ -1,0 +1,12 @@
+// expected output: PASS
+// expected output: PASS
+// unexpected output: FAIL
+
+Null test(StringList list) {
+  println(list[0]);
+  String temp = list[0];
+  list[0] = 'FAIL';
+  println(temp);
+}
+
+test(['PASS']:String);

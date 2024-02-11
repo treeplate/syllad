@@ -8,16 +8,37 @@ class Assembler extends Object {
   Map labelSequenceIds = Map(); // String -> Integer
   Map labels = Map(); // AssemblerLabel -> String
 
+  String _uncachedSerializeLabel(AssemblerLabel label) {
+    assert(label != rootLabel, 'well that is a faux pas');
+    StringList names = []:String;
+    String lastName = camelCase(label.name);
+    Integer count = 1;
+    AssemblerLabel currentLabel = label.parent!;
+    while (true) {
+      if (currentLabel.name != lastName) {
+        assert(count > 0, 'invariant violation');
+        if (count > 1) {
+          append(names, concat(lastName, '_x', count));
+        } else {
+          append(names, lastName);
+        }
+        lastName = camelCase(currentLabel.name);
+        count = 0;
+      }
+      count += 1;
+      if (currentLabel == rootLabel) {
+        break;
+      }
+      assert(currentLabel.parent != null, concat('all labels must derive from the root label; label ', currentLabel.name, ' is a strange root'));
+      currentLabel = currentLabel.parent!;
+    }
+    return join(reverse(names) as StringList, '$');
+  }
+
   String serializeLabel(AssemblerLabel label) {
     StringNullable result = labels.get(label) as StringNullable;
     if (result == null) {
-      String candidate;
-      if (label.parent == rootLabel) {
-        candidate = camelCase(label.name);
-      } else {
-        assert(label.parent != null, concat('all labels must derive from the root label; label ', label.name, ' is a strange root'));
-        candidate = concat(serializeLabel(label.parent!), '$', camelCase(label.name));
-      }
+      String candidate = _uncachedSerializeLabel(label);
       IntegerNullable sequenceId = labelSequenceIds.get(candidate) as IntegerNullable;
       if (sequenceId == null) {
         sequenceId = 0;
@@ -32,16 +53,22 @@ class Assembler extends Object {
     return result!;
   }
 
-  ConstantList const = []:Constant;
+  ConstantList constants = []:Constant;
 
   Null addConst(Constant section) {
-    append(const, section);
+    append(constants, section);
   }
 
   ConstantList data = []:Constant;
 
   Null addData(Constant section) {
     append(data, section);
+  }
+
+  StringListList debugComments = []:StringList;
+
+  Null addDebugComment(StringList section) {
+    append(debugComments, section);
   }
 
   UninitializedGlobalList uninitializedGlobals = []:UninitializedGlobal;

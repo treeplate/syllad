@@ -1,0 +1,122 @@
+String input = readFile(openFile('aoc/2023/day10.in', fileModeRead));
+StringList lines = split(input, '\r\n');
+Integer length = len(split(first(lines), ''));
+StringList grid = copy(charsOf(join(lines, ''))) as StringList;
+Integer x1 = 108;
+Integer x2 = 108;
+Integer y1 = 25;
+Integer y2 = 25;
+Integer dir1 = -1;
+Integer dir2 = -1;
+Integer steps = 0;
+while (true) {
+  String char1 = grid[x1 + y1 * length];
+  if (char1 == 'S') {
+    dir1 = 0;
+    y1--;
+    dir2 = 2;
+    y2++;
+    steps++;
+    continue;
+  } else if (char1 == '━') {
+    if (dir1 == 1) {
+      x1++;
+    } else {
+      x1--;
+    }
+  } else if (char1 == '│') {
+    if (dir1 == 0) {
+      y1--;
+    } else {
+      y1++;
+    }
+  } else if (char1 == '┑') {
+    if (dir1 == 0) {
+      dir1 = 3;
+      x1--;
+    } else {
+      dir1 = 2;
+      y1++;
+    }
+  } else if (char1 == '┍') {
+    if (dir1 == 0) {
+      dir1 = 1;
+      x1++;
+    } else {
+      dir1 = 2;
+      y1++;
+    }
+  } else if (char1 == '┕') {
+    if (dir1 == 2) {
+      dir1 = 1;
+      x1++;
+    } else {
+      dir1 = 0;
+      y1--;
+    }
+  } else if (char1 == '┙') {
+    if (dir1 == 2) {
+      dir1 = 3;
+      x1--;
+    } else {
+      dir1 = 0;
+      y1--;
+    }
+  } else {
+    throw(concat('unexpected character ', char1));
+  }
+  String char2 = grid[x2 + y2 * length];
+  if (char2 == '━') {
+    if (dir2 == 1) {
+      x2++;
+    } else {
+      x2--;
+    }
+  } else if (char2 == '│') {
+    if (dir2 == 0) {
+      y2--;
+    } else {
+      y2++;
+    }
+  } else if (char2 == '┑') {
+    if (dir2 == 0) {
+      dir2 = 3;
+      x2--;
+    } else {
+      dir2 = 2;
+      y2++;
+    }
+  } else if (char2 == '┍') {
+    if (dir2 == 0) {
+      dir2 = 1;
+      x2++;
+    } else {
+      dir2 = 2;
+      y2++;
+    }
+  } else if (char2 == '┕') {
+    if (dir2 == 2) {
+      dir2 = 1;
+      x2++;
+    } else {
+      dir2 = 0;
+      y2--;
+    }
+  } else if (char2 == '┙') {
+    if (dir2 == 2) {
+      dir2 = 3;
+      x2--;
+    } else {
+      dir2 = 0;
+      y2--;
+    }
+  } else {
+    throw(concat('unexpected character ', char2));
+  }
+  steps++;
+  if (x1 == x2 && y1 == y2) {
+    println(x1, y2);
+    println(steps);
+    exit(0);
+  }
+}

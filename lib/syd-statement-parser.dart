@@ -837,7 +837,7 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String f
     );
   });
   TypeValidator validator = TypeValidator([if (rtl == null) intrinsics, if (rtl != null) rtl.value],
-      ConcatenateLazyString(NotLazyString('file '), NotLazyString(file)), false, false, false, rtl, identifiers, environment, true);
+      ConcatenateLazyString(NotLazyString('file '), NotLazyString(file)), false, false, false, rtl, identifiers, environment, true, TypeTable([environment.rootTypeTable]));
 
   List<Statement> ast = parseBlock(tokens, validator, false);
   if (isMain) {
@@ -1293,6 +1293,7 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
     tokens.current.line,
     tokens.current.col,
     tokens.file,
+    true,
   );
   if (ignoreUnused) {
     innerScope.igv(currentName, true);
@@ -1343,7 +1344,6 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
     tokens.moveNext();
   }
   tokens.moveNext();
-  print('enum ${name.name} ${type.staticMembers.types.keys.map((e) => e.name)}');
   scope.newVar(
     name,
     type,

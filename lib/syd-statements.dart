@@ -51,7 +51,7 @@ class NewVarStatement extends Statement {
 
   final TypeValidator tv;
 
-  String toString() => "var $name = $val";
+  String toString() => "var ${name.name} = $val";
 
   NewVarStatement(this.name, this.val, int line, int col, this.file, this.isConstant, this.type, this.tv) : super(line, col) {
     if (name == constructorVariable && tv.inClass) {
@@ -453,7 +453,7 @@ class ReturnStatement extends Statement {
     if (tokens.current is CharToken && tokens.currentChar == TokenType.endOfStatement) {
       tokens.moveNext();
       return ReturnStatement(
-        BoringExpr(null, scope.environment.nullType, scope),
+        NullExpr(null, scope.environment.nullType, scope),
         tokens.current.line,
         tokens.current.col,
       );

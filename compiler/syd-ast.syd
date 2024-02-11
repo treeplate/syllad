@@ -463,14 +463,14 @@ class SubscriptExpression extends LValueExpression {
   //#override
   Bucket generateInstructions(CompiledScope scope) {
     _prepare(scope);
-    return DereferenceWithOffsetsBucket(
+    return scope.emitCopy(DereferenceWithOffsetsBucket(
       scope.emitSubscriptEvaluation(_evaluatedList, _evaluatedArgument), 
       scope.environment().integer(0x08), 
       scope.environment().integer(0x00), 
       ow.QWord, 
       _evaluatedElementType,
       LazyComment('subscript result'),
-    );
+    ), true);
   }
 
   //#override
@@ -607,17 +607,6 @@ class SuperExpression extends Expression {
   Null constructor(String methodArg, SourceLocation sourceLocationArg) {
     super.constructor(sourceLocationArg);
     method = methodArg;
-  }
-}
-
-Null generateInstructionsForArguments(CompilationEnvironment environment, CompiledScope scope, Expression subroutineReference, SourceLocation sourceLocation, Type subroutineType, ExpressionList arguments, BucketList argumentValues, SourceLocationList sourceLocations) {
-  if (subroutineType.isSubtypeOf(environment.coreSubroutineType)) {
-    for (argument in arguments) {
-      append(sourceLocations, argument.sourceLocation);
-      append(argumentValues, argument.generateInstructions(scope));
-    }
-  } else {
-    throw(concat('"', subroutineReference.toStringIndent(0), '" is not a function pointer at ', sourceLocation, ' (is ', subroutineType.name, ')'));
   }
 }
 
@@ -912,13 +901,21 @@ class IsOperatorExpression extends Expression {
 //         - (rhs' element type is not a subtype of lhs' static type's element type, and
 //           - lhs' static type's element type is not a subtype of rhs' element type)):
 //     compile time error.
-//  1. if lhs' dynamic type is a subtype of rhs:
-//     return lhs unchanged.
-//  2. if rhs is WhateverList and lhs' dynamic type is a list type:
-//     return lhs unchanged.
-//  3. if rhs is a list type, and lhs' dynamic type is a list type:
+//  1. if:
+//       - rhs is not a subtype of lhs' static type, and
+//       - lhs' static type is not a subtype of rhs, and
+//       - rhs is list type, and
+//       - lhs' static type is list type, and
+//       - (rhs' element type is a subtype of lhs' static type's element type, or
+//         - lhs' static type's element type is a subtype of rhs' element type):
 //     return listCast(lhs, rhs).
-//  4. otherwise, throw at runtime.
+//  2. if we can statically prove the types are compatible:
+//     return lhs unchanged, with new static type.
+//  3. if rhs is a list type with an element type other than Whatever:
+//     return listCast(lhs, rhs).
+//  4. if lhs' dynamic type is a subtype of rhs:
+//     return lhs unchanged.
+//  5. otherwise, throw at runtime.
 class AsOperatorExpression extends Expression {
   Expression expression;
   TypeIdentifier type;
@@ -950,6 +947,7 @@ class AsOperatorExpression extends Expression {
           (!lhsListType.elementType.isSubtypeOf(rhsListType.elementType))) {
         throw(concat('Cannot cast list of type ', lhs.staticType.name, ' to list of type ', rhs.name, ' at ', sourceLocation));
       }
+      rhs.markConstructed();
       return scope.emitIntrinsicCall(
         environment.listCastIntrinsicName,
         [
@@ -962,48 +960,42 @@ class AsOperatorExpression extends Expression {
     if (!lhs.staticType.needRuntimeTypeCheckFor(rhs)) {
       return lhs.asType(rhs);
     }
-    // either we think there's a chance the types are compatible
-    // or we know we need a dynamic check for it
     LocalVariable result = LocalVariable(rhs, environment.coreSentinel, '$result$');
     scope.emit(VariableDeclarationInstruction(result));
-    CompiledScope castScope = CompiledScope(scope, 'as operator runtime cast case');
-    CompiledScope listCheckScope = CompiledScope(scope, 'as operator list cast case');
-    scope.emit(IfScopeInstruction(
-      scope.compute(
-        StoreTypeCheckInstruction(
-          rhs,
-          lhs,
-          environment.coreBooleanType,
-          'dynamic type check for as operator',
-          LazyComment('result of type check for "as" operator'),
+    if (rhs is AbstractListType && !((rhs as AbstractListType).elementType is WhateverType)) {
+      rhs.markConstructed();
+      scope.emit(
+        UpdateVariableInstruction(
+          result,
+          scope.emitIntrinsicCall( // (includes dynamic check for step 3)
+            environment.listCastIntrinsicName,
+            [
+              lhs,
+              TypeCodeBucket(rhs, environment.coreIntegerType),
+            ]:Bucket,
+          ).asType(rhs),
         ),
-      ),
-      castScope,
-      listCheckScope,
-    ));
-    // castScope: (step 1 above)
-    castScope.emit(UpdateVariableInstruction(result, lhs.asType(rhs)));
-    // listCheckScope: (steps 2, 3, and 4 above)
-    if (rhs is AbstractListType) {
-      if ((rhs as AbstractListType).elementType is WhateverType) {
-        // WhateverList is magical in the language spec.
-        listCheckScope.emit(UpdateVariableInstruction(result, lhs.asType(rhs)));
-      } else {
-        listCheckScope.emit(
-          UpdateVariableInstruction(
-            result,
-            listCheckScope.emitIntrinsicCall( // (includes dynamic check for step 3)
-              environment.listCastIntrinsicName,
-              [
-                lhs,
-                TypeCodeBucket(rhs, environment.coreIntegerType),
-              ]:Bucket,
-            ).asType(rhs),
-          ),
-        );
-      }
+      );
     } else {
-      listCheckScope.emit(ErrorInstruction('type error in "as" operator')); // TODO: more useful message
+      // either we think there's a chance the types are compatible
+      // or we know we need a dynamic check for it
+      CompiledScope castScope = CompiledScope(scope, 'as operator runtime cast case');
+      CompiledScope errorScope = CompiledScope(scope, 'as operator fail case');
+      scope.emit(IfScopeInstruction(
+        scope.compute(
+          StoreTypeCheckInstruction(
+            rhs,
+            lhs,
+            environment.coreBooleanType,
+            'dynamic type check for as operator',
+            LazyComment('result of type check for "as" operator'),
+          ),
+        ),
+        castScope,
+        errorScope,
+      ));
+      castScope.emit(UpdateVariableInstruction(result, lhs.asType(rhs)));
+      errorScope.emit(ErrorInstruction('type error in "as" operator')); // TODO: more useful message
     }
     return result;
   }
@@ -2173,9 +2165,10 @@ class AbstractSubroutineDeclarationStatement extends Statement {
     Type compiledReturnType = returnType.lookup(scope.globalScope(), requireDeclared);
     TypeList compiledParameterTypes = []:Type;
     for (entry in parameters) {
-      if (entry[1] == identifier) {
-        throw(concat('Parameter has the same name as its function at ', entry[2]));
-      }
+      // uncomment this out if treeplate changes their mind again
+      //if (entry[1] == identifier) {
+      //  throw(concat('Parameter has the same name as its function at ', entry[2]));
+      //}
       append(compiledParameterTypes, (entry[0] as TypeIdentifier).lookup(scope.globalScope(), requireDeclared));
     }
     if (isVarArgs) {
@@ -2269,15 +2262,19 @@ class MethodDeclarationStatement extends AbstractSubroutineDeclarationStatement 
     if (identifier == kConstructor && !staticType.isSubtypeOf(createOrFindSubroutineTypeWithAnyArgs(scope.environment(), scope.environment().coreNullType))) {
       throw(concat('Constructor must be a NullFunction, but is declared as a ', staticType.name, ' at ', sourceLocation));
     }
-    MemberDescriptionNullable inheritedMember = parentClass.getMember(identifier);
-    if (inheritedMember != null) {
-      if (inheritedMember!.isInherited) {
-        if (inheritedMember!.name != kConstructor && !staticType.isSubtypeOf(inheritedMember!.staticType)) {
-          throw(concat('Inherited ', identifier, ' has type ', inheritedMember!.staticType.name,
+    MemberDescriptionNullable existingMember = parentClass.getMember(identifier);
+    if (existingMember != null) {
+      if (existingMember!.isInherited) {
+        if (existingMember!.name != kConstructor && !staticType.isSubtypeOf(existingMember!.staticType)) {
+          throw(concat('Inherited member "', identifier, '" has type ', existingMember!.staticType.name,
                        ', but is overridden with incompatible type ', staticType.name, ' at ', sourceLocation));
         }
+        if (existingMember!.isField) {
+          // if existingMember is a field, then this is an invalid override
+          throw(concat('Inherited member "', identifier, '" is mutable and cannot be overridden by a method at ', sourceLocation));
+        }
       } else {
-        throw(concat('Identifier ', identifier, ' redeclared at ', sourceLocation));
+        throw(concat('Member "', identifier, '" redeclared at ', sourceLocation));
       }
     }
     parentClass.registerMember(identifier, staticType, false);
@@ -2829,10 +2826,7 @@ class ForwardClassFieldDeclaration extends Statement {
     if (!member!.isField) {
       throw(concat('Field ', hostClass.name, '.', identifier, ' not defined as a field after being forward declared at ', sourceLocation));
     }
-    TypeNullable candidateFieldType = fieldType.lookup(scope.globalScope(), true);
-    if (candidateFieldType == null) {
-      throw(concat('Field ', hostClass.name, '.', identifier, ' forward declared with type ', fieldType.toStringIndent(0), ' which is not yet known at ', sourceLocation));
-    }
+    Type candidateFieldType = fieldType.lookup(scope.globalScope(), true);
     if (member!.staticType != candidateFieldType) {
       throw(concat('Field ', hostClass.name, '.', identifier, ' has type ', member!.staticType.name, ' which does not match the type used in the forward declaration at ', sourceLocation));
     }
@@ -2891,10 +2885,7 @@ class ForwardClassMethodDeclaration extends Statement {
     if (member!.isField) {
       throw(concat('Method ', hostClass.name, '.', identifier, ' not defined as a method after being forward declared at ', sourceLocation));
     }
-    TypeNullable forwardDeclaredReturnType = returnType.lookup(scope.globalScope(), true);
-    if (forwardDeclaredReturnType == null) {
-      throw(concat('Method ', hostClass.name, '.', identifier, ' forward declared with return type ', returnType.toStringIndent(0), ' which is not yet known at ', sourceLocation));
-    }
+    Type forwardDeclaredReturnType = returnType.lookup(scope.globalScope(), true);
     assert(member!.staticType is AbstractSubroutineTypeWithSpecificParameters, 'invariant violation');
     if ((member!.staticType as AbstractSubroutineTypeWithSpecificParameters).returnType != forwardDeclaredReturnType) {
       throw(concat('Method ', hostClass.name, '.', identifier, ' has return type ', (member!.staticType as AbstractSubroutineTypeWithSpecificParameters).returnType.name, ' which does not match the return type used in the forward declaration at ', sourceLocation));
@@ -2908,13 +2899,13 @@ class ForwardClassMethodDeclaration extends Statement {
       assert(len(forwardDeclaredParameters) == 1, 'unexpected number of parameters to varargs function');
       forwardDeclaredType = createOrFindSubroutineTypeWithVarArgs(
         scope.environment(),
-        forwardDeclaredReturnType!,
+        forwardDeclaredReturnType,
         forwardDeclaredParameters,
       );
     } else {
       forwardDeclaredType = createOrFindSubroutineTypeWithSpecificParameters(
         scope.environment(),
-        forwardDeclaredReturnType!,
+        forwardDeclaredReturnType,
         forwardDeclaredParameters,
       );
     }

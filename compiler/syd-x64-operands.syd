@@ -38,10 +38,9 @@ String prefixFor(ow size) {
     return 'word ';
   } else if (size == ow.DWord) {
     return 'dword ';
-  } else if (size == ow.QWord) {
+  } else  {
+    assert(size == ow.QWord, 'contract violation');
     return 'qword ';
-  } else {
-    assert(false, 'contract violation');
   }
 }
 
@@ -53,10 +52,9 @@ String dataPrefixFor(ow size) {
     return 'dw ';
   } else if (size == ow.DWord) {
     return 'dd ';
-  } else if (size == ow.QWord) {
-    return 'dq ';
   } else {
-    assert(false, 'contract violation');
+    assert(size == ow.QWord, 'contract violation');
+    return 'dq ';
   }
 }
 
@@ -864,6 +862,7 @@ class StackOperand extends MemoryOperand {
   //#override
   String serialize(StringFunction labelSerializer) {
     assert(false, concat('cannot serialize stack operand ', this, ' (', commentName, '); call snapshot() first'));
+    unimplemented();
   }
 
   //#override

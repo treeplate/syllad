@@ -1,0 +1,15 @@
+// expected output: 1
+// expected output: 1
+// expected output: 1
+// expected output: 1
+// expected output: 1
+// expected output: 1
+// expected output: 3
+
+println(3 % 2);
+println(-3 % 2);
+println(3 % -2);
+println(-3 % -2);
+println(5 % -4);
+println(5 % 4);
+println(-5 % 4);

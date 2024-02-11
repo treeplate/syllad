@@ -20,23 +20,6 @@ stderr('syllad self-hosting compiler');
 
 // WISHLIST
 // P1 (blocking progress):
-//   methods can't refer to themselves on child instances, e.g.:
-//     class Node {
-//       String label;
-//       NodeList children;
-//       Null walk() {
-//         println(label);
-//         for (child in children) {
-//           child.walk(); // compiler fails here, even though Node.walk is defined already
-//         }
-//       }
-//       Null constructor(String labelArg, NodeList childrenArg) {
-//         label = labelArg;
-//         children = childrenArg;
-//       }
-//     }
-//     Node('a', [Node('b', [])]).walk();
-//   simpler example with probably same cause: class A { Null test() { this.test(); } }
 //   language changes that I think have been announced but not yet implemented:
 //     - type declarations leak out of blocks (e.g. "if (true) { enum X { a } } X a;" does not fail)
 // P3 (nice-to-haves for which i've found workarounds):

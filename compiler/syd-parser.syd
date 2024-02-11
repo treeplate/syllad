@@ -3,6 +3,7 @@ import 'syd-ast.syd';
 
 // TODO: have a parseTypeIdentifier for where we have TypeIdentifier objects.
 // TODO: introduce an Identifier AST node and use a parseIdentifier for it so identifiers have source locations.
+// TODO: implement assert as a compiler primitive
 
 // forward declaration
 ExpressionFunction parseExpression;

@@ -1,4 +1,4 @@
-
+<!-- This file is out of date (e.g., there's more tokens, integer parsing is different)-->
 # SYLLAD
 Whitespace is purely cosmetic, except for separating identifiers and/or integers.
 ```

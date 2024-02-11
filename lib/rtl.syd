@@ -1,11 +1,6 @@
 import '../compiler/syd-stdlib.syd';
 
 // #ignore_unused
-String padLeft(String line, Integer length, String padding) {
-  return concat(stringTimes(padding, (length - len(charsOf(line))) / len(charsOf(padding))), line);
-}
-
-// #ignore_unused
 String join(StringList items, String joiner) {
   StringList result = []:String;
   Integer index = 0;
@@ -22,4 +17,11 @@ String join(StringList items, String joiner) {
 //#ignore_unused
 String readFile(File file) {
   return utf8Decode(readFileBytes(file));
+}
+
+Integer abs(Integer number) {
+  if (number < 0) {
+    return -number;
+  }
+  return number;
 }

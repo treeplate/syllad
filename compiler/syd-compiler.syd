@@ -106,7 +106,7 @@ fwdclassmethod Bucket CompiledScope.emitCodePointerCall(AbstractSubroutineTypeWi
 fwdclassmethod Bucket CompiledScope.emitSubroutinePointerCall(Bucket, BucketList, SourceLocationNullable, SourceLocationListNullable);
 fwdclassmethod Bucket CompiledScope.emitIntrinsicCall(String, BucketList);
 fwdclassmethod Null CompiledScope.extractInstructionsInto(BoundInstructionList);
-fwdclassmethod Bucket CompiledScope.emitCopy(Bucket);
+fwdclassmethod Bucket CompiledScope.emitCopy(Bucket, Boolean);
 fwdclassmethod Boolean CompiledScope.needsClosureBlock();
 
 // CompiledStackFrameScope
@@ -258,6 +258,7 @@ class CompilationEnvironment extends TypeRegistry {
   String exitIntrinsicName = 'exit';
   String freeIntrinsicName = '_free';
   String exponentiationIntrinsicName = 'pow#';
+  String modulusIntrinsicName = 'mod#';
   String equalityIntrinsicName = 'equals#';
   String listConstructorIntrinsicName = 'listConstructor#';
   String classAllocatorIntrinsicName = '_classAllocator';
@@ -551,6 +552,9 @@ class CompilationEnvironment extends TypeRegistry {
     }
     ConstantPartList generatedBytes = map(data, genBytes) as ConstantPartList;
     String suffixComment = join(comment, '');
+    if (len(sortedTypes) > 128) {
+      suffixComment = '';
+    }
     assembler.addConst(Constant(label, generatedBytes, suffixComment, 'type table'));
     typeTableOffset = offset;
     typeTableWidth = width;
@@ -630,6 +634,20 @@ class CompilationEnvironment extends TypeRegistry {
     assembler.addConst(Constant(label, _generateIterableConversionTypeTable(mapper, 'Table mapping iterable types to list types'), null, 'list type table'));
   }
 
+  Null _generateTypeDescriptionComment(Assembler assembler) {
+    StringList comments = []:String;
+    for (type in types) {
+      String code;
+      if (type.code == null) {
+        code = '(no code)';
+      } else {
+        code = concat(hexH(type.code!), ' (', type.code!, ')');
+      }
+      append(comments, concat(type.name, ': ', code, ' isConstructed=', type.isConstructed, ', isUsedInTypeCheck=', type.isUsedInTypeCheck, ', className: ', type.className, ' ', type.debugNotes()));
+    }
+    assembler.addDebugComment(comments);
+  }
+
   Null _generateEnumTables(Assembler assembler) {
     for (reifiedEnumType in reifiedEnumTypes.values() as ReifiedEnumTypeList) {
       StringBucket enumNameBucket = reifiedEnumType.nameBucket;
@@ -660,6 +678,7 @@ class CompilationEnvironment extends TypeRegistry {
     _generateElementTypeTable(assembler, elementTypeTableLabel);
     _generateIteratorTypeTable(assembler, iteratorTypeTableLabel);
     _generateListTypeTable(assembler, listTypeTableLabel);
+    _generateTypeDescriptionComment(assembler);
     _generateEnumTables(assembler);
   }
 
@@ -770,6 +789,8 @@ class EnvironmentConversionContext extends ConversionContext {
   //#override
   CodeLabelDatum exponentiationIntrinsic() { return environment.lookupIntrinsicSubroutine(environment.exponentiationIntrinsicName).codePointer.currentValueDatum() as CodeLabelDatum; }
   //#override
+  CodeLabelDatum modulusIntrinsic() { return environment.lookupIntrinsicSubroutine(environment.modulusIntrinsicName).codePointer.currentValueDatum() as CodeLabelDatum; }
+  //#override
   CodeLabelDatum equalityIntrinsic() { return environment.lookupIntrinsicSubroutine(environment.equalityIntrinsicName).codePointer.currentValueDatum() as CodeLabelDatum; }
   //#override
   Bucket errorMessage(String value) { return environment.errorMessage(value); }
@@ -797,6 +818,8 @@ class EnvironmentConversionContext extends ConversionContext {
 // SUBROUTINE CALLS AND AST NODE SHENANIGANS
 // ============================================================================
 
+// Used to track if a varargs parameter is used as a list rather than just subscripting.
+// Every expression must return one of these.
 class ExpressionHandle extends Object {
   Boolean used = false;
   Boolean needsCopyIfVarArgs = false;
@@ -1088,6 +1111,7 @@ class IdentifierEntity extends Object {
 
   Type staticType() { abstract(); }
 
+  // This function should make sure the bucket is already created (e.g. with CreateBucketInstruction)
   Bucket forRead(CompiledScope scope) { abstract(); }
 
   ForCallResultNullable forCall(CompiledScope scope) { return null; } // if this returns null, callers are expected to call forRead() to get a function pointer and then invoke that
@@ -1106,7 +1130,7 @@ class IdentifierEntity extends Object {
     if (subroutine != null) {
       return generateInstructionsForSubroutineCallExpression(scope, subroutine!, this, arguments, subroutineReference, sourceLocation);
     }
-    Bucket bucket = scope.emitCopy(forRead(scope));
+    Bucket bucket = scope.emitCopy(forRead(scope), false);
     return generateInstructionsForSubroutinePointerCallExpression(scope, bucket, arguments, subroutineReference, sourceLocation);
   }
 }
@@ -1145,31 +1169,28 @@ class CapturedVariableIdentifierEntity extends IdentifierEntity {
 
   //#override
   Bucket forRead(CompiledScope scope) {
-    return DereferenceWithOffsetsBucket(
+    return scope.emitCopy(DereferenceWithOffsetsBucket(
       getStorageBucketPointer(scope),
       scope.environment().integer(_gcBlockData + 16 * index + 8),
       scope.environment().integer(_gcBlockData + 16 * index),
       ow.QWord,
       _staticType,
       LazyComment('captured variable ', name),
-    );
+    ), true);
   }
 
   //#override
   Boolean writeable() { return _writeable; }
-
-  Null _write(CompiledScope scope, Bucket value) { 
-    scope.emit(HeapUpdateInstruction(getStorageBucketPointer(scope), value, _gcBlockData + 16 * index, _staticType));
-  }
-
+  
   //#override
   Null write(CompiledScope scope, Bucket value) { 
     assert(_writeable, 'do not call write() on IdentifierEntities that return false from writable()');
-    _write(scope, value);
+    scope.emit(HeapUpdateInstruction(getStorageBucketPointer(scope), value, _gcBlockData + 16 * index, _staticType));
   }
 
+  // same as write but assumes that the current data is garbage (and e.g. does not decref it)
   Null init(CompiledScope scope, Bucket value) { 
-    _write(scope, value);
+    scope.emit(HeapInitInstruction(getStorageBucketPointer(scope), value, _gcBlockData + 16 * index, _staticType));
   }
 
   Null constructor(Type staticTypeArg, String nameArg, Boolean writeableArg, CompiledScope homeScopeArg, Integer indexArg) {
@@ -1193,7 +1214,7 @@ class LocalVariableIdentifierEntity extends IdentifierEntity {
 
   //#override
   Bucket forRead(CompiledScope scope) { 
-    return scope.emitCopy(localVariable);
+    return scope.emitCopy(localVariable, false);
   }
 
   //#override
@@ -1222,7 +1243,7 @@ class GlobalVariableIdentifierEntity extends IdentifierEntity {
 
   //#override
   Bucket forRead(CompiledScope scope) { 
-    return scope.emitCopy(globalVariable);
+    return scope.emitCopy(globalVariable, false);
   }
 
   //#override
@@ -1357,7 +1378,7 @@ class MemberIdentifierEntity extends IdentifierEntity {
 class FieldIdentifierEntity extends MemberIdentifierEntity {
   //#override
   Bucket forRead(CompiledScope scope) {
-    return scope.emitCopy(FieldBucket(thisBucket, member));
+    return scope.emitCopy(FieldBucket(thisBucket, member), true);
   }
 
   //#override
@@ -1488,7 +1509,7 @@ class MemberDescription extends Object {
   Type staticType;
   Boolean isInherited; // this is just a copy of the inherited version, we have not overridden it or introduced it
   Boolean hasSuperclassMember = false; // there's an inherited superclass member, but we've overridden it with our own definition
-  Boolean isField; // whether this class specifically has a method or a field with this name
+  Boolean isField; // whether this class specifically has a field with this name
   Boolean needsField = false; // this member needs storage in this class OR a superclass
   Boolean needsMethods = false; // this member has methods in this class OR a superclass OR a subclass
   Boolean isAmbiguous = false; // this member is a field/method in this class, and the opposite in a subclass
@@ -2161,6 +2182,10 @@ class CompiledScope extends Object {
 
   // REGISTRIES
 
+  // The map of identifiers declared in this scope, and the stack frames that use this identifier.
+  // Populated by AST code that declares an identifier, using prepareIdentifier.
+  // The actual values of this map aren't used, all that matters is whether the name is in the map.
+  // TODO: make this a set instead
   Map identifierReferrers = Map(); // String -> Set CompiledStackFrameScope
 
   Null prepareIdentifier(String name) {
@@ -2169,6 +2194,8 @@ class CompiledScope extends Object {
     identifierReferrers.set(name, referrers);
   }
 
+  // Called from prepareIdentifierReferenceFor to tell the stack frame of the scope that references
+  // an identifier that it references an identifier in this scope.
   Null preparedIdentifierReferenceTo(CompiledScope targetScope) {
     // no-op, subclasses are guaranteed that not calling this is ok
     // subroutines mark themselves as closures when this happens if the scope is not their own stack frame
@@ -2186,21 +2213,43 @@ class CompiledScope extends Object {
     return createTrivialExpressionHandle();
   }
 
-  ExpressionHandleNullable internalPrepareIdentifierReferenceFor(String name, CompiledStackFrameScope sourceScope) {
+  // Check if we are the scope where "name" is declared, and if so return an ExpressionHandle for it.
+  //
+  // The sourceStackFrame is the stack frame of the scope where the identifier was referenced.
+  //
+  // If we are the scope that defined the identifier, calls prepareIdentifierReferenceTo on the sourceStackFrame,
+  // giving it a reference to this. Otherwise, return null.
+  ExpressionHandleNullable localPrepareIdentifierReferenceFor(String name, CompiledStackFrameScope sourceStackFrame) {
     SetNullable referrers = identifierReferrers.get(name) as SetNullable;
     if (referrers != null) {
-      referrers!.add(sourceScope);
-      sourceScope.preparedIdentifierReferenceTo(this);
+      // name is defined in our scope
+      referrers!.add(sourceStackFrame);
+      sourceStackFrame.preparedIdentifierReferenceTo(this);
       return createExpressionHandleFor(name);
-    }
-    if (parent != null) {
-      return parent!.internalPrepareIdentifierReferenceFor(name, sourceScope);
     }
     return null;
   }
 
+  // Walk up the scope tree and find the scope where "name" is declared, and return an ExpressionHandle for it.
+  //
+  // The sourceStackFrame is the stack frame of the scope where the identifier was referenced.
+  //
+  // Uses localPrepareIdentifierReferenceFor at each step.
+  ExpressionHandleNullable internalPrepareIdentifierReferenceFor(String name, CompiledStackFrameScope sourceStackFrame) {
+    ExpressionHandleNullable result = localPrepareIdentifierReferenceFor(name, sourceStackFrame);
+    if (result == null && parent != null) {
+      return parent!.internalPrepareIdentifierReferenceFor(name, sourceStackFrame);
+    }
+    return result;
+  }
+
   Set debugPreparedIdentifierReferences = Set(); // String
 
+  // Called to get ExpressionHandles for terminals (variable and subroutine references).
+  // Used in the prepareIdentifiers phase.
+  //
+  // The handles must eventually be flagged using markAsUsed. Any code receiving an
+  // ExpressionHandle must either pass it to another part of the code or mark it and discard it.
   ExpressionHandleNullable prepareIdentifierReferenceFor(String name) {
     debugPreparedIdentifierReferences.add(name);
     return internalPrepareIdentifierReferenceFor(name, stackFrame());
@@ -2305,6 +2354,9 @@ class CompiledScope extends Object {
   }
 
   Null registerClosure(CompiledSubroutine subroutine, Boolean isConstructor) {
+    // It's possible for needsClosureBlock to be false here in the case where we are making a closure just
+    // to capture |this| rather than any local variables. In that case closureBlock will be assigned null,
+    // but that should be fine because the function itself isn't going to be referencing anything in the closure block.
     assert(subroutine.isClosure(), 'only closures should use registerClosure, use registerSubroutine otherwise');
     assert(!isIdentifierDeclaredInLocalScope(subroutine.name), concat('tried to redeclare an identifier (', subroutine.name, ') within a scope'));
     assert(subroutine.parent == this, 'closures can only be registered in the scope where they are declared');
@@ -2324,7 +2376,6 @@ class CompiledScope extends Object {
     );
     registerImmutableValue(subroutine.name, functionPointer);
     environment().addSubroutine(subroutine);
-    assert(needsClosureBlock(), 'we registered a closure but still do not think we need a closure block');
   }
 
 
@@ -2395,7 +2446,7 @@ class CompiledScope extends Object {
       ow.QWord,
       environment.coreClosureType,
       LazyComment('closure'),
-    ));
+    ), true);
     Bucket thisPointer = DereferenceWithOffsetsBucket(
       target,
       environment.integer(_subroutineReceiverPointer),
@@ -2415,7 +2466,6 @@ class CompiledScope extends Object {
     assert((callLocation != null) == (sourceLocations != null), 'callLocation and sourceLocations must both be null or both be non-null');
     assert(subroutineType.isSubtypeOf(environment().coreSubroutineType), 'cannot call a non-function');
     assert(closure == null || closure!.staticType.isSubtypeOf(environment().coreClosureType), 'internal error');
-    CompilationEnvironment environment = environment();
     if (sourceLocations != null) {
       TypeList argumentTypes = []:Type;
       for (argument in arguments) {
@@ -2452,7 +2502,10 @@ class CompiledScope extends Object {
     return compute(SubscriptEvaluationInstruction(list, index, elementType, LazyComment('@', list, '[', index, ']')));
   }
 
-  Bucket emitCopy(Bucket source) {
+  Bucket emitCopy(Bucket source, Boolean isNewBucket) {
+    if (isNewBucket) {
+      emit(CreateBucketInstruction(source));
+    }
     CopyBucketInstruction instruction = CopyBucketInstruction(source);
     emit(instruction);
     return instruction.target;
@@ -2483,6 +2536,10 @@ class CompiledScope extends Object {
       for (instruction in instructions) {
         append(result, instruction.extract());
       }
+    } else {
+      // in case we have any closures that just want the |this| pointer, we
+      // create a null closureBlock. if it was sentinel, allocateClosureBlock would complain about parameter type error.
+      closureBlock.assignBucket(environment().coreNull);
     }
     for (instruction in generatedInstructions) {
       append(result, instruction.extract());
@@ -2638,10 +2695,27 @@ class CompiledSubroutine extends CompiledStackFrameScope {
   }
 
   //#override
+  ExpressionHandleNullable localPrepareIdentifierReferenceFor(String name, CompiledStackFrameScope sourceStackFrame) {
+    ExpressionHandleNullable result = super.localPrepareIdentifierReferenceFor(name, sourceStackFrame);
+    if (result != null || parentClass == null) {
+      return result;
+    }
+    MemberDescriptionNullable member = parentClass!.getMember(name);
+    if (member != null) {
+      // TODO: we should catch the case where "name" isn't yet declared, because in that
+      // case it's not actually referring to it (it's referencing some global instead)
+      // and we don't need to make this a closure.
+      sourceStackFrame.preparedIdentifierReferenceTo(this);
+    }
+    return null;
+  }
+
+  //#override
   BucketNullable computeThisPointer() {
     if (parentClass != null) {
       return thisPointer;
     }
+    return null;
   }
 
   //#override
@@ -2783,6 +2857,7 @@ class CompiledSubroutine extends CompiledStackFrameScope {
     if (isMethod()) {
       thisPointer = ThisPointerParameterBucket(parentClass!);
       identifiers.set('this', ImmutableVariableIdentifierEntity(thisPointer));
+      prepareIdentifier('this');
     }
     nameConstant = environment().registerStringConstant(
       label.deriveWith('annotation'),
@@ -3286,7 +3361,7 @@ class BuiltInReadFromAddressIntrinsic extends CompilerIntrinsic {
       ow.QWord, 
       environment().coreIntegerType,
       LazyComment(arguments[0]),
-    ));
+    ), true);
   }
 
   Null constructor(CompiledIntrinsicsLibrary parentArg) { 

@@ -106,6 +106,10 @@ fwdclassfield IteratorTypeList TypeRegistry.typesOfIterators;
     }
     return name;
   }
+
+  String debugNotes() {
+    return '';
+  }
 }
 
 class WhateverType extends Type {
@@ -699,6 +703,14 @@ class IteratorType extends Type {
     elementType = elementTypeArg;
     append(typeRegistryArg.typesOfIterators, this);
   }
+
+  //#override
+  String debugNotes() {
+    if (elementType.code == null) {
+      return concat('elementType=', elementType.name, ' (no code)');
+    }
+    return concat('elementType=', elementType.name, ' (', hexH(elementType.code!), ')');
+  }
 }
 
 IteratorType createOrFindIteratorType(TypeRegistry typeRegistry, Type elementType) {
@@ -740,6 +752,14 @@ class AbstractListType extends Type {
     super.constructor(typeRegistryArg, nameArg);
     typeRegistry = typeRegistryArg;
     elementType = elementTypeArg;
+  }
+
+  //#override
+  String debugNotes() {
+    if (elementType.code == null) {
+      return concat('elementType=', elementType.name, ' (no code)');
+    }
+    return concat('elementType=', elementType.name, ' (', hexH(elementType.code!), ')');
   }
 }
 
@@ -894,6 +914,14 @@ class IterableType extends Type {
     typeRegistry = typeRegistryArg;
     append(typeRegistryArg.typesOfIterables, this);
   }
+
+  //#override
+  String debugNotes() {
+    if (elementType.code == null) {
+      return concat('elementType=', elementType.name, ' (no code)');
+    }
+    return concat('elementType=', elementType.name, ' (', hexH(elementType.code!), ')');
+  }
 }
 
 IterableType createOrFindIterableType(TypeRegistry typeRegistry, Type elementType) {
@@ -946,22 +974,6 @@ class IntrinsicType extends Type {
   }
 }
 
-class SystemType extends Type {
-  //#override
-  Boolean isSubtypeOf(Type other) {
-    return other is SystemType;
-  }
-
-  //#override
-  Boolean neverReferenceCounted() {
-    return true;
-  }
-
-  Null constructor(TypeRegistry typeRegistryArg) {
-    super.constructor(typeRegistryArg, '<system>');
-  }
-}
-
 class SubroutineCodeAddressType extends Type {
   //#override
   Boolean isSubtypeOf(Type other) {
@@ -986,7 +998,6 @@ class TypeRegistry extends Object {
   }
 
   SentinelType coreSentinelType;
-  SystemType coreSystemType;
   AnythingType coreAnythingType;
   WhateverType coreWhateverType;
   NullType coreNullType;
@@ -1003,7 +1014,6 @@ class TypeRegistry extends Object {
   IterableType coreIterableType;
 
   Null constructor() {
-    coreSystemType = SystemType(this);
     coreSentinelType = SentinelType(this);
     coreAnythingType = AnythingType(this);
     coreWhateverType = WhateverType(this);

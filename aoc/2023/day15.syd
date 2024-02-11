@@ -1,0 +1,18 @@
+String input = readFile(openFile('aoc/2023/day15.in', fileModeRead));
+StringList lines = split(input, ',');
+
+Integer hash(String input) {
+  Integer result = 0;
+  for (char in scalarValues(input)) {
+    result += char;
+    result *= 17;
+    result %= 256;
+  }
+  return result;
+}
+
+Integer sum = 0;
+for (line in lines) {
+  sum += hash(line);
+}
+println(sum);
