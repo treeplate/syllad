@@ -2,6 +2,8 @@ import 'core.syd';
 import 'syd-utils.syd';
 import 'syd-datum.syd';
 
+enum AssemblerFormat { masm fasm unspecified }
+
 fwdclass StackMetrics() extends Object;
 fwdclass Operand(String) extends Object;
 fwdclass ImmediateOperand(String) extends Operand;
@@ -72,9 +74,16 @@ class StackMetrics extends Object {
     return concat('StackMetrics(size: ', stackSize, ')');
   }
 
-  String generateOperand(Integer index, Integer pushLevel, ow width) {
+  String generateOperand(Integer index, Integer pushLevel, ow width, AssemblerFormat format) {
     Integer frameSize = stackSize * 0x08 + pushLevel * 0x08;
-    return concat(prefixFor(width), 'ptr [rsp + ', hex8(frameSize - (index + 1) * 0x08), ']');
+    String derefPrefix;
+    if (format == AssemblerFormat.masm) {
+      derefPrefix = 'ptr ';
+    } else {
+      assert(format == AssemblerFormat.fasm, concat('unknown asm format ', format));
+      derefPrefix = '';
+    }
+    return concat(prefixFor(width), derefPrefix, '[rsp + ', hex8(frameSize - (index + 1) * 0x08), ']');
   }
 }
 
@@ -111,7 +120,7 @@ class Operand extends Object {
     return false;
   }
 
-  String serialize(StringFunction labelSerializer) {
+  String serialize(StringFunction labelSerializer, AssemblerFormat format) {
     abstract();
   }
 
@@ -225,7 +234,7 @@ class ImmediateIntegerOperand extends ImmediateOperand {
   }
 
   //#override
-  String serialize(StringFunction labelSerializer) {
+  String serialize(StringFunction labelSerializer, AssemblerFormat format) {
     return hexH(value);
   }
 
@@ -287,8 +296,12 @@ class DataAddressOperand extends ImmediateOperand {
   }
 
   //#override
-  String serialize(StringFunction labelSerializer) {
-    return concat('offset ', labelSerializer(value));
+  String serialize(StringFunction labelSerializer, AssemblerFormat format) {
+    if (format == AssemblerFormat.masm) {
+      return concat('offset ', labelSerializer(value));
+    }
+    assert(format == AssemblerFormat.fasm, concat('unknown assembly format ', format));
+    return labelSerializer(value);
   }
 
   //#override
@@ -335,7 +348,7 @@ class CodeAddressOperand extends ImmediateOperand {
   }
 
   //#override
-  String serialize(StringFunction labelSerializer) {
+  String serialize(StringFunction labelSerializer, AssemblerFormat format) {
     return labelSerializer(value);
   }
 
@@ -372,6 +385,58 @@ class CodeAddressOperand extends ImmediateOperand {
   }
 }
 
+// Operand that represents external (e.g. using __extern) code with a given label.
+// This is an assemble-time constant.
+class SystemCodeAddressOperand extends ImmediateOperand {
+  AssemblerLabel value;
+
+  //#override
+  ow minWidth() {
+    return ow.QWord;
+  }
+
+  //#override
+  String serialize(StringFunction labelSerializer, AssemblerFormat format) {
+    if (format == AssemblerFormat.masm) {
+      return labelSerializer(value);
+    }
+    assert(format == AssemblerFormat.fasm, concat('unknown assembly format ', format));
+    return concat('[', labelSerializer(value), ']');
+  }
+
+  //#override
+  Operand asWidth(ow width) {
+    assert(width == ow.QWord, 'code addresses are always rel32s in x64');
+    return this;
+  }
+
+  //#override
+  Boolean canBeDereferencedWithOffset(Integer offset) {
+    return false;
+  }
+
+  //#override
+  MemoryOperand dereference(ow size, Integer offset) {
+    assert(false, 'canBeDereferencedWithOffset ignored');
+    unimplemented();
+  }
+
+  //#override
+  String toString() {
+    return concat('<', value, '>');
+  }
+
+  //#override
+  Boolean equals(Operand other) {
+    return (other is SystemCodeAddressOperand) && ((other as SystemCodeAddressOperand).value == value);
+  }
+
+  Null constructor(AssemblerLabel valueArg, String commentNameArg) {
+    super.constructor(commentNameArg);
+    value = valueArg;
+  }
+}
+
 class RegisterOperand extends Operand {
   //#override
   Integer operandVariety() {
@@ -388,7 +453,7 @@ class RegisterOperand extends Operand {
     String serializer() {
       throw('shouldn\'t call the serializer');
     }
-    return serialize(serializer);
+    return serialize(serializer, AssemblerFormat.unspecified);
   }
 
   //#override
@@ -405,7 +470,7 @@ class RegisterOperand extends Operand {
     String serializer() {
       throw('shouldn\'t call the serializer');
     }
-    super.constructor(serialize(serializer));
+    super.constructor(serialize(serializer, AssemblerFormat.unspecified));
   }
 }
 
@@ -422,7 +487,7 @@ class Register8Operand extends RegisterOperand {
   }
 
   //#override
-  String serialize(StringFunction labelSerializer) {
+  String serialize(StringFunction labelSerializer, AssemblerFormat format) {
     return register.r8;
   }
 
@@ -451,7 +516,7 @@ class Register16Operand extends RegisterOperand {
   }
 
   //#override
-  String serialize(StringFunction labelSerializer) {
+  String serialize(StringFunction labelSerializer, AssemblerFormat format) {
     return register.r16;
   }
 
@@ -483,7 +548,7 @@ class Register32Operand extends RegisterOperand {
   }
 
   //#override
-  String serialize(StringFunction labelSerializer) {
+  String serialize(StringFunction labelSerializer, AssemblerFormat format) {
     return register.r32;
   }
 
@@ -522,7 +587,7 @@ class Register64Operand extends RegisterOperand {
   }
 
   //#override
-  String serialize(StringFunction labelSerializer) {
+  String serialize(StringFunction labelSerializer, AssemblerFormat format) {
     return r64;
   }
 
@@ -667,7 +732,7 @@ class RawAddressComputationOperand extends MemoryOperand {
   }
 
   //#override
-  String serialize(StringFunction labelSerializer) {
+  String serialize(StringFunction labelSerializer, AssemblerFormat format) {
     StringList parts = []:String;
     if (base != null) {
       append(parts, concat(base));
@@ -696,7 +761,14 @@ class RawAddressComputationOperand extends MemoryOperand {
       // really we should never dereference 0, but we'll do it anyways
       append(parts, '0h');
     }
-    return concat(prefixFor(size), 'ptr [', joinList(parts), ']');
+    String derefPrefix;
+    if (format == AssemblerFormat.masm) {
+      derefPrefix = 'ptr ';
+    } else {
+      assert(format == AssemblerFormat.fasm, concat('unknown asm format ', format));
+      derefPrefix = '';
+    }
+    return concat(prefixFor(size), derefPrefix, '[', joinList(parts), ']');
   }
 
   //#override
@@ -761,7 +833,7 @@ class DereferenceLabelOperand extends MemoryOperand {
   }
 
   //#override
-  String serialize(StringFunction labelSerializer) {
+  String serialize(StringFunction labelSerializer, AssemblerFormat format) {
     return concat(prefixFor(size), 'ptr ', labelSerializer(value));
   }
 
@@ -804,8 +876,8 @@ class SnapshotStackOperand extends MemoryOperand {
   }
 
   //#override
-  String serialize(StringFunction labelSerializer) {
-    return stackMetrics.generateOperand(index, pushLevel, width);
+  String serialize(StringFunction labelSerializer, AssemblerFormat format) {
+    return stackMetrics.generateOperand(index, pushLevel, width, format);
   }
 
   //#override
@@ -860,7 +932,7 @@ class StackOperand extends MemoryOperand {
   }
 
   //#override
-  String serialize(StringFunction labelSerializer) {
+  String serialize(StringFunction labelSerializer, AssemblerFormat format) {
     assert(false, concat('cannot serialize stack operand ', this, ' (', commentName, '); call snapshot() first'));
     unimplemented();
   }
@@ -924,8 +996,15 @@ class ShadowOperand extends MemoryOperand {
   }
 
   //#override
-  String serialize(StringFunction labelSerializer) {
-    return concat('qword ptr [rbp + ', hex8(0x10 + index * 0x08), ']');
+  String serialize(StringFunction labelSerializer, AssemblerFormat format) {
+    String derefPrefix;
+    if (format == AssemblerFormat.masm) {
+      derefPrefix = 'ptr ';
+    } else {
+      assert(format == AssemblerFormat.fasm, concat('unknown asm format ', format));
+      derefPrefix = '';
+    }
+    return concat('qword ', derefPrefix, '[rbp + ', hex8(0x10 + index * 0x08), ']');
   }
 
   //#override
@@ -974,7 +1053,7 @@ class StringOperand extends Operand {
   }
 
   //#override
-  String serialize(StringFunction labelSerializer) {
+  String serialize(StringFunction labelSerializer, AssemblerFormat format) {
     assert(value != '', 'empty strings are not representable in assembler');
     StringList buffer = []:String;
     Boolean quoted = false;

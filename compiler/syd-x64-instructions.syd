@@ -6,15 +6,14 @@ import 'syd-x64-operands.syd';
 // operand whether it's written to AND whether it's read from, so that we can avoid moving
 // stack values into registers just before we blow them away.
 
-fwdclass X64Assembler(AssemblerLabel) extends Assembler;
+fwdclass X64Assembler(AssemblerLabel, AssemblerFormat) extends Assembler;
 fwdclassmethod Null X64Assembler.addBlankLine();
 fwdclassmethod Null X64Assembler.addCode(Integer, String, OperandList, StringNullable);
 fwdclassmethod Null X64Assembler.addLabel(Integer, AssemblerLabel, StringNullable);
 fwdclassmethod Null X64Assembler.addComment(Integer, String);
 fwdclassmethod Null X64Assembler.addPendingComment(Integer, String);
-fwdclassmethod Null X64Assembler.addIncludeLib(String);
 fwdclassmethod Null X64Assembler.registerSubroutine(AssemblerLabel);
-fwdclassmethod AssemblerLabel X64Assembler.addExternProc(String);
+fwdclassmethod AssemblerLabel X64Assembler.addExternProc(String, String);
 
 class PlaceholderOperand extends Operand {
   OperandNullable actualOperand = null;
@@ -203,8 +202,7 @@ class X64Prolog extends X64Line {
     }
     if (stackAdjustment >= 0x2000) {
       assembler.addCode(indentLevel, 'mov', [rax, ImmediateIntegerOperand(stackAdjustment, '')]:Operand, 'prepare stack size for __chkstk');
-      assembler.addIncludeLib('msvcrt.lib');
-      AssemblerLabel chkstk = assembler.addExternProc('__chkstk');
+      AssemblerLabel chkstk = assembler.addExternProc('__chkstk', 'msvcrt');
       assembler.addCode(indentLevel, 'call', [CodeAddressOperand(chkstk, '__chkstk')]:Operand, 'probe new stack to ensure pages are allocated');
       assembler.addCode(indentLevel, 'sub', [rsp, rax]:Operand, 'allocate space for stack and align to 16 byte boundary');
     } else if (stackAdjustment > 0) {
@@ -717,8 +715,7 @@ class X64Context extends Object {
   }
 
   AssemblerLabel registerExternalFunction(String functionName, String libraryName) {
-    _assembler.addIncludeLib(libraryName);
-    return _assembler.addExternProc(functionName);
+    return _assembler.addExternProc(functionName, libraryName);
   }
 
   Null registerInternalFunction(AssemblerLabel label) {
@@ -988,7 +985,7 @@ Null callSystem(X64Context context, LocalDatum resultDatum, String functionName,
   tempResult.assignOperand(rax);
   tempResult.pinOperand();
   Integer unpinnedVolatiles = volatileRegister - rax.bit;
-  OperandList operands = [CodeAddressOperand(context.registerExternalFunction(functionName, libraryName), concat(functionName, ' from ', libraryName)), tempResult]:Operand;
+  OperandList operands = [SystemCodeAddressOperand(context.registerExternalFunction(functionName, libraryName), concat(functionName, ' from ', libraryName)), tempResult]:Operand;
   Integer pushCount = pushArguments(context, operands, arguments, comment, unpinnedVolatiles);
   X64Instruction growStack = X64Opcode(context.indent, 'sub', [rsp, ImmediateIntegerOperand(32, 'quantity of shadow space')]:Operand, 'shadow space');
   append(context.output, growStack);
@@ -1382,10 +1379,12 @@ Null convertToX64(X64Context context, PseudoInstruction instruction) {
 }
 
 class X64Assembler extends Assembler {
+  AssemblerFormat format; // MASM or FASM
+
   Integer lineLength = 64;
 
   String serializeOperand(Operand operand) {
-    return operand.serialize(serializeLabel); // serializeLabel is the function used to, uh, serialize labels
+    return operand.serialize(serializeLabel, format); // serializeLabel is the function used to, uh, serialize labels
   }
 
   StringNullable pendingComment = null;
@@ -1432,19 +1431,17 @@ class X64Assembler extends Assembler {
     addLine(indent, concat(opcode, ' ', join(map(operands, serializeOperand) as StringList, ', ')), comment, true);
   }
 
-  Set includelibs = Set();
-  StringList externs = []:String;
+  Map externs = Map(); // String (libname) -> AssemblerLabelList
 
-  Null addIncludeLib(String filename) {
-    includelibs.add(concat('includelib ', filename));
-  }
-
-  AssemblerLabel addExternProc(String procname) {
+  AssemblerLabel addExternProc(String procname, String libname) {
     assert(labels.get(procname) == null, 'external labels must be registered before potentially conflicting local labels');
-    append(externs, concat('extern ', procname, ' : proc'));
     AssemblerLabel result = rootLabel.deriveWith(procname);
     labels.set(result, procname);
     labelSequenceIds.set(procname, 0);
+    if (externs.get(libname) == null) {
+      externs.set(libname, []:AssemblerLabel);
+    }
+    append(externs.get(libname) as AssemblerLabelList, result);
     return result;
   }
 
@@ -1832,11 +1829,63 @@ class X64Assembler extends Assembler {
     return join(map(subroutines, mapper) as StringList, '\n');
   }
 
+  String serializeImports() {
+    if (format == AssemblerFormat.masm) {
+      StringList includelibs = []:String;
+      StringList externs = []:String;
+      for (lib in this.externs.keys()) {
+        append(includelibs, concat('includelib ', lib, '.lib'));
+        for (extern in this.externs.get(lib) as AssemblerLabelList) {
+          append(externs, concat('extern ', serializeLabel(extern), ' : proc'));
+        }
+      }
+      return concat(
+        '; includes\n',
+        join(includelibs, '\n'),
+        '\n\n',
+        '; externs\n',
+        join(externs, '\n'),
+      );
+    }
+    assert(format == AssemblerFormat.fasm, concat('unknown assembly format ', format));
+    StringList directoryTable = []:String;
+    StringList addressTables = []:String;
+    StringList dllNames = []:String;
+    StringList symbolNames = []:String;
+    AssemblerLabel tableRoot = rootLabel.deriveWith('table');
+    AssemblerLabel nameRoot = rootLabel.deriveWith('name');
+    Integer kMinIndent = 32;
+    for (lib in externs.keys() as StringList) {
+      AssemblerLabel tableLabel = tableRoot.deriveWith(lib);
+      AssemblerLabel libNameLabel = nameRoot.deriveWith(lib);
+      append(directoryTable, concat('dd 0,0,0,rva ', serializeLabel(libNameLabel), ',rva ', serializeLabel(tableLabel)));
+      append(addressTables, concat(serializeLabel(tableLabel), ':'));
+      append(dllNames, concat(padRight(serializeLabel(libNameLabel), kMinIndent+2, ' '), ' db ', StringOperand(concat(lib,'.dll'), 'dll name').serialize(serializeLabel, format), ',0'));
+      for (extern in externs.get(lib) as AssemblerLabelList) {
+        AssemblerLabel symbolNameLabel = extern.deriveWith('name');
+        append(addressTables, concat('  ', padRight(serializeLabel(extern), kMinIndent, ' '), ' dq rva ', serializeLabel(symbolNameLabel)));
+        append(symbolNames, concat(padRight(serializeLabel(symbolNameLabel), kMinIndent+2, ' '), ' db 0,0,', StringOperand(serializeLabel(extern), 'symbol name').serialize(serializeLabel, format), ',0'));
+      }
+      append(addressTables, concat('  ', stringTimes(' ', kMinIndent), ' dq 0'));
+    }
+    append(directoryTable, 'dd 0,0,0,0,0');
+    return concat(
+      join(directoryTable, '\n'),
+      '\n\n',
+      join(addressTables, '\n'), 
+      '\n; DLL names\n', 
+      join(dllNames, '\n'), 
+      '\n\n; imported function names\n', 
+      join(symbolNames, '\n'),
+    );
+  }
+
   String serializedDebugComments;
   String serializedConst;
   String serializedData;
   String serializedBss;
   String serializedSubroutineLabels;
+  String serializedImports;
 
   //#override
   Null assemble(PseudoInstructionList pseudoInstructions) {
@@ -1861,6 +1910,7 @@ class X64Assembler extends Assembler {
     serializedDebugComments = serializeDebugComments(context, debugComments);
     serializedConst = serializeData(context, constants);
     serializedData = serializeData(context, data);
+    serializedImports = serializeImports();
     stderr('serializeBss...');
     serializedBss = serializeBss(context, uninitializedGlobals);
     stderr('serializeSubroutineLabels...');
@@ -1869,37 +1919,65 @@ class X64Assembler extends Assembler {
 
   //#override
   String serialize() {
-    return concat(
-      '_drectve segment info alias(".drectve")\n',
-      '  db \' /ENTRY:main \'\n',
-      '_drectve ends\n',
-      'option casemap:none\n',
-      '\n',
-      '; includes\n',
-      join((includelibs.values() as StringList), '\n'),
-      '\n\n',
-      '; externs\n',
-      join(externs, '\n'),
-      '\n\n',
-      serializedDebugComments,
-      '\n\n',
-      '.const\n',
-      serializedConst,
-      '\n',
-      '.data\n',
-      serializedData,
-      '\n',
-      '_BSS segment\n',
-      serializedBss,
-      '\n\n',
-      '.code\n',
-      '\n',
-      'public main\n',
-      serializedSubroutineLabels,
-      '\nmain:\n',
-      join(code, '\n'),
-      '\n',
-      'end\n',
-    );
+    if (format == AssemblerFormat.masm) {
+      return concat(
+        '_drectve segment info alias(".drectve")\n',
+        '  db \' /ENTRY:main \'\n',
+        '_drectve ends\n',
+        'option casemap:none\n',
+        '\n',
+        serializedImports,
+        '\n\n',
+        serializedDebugComments,
+        '\n\n',
+        '.const\n',
+        serializedConst,
+        '\n',
+        '.data\n',
+        serializedData,
+        '\n',
+        '_BSS segment\n',
+        serializedBss,
+        '\n\n',
+        '.code\n',
+        '\n',
+        'public main\n',
+        serializedSubroutineLabels,
+        '\nmain:\n',
+        join(code, '\n'),
+        '\n',
+        'end\n',
+      );
+    } else {
+      assert(format == AssemblerFormat.fasm, concat('unknown assembly format ', format));
+      return concat(
+        'format PE64 console\n',
+        'entry main\n',
+        '\n',
+        'section \'.idata\' import data readable writable\n',
+        serializedImports,
+        '\n\n',
+        serializedDebugComments,
+        '\n\n',
+        'section \'.rsrc\' data readable\n',
+        serializedConst,
+        '\n',
+        'section \'.data\' data readable writable\n',
+        serializedData,
+        '\n',
+        'section \'.bss\' data readable writable\n',
+        serializedBss,
+        '\n\n',
+        'section \'.text\' code readable executable\n',
+        '\n',
+        '\nmain:\n',
+        join(code, '\n'),
+      );
+    }
+  }
+
+  Null constructor(AssemblerLabel rootArg, AssemblerFormat formatArg) {
+    super.constructor(rootArg);
+    format = formatArg;
   }
 }

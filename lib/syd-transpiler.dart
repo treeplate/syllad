@@ -329,6 +329,7 @@ void transpile(String fileContents, String rtlPath, String fileName) {
   print('import \'transpiler-intrinsics.dart\';');
   print('// ignore_for_file: unnecessary_cast');
   print('// ignore_for_file: unused_element');
+  print('// ignore_for_file: unused_local_variable');
   print('// ignore_for_file: unnecessary_non_null_assertion');
   print('// ignore_for_file: dead_code');
   print('late core.List<core.String> args;');

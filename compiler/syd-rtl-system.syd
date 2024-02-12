@@ -7,8 +7,8 @@ const Null null = 0 __as__ Null;
 NullFunction stderr;
 StringFunction stringify#;
 
-Integer exit(Integer exitCode) intrinsic# __extern 'kernel32.lib' 'ExitProcess';
-Integer _getLastError() __extern 'kernel32.lib' 'GetLastError';
+Integer exit(Integer exitCode) intrinsic# __extern 'kernel32' 'ExitProcess';
+Integer _getLastError() __extern 'kernel32' 'GetLastError';
 
 // TODO: this should be a compiler intrinsic so that the message evaluation can be lazy and so it can be skipped in release builds
 Null assert(Boolean condition, String message) {

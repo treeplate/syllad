@@ -5,9 +5,9 @@ import 'syd-rtl-memory.syd';
 import 'syd-rtl-core-strings.syd';
 import 'syd-rtl-lists.syd';
 
-Integer getCommandLineW#() __extern 'kernel32.lib' 'GetCommandLineW';
-Integer commandLineToArgvW#(Integer lpCmdLine, Integer pNumArgs) __extern 'shell32.lib' 'CommandLineToArgvW';
-Integer localFree#(Integer hMem) __extern 'kernel32.lib' 'LocalFree';
+Integer getCommandLineW#() __extern 'kernel32' 'GetCommandLineW';
+Integer commandLineToArgvW#(Integer lpCmdLine, Integer pNumArgs) __extern 'shell32' 'CommandLineToArgvW';
+Integer localFree#(Integer hMem) __extern 'kernel32' 'LocalFree';
 Integer wideCharToMultiByte#(
   Integer codePage,
   Integer dwFlags,
@@ -17,7 +17,7 @@ Integer wideCharToMultiByte#(
   Integer cbMultiByte,
   Integer lpDefaultChar,
   Integer lpUsedDefaultChar
-) __extern 'kernel32.lib' 'WideCharToMultiByte';
+) __extern 'kernel32' 'WideCharToMultiByte';
 Integer CP_UTF8# = 65001;
 
 // buffer must be a pointer to a null-terminated UTF-16 string.

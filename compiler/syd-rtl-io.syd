@@ -23,16 +23,16 @@ const Integer FILE_BEGIN# = 0;
 const Integer FILE_CURRENT# = 1;
 const Integer FILE_END# = 2;
 
-Integer getStdHandle#(Integer handle) __extern 'kernel32.lib' 'GetStdHandle';
-Integer createFile#(Integer lpFileName, Integer dwDesiredAccess, Integer dwShareMode, Integer lpSecurityAttributes, Integer dwCreationDisposition, Integer dwFlagsAndAttributes, Integer hTemplateFile) __extern 'kernel32.lib' 'CreateFileA';
-Boolean getFileSize#(Integer hFile, Integer lpFileSize) __extern 'kernel32.lib' 'GetFileSizeEx';
-Boolean setFilePointerEx#(Integer hFile, Integer liDistanceToMove, Integer lpNewFilePointer, Integer dwMoveMethod) __extern 'kernel32.lib' 'SetFilePointerEx';
-Boolean readFile#(Integer hFile, Integer lpBuffer, Integer nNumberOfBytesToRead, Integer lpNumberOfBytesRead, Integer lpOverlapped) __extern 'kernel32.lib' 'ReadFile';
-Integer writeFile#(Integer hFile, Integer lpBuffer, Integer nNumberOfBytesToWrite, Integer lpNumberOfBytesWritten, Integer lpOverlapped) __extern 'kernel32.lib' 'WriteFile';
-Boolean setEndOfFile#(Integer hFile) __extern 'kernel32.lib' 'SetEndOfFile';
-Integer closeHandle#(Integer hFile) __extern 'kernel32.lib' 'CloseHandle';
-Integer getFileAttributes#(Integer lpFileName) __extern 'kernel32.lib' 'GetFileAttributesA';
-Boolean deleteFile#(Integer lpFileName) __extern 'kernel32.lib' 'DeleteFileA';
+Integer getStdHandle#(Integer handle) __extern 'kernel32' 'GetStdHandle';
+Integer createFile#(Integer lpFileName, Integer dwDesiredAccess, Integer dwShareMode, Integer lpSecurityAttributes, Integer dwCreationDisposition, Integer dwFlagsAndAttributes, Integer hTemplateFile) __extern 'kernel32' 'CreateFileA';
+Boolean getFileSize#(Integer hFile, Integer lpFileSize) __extern 'kernel32' 'GetFileSizeEx';
+Boolean setFilePointerEx#(Integer hFile, Integer liDistanceToMove, Integer lpNewFilePointer, Integer dwMoveMethod) __extern 'kernel32' 'SetFilePointerEx';
+Boolean readFile#(Integer hFile, Integer lpBuffer, Integer nNumberOfBytesToRead, Integer lpNumberOfBytesRead, Integer lpOverlapped) __extern 'kernel32' 'ReadFile';
+Integer writeFile#(Integer hFile, Integer lpBuffer, Integer nNumberOfBytesToWrite, Integer lpNumberOfBytesWritten, Integer lpOverlapped) __extern 'kernel32' 'WriteFile';
+Boolean setEndOfFile#(Integer hFile) __extern 'kernel32' 'SetEndOfFile';
+Integer closeHandle#(Integer hFile) __extern 'kernel32' 'CloseHandle';
+Integer getFileAttributes#(Integer lpFileName) __extern 'kernel32' 'GetFileAttributesA';
+Boolean deleteFile#(Integer lpFileName) __extern 'kernel32' 'DeleteFileA';
 
 Integer STD_OUTPUT_HANDLE# = -11;
 Integer STD_ERROR_HANDLE# = -12;

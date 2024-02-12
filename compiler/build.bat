@@ -37,8 +37,8 @@ IF NOT !ERRORLEVEL! == 0 (
             EXIT /B %ERRORLEVEL%
         )
     )
-    REM ECHO ML64 /Zd /Zi /Fo "%~1.obj" /Fe "%~1.exe" "%~1.asm"
-    ML64 /Zd /Zi /Fo "%~1.obj" /Fe "%~1.exe" "%~1.asm"
+    REM ML64 /Zd /Zi /Fo "%~1.obj" /Fe "%~1.exe" "%~1.asm"
+    C:/dev/fasm/fasm "%~1.asm" "%~1.exe"
     IF NOT !ERRORLEVEL! == 0 (
         ECHO Could not assemble "%~1.asm", error !ERRORLEVEL!
         ECHO == FAILED ==
@@ -52,11 +52,12 @@ IF NOT !ERRORLEVEL! == 0 (
         ECHO = END STDOUT ===================
         ECHO = END STDERR ===================1>&2
         ECHO test exit code: !ERRORLEVEL!
-        IF !ERRORLEVEL! == -2147483645 ECHO "0x80000003: STATUS_BREAKPOINT"
-        IF !ERRORLEVEL! == -2147467259 ECHO "0x80004005: Unspecified failure (debugger exit?)"
-        IF !ERRORLEVEL! == -1073741819 ECHO "0xC0000005: Access Violation"
-        IF !ERRORLEVEL! == -1073741571 ECHO "0xC00000FD: Stack overflow"
-        IF !ERRORLEVEL! == -1073740972 ECHO "0xC0000354: STATUS_DEBUGGER_INACTIVE"
+        IF !ERRORLEVEL! == -2147483645 ECHO 0x80000003: STATUS_BREAKPOINT
+        IF !ERRORLEVEL! == -2147467259 ECHO 0x80004005: Unspecified failure - debugger exit?
+        IF !ERRORLEVEL! == -1073741819 ECHO 0xC0000005: Access Violation
+        IF !ERRORLEVEL! == -1073741571 ECHO 0xC00000FD: Stack overflow
+        IF !ERRORLEVEL! == -1073740972 ECHO 0xC0000354: STATUS_DEBUGGER_INACTIVE
+        IF !ERRORLEVEL! == -1073741515 ECHO 0xC0000135: STATUS_DLL_NOT_FOUND
         IF "%TIMETRAVEL%" == "1" GOTO TIMETRAVEL
         IF EXIST "%~1.asm" DEL "%~1.asm" > NUL
         IF EXIST "%~1.ilk" DEL "%~1.ilk" > NUL

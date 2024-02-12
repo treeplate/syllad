@@ -3,8 +3,8 @@
 import 'syd-rtl-system.syd';
 import 'syd-constants.syd';
 
-Integer getProcessHeap#() __extern 'kernel32.lib' 'GetProcessHeap';
-Integer heapAlloc#(Integer hHeap, Integer dwFlags, Integer dwBytes) __extern 'kernel32.lib' 'HeapAlloc';
+Integer getProcessHeap#() __extern 'kernel32' 'GetProcessHeap';
+Integer heapAlloc#(Integer hHeap, Integer dwFlags, Integer dwBytes) __extern 'kernel32' 'HeapAlloc';
 
 Integer heapHandle# = getProcessHeap#();
 
@@ -44,7 +44,7 @@ Integer _alloc(Integer size) {
 Integer _scratch = _alloc(8); // used as scratch space for out parameters of Win32 API functions
 
 /// returns positive for success, zero for failure
-Integer heapFree#(Integer hHeap, Integer dwFlags, Integer lpMem) __extern 'kernel32.lib' 'HeapFree';
+Integer heapFree#(Integer hHeap, Integer dwFlags, Integer lpMem) __extern 'kernel32' 'HeapFree';
 
 /// Frees a heap allocation obtained from [_alloc].
 Null _free(Integer pointer) intrinsic# {

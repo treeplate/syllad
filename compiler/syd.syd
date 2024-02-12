@@ -114,7 +114,7 @@ for (library in libraries) {
   library.generateInstructions(library.library!);
 }
 
-Assembler assembler = X64Assembler(compilationEnvironment.rootLabel);
+Assembler assembler = X64Assembler(compilationEnvironment.rootLabel, AssemblerFormat.fasm);
 compilationEnvironment.compile(assembler);
 stderr('Compilation finished!');
 stderr('Result:');
