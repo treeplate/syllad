@@ -5,7 +5,6 @@ import 'syd-pseudo-instructions.syd';
 
 class Assembler extends Object {
   AssemblerLabel rootLabel;
-  Map labelSequenceIds = Map(); // String -> Integer
   Map labels = Map(); // AssemblerLabel -> String
 
   String _uncachedSerializeLabel(AssemblerLabel label) {
@@ -26,10 +25,9 @@ class Assembler extends Object {
         count = 0;
       }
       count += 1;
-      if (currentLabel == rootLabel) {
+      if (currentLabel.parent == null) {
         break;
       }
-      assert(currentLabel.parent != null, concat('all labels must derive from the root label; label ', currentLabel.name, ' is a strange root'));
       currentLabel = currentLabel.parent!;
     }
     return join(reverse(names) as StringList, '$');
@@ -39,7 +37,7 @@ class Assembler extends Object {
     StringNullable result = labels.get(label) as StringNullable;
     if (result == null) {
       String candidate = _uncachedSerializeLabel(label);
-      IntegerNullable sequenceId = labelSequenceIds.get(candidate) as IntegerNullable;
+      IntegerNullable sequenceId = label.labelSequenceIds.get(candidate) as IntegerNullable;
       if (sequenceId == null) {
         sequenceId = 0;
         result = candidate;
@@ -47,7 +45,7 @@ class Assembler extends Object {
         sequenceId = sequenceId! + 1;
         result = concat(candidate, '_', sequenceId);
       }
-      labelSequenceIds.set(candidate, sequenceId);
+      label.labelSequenceIds.set(candidate, sequenceId);
       labels.set(label, result!);
     }
     return result!;
@@ -77,7 +75,7 @@ class Assembler extends Object {
     append(uninitializedGlobals, section);
   }
 
-  String serialize() {
+  String serialize(String mainProgramFilename) {
     abstract();
   }
 

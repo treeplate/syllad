@@ -28,6 +28,7 @@ String concat(Anything... arguments) {
   }
   assert(length >= 0, 'negative length detected');
   if (length >= 2147483648) {
+    __debugger();
     stderr('absurd length detected (as exit code)\n');
     exit(length);
   }

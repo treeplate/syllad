@@ -2155,8 +2155,6 @@ class LoopScopeInstruction extends BoundInstruction {
 // SCOPES
 // ============================================================================
 
-fwdclassmethod ExpressionHandleNullable CompiledScope.internalPrepareIdentifierReferenceFor(String, CompiledStackFrameScope); // XXX needed to work around interpreter bug
-
 class CompiledScope extends Object {
   CompiledScopeNullable parent;
   String name;
@@ -2805,7 +2803,7 @@ class CompiledSubroutine extends CompiledStackFrameScope {
 
   //#override
   Null appendHeader(BoundInstructionList result) {
-    subemit(result, SeparatorInstruction());
+    subemit(result, StartSubroutineInstruction());
     subemit(result, CommentInstruction(LazyComment(name, ' (', type.name, ')')).extract());
     subemit(result, AnnotationInstruction(nameConstant.value.label));
     subemit(result, LabelInstruction(label, name).extract());
@@ -3408,33 +3406,6 @@ class BuiltInWriteToAddressIntrinsic extends CompilerIntrinsic {
   }
 }
 
-class BuiltInByteCompareIntrinsic extends CompilerIntrinsic {
-  //#override
-  StringList parameterNames() {
-    return ['a', 'b', 'length'];
-  }
-
-  //#override
-  Bucket inlineBody(CompiledScope scope, BucketList arguments) {
-    return scope.compute(ByteSequenceCompareInstruction(arguments[0], arguments[1], arguments[2], environment().coreBooleanType, LazyComment('compare ', arguments[2], ' bytes of ', arguments[0], ' and ', arguments[1])));
-  }
-
-  Null constructor(CompiledIntrinsicsLibrary parentArg) { 
-    super.constructor(
-      parentArg,
-      '__byteCompare',
-      null /* parentClass */,
-    );
-    setType(
-      createOrFindSubroutineTypeWithSpecificParameters(
-        parentArg.environment(),
-        parentArg.environment().coreBooleanType,
-        [ parentArg.environment().coreIntegerType, parentArg.environment().coreIntegerType, parentArg.environment().coreIntegerType ]:Type,
-      )
-    );
-  }
-}
-
 class GenericSystemCallSubroutine extends CompiledSubroutineWithSpecificParameters {
   String externalName;
   String library;
@@ -3443,7 +3414,7 @@ class GenericSystemCallSubroutine extends CompiledSubroutineWithSpecificParamete
   Null finalizeInstructions(Assembler assembler) {
     emitParameterChecks(parameters);
     emit(CommentInstruction(LazyComment('Calling ', externalName)));
-    emitReturnFrom(this, compute(CallSystemInstruction(type.returnType, library, externalName, parameters as BucketList)), false);
+    emitReturnFrom(this, compute(CallSystemInstruction(type as SubroutineTypeWithSpecificParameters, library, externalName, parameters as BucketList)), false);
     super.finalizeInstructions(assembler);
   }
 
@@ -3712,7 +3683,5 @@ class CompiledIntrinsicsLibrary extends CompiledLibrary {
     registerSubroutine(BuiltInReadFromAddressIntrinsic(this), false);
     prepareIdentifier('__writeToAddress');
     registerSubroutine(BuiltInWriteToAddressIntrinsic(this), false);
-    prepareIdentifier('__byteCompare');
-    registerSubroutine(BuiltInByteCompareIntrinsic(this), false);
   }
 }

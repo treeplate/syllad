@@ -1,3 +1,4 @@
+// only works in .asm mode
 // expected output: strings are in order
 // expected output: strings are aligned as expected
 // expected exit code is 0

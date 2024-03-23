@@ -1,6 +1,6 @@
 @ECHO OFF
-REM Interprets [syd.syd] using [../lib/syd-main.dart], passing it the first argument, and runs the resulting executable.
-REM prefer build.bat or fullbuild.bat - they use the transpiler so they are faster.
+REM Interprets [syd.syd] using [../lib/syd-main.dart], in MASM mode, passing it the first argument, and runs the resulting executable.
+REM prefer build.bat or transpiler-build.bat - they use the transpiler so they are faster.
 REM I(C, X)()
 
 SETLOCAL EnableDelayedExpansion
@@ -16,7 +16,7 @@ ECHO COMPILING...
 SET TEMPFILE=%TEMP%\%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%%TIME:~9,2%.$$$
 SET TEMPFILE=%TEMPFILE: =0%
 REM add --observe to profile
-CALL "..\lib\syd-main.exe" --debug syd.syd %1 > %TEMPFILE%
+CALL "..\lib\syd-main.exe" --debug syd.syd --mode=MASM %1 > %TEMPFILE%
 IF NOT !ERRORLEVEL! == 0 (
     ECHO Compilation failed with exit code %ERRORLEVEL%
     IF !ERRORLEVEL! == -1073741510 ECHO "0xC000013A: STATUS_CONTROL_C_EXIT"

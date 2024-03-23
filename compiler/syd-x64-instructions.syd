@@ -75,7 +75,7 @@ class PlaceholderOperand extends Operand {
   String toString() {
     String isPinned = '';
     if (pinned) {
-      isPinned = ' [pin]'; // ' 📌';
+      isPinned = ' 📌';
     }
     if (actualOperand != null) {
       return concat('<#', internalObjectId, ' as ', actualOperand!.toString(), isPinned, '>');
@@ -1046,7 +1046,7 @@ String ComparisonToSetCCInstruction(Comparison comparison) {
 }
 
 Null convertToX64(X64Context context, PseudoInstruction instruction) {
-  if (instruction is Separator) {
+  if (instruction is StartSubroutine) {
     append(context.output, X64BlankLine());
   } else if (instruction is Comment) {
     append(context.output, X64Comment(context.indent, (instruction as Comment).comment, false));
@@ -1183,40 +1183,6 @@ Null convertToX64(X64Context context, PseudoInstruction instruction) {
     X64Opcode opcode = X64Opcode(context.indent, setcc, [result]:Operand, concat('set ', result.commentName, ' to ZF (zero flag is set if values are equal)'));
     opcode.setOperandWidth(0, ow.Byte);
     append(context.output, opcode);
-  } else if (instruction is ByteSequenceCompare) {
-    ByteSequenceCompare compare = instruction as ByteSequenceCompare;
-    Operand result = convertToWritableX64Operand(context, compare.result);
-    append(context.output, X64Opcode(context.indent, 'xor', [result, result]:Operand, concat('clear ', result.commentName)));
-    Operand leftOperand = convertToX64Operand(context, compare.left);
-    PlaceholderOperand rsiOperand = PlaceholderOperand(concat('pointer to ', compare.left.commentName));
-    rsiOperand.assignOperand(rsi);
-    rsiOperand.pinOperand();
-    if (leftOperand.canBeDereferencedWithOffset(compare.leftOffset)) {
-      append(context.output, X64DerefOpcode(context.indent, 'lea', 1, [rsiOperand, leftOperand]:Operand, compare.left.commentName, compare.leftOffset));
-    } else {
-      append(context.output, X64Opcode(context.indent, 'mov', [rsiOperand, leftOperand]:Operand, compare.left.commentName));
-      append(context.output, X64Opcode(context.indent, 'add', [rsiOperand, ImmediateIntegerOperand(compare.leftOffset, 'offset')]:Operand, 'with offset'));
-    }
-    Operand rightOperand = convertToX64Operand(context, compare.right);
-    PlaceholderOperand rdiOperand = PlaceholderOperand(concat('pointer to ', compare.right.commentName));
-    rdiOperand.assignOperand(rdi);
-    rdiOperand.pinOperand();
-    if (rightOperand.canBeDereferencedWithOffset(compare.rightOffset)) {
-      append(context.output, X64DerefOpcode(context.indent, 'lea', 1, [rdiOperand, rightOperand]:Operand, compare.right.commentName, compare.rightOffset));
-    } else {
-      append(context.output, X64Opcode(context.indent, 'mov', [rdiOperand, rightOperand]:Operand, compare.right.commentName));
-      append(context.output, X64Opcode(context.indent, 'add', [rdiOperand, ImmediateIntegerOperand(compare.rightOffset, 'offset')]:Operand, 'with offset'));
-    }
-    Operand lengthOperand = convertToX64Operand(context, compare.length);
-    PlaceholderOperand rcxOperand = PlaceholderOperand('length to compare');
-    rcxOperand.assignOperand(rcx);
-    rcxOperand.pinOperand();
-    append(context.output, X64Opcode(context.indent, 'mov', [rcxOperand, lengthOperand]:Operand, compare.length.commentName));
-    append(context.output, X64Opcode(context.indent, 'cld', []:Operand, 'configure repe cmpsb to increment'));
-    append(context.output, X64Opcode(context.indent, 'repe cmpsb', []:Operand, 'compare strings for rcx bytes, result in ZF (ZF=1 is a match)'));
-    X64Opcode setz = X64Opcode(context.indent, 'setz', [result]:Operand, 'store result from ZF');
-    setz.setOperandWidth(0, ow.Byte);
-    append(context.output, setz);
   } else if (instruction is BitTest) {
     Operand result = convertToWritableX64Operand(context, (instruction as BitTest).result);
     append(context.output, X64Opcode(context.indent, 'xor', [result, result]:Operand, concat('clear ', result.commentName)));
@@ -1437,7 +1403,7 @@ class X64Assembler extends Assembler {
     assert(labels.get(procname) == null, 'external labels must be registered before potentially conflicting local labels');
     AssemblerLabel result = rootLabel.deriveWith(procname);
     labels.set(result, procname);
-    labelSequenceIds.set(procname, 0);
+    rootLabel.labelSequenceIds.set(procname, 0);
     if (externs.get(libname) == null) {
       externs.set(libname, []:AssemblerLabel);
     }
@@ -1918,7 +1884,7 @@ class X64Assembler extends Assembler {
   }
 
   //#override
-  String serialize() {
+  String serialize(String mainProgramFilename) {
     if (format == AssemblerFormat.masm) {
       return concat(
         '_drectve segment info alias(".drectve")\n',

@@ -959,6 +959,7 @@ class ThisPointerParameterBucket extends AbstractParameterBucket {
   }
 }
 
+// This pointer should not be read from, as it might be modified by other syd functions.
 class ReturnTypePointerParameterBucket extends AbstractParameterBucket {
   //#override
   String commentName() {
@@ -972,6 +973,7 @@ class ReturnTypePointerParameterBucket extends AbstractParameterBucket {
   }
 }
 
+// This pointer should not be read from, as it might be modified by other syd functions.
 class ReturnValuePointerParameterBucket extends AbstractParameterBucket {
   //#override
   String commentName() {
@@ -1004,6 +1006,7 @@ class ParameterBucket extends AbstractParameterBucket {
 
 // This represents something whose address can be taken, which will be valid right
 // up to the point the current stack frame returns (so, not something on the stack).
+// This bucket's value should not be read from, as it might be modified by other syd functions.
 class ScratchBucket extends DynamicBucket {
   String _commentName;
 

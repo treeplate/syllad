@@ -1,6 +1,7 @@
 import 'syd-tokenizer.syd';
 import 'syd-assembler.syd';
 import 'syd-x64-instructions.syd';
+import 'syd-llvm.syd';
 import 'syd-parser.syd';
 import 'syd-ast.syd';
 import 'syd-compiler.syd';
@@ -30,7 +31,6 @@ stderr('syllad self-hosting compiler');
 //   function types with signatures
 //   string interpolation
 //   new features in classes: abstract classes and methods
-//   utf8 decoder (so that i can get scalarValues out of readFileBytes)
 //   functions to have named arguments with default values
 //   some way to call syscalls / OS functions
 //   switch (especially if the compiler can report missing enum values)
@@ -77,9 +77,17 @@ Library processFile(String filename, MapNullable librariesArg, Boolean isProgram
   return ast;
 }
 
-assert(len(args) > 1, 'no input file specified');
+if (len(args) != 3) {
+  println('Invalid number of arguments, syd must be run as follows:');
+  println('  syd --mode=MASM program.syd');
+  println('  syd --mode=FASM program.syd');
+  println('  syd --mode=LLVM program.syd');
+  exit(1);
+}
+
 String compilerPath = args[0];
-String mainProgramFileName = args[1];
+String mode = args[1];
+String mainProgramFileName = args[2];
 
 // parse everything
 stderr('parsing...');
@@ -114,8 +122,19 @@ for (library in libraries) {
   library.generateInstructions(library.library!);
 }
 
-Assembler assembler = X64Assembler(compilationEnvironment.rootLabel, AssemblerFormat.fasm);
+Assembler assembler;
+if (mode == '--mode=MASM') {
+  assembler = X64Assembler(compilationEnvironment.rootLabel, AssemblerFormat.masm);
+} else if (mode == '--mode=FASM') {
+  assembler = X64Assembler(compilationEnvironment.rootLabel, AssemblerFormat.fasm);
+} else if (mode == '--mode=LLVM') {
+  assembler = LLVMAssembler(compilationEnvironment.rootLabel);
+} else {
+  throw(concat('Invalid compilation mode "', mode, '".'));
+}
+
 compilationEnvironment.compile(assembler);
+String output = assembler.serialize(mainProgramFileName);
 stderr('Compilation finished!');
 stderr('Result:');
-println(assembler.serialize());
+println(output);

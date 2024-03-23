@@ -21,6 +21,37 @@ import 'syd-rtl-system.syd';
 
 // EQUALITY
 
+Boolean _byteCompare(Integer a, Integer b, Integer length) {
+  assert(length > 0, '_byteCompare expects positive number of bytes to compare');
+  Integer aCursor = a;
+  Integer bCursor = b;
+  Integer end = a + (length / 8) * 8;
+  assert(aCursor != end || length > 0, 'inconsistency');
+  assert(aCursor != end || length < 8, 'inconsistency');
+  while (aCursor < end) {
+    Integer aValue = __readFromAddress(aCursor);
+    Integer bValue = __readFromAddress(bCursor);
+    if (aValue != bValue) {
+      return false;
+    }
+    aCursor += 8;
+    bCursor += 8;
+  }
+  end = a + length;
+  if (aCursor < end) {
+    Integer extraBytes = end - aCursor;
+    assert(extraBytes > 0, 'internal error: zero extra bytes but aCursor is before end');
+    assert(extraBytes < 8, 'internal error: more than 7 extra bytes');
+    Integer mask = ~(_allBits << (extraBytes * 8));
+    Integer aValue = __readFromAddress(aCursor) & mask;
+    Integer bValue = __readFromAddress(bCursor) & mask;
+    if (aValue != bValue) {
+      return false;
+    }
+  }
+  return true;
+}
+
 Boolean equals#(Anything a, Anything b) intrinsic# {
   // This only gets called if the compiler thinks a and b might be both strings or both function pointers.
   // See EqualityInstruction.
@@ -30,7 +61,7 @@ Boolean equals#(Anything a, Anything b) intrinsic# {
     if (lengthA != lengthB) {
       return false;
     }
-    return __byteCompare(a __as__ Integer + _gcBlockStringData, b __as__ Integer + _gcBlockStringData, lengthA);
+    return _byteCompare(a __as__ Integer + _gcBlockStringData, b __as__ Integer + _gcBlockStringData, lengthA);
   }
   if (a is WhateverFunction && b is WhateverFunction) {
     return (__readFromAddress(a __as__ Integer + _subroutineReceiverPointer) == __readFromAddress(b __as__ Integer + _subroutineReceiverPointer))

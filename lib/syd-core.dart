@@ -228,6 +228,8 @@ class SydList<T extends Object?> extends SydArray<T> {
 class SydSentinel extends TypedValue<SydSentinel> {
   final ValueType<SydSentinel> type;
   SydSentinel(Environment env) : type = env.sentinelType;
+
+  String toString() => '<internal error - sentinel should not be tostringed>';
 }
 
 class SydFile extends TypedValue<SydFile> {
@@ -722,33 +724,33 @@ class Environment {
               throw BSCException('${file.file.path} was read twice ${stack.reversed.join('\n')}', dummyVariableGroup);
             }
             file.used = true;
-            return SydList(
+            return SydArray(
               file.file.readSync(length),
-              ListValueType<int>(integerType, 'interr', this, rootTypeTable),
+              ArrayValueType<int>(integerType, 'interr', this, rootTypeTable),
             );
           } catch (e) {
             rethrow;
           }
         },
-        FunctionValueType(ListValueType(integerType, 'intrinsics', this, rootTypeTable), [fileType], 'intrinsics', this, rootTypeTable),
+        FunctionValueType(ArrayValueType<int>(integerType, 'intrinsics', this, rootTypeTable), [fileType], 'intrinsics', this, rootTypeTable),
         'readFileBytes intrinsic',
       ),
-      'writeFile': SydFunction(
+      'writeFileBytes': SydFunction(
         (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
           try {
             SydFile file = args.first as SydFile;
             if (file.used && !file.appendMode) {
               throw BSCException('${file.file.path} was written to twice ${stack.reversed.join('\n')}', dummyVariableGroup);
             }
-            file.file.writeStringSync(args.last as String);
+            file.file.writeFromSync((args.last as SydArray<int>).array);
             file.used = true;
             return null;
           } catch (e) {
             rethrow;
           }
         },
-        FunctionValueType(nullType, [fileType, stringType], 'intrinsics', this, rootTypeTable),
-        'writeFile intrinsic',
+        FunctionValueType(nullType, [fileType, ArrayValueType<int>(integerType, 'intrinsics', this, rootTypeTable)], 'intrinsics', this, rootTypeTable),
+        'writeFileBytes intrinsic',
       ),
       'closeFile': SydFunction(
         (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
@@ -782,7 +784,19 @@ class Environment {
                 'error $e when decoding utf8 ${toStringWithStacker(args.single, -2, 0, 'file', false)}\n${stack.reversed.join('\n')}', dummyVariableGroup);
           }
         },
-        FunctionValueType(stringType, [ListValueType(integerType, 'intrinsics', this, rootTypeTable)], 'intrinsics', this, rootTypeTable),
+        FunctionValueType(stringType, [ArrayValueType(integerType, 'intrinsics', this, rootTypeTable)], 'intrinsics', this, rootTypeTable),
+        'utf8Decode intrinsic',
+      ),
+      'utf8Encode': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          try {
+            return SydArray<int>(utf8.encode(args.single as String), ArrayValueType(integerType, 'intrinsics', this, rootTypeTable));
+          } catch (e) {
+            throw BSCException(
+                'error $e when encoding utf8 ${toStringWithStacker(args.single, -2, 0, 'file', false)}\n${stack.reversed.join('\n')}', dummyVariableGroup);
+          }
+        },
+        FunctionValueType(ArrayValueType(integerType, 'intrinsics', this, rootTypeTable), [stringType], 'intrinsics', this, rootTypeTable),
         'utf8Decode intrinsic',
       ),
       'throw': SydFunction(

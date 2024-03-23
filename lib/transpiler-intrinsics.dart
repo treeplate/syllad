@@ -89,11 +89,11 @@ Uint8List readFileBytes(File file) {
   return file.file.readSync(length);
 }
 
-Null writeFile(File file, String string) {
+Null writeFileBytes(File file, List<int> bytes) {
   if (file.used && !file.appendMode) {
     throw StateError('${file.file.path} was written to twice');
   }
-  file.file.writeStringSync(string);
+  file.file.writeFrom(bytes);
   file.used = true;
 }
 
@@ -115,6 +115,10 @@ int len(Iterable<Object?> list) {
 
 String utf8Decode(List<int> bytes) {
   return utf8.decode(bytes);
+}
+
+Uint8List utf8Encode(String string) {
+  return utf8.encode(string);
 }
 
 Iterator<T> iterator<T>(Iterable<T> iterable) {

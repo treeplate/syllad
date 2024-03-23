@@ -14,7 +14,7 @@ void print(String contents) {
   file.writeStringSync('$contents\n');
 }
 
-Map<String, String> constructorNames = {};
+Map<ClassValueType, String> constructorNames = {};
 int currentConstructor = 0;
 
 String transpileType(ValueType type) {
@@ -61,7 +61,7 @@ String transpileExpression(Expression expression) {
   switch (expression) {
     case GetExpr(name: Identifier name, staticType: ValueType type, variablePath: List<int> path):
       if (type is ClassOfValueType) {
-        return '${name.name}()..${constructorNames[name.name]!}';
+        return '${name.name}()..${constructorNames[type.classType]!}';
       }
       if (path.first == -1 && name != thisVariable) {
         return 'this.${name.name}';
@@ -140,7 +140,7 @@ String transpileExpression(Expression expression) {
       return '<${transpileType(type)}>[${value.map((e) => transpileExpression(e)).join(', ')}]';
     case SuperExpression(member: Identifier rhs):
       if (rhs == constructorVariable) {
-        return '${constructorNames[(ValueType.create(expression.tv.identifiers[className]!, expression.line, expression.col, expression.file, expression.tv.environment, expression.tv.typeTable) as ClassValueType).supertype!.name.name]!}';
+        return '${constructorNames[(ValueType.create(expression.tv.identifiers[classType!.name.name]!, expression.line, expression.col, expression.file, expression.tv.environment, expression.tv.typeTable) as ClassValueType).supertype!]!}';
       }
       return 'super.${rhs.name}';
     default:
@@ -193,10 +193,10 @@ void transpileStatement(Statement statement, Environment env, int indent) {
       }
       if (name.name == 'abstract' || name.name == 'unimplemented') {
         print('${'  ' * indent}core.Never ${name.name}(${params.map((e) => '${transpileType(e.type)} ${e.name.name}').join(', ')}) {');
-      } else if (name == constructorVariable && className != null) {
+      } else if (name == constructorVariable && classType != null) {
         constructorCreated = true;
         print(
-            '${'  ' * indent}${transpileType(returnType)} ${constructorNames[className!]!}(${params.map((e) => '${transpileType(e.type)} ${e.name.name}').join(', ')}) {');
+            '${'  ' * indent}${transpileType(returnType)} ${constructorNames[classType!]!}(${params.map((e) => '${transpileType(e.type)} ${e.name.name}').join(', ')}) {');
       } else {
         print('${'  ' * indent}${transpileType(returnType)} ${name.name}(${params.map((e) => '${transpileType(e.type)} ${e.name.name}').join(', ')}) {');
       }
@@ -242,7 +242,6 @@ void transpileFile(List<Statement> statements, List<Statement> mainscope, Enviro
     }
   }
 }
-
 void transpileGlobalscopeStatement(Statement statement,  List<Statement> mainscope, Environment env) {
   switch (statement) {
     case ImportStatement(file: List<Statement> file, filename: String filename):
@@ -265,13 +264,13 @@ void transpileGlobalscopeStatement(Statement statement,  List<Statement> mainsco
         print('  ${value.name},');
       }
       print('}');
-    case ClassStatement(name: Identifier name, superclass: Identifier? superclass, block: List<Statement> body):
-      className = name.name;
+    case ClassStatement(name: Identifier name, superclass: Identifier? superclass, block: List<Statement> body, type: ClassValueType type,):
+      classType = type;
       constructorCreated = false;
       print(
         'class ${name.name} extends ${superclass == null ? 'core.Object' : transpileType(ValueType.create(superclass, statement.line, statement.col, statement.file, env, statement.tv.typeTable))} {',
       );
-      print('  final core.String className = \'${className}\';');
+      print('  final core.String className = \'${classType!.name.name}\';');
       for (final Statement statement in body) {
         transpileStatement(statement, env, 1);
       }
@@ -284,13 +283,13 @@ void transpileGlobalscopeStatement(Statement statement,  List<Statement> mainsco
           params = [ListValueType(params.first, statement.file, env, statement.tv.typeTable)];
         }
         int i = 0;
-        print('  core.Null ${constructorNames[className]!}(${params.map((e) => '${transpileType(e)} arg${i++}').join(', ')}) {');
+        print('  core.Null ${constructorNames[classType]!}(${params.map((e) => '${transpileType(e)} arg${i++}').join(', ')}) {');
         i = 0;
-        print('    ${constructorNames[type.classType.supertype!.name.name]}(${params.map((e) => 'arg${i++}').join(', ')});');
+        print('    ${constructorNames[type.classType.supertype!]}(${params.map((e) => 'arg${i++}').join(', ')});');
         print('  }');
       }
       print('}');
-      className = null;
+      classType = null;
     case NewVarStatement(type: ValueType type, name: Identifier lhs, val: Expression? rhs):
       print('late ${transpileType(type)} ${lhs.name};');
       if (rhs != null) mainscope.add(SetStatement(GetExpr(lhs, statement.tv, statement.line, statement.col, statement.file), rhs, statement.line, statement.col, statement.file));
@@ -299,7 +298,7 @@ void transpileGlobalscopeStatement(Statement statement,  List<Statement> mainsco
   }
 }
 
-String? className;
+ClassValueType? classType;
 bool constructorCreated = false;
 
 void transpile(String fileContents, String rtlPath, String fileName) {
@@ -320,7 +319,7 @@ void transpile(String fileContents, String rtlPath, String fileName) {
   );
   for (ValueType type in environment.allTypes) {
     if (type is ClassValueType) {
-      constructorNames[type.name.name] = 'constructor${currentConstructor++}';
+      constructorNames[type] = 'constructor${currentConstructor++}';
     }
   }
   List<Statement> mainscope = [];

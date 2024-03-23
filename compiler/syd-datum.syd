@@ -210,6 +210,7 @@ enum ScratchIdentifier { FakeReturnValue FakeReturnType }
 // This represents something whose address can be taken, which will be valid right
 // up to the point the current stack frame returns (so, not something on the stack).
 // (For example, on x86 this might use shadow space or something on the heap.)
+// This datum should not be read from, as it might be modified by other syd functions.
 class ScratchDatum extends Datum {
   ScratchIdentifier scratchIdentifier;
 
@@ -242,8 +243,8 @@ class ParameterDatum extends Datum {
   // The closure pointer is the parameter with index 1.
   // The this type is the parameter with index 2.
   // The this pointer is the parameter with index 3.
-  // The return type pointer is the parameter with index 4.
-  // The return value pointer is the parameter with index 5.
+  // The return type pointer is the parameter with index 4. (this pointer should not be read from, as it might be modified by other syd functions.)
+  // The return value pointer is the parameter with index 5. (this pointer should not be read from, as it might be modified by other syd functions.)
   // The first syd parameter is 7 (value) and 6 (type), second is 9 and 8, etc.
 
   Null constructor(Integer indexArg, String commentNameArg) {

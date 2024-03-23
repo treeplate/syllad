@@ -165,18 +165,28 @@ class FunctionStatement extends Statement {
       );
       if (params is List) {
         for (Object? aSub in a) {
+          if (aSub is SydSentinel) {
+            throw BSCException(
+                "Unassigned value passed to ${name.name} ${formatCursorPosition(line, col, file)} ${scope.environment.stack.reversed.join('\n')}",
+                scope);
+          }
           if (!getType(aSub, scope, line, col, file, false).isSubtypeOf(params.elementAt(i).type)) {
             throw BSCException(
-                "Argument $i of ${name.name}, ${toStringWithStacker(aSub, line, col, file, false)}, of wrong type (${getType(aSub, scope, line, col, file, false)}) expected ${params.elementAt(i).type} ${formatCursorPosition(line, col, file)}",
+                "Argument $i of ${name.name}, ${toStringWithStacker(aSub, line, col, file, false)}, of wrong type (${getType(aSub, scope, line, col, file, false)}) expected ${params.elementAt(i).type} ${formatCursorPosition(line, col, file)} ${scope.environment.stack.reversed.join('\n')}",
                 scope);
           }
           funscope.newVar((params as List)[i++].name, aSub);
         }
       } else {
         for (Object? aSub in a) {
+          if (aSub is SydSentinel) {
+            throw BSCException(
+                "Unassigned value passed to ${name.name} ${formatCursorPosition(line, col, file)} ${scope.environment.stack.reversed.join('\n')}",
+                scope);
+          }
           if (!getType(aSub, scope, line, col, file, false).isSubtypeOf(params.first.type)) {
             throw BSCException(
-                "Argument $i of ${name.name}, ${toStringWithStacker(aSub, line, col, file, false)}, of wrong type (${getType(aSub, scope, line, col, file, false)}) expected ${params.first.type} ${formatCursorPosition(line, col, file)}",
+                "Argument $i of ${name.name}, ${toStringWithStacker(aSub, line, col, file, false)}, of wrong type (${getType(aSub, scope, line, col, file, false)}) expected ${params.first.type} ${formatCursorPosition(line, col, file)} ${scope.environment.stack.reversed.join('\n')}",
                 scope);
           }
         }

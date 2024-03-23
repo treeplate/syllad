@@ -2426,8 +2426,11 @@ class EnumDeclaration extends Statement {
   Null declareTypes(CompiledScope scope) {
     assert(scope is CompiledLibrary, 'found enum in non-global scope');
     CompilationEnvironment environment = scope.environment();
+    if (scope.environment().isCompoundType(identifier)) {
+      throw(concat('Type name ', identifier, ' is not a valid enum type, because it contains a reserved type suffix at ', sourceLocation));
+    }
     if ((scope as CompiledLibrary).isTypeDeclaredInGlobalScope(identifier)) {
-      throw(concat('"', identifier, '" redeclared at ', sourceLocation));
+      throw(concat('Type "', identifier, '" redeclared at ', sourceLocation));
     }
     enumPropertyType = EnumPropertyType(environment, identifier);
     AssemblerLabel enumLabel = scope.label.deriveWith(identifier);
@@ -2473,6 +2476,9 @@ class EnumDeclaration extends Statement {
 
 class AbstractClassDeclaration extends Statement {
   ClassType declareType(CompiledScope scope, String identifier, TypeIdentifierNullable superclassName, Boolean isIntrinsic) {
+    if (scope.environment().isCompoundType(identifier)) {
+      throw(concat('Type name ', identifier, ' is not a valid class type, because it contains a reserved type suffix at ', sourceLocation));
+    }
     if (scope.globalScope().isTypeDeclaredInGlobalScope(identifier)) {
       throw(concat('Type ', identifier, ' redeclared at ', sourceLocation));
     }

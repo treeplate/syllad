@@ -1,12 +1,7 @@
-test.asm
-test.exe
-test.obj
+test.*
 build_test.bat
 compiler/notes.txt
 compiler/default.debugtarget
-test.syd
-
-# build products
 build/
 *.ilk
 *.pdb
@@ -16,15 +11,16 @@ mllink$.lnk
 profile.txt
 error-dump.txt
 *.syd.asm
+*.syd.ll
 *.syd.exe
 *.syd.obj
 compiler/temp.syd
 main.exe
 *.$$$
-test.dart
 coverage/lcov.info
 lib/syd-main.exe
 lib/transpiler-output.dart
 compiler/compiler.exe
 compiler/compiler1.exe
 compiler/compiler2.exe
+local_notes/*

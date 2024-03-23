@@ -20,9 +20,10 @@ class ConstantPart extends Object {
     Integer result = 0;
     for (datum in data) {
       if (datum is StringDatum) {
-        result += len(scalarValues((datum as StringDatum).value)); // TODO: this is not correct for non-ASCII strings
+        // TODO: this is expensive in memory and CPU; we know the length O(1), we should just get it directly (e.g. via an intrinsic).
+        result += len(utf8Encode((datum as StringDatum).value));
       } else {
-        result += len(data) * bytesFor(width);
+        result += bytesFor(width);
       }
     }
     return result;

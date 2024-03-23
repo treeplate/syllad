@@ -205,12 +205,11 @@ class BoundInstruction extends Object {
   PseudoInstructionList doIncref(Datum blockPointer) {
     PseudoInstructionList output = []:PseudoInstruction;
     append(output, Comment(concat('increment reference count for ', blockPointer.commentName)));
-    Datum referenceCountPointer = compute(output, UnsignedAdd(blockPointer, IntegerDatum(_gcBlockHeaderRefCount, '_gcBlockHeaderRefCount'), concat('compute reference count pointer from ', blockPointer.commentName), 'pointer to reference count'));
-    Datum referenceCount = compute(output, LoadQuad(referenceCountPointer, IntegerDatum(0, 'zero offset'), 'load current reference count from the pointer', 'reference count'));
+    Datum referenceCount = compute(output, LoadQuad(blockPointer, IntegerDatum(_gcBlockHeaderRefCount, '_gcBlockHeaderRefCount'), 'load current reference count from the pointer', 'reference count'));
     Datum result = compute(output, Cmp(referenceCount, IntegerDatum(0, 'zero'), Comparison.LessThan, 'negative reference count means it is a constant, non-ref-counted block', '"is refcount < 0?"'));
     PseudoInstructionList doIncrefBlock = []:PseudoInstruction;
     Datum newReferenceCount = compute(doIncrefBlock, SignedAdd(referenceCount, IntegerDatum(1, 'one'), 'increment reference count', 'new reference count'));
-    append(doIncrefBlock, StoreQuad(newReferenceCount, referenceCountPointer, IntegerDatum(0, 'zero offset'), 'store new reference count'));
+    append(doIncrefBlock, StoreQuad(newReferenceCount, blockPointer, IntegerDatum(_gcBlockHeaderRefCount, '_gcBlockHeaderRefCount'), 'store new reference count'));
     append(output, If(result, []:PseudoInstruction, doIncrefBlock, scopeLabel.deriveWith('incref'), Map(), concat('if ', blockPointer.commentName, ' is a constant'), concat('else, ', blockPointer.commentName, ' is not a constant: increment reference count')));
     return output;
   }
@@ -274,11 +273,10 @@ class BoundInstruction extends Object {
   PseudoInstructionList doDecref(Bucket blockPointer, Boolean freeIfZero, Boolean checkForStringBeforeFree, ConversionContext context) {
     PseudoInstructionList output = []:PseudoInstruction;
     append(output, Comment(concat('decrement reference count for ', blockPointer.commentName())));
-    Datum referenceCountPointer = compute(output, UnsignedAdd(blockPointer.currentValueDatum(), IntegerDatum(_gcBlockHeaderRefCount, '_gcBlockHeaderRefCount'), concat('compute reference count pointer from ', blockPointer.commentName()), 'pointer to reference count'));
-    Datum referenceCount = compute(output, LoadQuad(referenceCountPointer, IntegerDatum(0, 'zero offset'), 'load current reference count from the pointer', 'reference count'));
+    Datum referenceCount = compute(output, LoadQuad(blockPointer.currentValueDatum(), IntegerDatum(_gcBlockHeaderRefCount, '_gcBlockHeaderRefCount'), 'load current reference count from the pointer', 'reference count'));
     PseudoInstructionList doDecrefBlock = []:PseudoInstruction;
     Datum newReferenceCount = compute(doDecrefBlock, SignedSubtract(referenceCount, IntegerDatum(1, 'one'), concat('decrement reference count of ', blockPointer.commentName()), 'new reference count'));
-    append(doDecrefBlock, StoreQuad(newReferenceCount, referenceCountPointer, IntegerDatum(0, 'zero offset'), concat('store new reference count of ', blockPointer.commentName())));
+    append(doDecrefBlock, StoreQuad(newReferenceCount, blockPointer.currentValueDatum(), IntegerDatum(_gcBlockHeaderRefCount, '_gcBlockHeaderRefCount'), concat('store new reference count of ', blockPointer.commentName())));
     if (freeIfZero) {
       assert(context.types().coreStringType.isSubtypeOf(blockPointer.staticType), 'contract violation - freeIfZero requires string type');
       PseudoInstructionList freeBlock = []:PseudoInstruction;
@@ -789,10 +787,10 @@ class WriteToAddressInstruction extends BoundInstruction {
   }
 }
 
-class SeparatorInstruction extends BoundInstruction {
+class StartSubroutineInstruction extends BoundInstruction {
   //#override
   PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
-    return [Separator()]:PseudoInstruction;
+    return [StartSubroutine()]:PseudoInstruction;
   }
 
   //#override
@@ -1414,6 +1412,7 @@ class CallInstruction extends ComputationBoundInstruction {
 }
 
 class CallSystemInstruction extends ComputationBoundInstruction {
+  SubroutineTypeWithSpecificParameters signature;
   String libraryName;
   String functionName;
   BucketList arguments;
@@ -1430,14 +1429,15 @@ class CallSystemInstruction extends ComputationBoundInstruction {
     for (argument in arguments) {
       append(argumentDatums, argument.currentValueDatum());
     }
-    Datum returnValue = compute(output, CallSystem(libraryName, functionName, argumentDatums));
+    Datum returnValue = compute(output, CallSystem(signature, libraryName, functionName, argumentDatums));
     target.assignDatums(returnValue, TypeCodeDatum(target.staticType));
     context.didCreateBucket(target);
     return output;
   }
 
-  Null constructor(Type returnType, String libraryNameArg, String functionNameArg, BucketList argumentsArg) {
-    super.constructor(returnType, LazyComment('return value of ', functionNameArg));
+  Null constructor(SubroutineTypeWithSpecificParameters type, String libraryNameArg, String functionNameArg, BucketList argumentsArg) {
+    super.constructor(type.returnType, LazyComment('return value of ', functionNameArg));
+    signature = type;
     libraryName = libraryNameArg;
     functionName = functionNameArg;
     arguments = argumentsArg;
@@ -2201,33 +2201,6 @@ class StoreDynamicTypeCheckInstruction extends ComputationBoundInstruction {
     type = typeArg;
     value = valueArg;
     typeCheckReason = typeCheckReasonArg;
-  }
-}
-
-class ByteSequenceCompareInstruction extends ComputationBoundInstruction {
-  Bucket aPtr;
-  Bucket bPtr;
-  Bucket length;
-
-  //#override
-  BucketList bucketsUsed() {
-    return [aPtr, bPtr, length]:Bucket;
-  }
-
-  //#override
-  PseudoInstructionList convertToPseudoInstructions(ConversionContext context) {
-    PseudoInstructionList output = []:PseudoInstruction;
-    Datum result = compute(output, ByteSequenceCompare(length.currentValueDatum(), aPtr.currentValueDatum(), 0, bPtr.currentValueDatum(), 0, concat('perform byte sequence comparison of ', aPtr.commentName(), ' and ', bPtr.commentName()), 'byte sequence comparison result'));
-    target.assignDatums(result, TypeCodeDatum(target.staticType)); // (boolean)
-    return output;
-  }
-
-  Null constructor(Bucket aArg, Bucket bArg, Bucket lengthArg, Type staticTypeArg, LazyComment resultComment) {
-    assert(staticTypeArg is BooleanType, 'invariant violation -- static type of string comparison must be boolean');
-    super.constructor(staticTypeArg, resultComment);
-    aPtr = aArg;
-    bPtr = bArg;
-    length = lengthArg;
   }
 }
 

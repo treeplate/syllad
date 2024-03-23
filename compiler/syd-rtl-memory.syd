@@ -56,14 +56,12 @@ Null _free(Integer pointer) intrinsic# {
 }
 
 Null _moveBytes(Integer from, Integer to, Integer length) {
-  // TODO: move this to inlined assembler (using the string-copy instructions) for performance
-  // (or optimize the compiler enough that it generates good code somehow!)
   assert(length > 0, '_moveBytes expects positive number of bytes to copy');
   Integer fromCursor = from;
   Integer toCursor = to;
   Integer end = from + (length / 8) * 8;
-  assert(fromCursor != end || length < 8, 'inconsistency');
   assert(fromCursor != end || length > 0, 'inconsistency');
+  assert(fromCursor != end || length < 8, 'inconsistency');
   while (fromCursor < end) {
     Integer value = __readFromAddress(fromCursor);
     __writeToAddress(toCursor, value);

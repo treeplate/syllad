@@ -1057,7 +1057,7 @@ class StringOperand extends Operand {
     assert(value != '', 'empty strings are not representable in assembler');
     StringList buffer = []:String;
     Boolean quoted = false;
-    for (char in scalarValues(value)) {
+    for (char in utf8Encode(value)) {
       if (char == 0x22 && quoted) { // 0x22 is "
         append(buffer, '""');
       } else if (char < 0x20 || char == 0x22 || char > 0x7e) { // 0x22 is "

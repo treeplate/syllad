@@ -208,6 +208,7 @@ String join(StringList items, String joiner) {
   length += joinerLength * (len(items) - 1);
   assert(length >= 0, 'negative length detected');
   if (length >= 2147483648) {
+    __debugger();
     stderr('absurd length detected (as exit code)');
     exit(length);
   }
@@ -307,10 +308,11 @@ String chr(Integer code) {
   return resultPointer __as__ String;
 }
 
-// Returns the integer representation of the Unicode Scalar Values in a String
-IntegerList scalarValues(String value) {
-  // This should decode UTF-8.
-  // For now we only support 8-bit character encodings.
+// We define that Strings use UTF-8 encoded storage, so this
+// just expands the byte array that is String into a 64 bit integer
+// array that has the same 8-bit integers.
+// This is currently quite expensive O(N).
+IntegerList utf8Encode(String value) {
   IntegerList result = []:Integer;
   Integer length = _stringByteLength(value);
   Integer cursor = value __as__ Integer + _gcBlockStringData;
@@ -328,10 +330,32 @@ IntegerList scalarValues(String value) {
   return result;
 }
 
-// Returns the string representation of each extended grapheme cluster in a String
+// Returns the integer representation of the Unicode Scalar Values in a String.
+// NOT IMPLEMENTED FOR ANYTHING OUTSIDE ASCII.
+IntegerList scalarValues(String value) {
+  // TODO: This should decode UTF-8.
+  IntegerList result = []:Integer;
+  Integer length = _stringByteLength(value);
+  Integer cursor = value __as__ Integer + _gcBlockStringData;
+  assert(cursor % 8 == 0, 'string is misaligned');
+  Integer end = cursor + length;
+  while (cursor < end) {
+    Integer code = __readFromAddress(cursor);
+    Integer shift = 0;
+    while (shift < 64 && cursor < end) {
+      assert(code <= 255, 'scalarValues does not support non-ASCII characters');
+      append(result, (code >> shift) & 0xFF);
+      cursor += 1;
+      shift += 8;
+    }
+  }
+  return result;
+}
+
+// Returns the string representation of each extended grapheme cluster in a String.
+// NOT IMPLEMENTED FOR ANYTHING OUTSIDE ASCII.
 StringList charsOf(String value) {
-  // This should use ICU's BreakIterator.
-  // For now we just return the string representation of each Unicode Scalar Value since we only support 8-bit encodings anyway.
+  // TODO: This should use ICU's BreakIterator.
   StringList result = []:String;
   Integer length = _stringByteLength(value);
   Integer cursor = value __as__ Integer + _gcBlockStringData;
@@ -341,6 +365,7 @@ StringList charsOf(String value) {
     Integer code = __readFromAddress(cursor);
     Integer shift = 0;
     while (shift < 64 && cursor < end) {
+      assert(code <= 255, 'charsOf does not support non-ASCII characters');
       append(result, chr((code >> shift) & 0xFF));
       cursor += 1;
       shift += 8;

@@ -12,6 +12,7 @@ IF NOT !ERRORLEVEL! == 0 GOTO END
 ECHO Creating D(T(C))(C)
 CD ..\compiler
 SET LEAVEEXE=1
+REM We expect this to complain about invalid number of arguments if it successfully compiles. TODO: make build.bat not run it
 CALL build.bat syd.syd
 IF NOT !ERRORLEVEL! == 0 GOTO END
 MOVE compiler.exe compiler1.exe

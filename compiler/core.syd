@@ -204,12 +204,9 @@ class Object {
 // COLLECTIONS
 
 // This is a port of the xor variant of djb2, from http://www.cse.yorku.ca/~oz/hash.html
-// The original assumed 8-bit characters; this version uses scalar values which are 21 bits,
-// whether this makes any sense or not is unclear.
-//#ignore_unused
 Integer hashString(String data) {
   Integer result = 5381;
-  for (c in scalarValues(data)) {
+  for (c in utf8Encode(data)) {
     result = ((result << 5) + result) ^ c;
   }
   return result;

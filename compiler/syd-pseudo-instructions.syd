@@ -319,7 +319,7 @@ class UpdateGlobalVariable extends PseudoInstruction {
   }
 }
 
-class Separator extends PseudoInstruction { 
+class StartSubroutine extends PseudoInstruction { 
   //#override
   Null reportDatums(Set datumsUsed, Set datumsCreated) {}
 }
@@ -508,6 +508,7 @@ class Call extends PseudoComputation {
 }
 
 class CallSystem extends PseudoComputation {
+  SubroutineTypeWithSpecificParameters signature;
   String libraryName;
   String functionName;
   DatumList arguments;
@@ -528,8 +529,9 @@ class CallSystem extends PseudoComputation {
     }
   }
 
-  Null constructor(String libraryNameArg, String functionNameArg, DatumList argumentsArg) {
+  Null constructor(SubroutineTypeWithSpecificParameters signatureArg, String libraryNameArg, String functionNameArg, DatumList argumentsArg) {
     super.constructor(concat(functionNameArg, ' from ', libraryNameArg), concat('return value of ', functionNameArg));
+    signature = signatureArg;
     libraryName = libraryNameArg;
     functionName = functionNameArg;
     arguments = argumentsArg;
@@ -652,39 +654,6 @@ class BitTest extends PseudoComputation {
     super.constructor(commentArg, resultCommentArg);
     bitBase = bitBaseArg;
     bitOffset = bitOffsetArg;
-  }
-}
-
-class ByteSequenceCompare extends PseudoComputation {
-  Datum length;
-  Datum left;
-  Integer leftOffset;
-  Datum right;
-  Integer rightOffset;
-
-  //#override
-  Null reportDatums(Set datumsUsed, Set datumsCreated) {
-    super.reportDatums(datumsUsed, datumsCreated);
-    datumsUsed.add(length);
-    datumsUsed.add(left);
-    datumsUsed.add(right);
-  }
-
-  //#override
-  Null walkDatums(DatumFunction f) {
-    super.walkDatums(f);
-    length = f(length);
-    left = f(left);
-    right = f(right); 
-  }
-
-  Null constructor(Datum lengthArg, Datum leftArg, Integer leftOffsetArg, Datum rightArg, Integer rightOffsetArg, String commentArg, String resultCommentArg) {
-    super.constructor(commentArg, resultCommentArg);
-    length = lengthArg;
-    left = leftArg;
-    leftOffset = leftOffsetArg;
-    right = rightArg;
-    rightOffset = rightOffsetArg;
   }
 }
 

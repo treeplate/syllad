@@ -93,6 +93,9 @@ String camelCase(String value) {
       needUpper = false;
     } else {
       if (char >= 0x30 && char <= 0x39) { // 0-9
+        if (len(buffer) == 0) {
+          append(buffer, '_');
+        }
         append(buffer, chr(char));
       }
       needUpper = true;
@@ -103,9 +106,8 @@ String camelCase(String value) {
 
 String commentNameForString(String value) {
   StringList buffer = []:String;
-  // TODO: this should iterate over the UTF-8 encoded bytes, not the Unicode Scalar Values
   append(buffer, '"');
-  for (char in scalarValues(value)) {
+  for (char in utf8Encode(value)) {
     if (len(buffer) > 20) {
       append(buffer, '...');
       break;
@@ -164,6 +166,7 @@ fwdclass AssemblerLabel(AssemblerLabelNullable, String) extends Object;
 class AssemblerLabel extends Object {
   AssemblerLabelNullable parent;
   String name;
+  Map labelSequenceIds; // String -> Integer
 
   //#override
   String toString() {
@@ -183,6 +186,11 @@ class AssemblerLabel extends Object {
   Null constructor(AssemblerLabelNullable parentArg, String nameArg) {
     super.constructor();
     parent = parentArg;
+    if (parent == null) {
+      labelSequenceIds = Map();
+    } else {
+      labelSequenceIds = parent!.labelSequenceIds;
+    }
     name = nameArg;
   }
 }

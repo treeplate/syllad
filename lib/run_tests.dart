@@ -1,4 +1,7 @@
 // make sure to turn off timetravel mode in [build.bat] before running this
+// also make sure that ../compiler/compiler.exe is the compiler you want to test
+
+// TODO: this should separately compile and execute the tests so it can track the output of each step independently.
 
 import 'dart:io';
 import 'package:path/path.dart' as path;
@@ -9,9 +12,6 @@ void main() {
     ..sort((File a, File b) => a.path.compareTo(b.path));
   ProcessResult result = Process.runSync('dart', ['compile', 'exe', 'lib/syd-main.dart']);
   print(result.stderr);
-  result = Process.runSync('cmd.exe', ['/C', 'transpile-compiler.bat'], workingDirectory: 'lib');
-  print(result.stderr);
-  print(result.stdout);
   int failedCount = runTestSuite(files, 'interpreter', runInterpreter) + runTestSuite(files, 'compiler', runCompiler);
   print('Total time: ${stopwatch.elapsed}');
   if (failedCount > 0) {
@@ -371,9 +371,12 @@ TestResult? runCompiler(File file) {
     }
     ResultCode resultCode;
     switch (exitCode) {
-      case 254: // compiler itself could not be compiled
+      case 254: // transpiled compiler: compiler itself could not be compiled?
+        print('??? compiler exit 254');
         resultCode = ResultCode.sourceError;
-      case 255: // test itself was found to have an error and could not be run
+      case 255: // transpiled compiler: test itself was found to have an error and could not be run (or we hit an assert, no way to tell the difference)
+        resultCode = ResultCode.testSourceError;
+      case 1: // self-compiled compiler: test itself was found to have an error and could not be run (or we hit an assert, no way to tell the difference)
         resultCode = ResultCode.testSourceError;
       case 0:
         throw StateError('FAILED with zero exit code');

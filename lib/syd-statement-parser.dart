@@ -18,6 +18,9 @@ List<Statement> parseBlock(TokenIterator tokens, TypeValidator scope, [bool acce
 ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignoreUnused) {
   tokens.moveNext();
   Identifier name = tokens.currentIdent;
+  if (ValueType.hasTypeSuffix(name)) {
+    throw BSCException('Cannot declare class type with reserved type name ${name.name} ${formatCursorPositionFromTokens(tokens)}', scope);
+  }
   tokens.moveNext();
   Identifier? superclass;
   if (tokens.current is IdentToken && tokens.currentIdent == scope.identifiers['extends']) {
