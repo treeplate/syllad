@@ -1,5 +1,4 @@
-// expected error: undeclared class A
-// unexpected output: FAIL
+// expected compile-time error: undeclared class A
 
 fwdclassfield Boolean A.test;
 

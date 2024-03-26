@@ -1,5 +1,4 @@
-// expected error: type error
-// unexpected output: FAIL
+// expected compile-time error: type error
 
 class A { }
 class B extends A { }

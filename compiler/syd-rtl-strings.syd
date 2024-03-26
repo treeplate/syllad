@@ -340,11 +340,12 @@ IntegerList scalarValues(String value) {
   assert(cursor % 8 == 0, 'string is misaligned');
   Integer end = cursor + length;
   while (cursor < end) {
-    Integer code = __readFromAddress(cursor);
+    Integer bytes = __readFromAddress(cursor);
     Integer shift = 0;
     while (shift < 64 && cursor < end) {
-      assert(code <= 255, 'scalarValues does not support non-ASCII characters');
-      append(result, (code >> shift) & 0xFF);
+      Integer code = (bytes >> shift) & 0xFF;
+      assert(code <= 127, concat('charsOf does not support non-ASCII bytes like 0x', hex(code)));
+      append(result, code);
       cursor += 1;
       shift += 8;
     }
@@ -362,11 +363,12 @@ StringList charsOf(String value) {
   assert(cursor % 8 == 0, 'string is misaligned');
   Integer end = cursor + length;
   while (cursor < end) {
-    Integer code = __readFromAddress(cursor);
+    Integer bytes = __readFromAddress(cursor);
     Integer shift = 0;
     while (shift < 64 && cursor < end) {
-      assert(code <= 255, 'charsOf does not support non-ASCII characters');
-      append(result, chr((code >> shift) & 0xFF));
+      Integer code = (bytes >> shift) & 0xFF;
+      assert(code <= 127, concat('charsOf does not support non-ASCII bytes like 0x', hex(code)));
+      append(result, chr(code));
       cursor += 1;
       shift += 8;
     }

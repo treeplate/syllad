@@ -1,7 +1,4 @@
-// expected error: cannot override non-constant variable foo with constant variable (parsetime error)
-// unexpected output: test
-// unexpected output: 2
-// unexpected output: 1
+// expected compile-time error: cannot override non-constant variable foo with constant variable (parsetime error)
 
 class A {
   IntegerFunction foo;

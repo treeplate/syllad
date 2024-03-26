@@ -1,5 +1,4 @@
-// expected error: cannot reassign 'x'
-// unexpected output: FAIL
+// expected compile-time error: cannot reassign 'x'
 
 println('FAIL');
 

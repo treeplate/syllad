@@ -1,3 +1,3 @@
-// expected error: type error
+// expected compile-time error: type error
 
 [1]:String;

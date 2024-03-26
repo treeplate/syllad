@@ -1,5 +1,4 @@
-// expected error: compile time error: constructor does not match forward-declared arguments
-// unexpected output: FAIL
+// expected compile-time error: constructor does not match forward-declared arguments
 
 fwdclass A();
 

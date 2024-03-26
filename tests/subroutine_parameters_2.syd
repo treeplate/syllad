@@ -1,5 +1,4 @@
-// expected error: error: type mismatch for function foo parameter 1, expected Integer, got String 
-// unexpected output: FAIL
+// expected compile-time error: error: type mismatch for function foo parameter 1, expected Integer, got String 
 
 println('FAIL');
 

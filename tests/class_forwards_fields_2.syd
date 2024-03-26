@@ -1,5 +1,4 @@
-// expected error: syd does not support extension types
-// unexpected output: FAIL
+// expected compile-time error: syd does not support extension types
 
 fwdclassfield Integer Integer.maxInt;
 

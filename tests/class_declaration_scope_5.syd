@@ -1,5 +1,4 @@
-// expected error: redeclared constructor
-// unexpected output: FAIL
+// expected compile-time error: redeclared constructor
 
 println('FAIL');
 

@@ -1,5 +1,4 @@
-// expected error: super.foo does not exist
-// unexpected output: FAIL
+// expected compile-time error: super.foo does not exist
 
 println('FAIL');
 

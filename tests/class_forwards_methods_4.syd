@@ -1,5 +1,4 @@
-// expected error: no such property
-// unexpected output: A
+// expected compile-time error: no such property
 
 fwdclass A();
 

@@ -1,4 +1,4 @@
-// expected error: compile time error, cannot assign Array to List
+// expected compile-time error: cannot assign Array to List
 
 AnythingList x;
 

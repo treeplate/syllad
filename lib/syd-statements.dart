@@ -55,7 +55,7 @@ class NewVarStatement extends Statement {
 
   NewVarStatement(this.name, this.val, int line, int col, this.file, this.isConstant, this.type, this.tv) : super(line, col) {
     if (name == constructorVariable && tv.inClass) {
-      throw BSCException('Constructor cannot be a field. ${formatCursorPosition(line, col, file)}', tv);
+      throw CompileTimeSydException('Constructor cannot be a field. ${formatCursorPosition(line, col, file)}', tv);
     }
   }
 
@@ -67,7 +67,7 @@ class NewVarStatement extends Statement {
     } else {
       Object? eval = val!.eval(scope);
       if (!getType(eval, scope, line, col, file, false).isSubtypeOf(type)) {
-        throw BSCException(
+        throw RuntimeSydException(
             "Variable ${name.name} of type $type cannot be initialized to a value of type ${getType(eval, scope, line, col, file, false)} ${formatCursorPosition(line, col, file)}",
             scope);
       }
@@ -142,7 +142,7 @@ class FunctionStatement extends Statement {
       }
       int i = 0;
       if (params is! InfiniteIterable && a.length != params.length) {
-        throw BSCException(
+        throw RuntimeSydException(
             "Wrong number of arguments to ${fromClass}${name.name}: args ${a.map((e) => toStringWithStacker(
                   e,
                   line,
@@ -166,12 +166,12 @@ class FunctionStatement extends Statement {
       if (params is List) {
         for (Object? aSub in a) {
           if (aSub is SydSentinel) {
-            throw BSCException(
+            throw RuntimeSydException(
                 "Unassigned value passed to ${name.name} ${formatCursorPosition(line, col, file)} ${scope.environment.stack.reversed.join('\n')}",
                 scope);
           }
           if (!getType(aSub, scope, line, col, file, false).isSubtypeOf(params.elementAt(i).type)) {
-            throw BSCException(
+            throw RuntimeSydException(
                 "Argument $i of ${name.name}, ${toStringWithStacker(aSub, line, col, file, false)}, of wrong type (${getType(aSub, scope, line, col, file, false)}) expected ${params.elementAt(i).type} ${formatCursorPosition(line, col, file)} ${scope.environment.stack.reversed.join('\n')}",
                 scope);
           }
@@ -180,12 +180,12 @@ class FunctionStatement extends Statement {
       } else {
         for (Object? aSub in a) {
           if (aSub is SydSentinel) {
-            throw BSCException(
+            throw RuntimeSydException(
                 "Unassigned value passed to ${name.name} ${formatCursorPosition(line, col, file)} ${scope.environment.stack.reversed.join('\n')}",
                 scope);
           }
           if (!getType(aSub, scope, line, col, file, false).isSubtypeOf(params.first.type)) {
-            throw BSCException(
+            throw RuntimeSydException(
                 "Argument $i of ${name.name}, ${toStringWithStacker(aSub, line, col, file, false)}, of wrong type (${getType(aSub, scope, line, col, file, false)}) expected ${params.first.type} ${formatCursorPosition(line, col, file)} ${scope.environment.stack.reversed.join('\n')}",
                 scope);
           }
@@ -209,13 +209,13 @@ class FunctionStatement extends Statement {
             }
             scope.environment.stack.removeLast();
             if (getType(value.value, scope, line, col, file, false).isSubtypeOf(returnType)) return value.value;
-            throw BSCException(
+            throw RuntimeSydException(
                 "You cannot return a ${getType(value.value!, scope, line, col, file, false)} (${toStringWithStacker(value.value!, line, col, file, false)}) from ${fromClass}${name.name}, which is supposed to return a $returnType!     ${formatCursorPosition(line, col, file)}\n${funscope.environment.stack.reversed.join('\n')} ",
                 scope);
           case StatementResultType.breakWhile:
-            throw BSCException("Break outside while", scope);
+            throw RuntimeSydException("Break outside while", scope);
           case StatementResultType.continueWhile:
-            throw BSCException("Continue outside while", scope);
+            throw RuntimeSydException("Continue outside while", scope);
           case StatementResultType.unwindAndThrow:
             if ((scope.intrinsics ?? scope).profileMode!) {
               scope.environment.profile[scope.identifiers["${fromClass}${name.name}"] ??= Identifier("${fromClass}${name.name}")]!.key.stop();
@@ -224,7 +224,7 @@ class FunctionStatement extends Statement {
         }
       }
       if (!scope.environment.nullType.isSubtypeOf(returnType)) {
-        throw BSCException("${name.name} has no return statement ${formatCursorPosition(line, col, file)}", scope);
+        throw RuntimeSydException("${name.name} has no return statement ${formatCursorPosition(line, col, file)}", scope);
       }
       if ((scope.intrinsics ?? scope).profileMode!) {
         scope.environment.profile[ourProfile]!.key.stop();
@@ -368,7 +368,7 @@ class ForStatement extends Statement {
   StatementResult run(Scope scope) {
     Object? listVal = list.eval(scope);
     if (listVal is! SydIterable) {
-      throw BSCException(
+      throw RuntimeSydException(
           'Tried to iterate (for loop) over a ${getType(listVal, scope, line, col, file, false)}, which is not an iterable at ${formatCursorPosition(line, col, file)} \n${scope.environment.stack.reversed.join('\n')}',
           scope);
     }
@@ -420,6 +420,9 @@ class BreakStatement extends Statement {
   factory BreakStatement.parse(TokenIterator tokens, TypeValidator scope) {
     tokens.moveNext();
     tokens.expectChar(TokenType.endOfStatement);
+    if (!scope.inLoop) {
+      throw CompileTimeSydException('Tried to break out of not a loop ${formatCursorPositionFromTokens(tokens)}', scope);
+    }
     return BreakStatement(
       false,
       tokens.current.line,
@@ -442,6 +445,9 @@ class ContinueStatement extends Statement {
   factory ContinueStatement.parse(TokenIterator tokens, TypeValidator scope) {
     tokens.moveNext();
     tokens.expectChar(TokenType.endOfStatement);
+    if (!scope.inLoop) {
+      throw CompileTimeSydException('Tried to continue out of not a loop ${formatCursorPositionFromTokens(tokens)}', scope);
+    }
     return ContinueStatement(
       false,
       tokens.current.line,
@@ -470,8 +476,8 @@ class ReturnStatement extends Statement {
     }
     Expression expr = parseExpression(tokens, scope);
     if (!expr.staticType
-        .isSubtypeOf(scope.returnType ?? (throw BSCException('Cannot return from outside a function ${formatCursorPositionFromTokens(tokens)}', scope)))) {
-      throw BSCException(
+        .isSubtypeOf(scope.returnType ?? (throw CompileTimeSydException('Cannot return from outside a function ${formatCursorPositionFromTokens(tokens)}', scope)))) {
+      throw CompileTimeSydException(
           'Cannot return a ${expr.staticType} from a function that returns a ${scope.returnType} ${formatCursorPositionFromTokens(tokens)}', scope);
     }
     tokens.expectChar(TokenType.endOfStatement);
@@ -559,7 +565,7 @@ class ClassStatement extends Statement {
         parent: superclass == null
             ? null
             : type.supertype!.generatedConstructor?.staticMembers ??
-                (throw BSCException(
+                (throw RuntimeSydException(
                     'Class ${name.name} is defined as subtyping ${type.supertype!.name.name}, but that has not been declared yet, merely forward-declared. ${formatCursorPosition(line, col, file)} ${scope.environment.stack.reversed.join('\n')}',
                     scope)),
         debugName: ConcatenateLazyString(NotLazyString('staticMembersOf'), IdentifierLazyString(name)),
@@ -582,7 +588,7 @@ class ClassStatement extends Statement {
     if (type.supertype != null) {
       // check that "fwdclass A; class B extends A { }" fails
       if (type.supertype!.methods == null) {
-        throw BSCException('ERROR', scope);
+        throw RuntimeSydException('ERROR', scope);
       }
     }
     SydFunction? userConstructor;
@@ -640,7 +646,7 @@ class ClassStatement extends Statement {
               case StatementResultType.breakWhile:
               case StatementResultType.continueWhile:
               case StatementResultType.returnFunction:
-                throw BSCException('Internal error', scope);
+                throw RuntimeSydException('Internal error', scope);
               case StatementResultType.unwindAndThrow:
                 throw sr.value!;
             }

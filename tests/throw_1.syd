@@ -1,4 +1,5 @@
 // expected stderr: test
-// expected error: throw
+// expected stderr may contain other text
+// expected runtime error: throw
 
 throw('test');

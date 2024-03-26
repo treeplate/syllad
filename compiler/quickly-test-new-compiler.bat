@@ -3,10 +3,10 @@ REM Compiles [syd.syd] using [../lib/syd-transpiler.dart], uses the resulting ex
 REM D(T(C))(X)()
 
 SETLOCAL EnableDelayedExpansion
-CD ..\lib
-CALL transpile-compiler.bat
+CALL compiler-build.bat 1
 IF NOT !ERRORLEVEL! == 0 GOTO END
-CD ..\compiler
 CALL build.bat %1
+IF NOT !ERRORLEVEL! == 0 GOTO END
+CALL %1.exe
 :END
 ECHO exit code !ERRORLEVEL!

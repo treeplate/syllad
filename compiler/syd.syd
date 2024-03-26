@@ -60,10 +60,10 @@ Library processFile(String filename, MapNullable librariesArg, Boolean isProgram
       node.setResolvedPath(pathResolve(filename, node.path));
       Anything sublibrary = libraries.get(node.resolvedPath);
       if (sublibrary == true) {
-        throw(concat('Import loop at ', child.sourceLocation));
+        compileeSourceError(concat('Import loop at ', child.sourceLocation));
       } else if (sublibrary == null) {
         if (!fileExists(node.resolvedPath)) {
-          throw(concat('Import specifies a non-existent file "', node.resolvedPath, '" at ', node.sourceLocation));
+          compileeSourceError(concat('Import specifies a non-existent file "', node.resolvedPath, '" at ', node.sourceLocation));
         }
         node.setResolvedLibrary(processFile(node.resolvedPath, libraries, false, isInternal));
       } else {
@@ -130,11 +130,10 @@ if (mode == '--mode=MASM') {
 } else if (mode == '--mode=LLVM') {
   assembler = LLVMAssembler(compilationEnvironment.rootLabel);
 } else {
-  throw(concat('Invalid compilation mode "', mode, '".'));
+  compileeSourceError(concat('Invalid compilation mode "', mode, '".'));
 }
 
 compilationEnvironment.compile(assembler);
 String output = assembler.serialize(mainProgramFileName);
 stderr('Compilation finished!');
-stderr('Result:');
 println(output);

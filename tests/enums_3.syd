@@ -1,4 +1,4 @@
-// expected error: invalid enum name "FooList"
+// expected compile-time error: invalid enum name "FooList"
 
 enum FooList { bar baz }
 FooList.bar;

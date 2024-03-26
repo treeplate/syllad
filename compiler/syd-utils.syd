@@ -1,5 +1,10 @@
 import 'core.syd';
 
+Null compileeSourceError(String error) {
+  stderr(error);
+  exit(2);
+}
+
 // This escapes a string for the purposes of display to the user.
 // This function does not preserve all data. Control characters
 // and non-ASCII characters are replaced by a dot.

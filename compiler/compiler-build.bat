@@ -1,32 +1,39 @@
 @ECHO OFF
-REM Compiles [syd.syd] using [../lib/syd-transpiler.dart], uses the resulting executable to compile [syd.syd] again, uses the resulting executable to compile the first argument, and then runs the resulting executable.
-REM D(T(C))(C)(X)()
+REM Compiles [syd.syd] using [../lib/syd-transpiler.dart], and uses the resulting executable to compile [syd.syd] again.
+REM D(T(C))(C)
 
 SETLOCAL EnableDelayedExpansion
 
+SET LEVEL=%1
+
+IF "%LEVEL%" == "" (
+  ECHO First argument to compiler-build should be how many levels to do.
+)
+
 ECHO Creating D(T(C))
 CD ..\lib
-CALL transpile-compiler.bat
-IF NOT !ERRORLEVEL! == 0 GOTO END
-
-ECHO Creating D(T(C))(C)
+CALL dart run syd-transpiler.dart ../compiler/syd.syd
+CALL dart compile exe transpiler-output.dart
 CD ..\compiler
-SET LEAVEEXE=1
-REM We expect this to complain about invalid number of arguments if it successfully compiles. TODO: make build.bat not run it
-CALL build.bat syd.syd
-IF NOT !ERRORLEVEL! == 0 GOTO END
-MOVE compiler.exe compiler1.exe
-MOVE syd.syd.exe compiler.exe
-
-REM ECHO Creating D(T(C))(C)(C)
-REM CALL build.bat syd.syd
-REM IF NOT !ERRORLEVEL! == 0 GOTO END
-REM MOVE compiler.exe compiler2.exe
-REM MOVE syd.syd.exe compiler.exe
-
-ECHO Creating D(T(C))(C)(C)( %1 )
-CALL build.bat %1
+MOVE ..\lib\transpiler-output.exe compiler.exe
 IF NOT !ERRORLEVEL! == 0 GOTO END
 
+IF %LEVEL% GEQ 2 (
+  ECHO "Creating D(T(C))(C)"
+  CALL build.bat syd.syd
+  IF NOT !ERRORLEVEL! == 0 GOTO END
+  MOVE compiler.exe compiler1.exe
+  MOVE syd.syd.exe compiler.exe
+)
+IF %LEVEL% GEQ 3 (
+  ECHO "Creating D(T(C))(C)(C)"
+  CALL build.bat syd.syd
+  IF NOT !ERRORLEVEL! == 0 GOTO END
+  MOVE compiler.exe compiler2.exe
+  MOVE syd.syd.exe compiler.exe
+)
+IF %LEVEL% GEQ 4 (
+  ECHO Level 4 or greater not supported in compiler-build
+)
 :END
 ECHO exit code !ERRORLEVEL!

@@ -496,7 +496,7 @@ class SubroutineTypeWithVarArgs extends AbstractSubroutineTypeWithSpecificParame
     Integer index = 0;
     for (type in argumentTypes) {
       if (!type.isSubtypeOf(parameterType)) {
-        throw(concat('Argument ', index + 1, ' has a static type of ', type.name, ' but expected ', parameterType.name, ' at ', sourceLocations[index]));
+        compileeSourceError(concat('Argument ', index + 1, ' has a static type of ', type.name, ' but expected ', parameterType.name, ' at ', sourceLocations[index]));
       }
       index += 1;
     }
@@ -580,12 +580,12 @@ class SubroutineTypeWithSpecificParameters extends AbstractSubroutineTypeWithSpe
   Null verifyArguments(TypeList argumentTypes, SourceLocation callLocation, SourceLocationList sourceLocations) {
     assert(len(argumentTypes) == len(sourceLocations), 'contract violation');
     if (len(argumentTypes) != len(parameterTypes)) {
-      throw(concat('Wrong number of arguments for subroutine call at ', callLocation, ' (expected ', len(parameterTypes), ', got ', len(argumentTypes), ')'));
+      compileeSourceError(concat('Wrong number of arguments for subroutine call at ', callLocation, ' (expected ', len(parameterTypes), ', got ', len(argumentTypes), ')'));
     }
     Integer index = 0;
     for (type in argumentTypes) {
       if (!type.isSubtypeOf(parameterTypes[index])) {
-        throw(concat('Argument ', index + 1, ' has a static type of ', type.name, ' but expected ', parameterTypes[index].name, ' at ', sourceLocations[index]));
+        compileeSourceError(concat('Argument ', index + 1, ' has a static type of ', type.name, ' but expected ', parameterTypes[index].name, ' at ', sourceLocations[index]));
       }
       index += 1;
     }

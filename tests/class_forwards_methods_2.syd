@@ -1,5 +1,4 @@
-// expected error: forward declared member doesn't match inherited member
-// unexpected output: hello
+// expected compile-time error: forward declared member doesn't match inherited member
 
 fwdclass A();
 fwdclass B() extends A;

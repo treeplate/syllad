@@ -1,4 +1,5 @@
 // expected output: true
+// expect no newline at end of output
 
 Null foo(String... args) {
     StringArray a = args;

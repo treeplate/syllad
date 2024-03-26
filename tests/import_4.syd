@@ -1,4 +1,4 @@
-// expected error: invalid import
+// expected compile-time error: invalid import
 
 if (true) {
   import '../import_1a.syd';

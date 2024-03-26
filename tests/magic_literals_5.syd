@@ -1,4 +1,4 @@
-// expected error: Cannot assign to "COL".
+// expected compile-time error: Cannot assign to "COL".
 
 class SOURCE {
   Integer COL;

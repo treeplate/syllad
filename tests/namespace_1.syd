@@ -1,4 +1,3 @@
-// expected error: namespaces should not be supported
-// unexpected output: FAIL
+// expected compile-time error: namespaces should not be supported
 println('FAIL');
 namespace (foo) { }

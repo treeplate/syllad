@@ -1,5 +1,4 @@
-// expected error: invalid constructor forward declaration for class with no explicit constructor: no super constructor with matching argument types
-// unexpected output: FAIL
+// expected compile-time error: invalid constructor forward declaration for class with no explicit constructor: no super constructor with matching argument types
 
 println('FAIL');
 

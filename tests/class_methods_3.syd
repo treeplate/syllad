@@ -1,4 +1,5 @@
 // expected output: moomoomoo
+// expect no newline at end of output
 
 class Test {
   Boolean method(Boolean recurse) {

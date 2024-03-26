@@ -1,6 +1,4 @@
-// expected error: unknown identifier
-// unexpected output: 2A
-// unexpected output: FAIL
+// expected compile-time error: unknown identifier
 
 import 'import_2a.syllad';
 import 'import_2b.syllad';

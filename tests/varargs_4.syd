@@ -1,4 +1,4 @@
-// expected error: error: subscript index out of range (0 is not in range 0..-1)
+// expected runtime error: error: subscript index out of range (0 is not in range 0..-1)
 // expected output: PASS
 
 println('PASS');

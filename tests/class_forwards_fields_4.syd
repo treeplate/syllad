@@ -1,5 +1,4 @@
-// expected error: compile time error: duplicate forward class property declaration
-// unexpected output: FAIL
+// expected compile-time error: duplicate forward class property declaration
 
 println('FAIL');
 

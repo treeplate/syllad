@@ -306,7 +306,7 @@ Iterable<Token> lex(String file, String filename, Environment environment) sync*
           startcol = col;
           state = _LexerState.identifier;
         } else {
-          throw BSCException(
+          throw CompileTimeSydException(
             "Unrecognized ${String.fromCharCode(rune)} at ${formatCursorPosition(line, col, filename)} (U+${rune.toRadixString(16)} in Unicode)",
             NoDataVG(environment),
           );
@@ -342,7 +342,7 @@ Iterable<Token> lex(String file, String filename, Environment environment) sync*
               buffer.toString() == '9223372036854775808'
                   ? 0x8000000000000000
                   : int.tryParse(buffer.toString()) ??
-                      (throw BSCException(
+                      (throw CompileTimeSydException(
                         'bad integer: $buffer',
                         NoDataVG(environment),
                       )),
@@ -940,9 +940,9 @@ Iterable<Token> lex(String file, String filename, Environment environment) sync*
   }
   switch (state) {
     case _LexerState.stringDq:
-      throw BSCException("Unterminated double-quoted string '${buffer.toString()}'", NoDataVG(environment));
+      throw CompileTimeSydException("Unterminated double-quoted string '${buffer.toString()}'", NoDataVG(environment));
     case _LexerState.stringSq:
-      throw BSCException("Unterminated single-quoted string '${buffer.toString()}'", NoDataVG(environment));
+      throw CompileTimeSydException("Unterminated single-quoted string '${buffer.toString()}'", NoDataVG(environment));
     case _LexerState.comment:
     case _LexerState.multiLineComment:
     // multi-line comments can be unterminated
@@ -950,7 +950,7 @@ Iterable<Token> lex(String file, String filename, Environment environment) sync*
       break;
     case _LexerState.integer:
       yield IntToken(
-        int.tryParse(buffer.toString()) ?? (throw BSCException('bad integer: $buffer', NoDataVG(environment))),
+        int.tryParse(buffer.toString()) ?? (throw CompileTimeSydException('bad integer: $buffer', NoDataVG(environment))),
         line,
         col,
       );
@@ -1010,9 +1010,9 @@ Iterable<Token> lex(String file, String filename, Environment environment) sync*
       startcol = col;
 
     case _LexerState.stringDqBackslash:
-      throw BSCException("Unterminated double-quoted string ending in backslash '${buffer.toString()}'", NoDataVG(environment));
+      throw CompileTimeSydException("Unterminated double-quoted string ending in backslash '${buffer.toString()}'", NoDataVG(environment));
     case _LexerState.stringSqBackslash:
-      throw BSCException("Unterminated single-quoted string ending in backslash '${buffer.toString()}'", NoDataVG(environment));
+      throw CompileTimeSydException("Unterminated single-quoted string ending in backslash '${buffer.toString()}'", NoDataVG(environment));
     case _LexerState.multiLineCommentStar:
       break;
     case _LexerState.star:
@@ -1065,7 +1065,7 @@ Iterable<Token> lex(String file, String filename, Environment environment) sync*
       startcol = col;
   }
   if (buffer.isNotEmpty) {
-    throw BSCException("Unterminated string '${buffer.toString()}'", NoDataVG(environment));
+    throw CompileTimeSydException("Unterminated string '${buffer.toString()}'", NoDataVG(environment));
   }
   if (buffer.isNotEmpty) {
     yield IdentToken(buffer.toString(), startline, startcol);
@@ -1113,12 +1113,12 @@ class TokenIterator implements Iterator<Token> {
     if (current is IdentToken) {
       return identifiers[(current as IdentToken).ident] ??= Identifier((current as IdentToken).ident);
     }
-    throw BSCException("Expected identifier, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
+    throw CompileTimeSydException("Expected identifier, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
   }
 
   TokenType get currentChar {
     if (current is! CharToken) {
-      throw BSCException("Expected character, got $current on ${formatCursorPositionFromTokens(this)}", StringVariableGroup(StackTrace.current.toString(), environment));
+      throw CompileTimeSydException("Expected character, got $current on ${formatCursorPositionFromTokens(this)}", StringVariableGroup(StackTrace.current.toString(), environment));
     }
     return (current as CharToken).type;
   }
@@ -1127,21 +1127,21 @@ class TokenIterator implements Iterator<Token> {
     if (current is IntToken) {
       return (current as IntToken).integer;
     }
-    throw BSCException("Expected integer, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
+    throw CompileTimeSydException("Expected integer, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
   }
 
   String get string {
     if (current is StringToken) {
       return (current as StringToken).str;
     }
-    throw BSCException("Expected string, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
+    throw CompileTimeSydException("Expected string, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
   }
 
   String get commentFeature {
     if (current is CommentFeatureToken) {
       return (current as CommentFeatureToken).feature;
     }
-    throw BSCException("Expected comment feature (//#), got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
+    throw CompileTimeSydException("Expected comment feature (//#), got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
   }
 
   Token? previous = null;
@@ -1161,7 +1161,7 @@ class TokenIterator implements Iterator<Token> {
 
   void expectChar(TokenType char) {
     if (current is! CharToken || char != currentChar) {
-      throw BSCException("Expected $char, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
+      throw CompileTimeSydException("Expected $char, got $current on ${formatCursorPositionFromTokens(this)}", NoDataVG(environment));
     }
     moveNext();
   }

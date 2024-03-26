@@ -1,5 +1,4 @@
-// expected error: missing declaration of forward-declared property "foo" in class "A" (expected type "NullFunction")
-// unexpected output: FAIL
+// expected compile-time error: missing declaration of forward-declared property "foo" in class "A" (expected type "NullFunction")
 
 println('FAIL');
 

@@ -105,7 +105,7 @@ Iterable<int> scalarValues(String str) {
   return str.runes;
 }
 
-Null exit(int exitCode) {
+Never exit(int exitCode) {
   io.exit(exitCode);
 }
 

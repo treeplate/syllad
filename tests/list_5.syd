@@ -1,4 +1,4 @@
-// expected error: runtime error
+// expected runtime error: runtime error
 // expected output: START
 // unexpected output: FAIL
 // unexpected output: 1FAIL2

@@ -142,8 +142,10 @@ abstract class SydException implements Exception {
   int get exitCode;
 
   factory SydException(String message, int exitCode, VariableGroup scope) {
-    if (exitCode == -2) {
-      return BSCException(message, scope);
+    if (exitCode == -1) {
+      return CompileTimeSydException(message, scope);
+    } else if (exitCode == -2) {
+      return RuntimeSydException(message, scope);
     } else if (exitCode == -3) {
       return AssertException(message, scope);
     } else if (exitCode == -4) {
@@ -152,6 +154,18 @@ abstract class SydException implements Exception {
       throw FormatException("Invalid exit code $exitCode");
     }
   }
+}
+
+class CompileTimeSydException extends SydException {
+  CompileTimeSydException(String message, VariableGroup scope) : super._(message, scope);
+
+  int get exitCode => -1;
+}
+
+class RuntimeSydException extends SydException {
+  RuntimeSydException(String message, VariableGroup scope) : super._(message, scope);
+
+  int get exitCode => -2;
 }
 
 class AssertException extends SydException {
@@ -164,13 +178,6 @@ class ThrowException extends SydException {
   ThrowException(String message, VariableGroup scope) : super._(message, scope);
 
   int get exitCode => -4;
-}
-
-class BSCException extends SydException {
-  // stands for "Bad Source Code"
-  BSCException(String message, VariableGroup scope) : super._(message, scope);
-
-  int get exitCode => -2;
 }
 
 class Identifier {
@@ -505,7 +512,7 @@ class Environment {
           stack.add(NotLazyString('len'));
           if (!getType(args.single, dummyVariableGroup, -2, 0, 'intrinsics', false).isSubtypeOf(
               IterableValueType(ValueType.create(whateverVariable, -2, 0, 'intrinsics', this, rootTypeTable), 'intrinsics', this, rootTypeTable))) {
-            throw BSCException(
+            throw RuntimeSydException(
                 'len() takes a list as its argument, not a ${getType(args.single, dummyVariableGroup, -2, 0, 'intrinsics', false)} ${stack.reversed.join('\n')}',
                 dummyVariableGroup);
           }
@@ -532,7 +539,7 @@ class Environment {
           stack.add(NotLazyString('append'));
           if (!getType(args.last, dummyVariableGroup, -2, 0, 'intrinsics', false)
               .isSubtypeOf((getType(args.first, dummyVariableGroup, -2, 0, 'intrinsics', false) as ListValueType).genericParameter)) {
-            throw BSCException(
+            throw RuntimeSydException(
                 'You cannot append a ${getType(args.last, dummyVariableGroup, -2, 0, 'intrinsics', false)} to a ${getType(args.first, dummyVariableGroup, -2, 0, 'intrinsics', false)}!\n${stack.reversed.join('\n')}',
                 dummyVariableGroup);
           }
@@ -553,7 +560,7 @@ class Environment {
           stack.add(NotLazyString('insert'));
           if (!getType(args.last, dummyVariableGroup, -2, 0, 'intrinsics', false)
               .isSubtypeOf((getType(args.first, dummyVariableGroup, -2, 0, 'intrinsics', false) as ListValueType).genericParameter)) {
-            throw BSCException(
+            throw RuntimeSydException(
                 'You cannot insert a ${getType(args.last, dummyVariableGroup, -2, 0, 'intrinsics', false)} into a ${getType(args.first, dummyVariableGroup, -2, 0, 'intrinsics', false)}!\n${stack.reversed.join('\n')}',
                 dummyVariableGroup);
           }
@@ -574,7 +581,7 @@ class Environment {
         (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
           SydList list = args.first as SydList;
           if (list.list.isEmpty) {
-            throw BSCException('Cannot pop from an empty list!\n${stack.reversed.join('\n')}', dummyVariableGroup);
+            throw RuntimeSydException('Cannot pop from an empty list!\n${stack.reversed.join('\n')}', dummyVariableGroup);
           }
           return list.list.removeLast();
         },
@@ -590,7 +597,7 @@ class Environment {
         (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
           SydList list = args.first as SydList;
           if (list.list.isEmpty) {
-            throw BSCException('Cannot remove from an empty list!\n${stack.reversed.join('\n')}', dummyVariableGroup);
+            throw RuntimeSydException('Cannot remove from an empty list!\n${stack.reversed.join('\n')}', dummyVariableGroup);
           }
           return list.list.removeAt(args.last as int);
         },
@@ -700,7 +707,7 @@ class Environment {
             0 => FileMode.read,
             1 => FileMode.writeOnly,
             2 => FileMode.writeOnlyAppend,
-            int x => throw BSCException(
+            int x => throw RuntimeSydException(
                 'openFile mode $x is not a valid mode\n${stack.reversed.join('\n')}',
                 StringVariableGroup(
                   '$file',
@@ -721,7 +728,7 @@ class Environment {
             SydFile file = args.single as SydFile;
             int length = file.file.lengthSync();
             if (file.used) {
-              throw BSCException('${file.file.path} was read twice ${stack.reversed.join('\n')}', dummyVariableGroup);
+              throw RuntimeSydException('${file.file.path} was read twice ${stack.reversed.join('\n')}', dummyVariableGroup);
             }
             file.used = true;
             return SydArray(
@@ -740,7 +747,7 @@ class Environment {
           try {
             SydFile file = args.first as SydFile;
             if (file.used && !file.appendMode) {
-              throw BSCException('${file.file.path} was written to twice ${stack.reversed.join('\n')}', dummyVariableGroup);
+              throw RuntimeSydException('${file.file.path} was written to twice ${stack.reversed.join('\n')}', dummyVariableGroup);
             }
             file.file.writeFromSync((args.last as SydArray<int>).array);
             file.used = true;
@@ -780,7 +787,7 @@ class Environment {
             SydArray<Object?> input = args.single as SydArray<Object?>;
             return utf8.decode(input.array.cast());
           } catch (e) {
-            throw BSCException(
+            throw RuntimeSydException(
                 'error $e when decoding utf8 ${toStringWithStacker(args.single, -2, 0, 'file', false)}\n${stack.reversed.join('\n')}', dummyVariableGroup);
           }
         },
@@ -792,7 +799,7 @@ class Environment {
           try {
             return SydArray<int>(utf8.encode(args.single as String), ArrayValueType(integerType, 'intrinsics', this, rootTypeTable));
           } catch (e) {
-            throw BSCException(
+            throw RuntimeSydException(
                 'error $e when encoding utf8 ${toStringWithStacker(args.single, -2, 0, 'file', false)}\n${stack.reversed.join('\n')}', dummyVariableGroup);
           }
         },
@@ -813,14 +820,14 @@ class Environment {
         (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
           stack.add(NotLazyString('substring'));
           if (args[1] as int > (args[2] as int)) {
-            throw BSCException(
+            throw RuntimeSydException(
                 'Cannot substring when the start (${args[1]}) is more than the end (${args[2]})!\n${stack.reversed.join('\n')}', dummyVariableGroup);
           }
           if (args[1] as int < 0) {
-            throw BSCException('Cannot substring when the start (${args[1]}) is less than 0!\n${stack.reversed.join('\n')}', dummyVariableGroup);
+            throw RuntimeSydException('Cannot substring when the start (${args[1]}) is less than 0!\n${stack.reversed.join('\n')}', dummyVariableGroup);
           }
           if (args[2] as int > (args[0] as String).length) {
-            throw BSCException('Cannot substring when the end (${args[2]}) is more than the length of the string (${args[1]})!\n${stack.reversed.join('\n')}',
+            throw RuntimeSydException('Cannot substring when the end (${args[2]}) is more than the length of the string (${args[1]})!\n${stack.reversed.join('\n')}',
                 dummyVariableGroup);
           }
           stack.removeLast();
@@ -833,7 +840,7 @@ class Environment {
         (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
           stack.add(NotLazyString('substring'));
           if (args[2] as int < (args[1] as int)) {
-            throw BSCException('sublist called with ${args[2]} (end arg) < ${args[1]} (start arg) ${stack.reversed.join('\n')}', dummyVariableGroup);
+            throw RuntimeSydException('sublist called with ${args[2]} (end arg) < ${args[1]} (start arg) ${stack.reversed.join('\n')}', dummyVariableGroup);
           }
           SydList result = SydList(
             (args[0] as SydArray<Object?>).array.sublist(args[1] as int, args[2] as int),
@@ -972,6 +979,8 @@ class TypeValidator extends VariableGroup {
   final bool globalScope;
   ValueType? returnType;
   final bool isStaticMethod;
+  final bool isLoop;
+  final bool isFunction;
   TypeValidator get intrinsics => parents.isEmpty ? this : parents.first.intrinsics;
   final MapEntry<List<Statement>, TypeValidator>? rtl;
   final Map<String, Identifier> identifiers;
@@ -982,13 +991,15 @@ class TypeValidator extends VariableGroup {
     if (isStaticMethod) {
       return true;
     }
-    return parents.map((e) => e.indirectlyStaticMethod).firstWhere((e) => e, orElse: () => false);
+    return parents.any((e) => e.indirectlyStaticMethod);
   }
+
+  bool get inLoop => isLoop || !isFunction && parents.any((element) => element.inLoop);
 
   String toString() => "$debugName";
 
   TypeValidator(
-      this.parents, this.debugName, this.inClass, this.inStaticClass, this.isStaticMethod, this.rtl, this.identifiers, this.environment, this.globalScope,
+      this.parents, this.debugName, this.inClass, this.inStaticClass, this.isStaticMethod, this.rtl, this.identifiers, this.environment, this.globalScope, this.isLoop, this.isFunction,
       [TypeTable? table]) {
     if (parents.any((element) => element.inClass)) inClass = true;
     if (parents.any((element) => element.inStaticClass)) inStaticClass = true;
@@ -1017,13 +1028,13 @@ class TypeValidator extends VariableGroup {
 
   void setVar(Expression expression, ValueType value, int line, int col, String file) {
     if (!expression.isLValue(this)) {
-      throw BSCException(
+      throw CompileTimeSydException(
         "Attempted to set non-lvalue $expression to expr of type $value ${formatCursorPosition(line, col, file)}",
         this,
       );
     }
     if (!value.isSubtypeOf(expression.staticType)) {
-      throw BSCException(
+      throw CompileTimeSydException(
         "Attempted to set $expression to expr of type $value but expected ${expression.staticType} ${formatCursorPosition(line, col, file)}",
         this,
       );
@@ -1043,13 +1054,13 @@ class TypeValidator extends VariableGroup {
     bool validForSuper = false,
   ]) {
     if (directVars.contains(name)) {
-      throw BSCException(
+      throw CompileTimeSydException(
         'Attempted redeclare of existing variable ${name.name} ${formatCursorPosition(line, col, file)}',
         this,
       );
     }
     if (types.containsKey(name) && nonconst.contains(name) && constant) {
-      throw BSCException(
+      throw CompileTimeSydException(
           'Cannot override non-constant variable ${name.name} with constant variable ${types[name]} ${nonconst.map((e) => e.name)} $this ${formatCursorPosition(line, col, file)}',
           this);
     }
@@ -1091,7 +1102,7 @@ class TypeValidator extends VariableGroup {
         environment,
         typeTable,
       );
-      throw BSCException(
+      throw CompileTimeSydException(
         "Attempted to retrieve ${expr.name}, which is undefined.  ${filenames.isEmpty ? '' : '(maybe you meant to import $filenames?) '}${type == null ? '' : '(that\'s a type, in case it helps) '}${formatCursorPosition(line, col, file)}",
         this,
       );
@@ -1170,7 +1181,7 @@ class TypeValidator extends VariableGroup {
 
   TypeValidator copy() {
     return TypeValidator(parents.toList(), ConcatenateLazyString(debugName, NotLazyString(' copy')), inClass, inStaticClass, isStaticMethod, rtl, identifiers,
-        environment, globalScope)
+        environment, globalScope, isLoop, isFunction)
       ..nonconst = nonconst.toList()
       ..types = types.map((key, value) => MapEntry(key, value));
   }
@@ -1372,7 +1383,7 @@ ValueType getType(Object? value, VariableGroup scope, int line, int col, String 
       return scope.environment.timerType;
     case SydSentinel(type: ValueType type):
       if (!checkForSentinel) return type;
-      throw BSCException('Tried to access uninitalized value ${formatCursorPosition(line, col, file)} ${scope.environment.stack.reversed.join('\n')}', scope);
+      throw RuntimeSydException('Tried to access uninitalized value ${formatCursorPosition(line, col, file)} ${scope.environment.stack.reversed.join('\n')}', scope);
     case TypedValue(type: ValueType type):
       return type;
     default:
@@ -1399,7 +1410,7 @@ class ValueType<T extends Object?> {
 
   ValueType.internal(this.parent, this.name, String file, this._memberAccesible, this.environment, TypeTable typeTable) {
     if (typeTable[name] != null) {
-      throw BSCException("Repeated creation of ${name.name} (file $file)", StringVariableGroup(StackTrace.current.toString(), environment));
+      throw CompileTimeSydException("Repeated creation of ${name.name} (file $file)", StringVariableGroup(StackTrace.current.toString(), environment));
     }
     typeTable[name] = this;
     environment.allTypes.add(this);
@@ -1415,7 +1426,7 @@ class ValueType<T extends Object?> {
 
   static ValueType create(Identifier name, int line, int col, String file, Environment environment, TypeTable typeTable) {
     return createNullable(name, file, environment, typeTable) ??
-        (throw BSCException(
+        (throw CompileTimeSydException(
             "'${name.name}' type doesn't exist ${formatCursorPosition(line, col, file)}", StringVariableGroup(StackTrace.current.toString(), environment)));
   }
 
@@ -1521,7 +1532,7 @@ class ValueType<T extends Object?> {
           nullableOrNull == environment.nullType ||
           nullableOrNull == environment.anythingType ||
           nullableOrNull.name == whateverVariable) {
-        throw BSCException("Type $nullableOrNull is already nullable, cannot make nullable version ${name.name}", NoDataVG(environment));
+        throw CompileTimeSydException("Type $nullableOrNull is already nullable, cannot make nullable version ${name.name}", NoDataVG(environment));
       }
       return NullableValueType<Object?>(
         nullableOrNull as ValueType<Object>,
@@ -1558,7 +1569,7 @@ class ClassValueType extends ValueType<Scope> {
   factory ClassValueType(
       Identifier name, ClassValueType? supertype, TypeValidator properties, String file, bool fwdDeclared, Environment environment, TypeTable typeTable) {
     if (typeTable[name] is! ClassValueType?) {
-      throw BSCException("Tried to make class named ${name.name} but that is an existing non-class type (file: $file)", properties);
+      throw CompileTimeSydException("Tried to make class named ${name.name} but that is an existing non-class type (file: $file)", properties);
     }
     ClassValueType classValueType =
         ((typeTable[name] ??= ClassValueType.internal(name, supertype, properties, file, environment, typeTable)) as ClassValueType);

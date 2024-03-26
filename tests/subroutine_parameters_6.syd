@@ -1,5 +1,4 @@
-// expected error: parse error
-// unexpected output: FAIL
+// expected compile-time error: parse error
 
 Null foo1(Integer... a, Integer b) { }
 

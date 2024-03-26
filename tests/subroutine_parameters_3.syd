@@ -1,5 +1,4 @@
-// expected error: error: function call received the wrong number of parameters (expected 1, received 2)
-// unexpected output: FAIL
+// expected compile-time error: error: function call received the wrong number of parameters (expected 1, received 2)
 
 println('FAIL');
 

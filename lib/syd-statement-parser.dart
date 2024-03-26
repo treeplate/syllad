@@ -19,7 +19,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
   tokens.moveNext();
   Identifier name = tokens.currentIdent;
   if (ValueType.hasTypeSuffix(name)) {
-    throw BSCException('Cannot declare class type with reserved type name ${name.name} ${formatCursorPositionFromTokens(tokens)}', scope);
+    throw CompileTimeSydException('Cannot declare class type with reserved type name ${name.name} ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   tokens.moveNext();
   Identifier? superclass;
@@ -41,29 +41,29 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
           scope.typeTable,
         );
   if (supertype is! ClassValueType?) {
-    throw BSCException('${superclass!.name} not a class while trying to have ${name.name} extend it. ${formatCursorPositionFromTokens(tokens)}', scope);
+    throw CompileTimeSydException('${superclass!.name} not a class while trying to have ${name.name} extend it. ${formatCursorPositionFromTokens(tokens)}', scope);
   } else if (supertype?.notFullyDeclared ?? false) {
-    throw BSCException(
+    throw CompileTimeSydException(
       'Class ${name.name} is defined as subtyping ${supertype!.name.name}, but that has not been declared yet, merely forward-declared. ${formatCursorPositionFromTokens(tokens)}',
       scope,
     );
   }
   TypeValidator newScope = superclass == null
       ? TypeValidator([scope], ConcatenateLazyString(NotLazyString('root class '), IdentifierLazyString(name)), true, false, false, scope.rtl,
-          scope.identifiers, scope.environment, false)
+          scope.identifiers, scope.environment, false, false, false)
       : TypeValidator([scope], ConcatenateLazyString(NotLazyString('subclass '), IdentifierLazyString(name)), true, false, false, scope.rtl, scope.identifiers,
-          scope.environment, false);
+          scope.environment, false, false, false);
   if (superclass != null) {
     for (MapEntry<Identifier, TVProp> property in supertype!.properties.types.entries) {
       newScope.newVar(property.key, property.value.type, tokens.current.line, tokens.current.col, tokens.file, !supertype.properties.igvnc(property.key),
           property.value.isFwd, property.value.validForSuper);
-      assert(newScope.igv(property.key, false, -2, 0, '', true, false, false) == property.value.type);
+      assert(newScope.igv(property.key, false, -2, 0, '', true, false, true) == property.value.type);
     }
   }
   ClassValueType type = ClassValueType(name, supertype, newScope, tokens.file, false, scope.environment, scope.typeTable);
   if (newScope != type.properties) {
     if (supertype != type.supertype) {
-      throw BSCException(
+      throw CompileTimeSydException(
         '${name.name} does not have the same supertype ($supertype) as forward declaration (${type.supertype}) ${formatCursorPositionFromTokens(tokens)}',
         scope,
       );
@@ -72,7 +72,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
   TypeValidator fwdProps = type.properties.copy();
   bool hasFwdDecl = newScope != type.properties;
   if (hasFwdDecl && !type.forwardDeclared) {
-    throw BSCException(
+    throw CompileTimeSydException(
       '${name.name} was declared twice ${formatCursorPositionFromTokens(tokens)}',
       scope,
     );
@@ -113,7 +113,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
   List<Statement> block = parseBlock(tokens, newScope);
   ValueType? supertype1 = superclass != null ? scope.igv(scope.identifiers['${superclass.name}']!, true) : null;
   if (supertype1 is FunctionValueType) {
-    throw BSCException('Cannot extend an class that has not been defined yet.', scope);
+    throw CompileTimeSydException('Cannot extend an class that has not been defined yet.', scope);
   }
   TypeValidator staticMembers = TypeValidator(
       [if (superclass != null) (supertype1 as ClassOfValueType).staticMembers else scope],
@@ -124,12 +124,12 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
       scope.rtl,
       scope.identifiers,
       scope.environment,
-      false);
+      false, false, false);
   for (Statement statement in block) {
     if (statement is StaticFieldStatement) {
       if (!statement.val.staticType.isSubtypeOf(
           staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.file, true, false) ?? scope.environment.anythingType)) {
-        throw BSCException(
+        throw CompileTimeSydException(
           'Invalid override of static member ${statement.name.name} - expected ${staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.file, true, false)} but got ${statement.val.staticType} ${formatCursorPositionFromTokens(tokens)}',
           scope,
         );
@@ -145,7 +145,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
     if (statement is FunctionStatement && statement.static) {
       if (!statement.type.isSubtypeOf(
           staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.file, true, false) ?? scope.environment.anythingType)) {
-        throw BSCException(
+        throw CompileTimeSydException(
           'Invalid override of static member ${statement.name.name} - expected ${staticMembers.igv(statement.name, false, tokens.current.line, tokens.current.col, tokens.file, true, false)} but got ${statement.type} ${formatCursorPositionFromTokens(tokens)}',
           scope,
         );
@@ -160,7 +160,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
     }
   }
   if (!(newScope.igv(constructorVariable, true)?.isSubtypeOf(GenericFunctionValueType(scope.environment.nullType, tokens.file, scope.environment, scope.typeTable)) ?? true)) {
-    throw BSCException('Bad constructor type: ${newScope.igv(constructorVariable, true)} ${formatCursorPositionFromTokens(tokens)}', scope);
+    throw CompileTimeSydException('Bad constructor type: ${newScope.igv(constructorVariable, true)} ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   if (!hasFwdDecl) {
     if (supertype != null) {
@@ -179,7 +179,7 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
             ) &&
             property.key != constructorVariable &&
             property.value.runtimeType != GenericFunctionValueType) {
-          throw BSCException(
+          throw CompileTimeSydException(
             '${name.name} type has invalid override of ${superclass!.name}.${property.key.name} (expected ${supertype.properties.igv(property.key, false)}, got ${property.value.type} ${formatCursorPositionFromTokens(tokens)}',
             scope,
           );
@@ -192,23 +192,23 @@ ClassStatement parseClass(TokenIterator tokens, TypeValidator scope, bool ignore
       if (value.key == constructorVariable) {
         if ((newScope.igv(value.key, false, -2, 0, '', true, false, false) ?? FunctionValueType(scope.environment.nullType, [], 'xxx', scope.environment, scope.typeTable)) !=
             value.value.type) {
-          throw BSCException(
+          throw CompileTimeSydException(
               '${name.name}\'s constructor (${newScope.igv(value.key, false, -2, 0, '', true, false, false) ?? 'NullFunction() - default'}) does not match forward declaration (${value.value.type}) ${formatCursorPositionFromTokens(tokens)}',
               scope);
         }
       } else {
         ValueType? newType = newScope.igv(value.key, false, -2, 0, '', true, false, false);
         if (newType != value.value.type) {
-          throw BSCException(
+          throw CompileTimeSydException(
               '${name.name}.${value.key.name} (a ${newType}) does not match forward declaration (a ${value.value.type}) ${formatCursorPositionFromTokens(tokens)}',
               scope);
         } else if (newType is FunctionValueType && value.value.type is! FunctionValueType) {
           // this will break when we get function types with arguments specifiable by fields
-          throw BSCException(
+          throw CompileTimeSydException(
               '${name.name}.${value.key.name} was forward-declared with a fwdclassfield but is a method ${formatCursorPositionFromTokens(tokens)}', scope);
         } else if (newType is! FunctionValueType && value.value.type is FunctionValueType) {
           // this will break when we get function types with arguments specifiable by fields
-          throw BSCException(
+          throw CompileTimeSydException(
               '${name.name}.${value.key.name} was forward-declared with a fwdclassmethod but is a field ${formatCursorPositionFromTokens(tokens)}', scope);
         }
       }
@@ -263,13 +263,13 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     String feature = (tokens.current as CommentFeatureToken).feature;
     if (feature == 'override') {
       if (overriden) {
-        scope.environment.stderr.writeln('Duplicate override comment feature ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('Duplicate override comment feature ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       overriden = true;
       tokens.moveNext();
     } else if (feature == 'ignore_unused') {
       if (ignoreUnused) {
-        scope.environment.stderr.writeln('Duplicate ignore_unused comment feature ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('Duplicate ignore_unused comment feature ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       ignoreUnused = true;
       tokens.moveNext();
@@ -291,13 +291,13 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       expr = parseExpression(tokens, scope);
     }
     if (expr is SubscriptExpression && expr.a.staticType is ArrayValueType && tokens.currentChar != TokenType.endOfStatement) {
-      throw BSCException('Tried to modify array ${formatCursorPositionFromTokens(tokens)}', scope);
+      throw CompileTimeSydException('Tried to modify array ${formatCursorPositionFromTokens(tokens)}', scope);
     }
     if (!tokens.next2Idents && tokens.current is CharToken && tokens.currentChar == TokenType.endOfStatement) {
       if (overriden || ignoreUnused)
-        scope.environment.stderr.writeln('Comment features are currently pointless for expression statements ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('Comment features are currently pointless for expression statements ${formatCursorPositionFromTokens(tokens)}', scope);
       if (static) {
-        throw BSCException('static expression statements make no sense ${formatCursorPositionFromTokens(tokens)}', scope);
+        throw CompileTimeSydException('static expression statements make no sense ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (expr is GetExpr) {
         scope.usedVars.add(expr.name);
@@ -307,38 +307,37 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     }
     if (tokens.current is CharToken) {
       if (overriden || ignoreUnused)
-        scope.environment.stderr
-            .writeln('Comment features are currently pointless for x++, x+=y, x--, x-=y, x=y, etc ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('Comment features are currently pointless for x++, x+=y, x--, x-=y, x=y, etc ${formatCursorPositionFromTokens(tokens)}', scope);
       if (static) {
-        throw BSCException('static x++, x+=y, x--, x-=y, x=y, etc make no sense ${formatCursorPositionFromTokens(tokens)}', scope);
+        throw CompileTimeSydException('static x++, x+=y, x--, x-=y, x=y, etc make no sense ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (tokens.currentChar == TokenType.set) {
         tokens.moveNext();
         Expression value = parseExpression(tokens, scope);
         if (!expr.isLValue(scope)) {
-          throw BSCException('$expr is not an lvalue for = ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw CompileTimeSydException('$expr is not an lvalue for = ${formatCursorPositionFromTokens(tokens)}', scope);
         }
         if (!value.staticType.isSubtypeOf(expr.staticType)) {
-          throw BSCException('attempted $expr=$value but $value was not a ${expr.staticType} ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw CompileTimeSydException('attempted $expr=$value but $value was not a ${expr.staticType} ${formatCursorPositionFromTokens(tokens)}', scope);
         }
         tokens.expectChar(TokenType.endOfStatement);
         return SetStatement(expr, value, line, col, tokens.file);
       }
       if (tokens.currentChar == TokenType.plusEquals) {
         if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException('Attempted $expr (not an integer!) += ... ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw CompileTimeSydException('Attempted $expr (not an integer!) += ... ${formatCursorPositionFromTokens(tokens)}', scope);
         }
         tokens.moveNext();
         Expression value = parseExpression(tokens, scope);
         if (!value.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException(
+          throw CompileTimeSydException(
             'attempted $expr+=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
             scope,
           );
         }
         tokens.expectChar(TokenType.endOfStatement);
         if (!expr.isLValue(scope)) {
-          throw BSCException('$expr is not an lvalue for += ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw CompileTimeSydException('$expr is not an lvalue for += ${formatCursorPositionFromTokens(tokens)}', scope);
         }
         return SetStatement(
           expr,
@@ -356,7 +355,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         );
       } else if (tokens.currentChar == TokenType.plusPlus) {
         if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException('Attempted $expr (not an integer!) ++ ... ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw CompileTimeSydException('Attempted $expr (not an integer!) ++ ... ${formatCursorPositionFromTokens(tokens)}', scope);
         }
         tokens.expectChar(TokenType.plusPlus);
         tokens.expectChar(TokenType.endOfStatement);
@@ -383,19 +382,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         );
       } else if (tokens.currentChar == TokenType.minusEquals) {
         if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException('Attempted $expr (not an integer!) -= ... ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw CompileTimeSydException('Attempted $expr (not an integer!) -= ... ${formatCursorPositionFromTokens(tokens)}', scope);
         }
         tokens.moveNext();
         Expression value = parseExpression(tokens, scope);
         if (!value.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException(
+          throw CompileTimeSydException(
             'attempted $expr-=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
             scope,
           );
         }
         tokens.expectChar(TokenType.endOfStatement);
         if (!expr.isLValue(scope)) {
-          throw BSCException('$expr is not valid l-value; attempted to do -=', scope);
+          throw CompileTimeSydException('$expr is not valid l-value; attempted to do -=', scope);
         }
         return SetStatement(
           expr,
@@ -413,7 +412,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         );
       } else if (tokens.currentChar == TokenType.minusMinus) {
         if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException('Attempted $expr (not an integer!) -- ... ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw CompileTimeSydException('Attempted $expr (not an integer!) -- ... ${formatCursorPositionFromTokens(tokens)}', scope);
         }
         tokens.expectChar(TokenType.minusMinus);
         tokens.expectChar(TokenType.endOfStatement);
@@ -440,19 +439,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         );
       } else if (tokens.currentChar == TokenType.bitOrEquals) {
         if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException('Attempted $expr (not an integer!) |= ... ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw CompileTimeSydException('Attempted $expr (not an integer!) |= ... ${formatCursorPositionFromTokens(tokens)}', scope);
         }
         tokens.moveNext();
         Expression value = parseExpression(tokens, scope);
         if (!value.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException(
+          throw CompileTimeSydException(
             'attempted $expr|=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
             scope,
           );
         }
         tokens.expectChar(TokenType.endOfStatement);
         if (!expr.isLValue(scope)) {
-          throw BSCException('$expr is not valid l-value; attempted to do |=', scope);
+          throw CompileTimeSydException('$expr is not valid l-value; attempted to do |=', scope);
         }
         return SetStatement(
           expr,
@@ -470,19 +469,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         );
       } else if (tokens.currentChar == TokenType.bitAndEquals) {
         if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException('Attempted $expr (not an integer!) &= ... ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw CompileTimeSydException('Attempted $expr (not an integer!) &= ... ${formatCursorPositionFromTokens(tokens)}', scope);
         }
         tokens.moveNext();
         Expression value = parseExpression(tokens, scope);
         if (!value.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException(
+          throw CompileTimeSydException(
             'attempted $expr&=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
             scope,
           );
         }
         tokens.expectChar(TokenType.endOfStatement);
         if (!expr.isLValue(scope)) {
-          throw BSCException('$expr is not valid l-value; attempted to do &=', scope);
+          throw CompileTimeSydException('$expr is not valid l-value; attempted to do &=', scope);
         }
         return SetStatement(
           expr,
@@ -500,19 +499,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         );
       } else if (tokens.currentChar == TokenType.bitXorEquals) {
         if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException('Attempted $expr (not an integer!) ^= ... ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw CompileTimeSydException('Attempted $expr (not an integer!) ^= ... ${formatCursorPositionFromTokens(tokens)}', scope);
         }
         tokens.moveNext();
         Expression value = parseExpression(tokens, scope);
         if (!value.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException(
+          throw CompileTimeSydException(
             'attempted $expr^=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
             scope,
           );
         }
         tokens.expectChar(TokenType.endOfStatement);
         if (!expr.isLValue(scope)) {
-          throw BSCException('$expr is not valid l-value; attempted to do ^=', scope);
+          throw CompileTimeSydException('$expr is not valid l-value; attempted to do ^=', scope);
         }
         return SetStatement(
           expr,
@@ -530,19 +529,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         );
       } else if (tokens.currentChar == TokenType.andandEquals) {
         if (!expr.staticType.isSubtypeOf(scope.environment.booleanType)) {
-          throw BSCException('Attempted $expr (not an boolean!) &&= ... ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw CompileTimeSydException('Attempted $expr (not an boolean!) &&= ... ${formatCursorPositionFromTokens(tokens)}', scope);
         }
         tokens.moveNext();
         Expression value = parseExpression(tokens, scope);
         if (!value.staticType.isSubtypeOf(scope.environment.booleanType)) {
-          throw BSCException(
+          throw CompileTimeSydException(
             'attempted $expr&&=$value but $value was not an boolean ${formatCursorPositionFromTokens(tokens)}',
             scope,
           );
         }
         tokens.expectChar(TokenType.endOfStatement);
         if (!expr.isLValue(scope)) {
-          throw BSCException('$expr is not valid l-value; attempted to do &&=', scope);
+          throw CompileTimeSydException('$expr is not valid l-value; attempted to do &&=', scope);
         }
         return SetStatement(
           expr,
@@ -560,19 +559,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         );
       } else if (tokens.currentChar == TokenType.ororEquals) {
         if (!expr.staticType.isSubtypeOf(scope.environment.booleanType)) {
-          throw BSCException('Attempted $expr (not an boolean!) ||= ... ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw CompileTimeSydException('Attempted $expr (not an boolean!) ||= ... ${formatCursorPositionFromTokens(tokens)}', scope);
         }
         tokens.moveNext();
         Expression value = parseExpression(tokens, scope);
         if (!value.staticType.isSubtypeOf(scope.environment.booleanType)) {
-          throw BSCException(
+          throw CompileTimeSydException(
             'attempted $expr||=$value but $value was not an boolean ${formatCursorPositionFromTokens(tokens)}',
             scope,
           );
         }
         tokens.expectChar(TokenType.endOfStatement);
         if (!expr.isLValue(scope)) {
-          throw BSCException('$expr is not valid l-value; attempted to do ||=', scope);
+          throw CompileTimeSydException('$expr is not valid l-value; attempted to do ||=', scope);
         }
         return SetStatement(
           expr,
@@ -590,19 +589,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         );
       } else if (tokens.currentChar == TokenType.divideEquals) {
         if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException('Attempted $expr (not an integer!) /= ... ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw CompileTimeSydException('Attempted $expr (not an integer!) /= ... ${formatCursorPositionFromTokens(tokens)}', scope);
         }
         tokens.moveNext();
         Expression value = parseExpression(tokens, scope);
         if (!value.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException(
+          throw CompileTimeSydException(
             'attempted $expr/=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
             scope,
           );
         }
         tokens.expectChar(TokenType.endOfStatement);
         if (!expr.isLValue(scope)) {
-          throw BSCException('$expr is not valid l-value; attempted to do /=', scope);
+          throw CompileTimeSydException('$expr is not valid l-value; attempted to do /=', scope);
         }
         return SetStatement(
           expr,
@@ -620,19 +619,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         );
       } else if (tokens.currentChar == TokenType.starEquals) {
         if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException('Attempted $expr (not an integer!) *= ... ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw CompileTimeSydException('Attempted $expr (not an integer!) *= ... ${formatCursorPositionFromTokens(tokens)}', scope);
         }
         tokens.moveNext();
         Expression value = parseExpression(tokens, scope);
         if (!value.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException(
+          throw CompileTimeSydException(
             'attempted $expr*=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
             scope,
           );
         }
         tokens.expectChar(TokenType.endOfStatement);
         if (!expr.isLValue(scope)) {
-          throw BSCException('$expr is not valid l-value; attempted to do *=', scope);
+          throw CompileTimeSydException('$expr is not valid l-value; attempted to do *=', scope);
         }
         return SetStatement(
           expr,
@@ -650,19 +649,19 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         );
       } else if (tokens.currentChar == TokenType.remainderEquals) {
         if (!expr.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException('Attempted $expr (not an integer!) %= ... ${formatCursorPositionFromTokens(tokens)}', scope);
+          throw CompileTimeSydException('Attempted $expr (not an integer!) %= ... ${formatCursorPositionFromTokens(tokens)}', scope);
         }
         tokens.moveNext();
         Expression value = parseExpression(tokens, scope);
         if (!value.staticType.isSubtypeOf(scope.environment.integerType)) {
-          throw BSCException(
+          throw CompileTimeSydException(
             'attempted $expr%=$value but $value was not an integer ${formatCursorPositionFromTokens(tokens)}',
             scope,
           );
         }
         tokens.expectChar(TokenType.endOfStatement);
         if (!expr.isLValue(scope)) {
-          throw BSCException('$expr is not valid l-value; attempted to do %=', scope);
+          throw CompileTimeSydException('$expr is not valid l-value; attempted to do %=', scope);
         }
         return SetStatement(
           expr,
@@ -679,10 +678,10 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
           tokens.file,
         );
       } else {
-        throw BSCException('unexpected token <${tokens.current}> after <$expr>, ${formatCursorPositionFromTokens(tokens)}', scope);
+        throw CompileTimeSydException('unexpected token <${tokens.current}> after <$expr>, ${formatCursorPositionFromTokens(tokens)}', scope);
       }
     } else {
-      throw BSCException('unexpected token <${tokens.current}> after <$expr>, ${formatCursorPositionFromTokens(tokens)}', scope);
+      throw CompileTimeSydException('unexpected token <${tokens.current}> after <$expr>, ${formatCursorPositionFromTokens(tokens)}', scope);
     }
   }
   ValueType type = ValueType.create(tokens.currentIdent, line, col, tokens.file, scope.environment, scope.typeTable);
@@ -695,7 +694,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     if (!expr2.staticType.isSubtypeOf(
       type,
     )) {
-      throw BSCException(
+      throw CompileTimeSydException(
         '$expr2 is not of type $type, which is expected by ${ident2.name}. (it\'s a ${expr2.staticType}) ${formatCursorPositionFromTokens(tokens)}',
         scope,
       );
@@ -731,17 +730,17 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       scope.igv(ident2, true);
     }
     if (static) {
-      throw BSCException('static declarations must have values ${formatCursorPositionFromTokens(tokens)}', scope);
+      throw CompileTimeSydException('static declarations must have values ${formatCursorPositionFromTokens(tokens)}', scope);
     }
     return NewVarStatement(ident2, null, line, col, tokens.file, false, type, scope);
   }
   if (!static) {
     if ((!scope.inClass && !scope.inStaticClass) || scope.igv(ident2, false, -3, 0, '', true, false, false) == null) {
       if (overriden) {
-        throw BSCException('${ident2.name} incorrectly defined as override ${formatCursorPositionFromTokens(tokens)}', scope);
+        throw CompileTimeSydException('${ident2.name} incorrectly defined as override ${formatCursorPositionFromTokens(tokens)}', scope);
       }
     } else if (!overriden && ident2 != constructorVariable) {
-      throw BSCException(
+      throw CompileTimeSydException(
           '${ident2.name} should be defined as override (write //#override before the function declaration) ${formatCursorPositionFromTokens(tokens)}', scope);
     }
   }
@@ -754,10 +753,10 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     if (tokens.current is CharToken && tokens.currentChar == TokenType.ellipsis) {
       tokens.moveNext();
       if (isVararg) {
-        throw BSCException('${ident2.name} had 2 varargs ${formatCursorPositionFromTokens(tokens)}', scope);
+        throw CompileTimeSydException('${ident2.name} had 2 varargs ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (isNormal) {
-        throw BSCException('${ident2.name} had regular arguments before a vararg ${formatCursorPositionFromTokens(tokens)}', scope);
+        throw CompileTimeSydException('${ident2.name} had regular arguments before a vararg ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       isVararg = true;
     } else {
@@ -765,7 +764,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     }
     Identifier name = tokens.currentIdent;
     if (debugParams.contains(name)) {
-      throw BSCException('${ident2.name} had duplicate parameter ${name.name} ${formatCursorPositionFromTokens(tokens)}', scope);
+      throw CompileTimeSydException('${ident2.name} had duplicate parameter ${name.name} ${formatCursorPositionFromTokens(tokens)}', scope);
     }
     debugParams.add(name);
     tokens.moveNext();
@@ -781,7 +780,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
         name);
   });
   if (isVararg && params.length > 1) {
-    throw BSCException('${ident2.name} had ${params.length - 1} regular arguments and a vararg ${formatCursorPositionFromTokens(tokens)}', scope);
+    throw CompileTimeSydException('${ident2.name} had ${params.length - 1} regular arguments and a vararg ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   if (isVararg) {
     params = InfiniteIterable(params.single);
@@ -802,7 +801,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
     );
   }
   TypeValidator tv = TypeValidator([scope], ConcatenateLazyString(NotLazyString('function '), IdentifierLazyString(ident2)), false, false, static, scope.rtl,
-      scope.identifiers, scope.environment, false);
+      scope.identifiers, scope.environment, false, false, true);
   for (Parameter param in isVararg ? [params.first] : params) {
     tv.newVar(param.name, isVararg ? ArrayValueType(param.type, tokens.file, tv.environment, tv.typeTable) : param.type, line, col, tokens.file, true);
   }
@@ -813,7 +812,7 @@ Statement parseNonKeywordStatement(TokenIterator tokens, TypeValidator scope) {
       .map((e) => e.name)
       .toList();
   if (!unusedFuncVars.isEmpty) {
-    scope.environment.stderr.writeln('Unused vars for ${tv.debugName}:\n  ${unusedFuncVars.join('\n  ')}');
+    throw CompileTimeSydException('Unused vars for ${tv.debugName}:\n  ${unusedFuncVars.join('\n  ')}', tv);
   }
   tokens.expectChar(TokenType.closeBrace);
   if (ignoreUnused) {
@@ -828,7 +827,7 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String f
   TokenIterator tokens = TokenIterator(rtokens.iterator, file, identifiers, environment);
 
   tokens.moveNext();
-  TypeValidator intrinsics = TypeValidator([], NotLazyString('intrinsics'), false, false, false, rtl, identifiers, environment, true, environment.rootTypeTable);
+  TypeValidator intrinsics = TypeValidator([], NotLazyString('intrinsics'), false, false, false, rtl, identifiers, environment, true, false, false, environment.rootTypeTable);
   environment.intrinsics.forEach((String name, Object? value) {
     intrinsics.newVar(
       environment.identifiers[name] ??= Identifier(name),
@@ -840,20 +839,20 @@ MapEntry<List<Statement>, TypeValidator> parse(Iterable<Token> rtokens, String f
     );
   });
   TypeValidator validator = TypeValidator([if (rtl == null) intrinsics, if (rtl != null) rtl.value],
-      ConcatenateLazyString(NotLazyString('file '), NotLazyString(file)), false, false, false, rtl, identifiers, environment, true, TypeTable([environment.rootTypeTable]));
+      ConcatenateLazyString(NotLazyString('file '), NotLazyString(file)), false, false, false, rtl, identifiers, environment, true, false, false, TypeTable([environment.rootTypeTable]));
 
   List<Statement> ast = parseBlock(tokens, validator, false);
   if (isMain) {
     List<Identifier> unusedGlobalscopeVars = validator.types.keys.where((element) => !validator.usedVars.contains(element)).toList();
     if (!unusedGlobalscopeVars.isEmpty) {
-      validator.environment.stderr.writeln('Unused vars:\n  ${unusedGlobalscopeVars.map((e) => e.name).join('\n  ')}');
+      throw CompileTimeSydException('Unused vars:\n  ${unusedGlobalscopeVars.map((e) => e.name).join('\n  ')}', validator);
     }
     for (TypeValidator classTv in validator.classes.values) {
       List<Identifier> unusedClassVars = classTv.types.keys
           .where((element) => !classTv.usedVars.contains(element) && !classTv.parents.any((element2) => element2.igv(element, false) != null))
           .toList();
       if (!unusedClassVars.isEmpty) {
-        //validator.environment.stderr.writeln('Unused vars for ${classTv.debugName}:\n  ${unusedClassVars.map((e) => e.name).join('\n  ')}'); TODO: fix unused vars for classes
+        //throw CompileTimeSydException('Unused vars for ${classTv.debugName}:\n  ${unusedClassVars.map((e) => e.name).join('\n  ')}', classTv); TODO: fix unused vars for classes
       }
     }
   }
@@ -865,18 +864,18 @@ WhileStatement parseWhile(TokenIterator tokens, TypeValidator scope) {
   tokens.expectChar(TokenType.openParen);
   Expression value = parseExpression(tokens, scope);
   if (!value.staticType.isSubtypeOf(scope.environment.booleanType)) {
-    throw BSCException(
+    throw CompileTimeSydException(
       'The while condition ($value, a ${value.staticType}) is not a Boolean       ${formatCursorPositionFromTokens(tokens)}',
       scope,
     );
   }
   tokens.expectChar(TokenType.closeParen);
   tokens.expectChar(TokenType.openBrace);
-  TypeValidator tv = TypeValidator([scope], NotLazyString('while loop'), false, false, false, scope.rtl, scope.identifiers, scope.environment, false);
+  TypeValidator tv = TypeValidator([scope], NotLazyString('while loop'), false, false, false, scope.rtl, scope.identifiers, scope.environment, false, true, false);
   List<Statement> body = parseBlock(tokens, tv);
   List<String> unusedWhileLoopVars = tv.types.keys.where((element) => !tv.usedVars.contains(element)).map((e) => e.name).toList();
   if (!unusedWhileLoopVars.isEmpty) {
-    scope.environment.stderr.writeln('Unused vars for while loop: ${formatCursorPositionFromTokens(tokens)}\n  ${unusedWhileLoopVars.join('\n  ')}');
+    throw CompileTimeSydException('Unused vars for while loop: ${formatCursorPositionFromTokens(tokens)}\n  ${unusedWhileLoopVars.join('\n  ')}', tv);
   }
   tokens.expectChar(TokenType.closeBrace);
   return WhileStatement(
@@ -892,7 +891,7 @@ WhileStatement parseWhile(TokenIterator tokens, TypeValidator scope) {
 
 ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
   if (tokens.doneImports) {
-    throw BSCException(
+    throw CompileTimeSydException(
       'cannot have import statement after non-import ${formatCursorPositionFromTokens(tokens)}',
       scope,
     );
@@ -900,14 +899,14 @@ ImportStatement parseImport(TokenIterator tokens, TypeValidator scope) {
   tokens.moveNext();
   String str = tokens.string;
   if (scope.environment.filesStartedLoading.contains(str)) {
-    throw BSCException(
+    throw CompileTimeSydException(
       'Import loop detected at ${formatCursorPositionFromTokens(tokens)}',
       scope,
     );
   }
   scope.environment.filesStartedLoading.add(str);
   if (!File('${path.dirname(tokens.file)}/$str').existsSync()) {
-    throw BSCException('Attempted import of nonexistent file ${formatCursorPositionFromTokens(tokens)}', scope);
+    throw CompileTimeSydException('Attempted import of nonexistent file ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   tokens.moveNext();
   tokens.expectChar(TokenType.endOfStatement);
@@ -963,7 +962,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
     }
   }
   if (tokens.current is CharToken && tokens.currentChar == TokenType.endOfFile) {
-    throw BSCException('comment feature at end of file ${tokens.file}', scope);
+    throw CompileTimeSydException('comment feature at end of file ${tokens.file}', scope);
   }
   if (tokens.current is! IdentToken) {
     tokens.getPrevious();
@@ -973,7 +972,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
   switch (tokens.currentIdent) {
     case fwdclassVariable:
       if (overriden) {
-        scope.environment.stderr.writeln('Can\'t override classes ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('Can\'t override classes ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.moveNext();
       Identifier cln = tokens.currentIdent;
@@ -994,11 +993,11 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       if (tokens.current is IdentToken && tokens.currentIdent == scope.identifiers['extends']) {
         spt = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable) as ClassValueType;
         props = TypeValidator([spt.properties], ConcatenateLazyString(NotLazyString('forward-declared subclass '), IdentifierLazyString(cln)), true, false,
-            false, scope.rtl, scope.identifiers, scope.environment, false);
+            false, scope.rtl, scope.identifiers, scope.environment, false, false, false);
         tokens.moveNext();
       } else {
         props = TypeValidator([scope], ConcatenateLazyString(NotLazyString('forward-declared root class '), IdentifierLazyString(cln)), true, false, false,
-            scope.rtl, scope.identifiers, scope.environment, false);
+            scope.rtl, scope.identifiers, scope.environment, false, false, false);
       }
       ClassValueType x = ClassValueType(cln, spt, props, tokens.file, true, scope.environment, scope.typeTable);
       FunctionValueType? constructorType;
@@ -1014,7 +1013,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
             (ValueType.create(scope.identifiers[spt.name.name + 'Class'] ??= Identifier(spt.name.name + 'Class'), tokens.current.line, tokens.current.col,
                     tokens.file, scope.environment, scope.typeTable) as ClassOfValueType)
                 .staticMembers,
-        ], NotLazyString('static members'), false, true, false, scope.rtl, scope.identifiers, scope.environment, false),
+        ], NotLazyString('static members'), false, true, false, scope.rtl, scope.identifiers, scope.environment, false, false, false),
         constructorType,
         tokens.file,
         scope.environment,
@@ -1032,10 +1031,10 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       ValueType type = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable);
       ValueType reciever = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable);
       if (reciever is! ClassValueType) {
-        throw BSCException('fwdclassfields should only be defined on classes ${formatCursorPositionFromTokens(tokens)}', scope);
+        throw CompileTimeSydException('fwdclassfields should only be defined on classes ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (!reciever.notFullyDeclared) {
-        throw BSCException(
+        throw CompileTimeSydException(
             'fwdclassfields should only be defined on forward-declared classes, before the real class is created ${formatCursorPositionFromTokens(tokens)}',
             scope);
       }
@@ -1043,10 +1042,10 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens..moveNext();
       tokens.expectChar(TokenType.period);
       if (overriden) {
-        scope.environment.stderr.writeln('fwdclassfields should never be defined as override ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('fwdclassfields should never be defined as override ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (cl.properties.types[tokens.currentIdent] != null) {
-        throw BSCException('fwdclassfields should only be defined once per class ${formatCursorPositionFromTokens(tokens)}', scope);
+        throw CompileTimeSydException('fwdclassfields should only be defined once per class ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       cl.properties.newVar(tokens.currentIdent, type, tokens.current.line, tokens.current.col, tokens.file, false, true, true);
       if (ignoreUnused) {
@@ -1059,10 +1058,10 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       ValueType returnType = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable);
       ValueType reciever = ValueType.create((tokens..moveNext()).currentIdent, tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable);
       if (reciever is! ClassValueType) {
-        throw BSCException('fwdclassmethods should only be defined on classes ${formatCursorPositionFromTokens(tokens)}', scope);
+        throw CompileTimeSydException('fwdclassmethods should only be defined on classes ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (!reciever.notFullyDeclared) {
-        throw BSCException(
+        throw CompileTimeSydException(
             'fwdclassmethods should only be defined on forward-declared classes, before the real class is created ${formatCursorPositionFromTokens(tokens)}',
             scope);
       }
@@ -1070,10 +1069,10 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens..moveNext();
       tokens.expectChar(TokenType.period);
       if (overriden) {
-        scope.environment.stderr.writeln('fwdclassmethods should never be defined as override ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('fwdclassmethods should never be defined as override ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (cl.properties.types[tokens.currentIdent] != null) {
-        throw BSCException('fwdclassmethods should only be defined once per class ${formatCursorPositionFromTokens(tokens)}', scope);
+        throw CompileTimeSydException('fwdclassmethods should only be defined once per class ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       Identifier methodName = tokens.currentIdent;
       tokens.moveNext();
@@ -1100,7 +1099,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens..moveNext();
       tokens.expectChar(TokenType.period);
       if (overriden) {
-        scope.environment.stderr.writeln('fwdstaticfields should never be defined as override ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('fwdstaticfields should never be defined as override ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       cl.staticMembers.newVar(tokens.currentIdent, type, tokens.current.line, tokens.current.col, tokens.file);
       if (ignoreUnused) {
@@ -1116,7 +1115,7 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       tokens..moveNext();
       tokens.expectChar(TokenType.period);
       if (overriden) {
-        scope.environment.stderr.writeln('fwdstaticmethods should never be defined as override ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('fwdstaticmethods should never be defined as override ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       Identifier methodName = tokens.currentIdent;
       tokens.moveNext();
@@ -1141,89 +1140,83 @@ Statement parseStatement(TokenIterator tokens, TypeValidator scope) {
       return NopStatement();
     case classVariable:
       if (overriden) {
-        scope.environment.stderr.writeln('Can\'t override classes ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('Can\'t override classes ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       return parseClass(tokens, scope, ignoreUnused);
 
     case importVariable:
       if (overriden) {
-        scope.environment.stderr.writeln('Overriding an import makes no sense, like, what does that mean ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('Overriding an import makes no sense, like, what does that mean ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (ignoreUnused) {
-        scope.environment.stderr
-            .writeln('Instead of this, ignore_unused on all the unused components of the library ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('Instead of this, ignore_unused on all the unused components of the library ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       return parseImport(tokens, scope);
     case whileVariable:
       tokens.doneImports = true;
       if (overriden) {
-        scope.environment.stderr.writeln('Can\'t override whiles ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('Can\'t override whiles ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (ignoreUnused) {
-        scope.environment.stderr
-            .writeln('What does that even mean for a while loop (look at this and previous line) ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('What does that even mean for a while loop (look at this and previous line) ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       return parseWhile(tokens, scope);
     case breakVariable:
       if (overriden) {
-        scope.environment.stderr.writeln('Can\'t override breaks ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('Can\'t override breaks ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (ignoreUnused) {
-        scope.environment.stderr
-            .writeln('What does that even mean for a break statement (look at this and previous line) ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('What does that even mean for a break statement (look at this and previous line) ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.doneImports = true;
       return BreakStatement.parse(tokens, scope);
     case continueVariable:
       tokens.doneImports = true;
       if (overriden) {
-        scope.environment.stderr.writeln('Can\'t override continues ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('Can\'t override continues ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (ignoreUnused) {
-        scope.environment.stderr
-            .writeln('What does that even mean for a continue statement (look at this and previous line) ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('What does that even mean for a continue statement (look at this and previous line) ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       return ContinueStatement.parse(tokens, scope);
     case returnVariable:
       tokens.doneImports = true;
       if (overriden) {
-        scope.environment.stderr.writeln('Can\'t override returns ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('Can\'t override returns ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (ignoreUnused) {
-        scope.environment.stderr
-            .writeln('What does that even mean for a return statement (look at this and previous line) ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('What does that even mean for a return statement (look at this and previous line) ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       return ReturnStatement.parse(tokens, scope);
     case ifVariable:
       tokens.doneImports = true;
       if (overriden) {
-        scope.environment.stderr.writeln('Can\'t override if statements ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('Can\'t override if statements ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (ignoreUnused) {
-        scope.environment.stderr
-            .writeln('What does that even mean for a if statement (look at this and previous line) ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('What does that even mean for a if statement (look at this and previous line) ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       return parseIf(tokens, scope);
     case enumVariable:
       if (overriden) {
-        scope.environment.stderr.writeln('Can\'t override enums ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('Can\'t override enums ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       if (ignoreUnused) {
-        scope.environment.stderr.writeln('why do you not need every value of an enum ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('why do you not need every value of an enum ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       tokens.doneImports = true;
       return parseEnum(tokens, scope);
     case forVariable:
       tokens.doneImports = true;
       if (overriden) {
-        scope.environment.stderr.writeln('Can\'t override fors ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('Can\'t override fors ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       return parseForIn(tokens, scope, ignoreUnused);
     case constVariable:
       tokens.doneImports = true;
 
       if (overriden) {
-        scope.environment.stderr.writeln('Can\'t override consts ${formatCursorPositionFromTokens(tokens)}');
+        throw CompileTimeSydException('Can\'t override consts ${formatCursorPositionFromTokens(tokens)}', scope);
       }
       return parseConst(tokens, scope, ignoreUnused);
     default:
@@ -1253,7 +1246,7 @@ Statement parseConst(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
     scope,
   );
   if (!expr.staticType.isSubtypeOf(type)) {
-    throw BSCException('attempted to assign $expr (a ${expr.staticType}) to $name, which is a const $type ${formatCursorPositionFromTokens(tokens)}', scope);
+    throw CompileTimeSydException('attempted to assign $expr (a ${expr.staticType}) to $name, which is a const $type ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   tokens.expectChar(TokenType.endOfStatement);
   if (!static) scope.newVar(name, type, tokens.current.line, tokens.current.col, tokens.file, true);
@@ -1272,7 +1265,7 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
   Identifier currentName = tokens.currentIdent;
   tokens.moveNext();
   if (tokens.currentIdent != (scope.identifiers['in'] ??= Identifier('in'))) {
-    throw BSCException('no \'in\' after name of new variable in the for loop ${formatCursorPositionFromTokens(tokens)}', scope);
+    throw CompileTimeSydException('no \'in\' after name of new variable in the for loop ${formatCursorPositionFromTokens(tokens)}', scope);
   }
   tokens.moveNext();
   Expression iterable = parseExpression(
@@ -1281,9 +1274,9 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
   );
   if (!iterable.staticType.isSubtypeOf(ValueType.create(
       scope.identifiers['WhateverIterable'] ??= Identifier('WhateverIterable'), tokens.current.line, tokens.current.col, tokens.file, scope.environment, scope.typeTable))) {
-    throw BSCException('tried to for loop over non-iterable (iterated over ${iterable.staticType}) ${formatCursorPositionFromTokens(tokens)}', scope);
+    throw CompileTimeSydException('tried to for loop over non-iterable (iterated over ${iterable.staticType}) ${formatCursorPositionFromTokens(tokens)}', scope);
   }
-  TypeValidator innerScope = TypeValidator([scope], NotLazyString('for loop'), false, false, false, scope.rtl, scope.identifiers, scope.environment, false);
+  TypeValidator innerScope = TypeValidator([scope], NotLazyString('for loop'), false, false, false, scope.rtl, scope.identifiers, scope.environment, false, true, false);
   innerScope.newVar(
     currentName,
     iterable.staticType is IterableValueType
@@ -1306,7 +1299,7 @@ Statement parseForIn(TokenIterator tokens, TypeValidator scope, bool ignoreUnuse
   List<Statement> body = parseBlock(tokens, innerScope);
   List<String> unusedForLoopVars = innerScope.types.keys.where((element) => !innerScope.usedVars.contains(element)).toList().map((e) => e.name).toList();
   if (!unusedForLoopVars.isEmpty) {
-    scope.environment.stderr.writeln('Unused vars for for loop: ${formatCursorPositionFromTokens(tokens)}\n  ${unusedForLoopVars.join('\n  ')}');
+    throw CompileTimeSydException('Unused vars for for loop: ${formatCursorPositionFromTokens(tokens)}\n  ${unusedForLoopVars.join('\n  ')}', innerScope);
   }
   tokens.expectChar(TokenType.closeBrace);
   return ForStatement(
@@ -1326,9 +1319,9 @@ Statement parseEnum(TokenIterator tokens, TypeValidator scope) {
   tokens.moveNext();
   List<Identifier> body = [];
   TypeValidator tv = TypeValidator([scope], ConcatenateLazyString(IdentifierLazyString(name), NotLazyString('-enum')), false, false, false, scope.rtl,
-      scope.identifiers, scope.environment, false);
+      scope.identifiers, scope.environment, false, false, false);
       if (ValueType.hasTypeSuffix(name)) {
-        throw BSCException('Cannot declare enum type with reserved type name ${name.name} ${formatCursorPositionFromTokens(tokens)}', scope);
+        throw CompileTimeSydException('Cannot declare enum type with reserved type name ${name.name} ${formatCursorPositionFromTokens(tokens)}', scope);
       }
   EnumPropertyValueType propType = EnumPropertyValueType(name, tokens.file, scope.environment, scope.typeTable);
   EnumValueType type = EnumValueType(name, tv, tokens.file, propType, scope.environment, scope.typeTable);
@@ -1371,17 +1364,17 @@ IfStatement parseIf(TokenIterator tokens, TypeValidator scope) {
   Expression value = parseExpression(tokens, scope);
   tokens.expectChar(TokenType.closeParen);
   if (!value.staticType.isSubtypeOf(scope.environment.booleanType)) {
-    throw BSCException(
+    throw CompileTimeSydException(
       'The if condition ($value, a ${value.staticType}) is not a Boolean        ${formatCursorPositionFromTokens(tokens)}',
       scope,
     );
   }
   tokens.expectChar(TokenType.openBrace);
-  TypeValidator innerScope = TypeValidator([scope], NotLazyString('if statement'), false, false, false, scope.rtl, scope.identifiers, scope.environment, false);
+  TypeValidator innerScope = TypeValidator([scope], NotLazyString('if statement'), false, false, false, scope.rtl, scope.identifiers, scope.environment, false, false, false);
   List<Statement> body = parseBlock(tokens, innerScope);
   List<String> unusedForLoopVars = innerScope.types.keys.where((element) => !innerScope.usedVars.contains(element)).map((e) => e.name).toList();
   if (!unusedForLoopVars.isEmpty) {
-    scope.environment.stderr.writeln('Unused vars for if statement: ${formatCursorPositionFromTokens(tokens)}\n  ${unusedForLoopVars.join('\n  ')}');
+    throw CompileTimeSydException('Unused vars for if statement: ${formatCursorPositionFromTokens(tokens)}\n  ${unusedForLoopVars.join('\n  ')}', innerScope);
   }
   List<Statement> elseBody = [];
   tokens.expectChar(TokenType.closeBrace);
@@ -1389,18 +1382,17 @@ IfStatement parseIf(TokenIterator tokens, TypeValidator scope) {
     tokens.moveNext();
     if (tokens.current is IdentToken && tokens.currentIdent == scope.identifiers['if']) {
       TypeValidator elseBlock =
-          TypeValidator([scope], NotLazyString('if statement - else block'), false, false, false, scope.rtl, scope.identifiers, scope.environment, false);
+          TypeValidator([scope], NotLazyString('if statement - else block'), false, false, false, scope.rtl, scope.identifiers, scope.environment, false, false, false);
       IfStatement parsedIf = parseIf(tokens, elseBlock);
       elseBody = [parsedIf];
     } else {
       tokens.expectChar(TokenType.openBrace);
       TypeValidator elseBlock =
-          TypeValidator([scope], NotLazyString('if statement - else block'), false, false, false, scope.rtl, scope.identifiers, scope.environment, false);
+          TypeValidator([scope], NotLazyString('if statement - else block'), false, false, false, scope.rtl, scope.identifiers, scope.environment, false, false, false);
       elseBody = parseBlock(tokens, elseBlock);
       List<String> unusedForLoopVars = elseBlock.types.keys.where((element) => !elseBlock.usedVars.contains(element)).map((e) => e.name).toList();
       if (!unusedForLoopVars.isEmpty) {
-        scope.environment.stderr
-            .writeln('Unused vars for if statement (else block): ${formatCursorPositionFromTokens(tokens)}\n  ${unusedForLoopVars.join('\n  ')}');
+        throw CompileTimeSydException('Unused vars for if statement (else block): ${formatCursorPositionFromTokens(tokens)}\n  ${unusedForLoopVars.join('\n  ')}', scope);
       }
       tokens.expectChar(TokenType.closeBrace);
     }

@@ -409,7 +409,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           append(tokens, createToken(tt.Tilde, null));
           break;
         } else {
-          throw(concat('Unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename), ': ', chr(ch)));
+          compileeSourceError(concat('Unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename), ': ', chr(ch)));
         }
       } else if (state == ts.Identifier) {
         if ((ch >= 0x30 && ch <= 0x39) || // 0-9
@@ -538,7 +538,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
       } else if (state == ts.Integer) {
         if (ch >= 0x30 && ch <= 0x39) { // 0-9
           if ((buffer as Integer > 922337203685477580) || ((buffer as Integer == 922337203685477580) && (ch == 0x39))) {
-            throw(concat('Invalid integer literal at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename)));
+            compileeSourceError(concat('Invalid integer literal at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename)));
           }
           buffer = buffer as Integer * 10 + (ch - 0x30);
           break;
@@ -555,24 +555,24 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           buffer = 0;
           // no break, reprocess in ts.Hex
         } else {
-          throw(concat('Unexpected character ', padLeft(hex(ch), 4, "0"), ' in hex literal at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename), ': ', chr(ch)));
+          compileeSourceError(concat('Unexpected character ', padLeft(hex(ch), 4, "0"), ' in hex literal at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename), ': ', chr(ch)));
         }
       } else if (state == ts.Hex) {
         if (ch >= 0x30 && ch <= 0x39) { // 0-9
           if ((buffer as Integer > 0x07ffffffffffffff) && ((buffer as Integer != 0x0800000000000000) || ch != 0x30)) {
-            throw(concat('Invalid integer literal at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename)));
+            compileeSourceError(concat('Invalid integer literal at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename)));
           }
           buffer = buffer as Integer * 0x10 + (ch - 0x30);
           break;
         } else if (ch >= 0x41 && ch <= 0x46) { // A-F
           if (buffer as Integer > 0x07ffffffffffffff) {
-            throw(concat('Invalid integer literal at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename)));
+            compileeSourceError(concat('Invalid integer literal at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename)));
           }
           buffer = buffer as Integer * 0x10 + (ch - 0x41) + 10;
           break;
         } else if (ch >= 0x61 && ch <= 0x66) { // a-f
           if (buffer as Integer > 0x07ffffffffffffff) {
-            throw(concat('Invalid integer literal at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename)));
+            compileeSourceError(concat('Invalid integer literal at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename)));
           }
           buffer = buffer as Integer * 0x10 + (ch - 0x61) + 10;
           break;
@@ -597,7 +597,7 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
           state = ts.Top;
           break;
         } else {
-          throw(concat('Unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename), ': ', chr(ch)));
+          compileeSourceError(concat('Unexpected character U+', padLeft(hex(ch), 4, "0"), ' at ', SourceLocation(startLineNo, startColNo, lineNo, colNo, filename), ': ', chr(ch)));
         }
 
       } else if (state == ts.Plus) {
@@ -832,30 +832,30 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
   } else if (state == ts.Identifier) {
     append(tokens, createToken(tt.Identifier, joinList(buffer as WhateverList)));
   } else if (state == ts.SingleQuoteString) {
-    throw(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    compileeSourceError(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.SingleQuoteStringCR) {
-    throw(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    compileeSourceError(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.SingleQuoteStringEscape) {
-    throw(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    compileeSourceError(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.DoubleQuoteString) {
-    throw(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    compileeSourceError(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.DoubleQuoteStringCR) {
-    throw(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    compileeSourceError(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.DoubleQuoteStringEscape) {
-    throw(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    compileeSourceError(concat('Unterminated string at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.Zero) {
     append(tokens, createToken(tt.Integer, 0));
   } else if (state == ts.Integer) {
     append(tokens, createToken(tt.Integer, buffer));
   } else if (state == ts.HexStart) {
-    throw(concat('Incomplete hex literal at end of ', filename));
+    compileeSourceError(concat('Incomplete hex literal at end of ', filename));
   } else if (state == ts.Hex) {
     append(tokens, createToken(tt.Integer, buffer));
 
   } else if (state == ts.Period) {
     append(tokens, createToken(tt.Period, null));
   } else if (state == ts.PeriodPeriod) {
-    throw(concat('Incomplete ellipsis at end of ', filename));
+    compileeSourceError(concat('Incomplete ellipsis at end of ', filename));
 
   } else if (state == ts.Plus) {
     append(tokens, createToken(tt.Plus, null));
@@ -891,11 +891,11 @@ TokenList tokenize(IntegerIterable source, String filename, Boolean internal) {
   } else if (state == ts.LineComment) {
     // file terminated with line comment
   } else if (state == ts.BlockComment) {
-    throw(concat('Unterminated block comment at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    compileeSourceError(concat('Unterminated block comment at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.BlockCommentCR) {
-    throw(concat('Unterminated block comment at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    compileeSourceError(concat('Unterminated block comment at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.BlockCommentAsterisk) {
-    throw(concat('Unterminated block comment at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
+    compileeSourceError(concat('Unterminated block comment at end of file started on ', SourceLocation(startLineNo, startColNo, startLineNo, startColNo, filename)));
   } else if (state == ts.CR) {
     // file terminated with newline
   } else {
@@ -943,7 +943,7 @@ class TokenConsumer extends Object {
 
   String readIdentifier() {
     if (!isNext(tt.Identifier)) {
-      throw(concat(expected('identifier')));
+      compileeSourceError(concat(expected('identifier')));
     }
     String result = tokens[index].data as String;
     index = index + 1;
@@ -952,7 +952,7 @@ class TokenConsumer extends Object {
   
   String readString() {
     if (!isNext(tt.String)) {
-      throw(concat(expected('string literal')));
+      compileeSourceError(concat(expected('string literal')));
     }
     String result = tokens[index].data as String;
     index = index + 1;
@@ -961,7 +961,7 @@ class TokenConsumer extends Object {
   
   Integer readInteger() {
     if (!isNext(tt.Integer)) {
-      throw(concat(expected('integer literal')));
+      compileeSourceError(concat(expected('integer literal')));
     }
     Integer result = tokens[index].data as Integer;
     index = index + 1;
@@ -970,27 +970,27 @@ class TokenConsumer extends Object {
   
   Null expectIdentifier(String identifier) {
     if (!isNext(tt.Identifier)) {
-      throw(concat(expected(concat('identifier "', identifier, '"'))));
+      compileeSourceError(concat(expected(concat('identifier "', identifier, '"'))));
     }
     if (!isNextIdentifier(identifier)) {
-      throw(concat(expected(concat('identifier "', identifier, '"'))));
+      compileeSourceError(concat(expected(concat('identifier "', identifier, '"'))));
     }
     index = index + 1;
   }
   
   Null expectKeyword(String keyword) {
     if (!isNext(tt.Keyword)) {
-      throw(concat(expected(concat('keyword "', keyword, '"'))));
+      compileeSourceError(concat(expected(concat('keyword "', keyword, '"'))));
     }
     if (!isNextKeyword(keyword)) {
-      throw(concat(expected(concat('keyword "', keyword, '"'))));
+      compileeSourceError(concat(expected(concat('keyword "', keyword, '"'))));
     }
     index = index + 1;
   }
   
   Null expectPunctuation(tt punctuation) {
     if (!isNext(punctuation)) {
-      throw(concat(expected(concat(Token(punctuation, SourceLocation(-1, -1, -1, -1, ''), null)))));
+      compileeSourceError(concat(expected(concat(Token(punctuation, SourceLocation(-1, -1, -1, -1, ''), null)))));
     }
     index = index + 1;
   }

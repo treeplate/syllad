@@ -1,5 +1,4 @@
-// expected error: expected field but found method
-// unexpected output: FAIL
+// expected compile-time error: expected field but found method
 
 println('FAIL');
 

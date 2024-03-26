@@ -1,5 +1,4 @@
-// expected error: error: type mismatch for function return value, expected String, got Integer
-// unexpected output: FAIL
+// expected compile-time error: error: type mismatch for function return value, expected String, got Integer
 
 println('FAIL');
 

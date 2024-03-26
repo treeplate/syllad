@@ -1,5 +1,4 @@
-// expected error: ignore_unused at end of file
-// unexpected output: FAIL
+// expected compile-time error: ignore_unused at end of file
 
 println('FAIL');
 

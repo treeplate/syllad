@@ -1,6 +1,4 @@
-// expected error: duplicate definition of class A
-// unexpected output: foo
-// unexpected output: bar
+// expected compile-time error: duplicate definition of class A
 
 class A {
   Null foo() { println('foo'); }

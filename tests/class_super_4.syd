@@ -1,5 +1,4 @@
-// expected error: cannot override non-constant variable x with constant variable (parsetime error)
-// unexpected output: FAIL
+// expected compile-time error: cannot override non-constant variable x with constant variable (parsetime error)
 
 Whatever zap = 'hello';
 

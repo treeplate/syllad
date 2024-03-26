@@ -1,5 +1,4 @@
-// unexpected output: FAIL
-// expected error: class "Foo" is forward-declared but never defined
+// expected compile-time error: class "Foo" is forward-declared but never defined
 
 println('FAIL');
 

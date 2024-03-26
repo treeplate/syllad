@@ -1,5 +1,4 @@
-// expected error: error: integer literal too big
-// unexpected output: FAIL
+// expected compile-time error: error: integer literal too big
 
 println('FAIL');
 

@@ -1,5 +1,4 @@
-// expected error: type error, inherited member foo is not a valid override of supertype's foo
-// unexpected output: FAIL
+// expected compile-time error: type error, inherited member foo is not a valid override of supertype's foo
 
 println('FAIL');
 

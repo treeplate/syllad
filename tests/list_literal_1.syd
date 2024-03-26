@@ -2,7 +2,7 @@
 // expected output: test1
 // expected output: test2
 // unexpected output: END
-// expected error: type error
+// expected runtime error: type error
 
 Whatever test1() {
   println('test1');

@@ -1,5 +1,4 @@
-// expected error: unknown identifier 'foo'
-// unexpected output: FAIL
+// expected compile-time error: unknown identifier 'foo'
 
 println('FAIL');
 

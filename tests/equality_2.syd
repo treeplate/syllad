@@ -1,5 +1,4 @@
-// expected error: 0 and false are not compatible types
-// unexpected output: FAIL
+// expected compile-time error: 0 and false are not compatible types
 
 println('FAIL');
 

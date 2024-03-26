@@ -1,5 +1,4 @@
-// unexpected output: FAIL
-// expected error: type mismatch (a cannot be null)
+// expected compile-time error: type mismatch (a cannot be null)
 
 println('FAIL');
 Integer a = 1;

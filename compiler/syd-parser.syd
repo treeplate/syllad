@@ -73,7 +73,7 @@ Expression parseExpressionLeaves(TokenConsumer source) {
     source.expectPunctuation(tt.CloseParen);
     return expression;
   }
-  throw(source.expected('expression'));
+  compileeSourceError(source.expected('expression'));
 }
 
 Expression parseUnaryExpression(TokenConsumer source) {
@@ -494,7 +494,7 @@ Statement parseDeclaration(TokenConsumer source) {
     }
     if (source.isNextIdentifier('__extern')) {
       if (isVarArgs) {
-        throw(source.butFound('function body', '__extern keyword (which does not support varargs)'));
+        compileeSourceError(source.butFound('function body', '__extern keyword (which does not support varargs)'));
       }
       source.expectIdentifier('__extern');
       String library = source.readString();
@@ -510,7 +510,7 @@ Statement parseDeclaration(TokenConsumer source) {
     source.expectPunctuation(tt.Semicolon);
     return VariableDeclarationStatement(type, identifier, null, location);
   }
-  throw(source.expected('"=", "(", or ";"'));
+  compileeSourceError(source.expected('"=", "(", or ";"'));
 }
 
 Statement parseClassMemberDeclaration(TokenConsumer source) {
@@ -536,12 +536,12 @@ Statement parseClassMemberDeclaration(TokenConsumer source) {
     source.expectPunctuation(tt.Semicolon);
     return FieldDeclarationStatement(type, identifier, null, location);
   }
-  throw(source.expected('"=", "(", or ";"'));
+  compileeSourceError(source.expected('"=", "(", or ";"'));
 }
 
 Statement _parseStatement(TokenConsumer source) {
   if (source.isNextIdentifier('import')) {
-    throw(source.butFound('statement', 'import'));
+    compileeSourceError(source.butFound('statement', 'import'));
   }
   if (source.isNextIdentifier('if')) {
     return parseIfStatement(source);
@@ -607,7 +607,7 @@ Statement _parseStatement(TokenConsumer source) {
   // Expression followed by some operator: must be assignment.
   // TODO: the following leads to a weird error when the input is just |''|.
   if (!(expression is LValueExpression)) {
-    throw(source.expected('semicolon'));
+    compileeSourceError(source.expected('semicolon'));
   }
   if (source.isNext(tt.Equals)) {
     source.expectPunctuation(tt.Equals);
@@ -700,7 +700,7 @@ Statement _parseStatement(TokenConsumer source) {
     source.expectPunctuation(tt.Semicolon);
     return LogicalOrAssignmentStatement(expression as LValueExpression, initializer, location);
   }
-  throw(source.expected('assignment operator (e.g. "=")'));
+  compileeSourceError(source.expected('assignment operator (e.g. "=")'));
 }
 parseStatement = _parseStatement;
 
@@ -820,7 +820,7 @@ Library parseTokens(TokenList tokens, String name, Boolean isProgram) {
     Statement statement = parseTopLevelStatement(source);
     if (statement is ImportStatement) {
       if (!importsOk) {
-        throw(source.butFound('declaration or statement', 'import'));
+        compileeSourceError(source.butFound('declaration or statement', 'import'));
       }
     } else {
       importsOk = false;

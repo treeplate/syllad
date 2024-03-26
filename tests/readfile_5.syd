@@ -1,5 +1,5 @@
 // unexpected output: FAIL
-// expected error: cannot read a file twice
+// expected runtime error: cannot read a file twice
 
 String filename = 'readfile_5.$$$';
 

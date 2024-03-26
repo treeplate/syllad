@@ -1,0 +1,3 @@
+// expected compile-time error: continue outside loop
+
+continue;

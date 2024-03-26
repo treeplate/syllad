@@ -1,6 +1,4 @@
-// expected error: unknown member "B.bar".
-// unexpected output: 1
-// unexpected output: 2
+// expected compile-time error: unknown member "B.bar".
 
 fwdclass A();
 fwdclass B() extends A;

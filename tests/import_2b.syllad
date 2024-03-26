@@ -1,4 +1,4 @@
-// expected error: unknown identifier "A"
+// expected compile-time error: unknown identifier "A"
 // unexpected output: FAIL
 
 A a;

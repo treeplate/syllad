@@ -1,5 +1,4 @@
-// expected error: unused variable
-// expected exit code is 0
+// expected compile-time error: unused variable
 
 Integer variable;
 variable = 1;

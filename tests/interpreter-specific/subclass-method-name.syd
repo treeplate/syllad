@@ -1,4 +1,5 @@
 // expected output: <function (Pa.ss)>
+// expect no newline at end of output
 
 class Pa {
     Null ss() {

@@ -1,5 +1,4 @@
-// expected error: unnecessary !
-// unexpected output: FAIL
+// expected compile-time error: unnecessary !
 
 println('FAIL');
 

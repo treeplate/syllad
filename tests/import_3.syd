@@ -1,2 +1,2 @@
-// expected error: nonexistent file foo.
+// expected compile-time error: nonexistent file foo.
 import 'foo.';

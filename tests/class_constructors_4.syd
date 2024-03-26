@@ -1,6 +1,4 @@
-// expected error: Constructor cannot be a field.
-// unexpected output: rabbit
-// unexpected output: quail
+// expected compile-time error: Constructor cannot be a field.
 
 class A {
   Null q() {

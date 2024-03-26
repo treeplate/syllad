@@ -253,7 +253,7 @@ void transpileGlobalscopeStatement(Statement statement,  List<Statement> mainsco
       if (params is InfiniteIterable) {
         params = [Parameter(ListValueType(params.first.type, statement.file, env, statement.tv.typeTable), params.first.name)];
       }
-      print('${transpileType(returnType)} ${name.name}(${params.map((e) => '${transpileType(e.type)} ${e.name.name}').join(', ')}) {');
+      print('${name.name == 'compileeSourceError' ? 'core.Never' : transpileType(returnType)} ${name.name}(${params.map((e) => '${transpileType(e.type)} ${e.name.name}').join(', ')}) {');
       for (Statement statement in body) {
         transpileStatement(statement, env, 1);
       }

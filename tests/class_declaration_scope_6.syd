@@ -1,5 +1,4 @@
-// expected error: compile time error: class not yet fully defined and constructor not forward-declared
-// unexpected output: FAIL
+// expected compile-time error: class not yet fully defined and constructor not forward-declared
 
 println('FAIL');
 

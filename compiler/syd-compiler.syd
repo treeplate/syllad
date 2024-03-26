@@ -861,7 +861,7 @@ class Expression extends AstNode {
 
 Null generateInstructionsForArguments(CompilationEnvironment environment, CompiledScope scope, Expression subroutineReference, SourceLocation sourceLocation, Type subroutineType, ExpressionList arguments, BucketList argumentValues, SourceLocationList sourceLocations) {
   if (!subroutineType.isSubtypeOf(environment.coreSubroutineType)) {
-    throw(concat('"', subroutineReference.toStringIndent(0), '" is not a function pointer at ', sourceLocation, ' (is ', subroutineType.name, ')'));
+    compileeSourceError(concat('"', subroutineReference.toStringIndent(0), '" is not a function pointer at ', sourceLocation, ' (is ', subroutineType.name, ')'));
   }
   for (argument in arguments) {
     append(sourceLocations, argument.sourceLocation);
@@ -872,7 +872,7 @@ Null generateInstructionsForArguments(CompilationEnvironment environment, Compil
 Bucket generateInstructionsForSubroutinePointerCallExpression(CompiledScope scope, Bucket subroutinePointer, ExpressionList arguments, Expression subroutineReference, SourceLocation sourceLocation) {
   CompilationEnvironment environment = scope.environment();
   if (!subroutinePointer.staticType.isSubtypeOf(environment.coreSubroutineType)) {
-    throw(concat('Cannot call ', subroutinePointer.staticType.name, ', as it is not a function type, at ', sourceLocation));
+    compileeSourceError(concat('Cannot call ', subroutinePointer.staticType.name, ', as it is not a function type, at ', sourceLocation));
   }
   BucketList argumentValues = []:Bucket;
   SourceLocationList sourceLocations = []:SourceLocation;

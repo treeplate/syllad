@@ -1,4 +1,4 @@
-// expected error: duplicate enum
+// expected compile-time error: duplicate enum
 
 enum Moo {}
 enum Moo {}

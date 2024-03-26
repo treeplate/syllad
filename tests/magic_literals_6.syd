@@ -1,4 +1,4 @@
-// expected error: Cannot assign to "FILE".
+// expected compile-time error: Cannot assign to "FILE".
 
 class SOURCE {
   Integer FILE;

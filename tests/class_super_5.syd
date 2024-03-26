@@ -1,6 +1,4 @@
-// expected error: cannot override non-constant variable foo with constant variable (parsetime error)
-// unexpected output: CREATING
-// unexpected output: FAIL
+// expected compile-time error: cannot override non-constant variable foo with constant variable (parsetime error)
 
 Whatever zap() {
   println('CREATING');

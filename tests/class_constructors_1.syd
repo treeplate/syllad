@@ -1,5 +1,5 @@
 // expected output: init
-// expected error: Argument 0 of constructor, a, of wrong type (String) expected Integer
+// expected runtime error: Argument 0 of constructor, a, of wrong type (String) expected Integer
 
 class A {
   Whatever foo = println("init");

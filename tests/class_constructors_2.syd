@@ -1,4 +1,4 @@
-// expected error: runtime type error
+// expected runtime error: runtime type error
 // expected output: A 1
 // expected output: A 2
 // expected output: B 3

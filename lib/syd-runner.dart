@@ -33,14 +33,13 @@ Scope runProgram(List<Statement> ast, String filename, Scope? intrinsics, Scope?
       case StatementResultType.nothing:
         break;
       case StatementResultType.breakWhile:
-        throw BSCException('Break outside while', scope);
+        throw RuntimeSydException('Break outside while', scope);
       case StatementResultType.continueWhile:
-        throw BSCException('Continue outside while', scope);
+        throw RuntimeSydException('Continue outside while', scope);
       case StatementResultType.returnFunction:
-        throw BSCException('Returned ${sr.value} outside function', scope);
+        throw RuntimeSydException('Returned ${sr.value} outside function', scope);
       case StatementResultType.unwindAndThrow:
-        stderr.writeln(sr.value);
-        exit(1);
+        throw UnimplementedError();
     }
   }
   return scope;
@@ -66,7 +65,7 @@ Environment runFile(String fileContents, String rtlPath, String file, bool profi
   );
   for (ValueType type in environment.allTypes) {
     if (type is ClassValueType && type.notFullyDeclared) {
-      throw BSCException('$type forward-declared but never declared', parseResult.value);
+      throw CompileTimeSydException('$type forward-declared but never declared', parseResult.value);
     }
   }
   Scope rtl2 = runProgram(

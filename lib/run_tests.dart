@@ -1,42 +1,375 @@
 // make sure to turn off timetravel mode in [build.bat] before running this
 // also make sure that ../compiler/compiler.exe is the compiler you want to test
 
-// TODO: this should separately compile and execute the tests so it can track the output of each step independently.
-
-import 'dart:io';
+import 'dart:io' hide exitCode;
 import 'package:path/path.dart' as path;
 
 void main() {
   Stopwatch stopwatch = Stopwatch()..start();
-  List<File> files = Directory('tests').listSync(recursive: true).whereType<File>().where((File file) => file.path.endsWith('.syd')).toList()
+  final TestRunner interpreter = InterpreterRunner();
+  final TestRunner compiler = CompilerRunner();
+  final List<File> files = Directory('tests')
+    .listSync(recursive: true)
+    .whereType<File>()
+    .where((File file) => file.path.endsWith('.syd') && !path.split(file.path).contains('test-manually'))
+    .toList()
     ..sort((File a, File b) => a.path.compareTo(b.path));
-  ProcessResult result = Process.runSync('dart', ['compile', 'exe', 'lib/syd-main.dart']);
-  print(result.stderr);
-  int failedCount = runTestSuite(files, 'interpreter', runInterpreter) + runTestSuite(files, 'compiler', runCompiler);
+  int failedCount = interpreter.runTestSuite(files) + compiler.runTestSuite(files);
   print('Total time: ${stopwatch.elapsed}');
   if (failedCount > 0) {
     exit(1);
   }
 }
 
-typedef TestRunner = TestResult? Function(File file);
+abstract class TestRunner {
+  String get description;
+
+  bool shouldSkipTest(File file) => false;
+
+  TestResult executeTest(File file);
+
+  int runTestSuite(List<File> tests) {
+    int skippedCount = 0;
+    int failedCount = 0;
+    int passedCount = 0;
+    int newPasses = 0;
+    int newFailures = 0;
+    int remaining = tests.length;
+    print('Running ${tests.length} tests for $description...');
+    for (File file in tests) {
+      print(
+        '$passedCount passed ($newPasses new), $failedCount failed ($newFailures new), $skippedCount skipped; testing ${path.basename(file.path)} ($remaining remaining)',
+      );
+      final StringBuffer message = StringBuffer();
+      if (shouldSkipTest(file)) {
+        skippedCount += 1;
+      } else {
+        bool result = runAndEvaluateTest(file, message);
+        if (result) {
+          assert(message.isEmpty);
+          passedCount += 1;
+          if (path.split(file.path).contains('not yet passing in $description') || path.split(file.path).contains('not yet passing anywhere')) {
+            newPasses += 1;
+            print('NEW PASS: ${file.path}');
+          }
+        } else {
+          assert(message.isNotEmpty);
+          failedCount += 1;
+          if (!path.split(file.path).contains('not yet passing in $description') && !path.split(file.path).contains('not yet passing anywhere')) {
+            newFailures += 1;
+            print('');
+            print('NEW FAILURE: ./${file.path}');
+            print(message.toString().trimRight());
+            print('');
+          } else {
+            print('EXPECTED FAILURE: ${file.path}');
+          }
+        }
+      }
+      remaining -= 1;
+    }
+    print('\nResults for $description:');
+    print('  ${tests.length} tests; $skippedCount skipped');
+    print('  $failedCount errors (+$newFailures new)');
+    print('  $passedCount passed (+$newPasses new)');
+    print('');
+    return failedCount;
+  }
+
+  // returns whether the test succeeded or not
+  // message contains any diagnostics to print when returning false
+  // message must be non-empty when returning false
+  // message must be empty when returning true
+  bool runAndEvaluateTest(File file, StringBuffer message) {
+    // PARSE TEST TO FIND EXPECTATIONS
+    List<String> lines = file.readAsLinesSync();
+    int? expectExitCode;
+    final List<String> expectOutput = <String>[];
+    bool expectedOutputIsExact = true;
+    final List<String> unexpectOutput = <String>[];
+    final List<String> expectStderr = <String>[];
+    bool expectedStderrIsExact = true;
+    final List<String> unexpectStderr = <String>[];
+    bool expectCompileTimeError = false;
+    bool expectRuntimeError = false;
+    bool sawExpectation = false;
+    for (String line in lines) {
+      const String expectedOutput = '// expected output: ';
+      const String expectNoNewlineAtEndOfOutput = '// expect no newline at end of output';
+      const String expectedOutputMayContainOtherText = '// expected output may contain other text';
+      const String unexpectedOutput = '// unexpected output: ';
+      const String expectedStderr = '// expected stderr: ';
+      const String expectNoNewlineAtEndOfStderr = '// expect no newline at end of stderr';
+      const String expectedStderrMayContainOtherText = '// expected stderr may contain other text';
+      const String unexpectedStderr = '// unexpected stderr: ';
+      const String expectedCompileTimeError = '// expected compile-time error: '; // exact remainder of line is informative not prescriptive
+      const String expectedRuntimeError = '// expected runtime error: '; // exact remainder of line is informative not prescriptive
+      const String expectedExitCode = '// expected exit code is ';
+      if (line.startsWith(expectedOutput)) {
+        expectOutput.add('${line.substring(expectedOutput.length)}\n');
+        sawExpectation = true;
+      } else if (line == expectNoNewlineAtEndOfOutput) {
+        if (expectOutput.isEmpty) {
+          message.writeln('"$line" specified before specifying "$expectedOutput"');
+          return false;
+        }
+        if (!expectOutput.last.endsWith('\n')) {
+          message.writeln('"$line" specified multiple times');
+          return false;
+        }
+        expectOutput.last = expectOutput.last.substring(0, expectOutput.last.length - 1);
+      } else if (line == expectedOutputMayContainOtherText) {
+        if (expectOutput.isEmpty) {
+          message.writeln('"$line" specified before specifying "$expectedOutput"');
+          return false;
+        }
+        if (!expectedOutputIsExact) {
+          message.writeln('"$line" specified multiple times');
+          return false;
+        }
+        expectedOutputIsExact = false;
+      } else if (line.startsWith(unexpectedOutput)) {
+        unexpectOutput.add('${line.substring(unexpectedOutput.length)}\n');
+        sawExpectation = true;
+      } else if (line.startsWith(expectedStderr)) {
+        expectStderr.add('${line.substring(expectedStderr.length)}\n');
+        sawExpectation = true;
+      } else if (line == expectNoNewlineAtEndOfStderr) {
+        if (expectStderr.isEmpty) {
+          message.writeln('"$line" specified before specifying "$expectedStderr"');
+          return false;
+        }
+        if (!expectStderr.last.endsWith('\n')) {
+          message.writeln('"$line" specified multiple times');
+          return false;
+        }
+        expectStderr.last = expectStderr.last.substring(0, expectStderr.last.length - 1);
+      } else if (line == expectedStderrMayContainOtherText) {
+        if (expectStderr.isEmpty) {
+          message.writeln('"$line" specified before specifying "$expectedStderr"');
+          return false;
+        }
+        if (!expectedStderrIsExact) {
+          message.writeln('"$line" specified multiple times');
+          return false;
+        }
+        expectedStderrIsExact = false;
+      } else if (line.startsWith(unexpectedStderr)) {
+        unexpectStderr.add('${line.substring(unexpectedStderr.length)}\n');
+        sawExpectation = true;
+      } else if (line.startsWith(expectedCompileTimeError)) {
+        expectCompileTimeError = true; // means we want host stderr to not be empty, this has to be checked by the host runner
+        sawExpectation = true;
+      } else if (line.startsWith(expectedRuntimeError)) {
+        expectRuntimeError = true; // we want test to throw or assert
+        sawExpectation = true;
+      } else if (line.startsWith(expectedExitCode)) {
+        expectExitCode = int.parse(line.substring(expectedExitCode.length));
+        sawExpectation = true;
+      } else if (line.startsWith('//')) {
+        message.writeln('Unrecognized test expectation comment at top of file: $line');
+        return false;
+      } else if (line.isEmpty) {
+        break;
+      }
+    }
+    if (!sawExpectation) {
+      message.writeln('File has no specified expectations.');
+      return false;
+    }
+    if (expectCompileTimeError) {
+      if (expectOutput.isNotEmpty || unexpectOutput.isNotEmpty || expectStderr.isNotEmpty || unexpectStderr.isNotEmpty) {
+        message.writeln('Test cannot expect both a compiler-time error and care about the test output.');
+        return false;
+      }
+      if (expectExitCode != null) {
+        message.writeln('Test cannot expect both a compiler-time error and care about the test exit code.');
+        return false;
+      }
+    }
+    if (expectRuntimeError) {
+      if (expectCompileTimeError) {
+        message.writeln('Test cannot expect both a compile-time error and a runtime error.');
+        return false;
+      }
+      if (expectExitCode != null) {
+        message.writeln('Test cannot expect both a runtime error and care about the test exit code.');
+        return false;
+      }
+    }
+
+    // RUN TEST
+    final TestResult result = executeTest(file);
+
+    // VERIFY EXPECTATIONS
+    switch (result.result) {
+      case ResultCode.hostFailed:
+        message.writeln('Host failure.');
+        message.writeln(result.hostOutput);
+        return false;
+      case ResultCode.testCompileTimeError:
+        if (expectCompileTimeError) {
+          return true;
+        }
+        message.writeln('Unexpected compile-time error.');
+        message.writeln(result.hostOutput);
+        return false;
+      case ResultCode.testRuntimeError:
+        if (expectRuntimeError) {
+          assert(result.testExitCode != 0, 'contract violation');
+          assert(expectExitCode == null, 'invariant violation');
+          expectExitCode = result.testExitCode;
+          continue testRan;
+        }
+        if (expectCompileTimeError) {
+          message.writeln('Compile time error manifested at runtime instead of compile time.');
+          result.describeInto(message);
+          return false;
+        }
+        message.writeln('Unexpected runtime error.');
+        result.describeInto(message);
+        return false;
+      testRan:
+      case ResultCode.testRan:
+        // Process output to make \r look like actual console output.
+        final String actualOutput = result.testStdout.split('\n').map((String line) {
+          List<String> sublines = line.split('\r');
+          String result = '';
+          for (String subline in sublines) {
+            if (result.length < subline.length) {
+              result = subline;
+            } else {
+              result = result.replaceRange(0, subline.length, subline);
+            }
+          }
+          return result;
+        }).join('\n');
+        final String actualStderr = result.testStderr;
+        bool failed = false;
+        if (expectCompileTimeError) {
+          message.writeln('Expected compile-time error did not occur.');
+          failed = true;
+        }
+        if (expectRuntimeError && result.result != ResultCode.testRuntimeError) {
+          message.writeln('Expected runtime error did not occur.');
+          failed = true;
+        }
+        if (!_checkOutputExpectation(actualOutput, expectOutput.join(''), expectedOutputIsExact, 'stdout', message)) {
+          failed = true;
+        }
+        if (!_checkOutputUnexpectation(actualOutput, unexpectOutput, 'stdout', message)) {
+          failed = true;
+        }
+        if (!_checkOutputExpectation(actualStderr, expectStderr.join(''), expectedStderrIsExact, 'stderr', message)) {
+          failed = true;
+        }
+        if (!_checkOutputUnexpectation(actualStderr, unexpectStderr, 'stderr', message)) {
+          failed = true;
+        }
+        if (expectExitCode != null) {
+          if (result.testExitCode != expectExitCode) {
+            message.writeln('Exit code did not match expectation ($expectExitCode).');
+            failed = true;
+          }
+        } else {
+          if (result.testExitCode != 0) {
+            message.writeln('Exit code was not zero.');
+            failed = true;
+          }
+        }
+        if (failed) {
+          result.describeInto(message);
+        }
+        return !failed;
+    }
+  }
+
+  bool _checkOutputExpectation(String actual, String expected, bool isExact, String label, StringBuffer message) {
+    if (expected.isEmpty) {
+      return true;
+    }
+    if ((actual != expected) && (isExact || !actual.contains(expected))) {
+      String actualLinesMessage = describeLineCount(actual);
+      String expectedLinesMessage = describeLineCount(expected);
+      String but;
+      if (actualLinesMessage != expectedLinesMessage) {
+        but = 'but';
+      } else {
+        but = 'and indeed';
+      }
+      message.writeln('$label did not match expected output (expected $expectedLinesMessage, $but saw $actualLinesMessage):');
+      message.writeln(prettify(expected).split('\n').map((String line) => 'expect: $line').join('\n'));
+      return false;
+    }
+    return true;
+  }
+
+  bool _checkOutputUnexpectation(String actual, List<String> unexpected, String label, StringBuffer message) {
+    if (unexpected.isEmpty) {
+      return true;
+    }
+    bool failed = false;
+    for (String unexpected in unexpected) {
+      if (actual.contains(unexpected)) {
+        message.writeln('$label contained unexpected output:');
+        message.writeln(prettify(unexpected).split('\n').map((String line) => 'unexpected: $line').join('\n'));
+        failed = true;
+      }
+    }
+    return !failed;
+  }
+}
 
 enum ResultCode {
-  sourceError, // interpreter or compiler itself could not be compiled (definite fail)
-  executerError, // interpreter or compiler itself had an internal error (definite fail)
-  testSourceError, // test itself was found to have an error and could not be run (could be intentional)
-  testFailed, // test threw or asserted (could be intentional)
-  unknown, // test completed, exit code must be further analyzed
+  hostFailed, // interpreter or compiler itself had an internal error (definite fail)
+  testCompileTimeError, // test itself was found to have an error and could not be run (could be intentional)
+  testRuntimeError, // test threw or asserted (could be intentional)
+  testRan, // test completed, expectations should be verified
 }
 
 class TestResult {
-  const TestResult(this.stdout, this.stderr, this.exitCode, {required this.interpretation});
-  final String stdout;
-  final String stderr;
-  final int exitCode;
-  final ResultCode interpretation;
+  const TestResult.testRan({
+    required bool runtimeError,
+    required this.testStdout,
+    required this.testStderr,
+    required this.testExitCode,
+  }) : result = runtimeError ? ResultCode.testRuntimeError : ResultCode.testRan, hostOutput = '';
 
-  String toString() => '$exitCode => $interpretation';
+  const TestResult.hostFailed(this.hostOutput) : result = ResultCode.hostFailed, testStdout = '', testStderr = '', testExitCode = 0;
+
+  const TestResult.compilationFailed(this.hostOutput) : result = ResultCode.testCompileTimeError, testStdout = '', testStderr = '', testExitCode = 0;
+
+  final ResultCode result;
+  final String hostOutput;
+  final String testStdout;
+  final String testStderr;
+  final int testExitCode;
+
+  void describeInto(StringBuffer message) {
+    String exitDescription = switch (testExitCode) {
+      -2147483645 => 'STATUS_BREAKPOINT', // 0x80000003
+      -2147467259 => 'Unspecified failure - debugger exit?', // 0x80004005
+      -1073741819 => 'Access Violation', // 0xC0000005
+      -1073741571 => 'Stack overflow', // 0xC00000FD
+      -1073740972 => 'STATUS_DEBUGGER_INACTIVE', // 0xC0000354
+      -1073741515 => 'STATUS_DLL_NOT_FOUND', // 0xC0000135
+      -1 => 'interpreter reported compile-time error', // interpreter-specific
+      -2 => 'interpreter reported runtime error', // interpreter-specific
+      -3 => 'interpreted program asserted', // interpreter-specific
+      -4 => 'interpreted program throw', // interpreter-specific
+      0 => '"success"',
+      1 => '"failure"',
+      254 => 'Dart reported compile-time error', // Dart-specific
+      255 => 'Dart reported runtime error', // Dart-specific
+      _ => 'unknown exit code',
+    };
+    int positiveExitCode = testExitCode >= 0 ? testExitCode : 0x100000000 + testExitCode;
+    message.writeln(prettify(testStdout).split('\n').map((String line) => 'stdout: $line').join('\n'));
+    message.writeln(prettify(testStderr).split('\n').map((String line) => 'stderr: $line').join('\n'));
+    message.writeln('exit code: $testExitCode (0x${positiveExitCode.toRadixString(16).padLeft(8, "0")}, $exitDescription)');
+  }
+
+  String toString() => '$testExitCode => $result';
 }
 
 String prettify(String s) {
@@ -75,360 +408,122 @@ String describeLineCount(String s) {
   return '${lineCount} lines';
 }
 
-int runTestSuite(List<File> files, String name, TestRunner testRunner) {
-  int skippedCount = 0;
-  int failedCount = 0;
-  int passedCount = 0;
-  int newPasses = 0;
-  int newFailures = 0;
-  int remaining = files.length;
-  print('Running ${files.length} tests for $name...');
-  for (File file in files) {
-    print(
-      '$passedCount passed ($newPasses new), $failedCount failed ($newFailures new), $skippedCount skipped; testing ${path.basename(file.path)} ($remaining remaining)',
+class InterpreterRunner extends TestRunner {
+  InterpreterRunner() {
+    final ProcessResult result = Process.runSync('dart', ['compile', 'exe', 'lib/syd-main.dart']);
+    if (result.exitCode != 0) {
+      print(result.stdout);
+      print(result.stderr);
+      throw Exception('Could not compile interpreter.');
+    }
+  }
+
+  @override
+  String get description => 'interpreter';
+
+  @override
+  bool shouldSkipTest(File file) {
+    return path.split(file.path).contains('compiler-specific');
+  }
+
+  @override
+  TestResult executeTest(File file) {
+    final ProcessResult result = Process.runSync(
+      'lib/syd-main.exe',
+      ['--debug', './' + file.path],
     );
-    bool? result = runTest(file, testRunner);
-    if (result == null) {
-      skippedCount += 1;
-    } else if (result) {
-      passedCount += 1;
-      if (path.split(file.path).contains('not yet passing in $name') || path.split(file.path).contains('not yet passing anywhere')) {
-        newPasses += 1;
-        print('NEW PASS: ${file.path}');
-      }
-    } else {
-      failedCount += 1;
-      if (!path.split(file.path).contains('not yet passing in $name') && !path.split(file.path).contains('not yet passing anywhere')) {
-        newFailures += 1;
-        print('NEW FAILURE: ${file.path}');
-      }
+    switch (result.exitCode) {
+      case -1:
+        return TestResult.compilationFailed('Stderr:\n${prettify(result.stderr)}');
+      case -2: // general test runtime error
+      case -3: // test assert
+      case -4: // test throw
+        return TestResult.testRan(runtimeError: true, testStdout: result.stdout, testStderr: result.stderr, testExitCode: result.exitCode);
+      case 255:
+        return TestResult.hostFailed('Stderr:\n${prettify(result.stderr)}');
+      default:
+        return TestResult.testRan(runtimeError: false, testStdout: result.stdout, testStderr: result.stderr, testExitCode: result.exitCode);
     }
-    remaining -= 1;
   }
-  print('\nResults for $name:');
-  print('  ${files.length} tests; $skippedCount skipped');
-  print('  $failedCount errors (+$newFailures new)');
-  print('  $passedCount passed (+$newPasses new)');
-  print('');
-  return failedCount;
 }
 
-bool? runTest(File file, TestRunner testRunner) {
-  if (path.split(file.path).contains('test-manually')) {
-    return null;
-  }
-  List<String> lines = file.readAsLinesSync();
-  int expectExitCode = 0;
-  String expectOutput = '';
-  List<String> unexpectOutput = <String>[];
-  String expectStderr = '';
-  List<String> unexpectStderr = <String>[];
-  bool expectError = false;
-  bool sawExpectation = false;
-  for (String line in lines) {
-    const String expectedOutput = '// expected output: ';
-    const String unexpectedOutput = '// unexpected output: ';
-    const String expectedStderr = '// expected stderr: ';
-    const String unexpectedStderr = '// unexpected stderr: ';
-    const String expectedError = '// expected error: ';
-    const String expectedExitCode = '// expected exit code is ';
-    if (line.startsWith(expectedOutput)) {
-      expectOutput += '${line.substring(expectedOutput.length)}\n';
-      sawExpectation = true;
-    } else if (line.startsWith(unexpectedOutput)) {
-      unexpectOutput.add('${line.substring(unexpectedOutput.length)}\n');
-      sawExpectation = true;
-    } else if (line.startsWith(expectedStderr)) {
-      expectStderr += '${line.substring(expectedStderr.length)}\n';
-      sawExpectation = true;
-    } else if (line.startsWith(unexpectedStderr)) {
-      unexpectStderr.add('${line.substring(unexpectedStderr.length)}\n');
-      sawExpectation = true;
-    } else if (line.startsWith(expectedError)) {
-      expectError = true; // means we want stderr to be non-empty
-      sawExpectation = true;
-    } else if (line.startsWith(expectedExitCode)) {
-      expectExitCode = int.parse(line.substring(expectedExitCode.length));
-      sawExpectation = true;
-    } else if (line.startsWith('//')) {
-      throw FormatException('Test ${file.path} has an unrecognized comment: $line');
-    } else if (line.isEmpty) {
-      break;
-    }
-  }
-  if (!sawExpectation) {
-    throw FormatException('Test ${file.path} has no specified expectations.');
-  }
-  if (expectError && expectExitCode != 0) {
-    throw FormatException('Test ${file.path} cannot expect both an error and a non-zero exit code.');
-  }
-  TestResult? result = testRunner(file);
-  if (result == null) {
-    return null;
+class TranspilerRunner extends TestRunner {
+  @override
+  String get description => 'transpiler';
+
+  @override
+  bool shouldSkipTest(File file) {
+    return path.split(file.path).contains('compiler-specific');
   }
 
-  bool definitelyFailed;
-  StringBuffer message = StringBuffer();
-
-  String actualOutput = result.stdout;
-  if (actualOutput.isNotEmpty && !actualOutput.endsWith('\n')) {
-    definitelyFailed = true;
-    message.writeln('stdout was missing a newline');
-  }
-  // Process output to make \r look like actual console output.
-  actualOutput = actualOutput.split('\n').map((String line) {
-    List<String> sublines = line.split('\r');
-    String result = '';
-    for (String subline in sublines) {
-      if (result.length < subline.length) {
-        result = subline;
-      } else {
-        result = result.replaceRange(0, subline.length, subline);
-      }
-    }
-    if (result.isNotEmpty) {
-      return '$result\n';
-    }
-    return '';
-  }).join();
-  assert(actualOutput.isEmpty || actualOutput.endsWith('\n'));
-  String actualStderr = result.stderr;
-  if (actualStderr.isNotEmpty && !actualStderr.endsWith('\n')) {
-    definitelyFailed = true;
-    message.writeln('stderr was missing a newline');
-  }
-
-  switch (result.interpretation) {
-    case ResultCode.sourceError:
-    case ResultCode.executerError:
-      definitelyFailed = true;
-      message.writeln('execution failed');
-    case ResultCode.testFailed:
-      if (!expectError) {
-        message.writeln('test failed (threw or asserted)');
-        definitelyFailed = true;
-      } else {
-        definitelyFailed = false;
-      }
-    case ResultCode.testSourceError:
-      if (!expectError) {
-        message.writeln('test compilation error');
-        definitelyFailed = true;
-      } else {
-        definitelyFailed = false;
-      }
-    case ResultCode.unknown:
-      definitelyFailed = false;
-  }
-
-  // Examine results
-  if (expectOutput.isNotEmpty) {
-    if (actualOutput != expectOutput) {
-      String actualLinesMessage = describeLineCount(actualOutput);
-      String expectedLinesMessage = describeLineCount(expectOutput);
-      String but;
-      if (actualLinesMessage != expectedLinesMessage) {
-        but = 'but';
-      } else {
-        but = 'and indeed';
-      }
-      message.writeln('Output did not match expected output (expected $expectedLinesMessage, $but saw $actualLinesMessage):');
-      message.writeln(prettify(expectOutput).split('\n').map((String line) => 'expect: $line').join('\n'));
-      definitelyFailed = true;
-    }
-  }
-  if (unexpectOutput.isNotEmpty) {
-    for (String unexpected in unexpectOutput) {
-      if (actualOutput.contains(unexpected)) {
-        message.writeln('Output contained unexpected output:');
-        message.writeln(prettify(unexpected).split('\n').map((String line) => 'unexpected: $line').join('\n'));
-        definitelyFailed = true;
-      }
-    }
-  }
-  if (expectStderr.isNotEmpty) {
-    if (!expectError && actualStderr != expectStderr) {
-      String actualLinesMessage = describeLineCount(actualStderr);
-      String expectedLinesMessage = describeLineCount(expectStderr);
-      String but;
-      if (actualLinesMessage != expectedLinesMessage) {
-        but = 'but';
-      } else {
-        but = 'and indeed';
-      }
-      message.writeln('Stderr did not match expected Stderr (expected $expectedLinesMessage, $but saw $actualLinesMessage):');
-      message.writeln(prettify(expectStderr).split('\n').map((String line) => 'expect: $line').join('\n'));
-      definitelyFailed = true;
-    } else if (expectError && !actualStderr.contains(expectStderr)) {
-      message.writeln('Stderr did not contain expected stderr:');
-      message.writeln(prettify(expectStderr).split('\n').map((String line) => 'expect: $line').join('\n'));
-      definitelyFailed = true;
-    }
-  }
-  if (unexpectStderr.isNotEmpty) {
-    for (String unexpected in unexpectStderr) {
-      if (actualStderr.contains(unexpected)) {
-        message.writeln('Stderr contained unexpected output:');
-        message.writeln(prettify(unexpected).split('\n').map((String line) => 'unexpected: $line').join('\n'));
-        definitelyFailed = true;
-      }
-    }
-  }
-  if (!expectError && expectExitCode != result.exitCode) {
-    message.writeln('Exit code did not match expected exit code (${expectExitCode}).');
-    definitelyFailed = true;
-  }
-  if (result.stderr.isNotEmpty && !expectError) {
-    message.writeln('Non-empty output on standard error (but did not expect an error).');
-    definitelyFailed = true;
-  } else if (result.stderr.isEmpty && expectError) {
-    message.writeln('Empty output on standard error but expected an error.');
-    definitelyFailed = true;
-  }
-  if (definitelyFailed) {
-    print('');
-    print('Failure in ${file.path}');
-    print('exit code: ${result.exitCode} (${result.interpretation})');
-    print(prettify(actualOutput).split('\n').map((String line) => 'stdout: $line').join('\n'));
-    print(prettify(actualStderr).split('\n').map((String line) => 'stderr: $line').join('\n'));
-    print(message);
-  }
-  return !definitelyFailed;
-}
-
-TestResult? runInterpreter(File file) {
-  if (path.split(file.path).contains('compiler-specific')) {
-    return null;
-  }
-  ProcessResult result = Process.runSync(
-    'lib/syd-main.exe',
-    ['--debug', './' + file.path],
-  );
-  ResultCode resultCode;
-  switch (result.exitCode) {
-    case 254:
-      resultCode = ResultCode.sourceError; // interpreter itself could not be compiled
-    case 255:
-      resultCode = ResultCode.executerError; // interpreter failed during execution
-    case -1:
-    case -2:
-      resultCode = ResultCode.testSourceError; // test itself was found to have an error and could not be run
-    case -3:
-    case -4:
-      resultCode = ResultCode.testFailed; // test reported an error (threw or asserted)
-    default:
-      resultCode = ResultCode.unknown; // test completed
-  }
-  return TestResult(result.stdout, result.stderr, result.exitCode, interpretation: resultCode);
-}
-
-TestResult? runTranspiler(File file) {
-  if (path.split(file.path).contains('compiler-specific')) {
-    return null;
-  }
-  Process.runSync(
-    'dart',
-    ['run', 'lib/syd-transpiler.dart', './' + file.path],
-  );
-  ProcessResult result = Process.runSync(
-    'dart',
-    ['run', '--enable-asserts', 'lib/transpiler-output.dart',],
-  );
-  ResultCode resultCode;
-  switch (result.exitCode) {
-    case 254:
-      resultCode = ResultCode.testSourceError; // test itself was found to have an error and could not be run
-    case 255:
-      resultCode = ResultCode.testFailed; // test reported an error (threw or asserted)
-    default:
-      resultCode = ResultCode.unknown; // test completed
-  }
-  return TestResult(result.stdout, result.stderr, result.exitCode, interpretation: resultCode);
-}
-
-TestResult? runCompiler(File file) {
-  if (path.split(file.path).contains('interpreter-specific')) {
-    return null;
-  }
-  ProcessResult result = Process.runSync('cmd.exe', ['/C', 'build.bat', '../${file.path}'], workingDirectory: 'compiler');
-  String normalizedStdout = result.stdout.replaceAll('\r\n', '\n');
-  String normalizedStderr = result.stderr.replaceAll('\r\n', '\n');
-  if (result.exitCode != 0) {
-    return TestResult(normalizedStdout, '${normalizedStderr}', result.exitCode,
-        interpretation: ResultCode.testSourceError);
-  }
-
-  List<String> normalizedStdoutLines = normalizedStdout.split('\n');
-  if (normalizedStdoutLines.contains('== FAILED ==')) {
-    String kCompilerExitCodeMessage = 'compiler exit code: ';
-    int? exitCode;
-    if (normalizedStdoutLines.any((String line) => line.startsWith(kCompilerExitCodeMessage))) {
-      exitCode = int.tryParse(normalizedStdoutLines
-          .firstWhere(
-            (String line) => line.startsWith(kCompilerExitCodeMessage),
-          )
-          .substring(kCompilerExitCodeMessage.length));
-    }
-    ResultCode resultCode;
-    switch (exitCode) {
-      case 254: // transpiled compiler: compiler itself could not be compiled?
-        print('??? compiler exit 254');
-        resultCode = ResultCode.sourceError;
-      case 255: // transpiled compiler: test itself was found to have an error and could not be run (or we hit an assert, no way to tell the difference)
-        resultCode = ResultCode.testSourceError;
-      case 1: // self-compiled compiler: test itself was found to have an error and could not be run (or we hit an assert, no way to tell the difference)
-        resultCode = ResultCode.testSourceError;
+  @override
+  TestResult executeTest(File file) {
+    final ProcessResult transpilationResult = Process.runSync(
+      'dart',
+      ['run', 'lib/syd-transpiler.dart', './' + file.path],
+    );
+    switch (transpilationResult.exitCode) {
+      case -1:
+        return TestResult.compilationFailed('Transpiler stdout:\n${transpilationResult.stdout}\nTranspiler stderr:\n${transpilationResult.stderr}');
       case 0:
-        throw StateError('FAILED with zero exit code');
-      default: // compiler exit with unexpected error code
-        resultCode = ResultCode.executerError;
+        break;
+      default:
+        return TestResult.hostFailed(
+          'Transpiler stdout:\n${transpilationResult.stdout}\n'
+          'Transpiler stderr:\n${transpilationResult.stderr}\n'
+          'Transpiler exit code:\n${transpilationResult.exitCode}'
+        );
     }
-    return TestResult(normalizedStdout, normalizedStderr, result.exitCode,
-        interpretation: resultCode); // failure is not set to true here because we might be expecting a failure
+    final ProcessResult runResult = Process.runSync(
+      'dart',
+      ['run', '--enable-asserts', 'lib/transpiler-output.dart'],
+    );
+    switch (runResult.exitCode) {
+      case 254:
+        return TestResult.hostFailed('Stderr:\n${prettify(runResult.stderr)}'); // test itself was found to have an error and could not be run, which means transpiler messed up
+      case 255:
+        return TestResult.testRan(runtimeError: true, testStdout: runResult.stdout, testStderr: runResult.stderr, testExitCode: runResult.exitCode); // test runtime error
+      default:
+        return TestResult.testRan(runtimeError: false, testStdout: runResult.stdout, testStderr: runResult.stderr, testExitCode: runResult.exitCode); // test completed
+
+    }
   }
-  File assembly = File('${file.path}.asm');
-  if (assembly.existsSync()) {
-    List<String> asm = assembly.readAsLinesSync();
-    assembly.deleteSync();
-    return TestResult(normalizedStdout, '${normalizedStderr}\nsyd.asm contents:\n${asm.join('\n')}', result.exitCode, interpretation: ResultCode.executerError);
+}
+
+class CompilerRunner extends TestRunner {
+  @override
+  String get description => 'compiler';
+
+  @override
+  bool shouldSkipTest(File file) {
+    return path.split(file.path).contains('interpreter-specific');
   }
-  // STDOUT
-  const String markerStartStdout = '= START STDOUT =================\n';
-  const String markerEndStdout = '= END STDOUT ===================\n';
-  const String markerStartStderr = '= START STDERR =================\n';
-  const String markerEndStderr = '= END STDERR ===================\n';
-  int startStdout = normalizedStdout.indexOf(markerStartStdout);
-  int endStdout = normalizedStdout.indexOf(markerEndStdout);
-  if (startStdout == -1 || endStdout == -1) {
-    return TestResult(normalizedStdout, '${normalizedStderr}\ncould not find start/end STDOUT markers (start=$startStdout, end=$endStdout)', result.exitCode,
-        interpretation: ResultCode.executerError);
+
+  @override
+  TestResult executeTest(File file) {
+    // COMPILE TEST
+    final ProcessResult compilationResult = Process.runSync('cmd.exe', ['/C', 'build.bat', '../${file.path}'], workingDirectory: 'compiler');
+    final String normalizedCompilerStdout = compilationResult.stdout.replaceAll('\r\n', '\n');
+    final String normalizedCompilerStderr = compilationResult.stderr.replaceAll('\r\n', '\n');
+    final String compilerOutput = 'stdout:\n$normalizedCompilerStdout\nstderr:\n$normalizedCompilerStderr\n';
+    switch (compilationResult.exitCode) {
+      case 0: // compiled successfully
+        break;
+      case 2: // test compilation error
+        return TestResult.compilationFailed(compilerOutput);
+      default:
+        return TestResult.hostFailed(compilerOutput);
+    }
+
+    // RUN TEST
+    final ProcessResult testResult = Process.runSync('${file.path}.EXE', []);
+    final String normalizedTestStdout = testResult.stdout.replaceAll('\r\n', '\n');
+    final String normalizedTestStderr = testResult.stderr.replaceAll('\r\n', '\n');
+    return TestResult.testRan(
+      runtimeError: testResult.exitCode < 0 || testResult.exitCode == 1,
+      testStdout: normalizedTestStdout,
+      testStderr: normalizedTestStderr,
+      testExitCode: testResult.exitCode,
+    );
   }
-  String filteredStdout = normalizedStdout.substring(startStdout + markerStartStdout.length, endStdout);
-  if (filteredStdout.isNotEmpty) {
-    filteredStdout = '$filteredStdout\n';
-  }
-  // STDERR
-  int startStderr = normalizedStderr.indexOf(markerStartStderr);
-  int endStderr = normalizedStderr.indexOf(markerEndStderr);
-  if (startStderr == -1 || endStderr == -1) {
-    return TestResult(normalizedStdout, '${normalizedStderr}\ncould not find start/end STDERR markers (start=$startStderr, end=$endStderr)', result.exitCode,
-        interpretation: ResultCode.executerError);
-  }
-  String filteredStderr = normalizedStderr.substring(startStderr + markerStartStderr.length, endStderr);
-  if (filteredStderr.isNotEmpty) {
-    filteredStderr = '$filteredStderr\n';
-  }
-  // EXIT CODE
-  int? exitCode = int.tryParse(normalizedStdout.substring(
-    endStdout + markerEndStdout.length + 'test exit code: '.length,
-    normalizedStdout.indexOf('\n', endStdout + markerEndStdout.length + 1),
-  ));
-  if (exitCode == null) {
-    return TestResult(normalizedStdout, '${normalizedStderr}\ncould not parse exit code ("${normalizedStdoutLines[endStdout + 1]}")', result.exitCode,
-        interpretation: ResultCode.executerError);
-  }
-  if (exitCode == -2147467259) {
-    return TestResult(filteredStdout, '${filteredStderr}\n!! Debugger aborted test execution.', exitCode, interpretation: ResultCode.executerError);
-  }
-  return TestResult(filteredStdout, filteredStderr, exitCode, interpretation: ResultCode.unknown);
 }

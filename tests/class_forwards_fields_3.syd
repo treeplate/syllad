@@ -1,5 +1,4 @@
-// expected error: too late for fwdclassfield
-// unexpected output: FAIL
+// expected compile-time error: too late for fwdclassfield
 
 class A { }
 

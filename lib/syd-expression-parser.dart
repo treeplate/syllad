@@ -20,7 +20,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         Identifier member = tokens.currentIdent;
         ValueType? superclass = scope.currentClassType.parent;
         if (superclass is! ClassValueType) {
-          throw BSCException(
+          throw CompileTimeSydException(
               '${scope.currentClassType} has no superclass; attempted \'super.${member.name}\' ${formatCursorPositionFromTokens(tokens)}', scope);
         }
         if (scope.indirectlyStaticMethod) {
@@ -29,7 +29,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         }
         TypeValidator props = superclass.properties;
         if (props.igv(member, true, current.line, current.col, tokens.file, true, false, false, true) == null) {
-          throw BSCException(
+          throw CompileTimeSydException(
             '${scope.currentClassType.name.name}\'s superclass (${superclass.name.name}) has no member ${member.name}; attempted \'super.${member.name}\' ${formatCursorPositionFromTokens(tokens)}',
             scope,
           );
@@ -110,7 +110,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
           ValueType t = ValueType.create(tokens.currentIdent, current.line, current.col, tokens.file, scope.environment, scope.typeTable);
           for (Expression expr in elements) {
             if (!expr.staticType.isSubtypeOf(t)) {
-              throw BSCException(
+              throw CompileTimeSydException(
                 'Invalid explicit list type (inferred type $type, provided type $t) ${formatCursorPositionFromTokens(tokens)}',
                 scope,
               );
@@ -134,7 +134,7 @@ Expression parseLiterals(TokenIterator tokens, TypeValidator scope) {
         tokens.expectChar(TokenType.closeParen);
         return r;
       }
-      throw BSCException(
+      throw CompileTimeSydException(
         "Unexpected token ${tokens.current} at start of expression   ${formatCursorPositionFromTokens(tokens)}",
         scope,
       );
@@ -211,12 +211,12 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
           tokens.moveNext();
           Expression operandB = parseExpression(tokens, scope);
           if (!operandB.staticType.isSubtypeOf(scope.environment.integerType)) {
-            throw BSCException("Attempted to subscript using non-integer index: $operandB. ${formatCursorPositionFromTokens(tokens)}", scope);
+            throw CompileTimeSydException("Attempted to subscript using non-integer index: $operandB. ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           tokens.expectChar(TokenType.closeSquare);
           if (!result.staticType.isSubtypeOf(ArrayValueType(
               ValueType.create(whateverVariable, -2, 0, 'internal', scope.environment, scope.typeTable), 'internal', scope.environment, scope.typeTable))) {
-            throw BSCException("tried to subscript ${result.staticType} ($result) ${formatCursorPositionFromTokens(tokens)}", scope);
+            throw CompileTimeSydException("tried to subscript ${result.staticType} ($result) ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           result = SubscriptExpression(
             result,
@@ -228,7 +228,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
           );
         } else if (tokens.currentChar == TokenType.period) {
           if (!result.staticType.memberAccesible()) {
-            throw BSCException("tried to access member of ${result.staticType} ${formatCursorPositionFromTokens(tokens)}", scope);
+            throw CompileTimeSydException("tried to access member of ${result.staticType} ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           tokens.moveNext();
           Identifier operandB = tokens.currentIdent;
@@ -246,7 +246,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             checkParent = true;
           }
           if (properties != null && properties.igv(operandB, true, tokens.current.line, tokens.current.col, tokens.file, checkParent, false) == null) {
-            throw BSCException(
+            throw CompileTimeSydException(
               "tried to access nonexistent member '${operandB.name}' of ${result.staticType} ${properties.types.keys.map((e) => e.name)} ${formatCursorPositionFromTokens(tokens)}",
               scope,
             );
@@ -264,7 +264,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
         } else if (tokens.currentChar == TokenType.bang) {
           tokens.moveNext();
           if (!scope.environment.nullType.isSubtypeOf(result.staticType)) {
-            throw BSCException("Attempted unwrap of non-nullable type (${result.staticType}) ${formatCursorPositionFromTokens(tokens)}", scope);
+            throw CompileTimeSydException("Attempted unwrap of non-nullable type (${result.staticType}) ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           result = UnwrapExpression(
             result,
@@ -276,7 +276,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
         } else {
           if (result.staticType is! ClassOfValueType &&
               !result.staticType.isSubtypeOf(GenericFunctionValueType(scope.environment.anythingType, tokens.file, scope.environment, scope.typeTable))) {
-            throw BSCException("tried to call ${result.staticType} ($result) ${formatCursorPositionFromTokens(tokens)}", scope);
+            throw CompileTimeSydException("tried to call ${result.staticType} ($result) ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           tokens.moveNext();
           List<Expression> arguments = [];
@@ -294,14 +294,14 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
               scope,
             );
             if ((funType is FunctionValueType) && funType.parameters is! InfiniteIterable && funType.parameters.length <= arguments.length) {
-              throw BSCException(
+              throw CompileTimeSydException(
                 "Too many arguments to $result, type is ${funType} - expected ${funType.parameters}, got extra argument $expr ${formatCursorPositionFromTokens(tokens)}",
                 scope,
               );
             }
             if (funType is FunctionValueType) {
               if (!expr.staticType.isSubtypeOf(funType.parameters.elementAt(arguments.length))) {
-                throw BSCException(
+                throw CompileTimeSydException(
                   "parameter ${arguments.length} of $result expects type ${funType.parameters.elementAt(arguments.length)} got $expr (a ${expr.staticType}) ${formatCursorPositionFromTokens(tokens)}",
                   scope,
                 );
@@ -313,7 +313,7 @@ Expression parseFunCalls(TokenIterator tokens, TypeValidator scope) {
             arguments.add(expr);
           }
           if (funType is FunctionValueType && funType.parameters is! InfiniteIterable && funType.parameters.length != arguments.length) {
-            throw BSCException(
+            throw CompileTimeSydException(
                 "Not enough arguments to $result (expected ${funType.parameters}, got $arguments) ${formatCursorPositionFromTokens(tokens)}", scope);
           }
           tokens.moveNext();
@@ -556,10 +556,10 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
       if (!operandA.staticType.isSubtypeOf(scope.environment.integerType)) {
-        throw BSCException("lhs of < is not an integer (is a ${operandA.staticType}) ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw CompileTimeSydException("lhs of < is not an integer (is a ${operandA.staticType}) ${formatCursorPositionFromTokens(tokens)}", scope);
       }
       if (!operandB.staticType.isSubtypeOf(scope.environment.integerType)) {
-        throw BSCException("rhs of < is not an integer (is a ${operandB.staticType}) ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw CompileTimeSydException("rhs of < is not an integer (is a ${operandB.staticType}) ${formatCursorPositionFromTokens(tokens)}", scope);
       }
       return LessExpression(
         operandA,
@@ -573,10 +573,10 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
       if (!operandA.staticType.isSubtypeOf(scope.environment.integerType)) {
-        throw BSCException("lhs of <= is not an integer (is a $operandA)", scope);
+        throw CompileTimeSydException("lhs of <= is not an integer (is a $operandA)", scope);
       }
       if (!operandB.staticType.isSubtypeOf(scope.environment.integerType)) {
-        throw BSCException("rhs of <= is not an integer (is a $operandB)", scope);
+        throw CompileTimeSydException("rhs of <= is not an integer (is a $operandB)", scope);
       }
       return OrExpression(
         LessExpression(
@@ -604,10 +604,10 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
       if (!operandA.staticType.isSubtypeOf(scope.environment.integerType)) {
-        throw BSCException("lhs of > is not an integer (is a $operandA)", scope);
+        throw CompileTimeSydException("lhs of > is not an integer (is a $operandA)", scope);
       }
       if (!operandB.staticType.isSubtypeOf(scope.environment.integerType)) {
-        throw BSCException("rhs of > is not an integer (is a $operandB)", scope);
+        throw CompileTimeSydException("rhs of > is not an integer (is a $operandB)", scope);
       }
       return GreaterExpression(
         operandA,
@@ -621,10 +621,10 @@ Expression parseRelOp(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       Expression operandB = parseRelOp(tokens, scope);
       if (!operandA.staticType.isSubtypeOf(scope.environment.integerType)) {
-        throw BSCException("lhs of >= is not an integer (is $operandA, a ${operandA.staticType}) ${formatCursorPositionFromTokens(tokens)}", scope);
+        throw CompileTimeSydException("lhs of >= is not an integer (is $operandA, a ${operandA.staticType}) ${formatCursorPositionFromTokens(tokens)}", scope);
       }
       if (!operandB.staticType.isSubtypeOf(scope.environment.integerType)) {
-        throw BSCException("rhs of >= is not an integer (is a $operandB ${formatCursorPositionFromTokens(tokens)})", scope);
+        throw CompileTimeSydException("rhs of >= is not an integer (is a $operandB ${formatCursorPositionFromTokens(tokens)})", scope);
       }
       return OrExpression(
         GreaterExpression(
@@ -660,7 +660,7 @@ Expression parseEqNeq(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       Expression operandB = parseEqNeq(tokens, scope);
       if (!operandA.staticType.isSubtypeOf(operandB.staticType) && !operandB.staticType.isSubtypeOf(operandA.staticType)) {
-        throw BSCException(
+        throw CompileTimeSydException(
           "lhs and rhs of == are not compatible types (lhs is $operandA, a ${operandA.staticType}, rhs is $operandB, a ${operandB.staticType}) ${formatCursorPositionFromTokens(tokens)}}",
           scope,
         );
@@ -677,7 +677,7 @@ Expression parseEqNeq(TokenIterator tokens, TypeValidator scope) {
       tokens.moveNext();
       Expression operandB = parseEqNeq(tokens, scope);
       if (!operandA.staticType.isSubtypeOf(operandB.staticType) && !operandB.staticType.isSubtypeOf(operandA.staticType)) {
-        throw BSCException(
+        throw CompileTimeSydException(
           "lhs and rhs of != are not compatible types (lhs is $operandA, a ${operandA.staticType}, rhs is $operandB, a ${operandB.staticType}) ${formatCursorPositionFromTokens(tokens)}}",
           scope,
         );
@@ -707,10 +707,10 @@ Expression parseBitAnd(TokenIterator tokens, TypeValidator scope) {
     tokens.moveNext();
     Expression operandB = parseBitAnd(tokens, scope);
     if (!operandA.staticType.isSubtypeOf(scope.environment.integerType)) {
-      throw BSCException("lhs of & is not an integer (is $operandA, a ${operandA.staticType} ${formatCursorPositionFromTokens(tokens)})", scope);
+      throw CompileTimeSydException("lhs of & is not an integer (is $operandA, a ${operandA.staticType} ${formatCursorPositionFromTokens(tokens)})", scope);
     }
     if (!operandB.staticType.isSubtypeOf(scope.environment.integerType)) {
-      throw BSCException("rhs of & is not an integer (is $operandB, a ${operandB.staticType} ${formatCursorPositionFromTokens(tokens)})", scope);
+      throw CompileTimeSydException("rhs of & is not an integer (is $operandB, a ${operandB.staticType} ${formatCursorPositionFromTokens(tokens)})", scope);
     }
     return BitAndExpression(
       operandA,
@@ -730,10 +730,10 @@ Expression parseBitXor(TokenIterator tokens, TypeValidator scope) {
     tokens.moveNext();
     Expression operandB = parseBitXor(tokens, scope);
     if (!operandA.staticType.isSubtypeOf(scope.environment.integerType)) {
-      throw BSCException("lhs of ^ is not an integer (is $operandA, a ${operandA.staticType} ${formatCursorPositionFromTokens(tokens)})", scope);
+      throw CompileTimeSydException("lhs of ^ is not an integer (is $operandA, a ${operandA.staticType} ${formatCursorPositionFromTokens(tokens)})", scope);
     }
     if (!operandB.staticType.isSubtypeOf(scope.environment.integerType)) {
-      throw BSCException("rhs of ^ is not an integer (is $operandB, a ${operandB.staticType} ${formatCursorPositionFromTokens(tokens)})", scope);
+      throw CompileTimeSydException("rhs of ^ is not an integer (is $operandB, a ${operandB.staticType} ${formatCursorPositionFromTokens(tokens)})", scope);
     }
     return BitXorExpression(
       operandA,

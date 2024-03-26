@@ -1,5 +1,4 @@
-// expected error: cannot assign to f
-// unexpected output: FAIL
+// expected compile-time error: cannot assign to f
 
 println('FAIL');
 

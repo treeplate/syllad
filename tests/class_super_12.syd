@@ -1,5 +1,4 @@
-// expected error: class A has no superclass - attempted 'super'
-// unexpected output: FAIL
+// expected compile-time error: class A has no superclass - attempted 'super'
 
 println('FAIL');
 

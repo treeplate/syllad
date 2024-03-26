@@ -1,4 +1,4 @@
-// expected error: Cannot assign to "LINE".
+// expected compile-time error: Cannot assign to "LINE".
 
 class SOURCE {
   Integer LINE;
