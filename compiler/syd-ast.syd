@@ -1127,6 +1127,12 @@ class UnaryExpression extends Expression {
     // e.g.:
     // return scope.compute(AdditionInstruction(rhsValue, concat(describeOperator(), ' operator')));
   }
+
+  ConstantBucket computeConstantResult(ConstantBucket rhsValue, CompilationEnvironment environment) {
+    abstract();
+    // e.g.:
+    // return IntegerBucket(-rhs.numericValue());
+  }
   
   //#override
   String toStringIndent(Integer indent) {
@@ -1149,6 +1155,9 @@ class UnaryExpression extends Expression {
     Type rhsType = rhsType(scope.environment());
     if (!rhsValue.staticType.isSubtypeOf(rhsType)) {
       compileeSourceError(concat('Expected ', rhsType.name, ', but found ', rhsValue.staticType.name, ', as operand of unary ', describeOperator(), ' operator at ', sourceLocation));
+    }
+    if (rhsValue.isConstant()) {
+      return computeConstantResult(rhsValue.asConstant(), scope.environment());
     }
     scope.emit(TypeCheckInstruction(
       rhsValue, 
@@ -1187,6 +1196,11 @@ class IntegerNegationExpression extends UnaryExpression {
   Bucket generateExpressionInstructions(Bucket rhsValue, CompiledScope scope) {
     return scope.compute(NegateInstruction(rhsValue, scope.environment().coreIntegerType, LazyComment('result of unary -')));
   }
+
+  //#override
+  ConstantBucket computeConstantResult(ConstantBucket rhsValue, CompilationEnvironment environment) {
+    return IntegerBucket(-rhsValue.numericValue()!, environment.coreIntegerType);
+  }
 }
 
 class PlusExpression extends UnaryExpression {
@@ -1207,6 +1221,11 @@ class PlusExpression extends UnaryExpression {
 
   //#override
   Bucket generateExpressionInstructions(Bucket rhsValue, CompiledScope scope) {
+    return rhsValue;
+  }
+
+  //#override
+  ConstantBucket computeConstantResult(ConstantBucket rhsValue, CompilationEnvironment environment) {
     return rhsValue;
   }
 }
@@ -1231,6 +1250,15 @@ class BooleanNotExpression extends UnaryExpression {
   Bucket generateExpressionInstructions(Bucket rhsValue, CompiledScope scope) {
     return scope.compute(BooleanNotInstruction(rhsValue, scope.environment().coreBooleanType, LazyComment('result of unary ! operator')));
   }
+
+  //#override
+  ConstantBucket computeConstantResult(ConstantBucket rhsValue, CompilationEnvironment environment) {
+    if (rhsValue.numericValue() == 0) {
+      return IntegerBucket(1, environment.coreBooleanType);
+    } else {
+      return IntegerBucket(0, environment.coreBooleanType);
+    } 
+  }
 }
 
 class BitwiseNotExpression extends UnaryExpression {
@@ -1253,6 +1281,11 @@ class BitwiseNotExpression extends UnaryExpression {
   Bucket generateExpressionInstructions(Bucket rhsValue, CompiledScope scope) {
     return scope.compute(BitwiseNotInstruction(rhsValue, scope.environment().coreIntegerType, LazyComment('result of unary ~ operator')));
   }
+
+  //#override
+  ConstantBucket computeConstantResult(ConstantBucket rhsValue, CompilationEnvironment environment) {
+    return IntegerBucket(~rhsValue.numericValue()!, environment.coreIntegerType);
+  }
 }
 
 class TypeOfExpression extends UnaryExpression {
@@ -1274,6 +1307,11 @@ class TypeOfExpression extends UnaryExpression {
   //#override
   Bucket generateExpressionInstructions(Bucket rhsValue, CompiledScope scope) {
     return TypeOfBucket(rhsValue, scope.environment().coreIntegerType);
+  }
+
+  //#override
+  ConstantBucket computeConstantResult(ConstantBucket rhsValue, CompilationEnvironment environment) {
+    return TypeOfBucket(rhsValue, environment.coreIntegerType).asConstant();
   }
 }
 
@@ -1309,6 +1347,11 @@ class ElementTypeFromExpression extends UnaryExpression {
       LazyComment('element type of ', rhsValue),
     );
   }
+
+  //#override
+  ConstantBucket computeConstantResult(ConstantBucket rhsValue, CompilationEnvironment environment) {
+    return TypeCodeBucket(elementTypeOf(rhsValue.staticType), environment.coreIntegerType).asConstant();
+  }
 }
 
 class IteratorTypeFromExpression extends UnaryExpression {
@@ -1343,6 +1386,11 @@ class IteratorTypeFromExpression extends UnaryExpression {
       LazyComment('iterator type version of ', rhsValue),
     );
   }
+
+  //#override
+  ConstantBucket computeConstantResult(ConstantBucket rhsValue, CompilationEnvironment environment) {
+    return TypeCodeBucket(createOrFindIteratorType(environment, elementTypeOf(rhsValue.staticType)), environment.coreIntegerType).asConstant();
+  }
 }
 
 class ListTypeFromExpression extends UnaryExpression {
@@ -1372,6 +1420,11 @@ class ListTypeFromExpression extends UnaryExpression {
       scope.environment().coreIntegerType, 
       LazyComment('list type version of ', rhsValue),
     );
+  }
+
+  //#override
+  ConstantBucket computeConstantResult(ConstantBucket rhsValue, CompilationEnvironment environment) {
+    return TypeCodeBucket(createOrFindListType(environment, elementTypeOf(rhsValue.staticType)), environment.coreIntegerType).asConstant();
   }
 }
 
@@ -1439,6 +1492,12 @@ class OperatorExpression extends Expression {
     // return environment.coreIntegerType;
   }
 
+  ConstantBucket computeConstantResult(ConstantBucket lhsValue, ConstantBucket rhsValue, CompiledScope scope) {
+    abstract();
+    // e.g.:
+    // return IntegerBucket(evaluate(lhsValue.numericValue(), rhsValue.numericValue()), returnType(scope.environment()));
+  }
+
   Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
     abstract();
     // e.g.:
@@ -1494,6 +1553,11 @@ class OperatorExpression extends Expression {
     Bucket rhsValue = rhs.generateInstructions(scope);
     generateTypeCheckInstructions(lhsValue, rhsValue, scope);
     assert(returnType(scope.environment()).neverReferenceCounted(), concat(className, '\'s returnType is potentially reference countable?!'));
+    if (lhsValue.isConstant() && rhsValue.isConstant()) {
+      ConstantBucket result = computeConstantResult(lhsValue.asConstant(), rhsValue.asConstant(), scope);
+      assert(result.staticType == returnType(scope.environment()), concat(className, '\'s returnType is not respected by its computeConstantResult method'));
+      return result;
+    }
     Bucket result = generateExpressionInstructions(lhsValue, rhsValue, scope);
     assert(result.staticType == returnType(scope.environment()), concat(className, '\'s returnType is not respected by its generateExpressionInstructions method'));
     return result;
@@ -1521,12 +1585,28 @@ class NumericOperatorExpression extends OperatorExpression {
   Type returnType(CompilationEnvironment environment) {
     return environment.coreIntegerType;
   }
+
+  Integer evaluate(Integer lhsValue, Integer rhsValue) {
+    abstract();
+    // e.g.:
+    // return lhsValue + rhsValue;
+  }
+
+  //#override
+  ConstantBucket computeConstantResult(ConstantBucket lhsValue, ConstantBucket rhsValue, CompiledScope scope) {
+    return IntegerBucket(evaluate(lhsValue.numericValue()!, rhsValue.numericValue()!), returnType(scope.environment()) as NumericType);
+  }
 }
 
 class OperatorAdditionExpression extends NumericOperatorExpression {
   //#override
   String describeOperator() {
     return '+';
+  }
+
+  //#override
+  Integer evaluate(Integer lhsValue, Integer rhsValue) {
+    return lhsValue + rhsValue;
   }
 
   //#override
@@ -1542,6 +1622,11 @@ class OperatorSubtractionExpression extends NumericOperatorExpression {
   }
 
   //#override
+  Integer evaluate(Integer lhsValue, Integer rhsValue) {
+    return lhsValue - rhsValue;
+  }
+
+  //#override
   Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
     return scope.compute(SignedSubtractInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, LazyComment('result of binary - operator')));
   }
@@ -1551,6 +1636,11 @@ class OperatorExponentiationExpression extends NumericOperatorExpression {
   //#override
   String describeOperator() {
     return '**';
+  }
+
+  //#override
+  Integer evaluate(Integer lhsValue, Integer rhsValue) {
+    return lhsValue ** rhsValue;
   }
 
   //#override
@@ -1566,6 +1656,11 @@ class OperatorMultiplicationExpression extends NumericOperatorExpression {
   }
 
   //#override
+  Integer evaluate(Integer lhsValue, Integer rhsValue) {
+    return lhsValue * rhsValue;
+  }
+
+  //#override
   Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
     return scope.compute(SignedMultiplyInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, LazyComment('result of binary * operator')));
   }
@@ -1575,6 +1670,11 @@ class OperatorDivisionExpression extends NumericOperatorExpression {
   //#override
   String describeOperator() {
     return '/';
+  }
+
+  //#override
+  Integer evaluate(Integer lhsValue, Integer rhsValue) {
+    return lhsValue / rhsValue;
   }
 
   //#override
@@ -1590,6 +1690,11 @@ class OperatorModulusExpression extends NumericOperatorExpression {
   }
 
   //#override
+  Integer evaluate(Integer lhsValue, Integer rhsValue) {
+    return lhsValue % rhsValue;
+  }
+
+  //#override
   Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
     return scope.compute(SignedModulusInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, LazyComment('result of binary % operator')));
   }
@@ -1599,6 +1704,11 @@ class OperatorBitwiseAndExpression extends NumericOperatorExpression {
   //#override
   String describeOperator() {
     return '&';
+  }
+
+  //#override
+  Integer evaluate(Integer lhsValue, Integer rhsValue) {
+    return lhsValue & rhsValue;
   }
 
   //#override
@@ -1614,6 +1724,11 @@ class OperatorBitwiseOrExpression extends NumericOperatorExpression {
   }
 
   //#override
+  Integer evaluate(Integer lhsValue, Integer rhsValue) {
+    return lhsValue | rhsValue;
+  }
+
+  //#override
   Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
     return scope.compute(OrInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, LazyComment('result of binary | operator')));
   }
@@ -1623,6 +1738,11 @@ class OperatorBitwiseXorExpression extends NumericOperatorExpression {
   //#override
   String describeOperator() {
     return '^';
+  }
+
+  //#override
+  Integer evaluate(Integer lhsValue, Integer rhsValue) {
+    return lhsValue ^ rhsValue;
   }
 
   //#override
@@ -1638,6 +1758,11 @@ class OperatorLeftShiftExpression extends NumericOperatorExpression {
   }
 
   //#override
+  Integer evaluate(Integer lhsValue, Integer rhsValue) {
+    return lhsValue << rhsValue;
+  }
+
+  //#override
   Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
     return scope.compute(ShiftLeftInstruction(lhsValue, rhsValue, scope.environment().coreIntegerType, LazyComment('result of binary << operator')));
   }
@@ -1647,6 +1772,11 @@ class OperatorRightShiftExpression extends NumericOperatorExpression {
   //#override
   String describeOperator() {
     return '>>';
+  }
+
+  //#override
+  Integer evaluate(Integer lhsValue, Integer rhsValue) {
+    return lhsValue >> rhsValue;
   }
 
   //#override
@@ -2063,9 +2193,9 @@ class ConstantDeclarationStatement extends Statement {
     if (!rhs.staticType.isSubtypeOf(staticType)) {
       compileeSourceError(concat('Cannot assign ', rhs.staticType.name, ' to variable of type ', staticType.name, ' at ', sourceLocation));
     }
-    ConstantBucketNullable rhsConstant = rhs.asConstant();
-    if (rhsConstant != null) {
-      scope.registerConstant(identifier, rhsConstant!);
+    if (rhs.isConstant()) {
+      ConstantBucket rhsConstant = rhs.asConstant();
+      scope.registerConstant(identifier, rhsConstant);
     } else {
       scope.emit(TypeCheckInstruction(
         rhs, 

@@ -109,6 +109,37 @@ String camelCase(String value) {
   return joinList(buffer);
 }
 
+String snakeCase(String value) {
+  StringList buffer = []:String;
+  Boolean lastUpper = false;
+  for (char in scalarValues(value)) {
+    if (char >= 0x41 && char <= 0x5A) { // capital A-Z
+      if (!lastUpper && len(buffer) > 0 && last(buffer) != '_') {
+        append(buffer, '_');
+      }
+      append(buffer, chr(char + 0x20));
+      lastUpper = true;
+    } else {
+      lastUpper = false;
+      if (char >= 0x61 && char <= 0x7A) { // lowercase a-z
+        append(buffer, chr(char));
+      } else if (char == 0x24) { // $
+        append(buffer, chr(char));
+      } else if (char >= 0x30 && char <= 0x39) { // 0-9
+        if (len(buffer) == 0) {
+          append(buffer, '_');
+        }
+        append(buffer, chr(char));
+      } else {
+        if (len(buffer) > 0 && last(buffer) != '_') {
+          append(buffer, '_');
+        }
+      }
+    }
+  }
+  return joinList(buffer);
+}
+
 String commentNameForString(String value) {
   StringList buffer = []:String;
   append(buffer, '"');

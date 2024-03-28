@@ -7,10 +7,14 @@ class Assembler extends Object {
   AssemblerLabel rootLabel;
   Map labels = Map(); // AssemblerLabel -> String
 
+  String stringToIdentifier(String value) {
+    abstract();
+  }
+
   String _uncachedSerializeLabel(AssemblerLabel label) {
     assert(label != rootLabel, 'well that is a faux pas');
     StringList names = []:String;
-    String lastName = camelCase(label.name);
+    String lastName = stringToIdentifier(label.name);
     Integer count = 1;
     AssemblerLabel currentLabel = label.parent!;
     while (true) {
@@ -21,7 +25,7 @@ class Assembler extends Object {
         } else {
           append(names, lastName);
         }
-        lastName = camelCase(currentLabel.name);
+        lastName = stringToIdentifier(currentLabel.name);
         count = 0;
       }
       count += 1;

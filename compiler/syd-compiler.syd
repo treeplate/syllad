@@ -571,16 +571,9 @@ class CompilationEnvironment extends TypeRegistry {
       if (type.isConstructed) {
         append(debugCodes, type.code);
         if (type.isSubtypeOf(coreIterableType)) {
-          if (type is IterableType) {
-            Type targetType = mapper((type as IterableType).elementType);
-            append(buffer, targetType.code);
-          } else if (type is AbstractListType) {
-            Type targetType = mapper((type as AbstractListType).elementType);
-            assert(targetType.code != null, 'tried to get iterator with no code');
-            append(buffer, targetType.code);
-          } else {
-            throw(concat('Unrecognized iterable type: ', type));
-          }
+          Type targetType = mapper(elementTypeOf(type));
+          assert(targetType.code != null, 'tried to get iterator with no code');
+          append(buffer, targetType.code);
         } else {
           append(buffer, 0xffffffff); // not a valid code
         }
@@ -635,7 +628,7 @@ class CompilationEnvironment extends TypeRegistry {
   }
 
   Null _generateTypeDescriptionComment(Assembler assembler) {
-    StringList comments = []:String;
+    StringList comments = ['LIST OF TYPES']:String;
     for (type in types) {
       String code;
       if (type.code == null) {
@@ -951,6 +944,11 @@ class VmtPointerBucket extends ConstantBucket {
     return DataLabelDatum(classType.vmtLabel, concat('vmt of ', classType.name));
   }
 
+  //#override
+  Boolean isConstant() {
+    return false;
+  }
+
   Null constructor(CompilationEnvironment environmentArg, ClassType classTypeArg) {
     super.constructor(environmentArg.coreIntegerType);
     classType = classTypeArg;
@@ -1021,6 +1019,11 @@ class SubroutinePointerBucket extends ConstantBucket {
     return DataLabelDatum(subroutine.functionPointerLabel, concat('function pointer of ', subroutine.name));
   }
 
+  //#override
+  Boolean isConstant() {
+    return false;
+  }
+
   Null constructor(CompiledSubroutine subroutineArg, Boolean isConstructorArg) {
     super.constructor(subroutineArg.type);
     assert(!isConstructorArg || subroutineArg is CompiledGeneratedConstructorSubroutine, 'wrong type for constructor subroutine');
@@ -1058,6 +1061,11 @@ class FieldBucket extends Bucket {
     return DereferenceDatum(thisBucket.currentValueDatum(), IntegerDatum(_gcBlockData + member.fieldIndex! * 16, concat('offset to type of ', member.classType, '.', member.name)), ow.QWord, concat('type of ', commentName()));
   }
 
+  //#override
+  Boolean isConstant() {
+    return false;
+  }
+
   Null constructor(Bucket thisBucketArg, MemberDescription memberArg) {
     super.constructor(memberArg.staticType);
     thisBucket = thisBucketArg;
@@ -1093,6 +1101,11 @@ class FieldPointerBucket extends Bucket {
   //#override
   Datum currentTypeDatum() {
     return TypeCodeDatum(staticType);
+  }
+
+  //#override
+  Boolean isConstant() {
+    return false;
   }
 
   Null constructor(Bucket thisBucketArg, MemberDescription memberArg, Type staticTypeArg) {
@@ -3083,8 +3096,8 @@ class CompiledGeneratedConstructorSubroutine extends CompiledSubroutine {
   //#override
   Null appendCleanup(BoundInstructionList result) {
     subemit(result, PrepareConstructorTrampolineInstruction(thisPointer, thisPointerPin, closurePin, parameterCount, parameterCountPin).extract());
-    subemit(result, ReplaceParameterInstruction(returnValuePointer, ScratchBucket(ScratchIdentifier.FakeReturnValue, environment().coreIntegerType, 'return value pointer')).extract());
-    subemit(result, ReplaceParameterInstruction(returnTypePointer, ScratchBucket(ScratchIdentifier.FakeReturnType, environment().coreIntegerType, 'return type pointer')).extract());
+    subemit(result, ReplaceParameterInstruction(returnValuePointer, ScratchBucket(ScratchIdentifier.FakeReturnValue, environment().coreIntegerType, 'trashed constructor return value')).extract());
+    subemit(result, ReplaceParameterInstruction(returnTypePointer, ScratchBucket(ScratchIdentifier.FakeReturnType, environment().coreIntegerType, 'trashed constructor return type')).extract());
     super.appendCleanup(result);
   }
 

@@ -659,7 +659,7 @@ class X64Context extends Object {
   X64LineList output = []:X64Line;
   Integer indent = 0;
   OperandListNullable parameters = null;
-  OperandNullable varArgsBaseAddress = null;
+  OperandNullable varargsBaseAddress = null;
 
   Null incIndent() {
     indent += 1;
@@ -692,9 +692,9 @@ class X64Context extends Object {
         i += 1;
       }
       if (type == PrologType.varArgsSubroutine) {
-        varArgsBaseAddress = PlaceholderOperand('varargs base address');
-        // we're assuming varArgsBaseAddress can be dereferenced with an offset here.
-        append(output, X64DerefOpcode(indent, 'lea', 1, [varArgsBaseAddress!, rbp]:Operand, concat('initialize ', varArgsBaseAddress!.commentName), 0x40));
+        varargsBaseAddress = PlaceholderOperand('varargs base address');
+        // we're assuming varargsBaseAddress can be dereferenced with an offset here.
+        append(output, X64DerefOpcode(indent, 'lea', 1, [varargsBaseAddress!, rbp]:Operand, concat('initialize ', varargsBaseAddress!.commentName), 0x40));
       } else {
         while (len(parameters!) < 4) {
           append(parameters!, PlaceholderOperand(concat('reserved (os parameter ', len(parameters!) + 1, ')')));
@@ -724,7 +724,7 @@ class X64Context extends Object {
 
   Null resetForEpilog() {
     parameters = null;
-    varArgsBaseAddress = null;
+    varargsBaseAddress = null;
   }
 
   Null constructor(X64Assembler assemblerArg) {
@@ -839,7 +839,7 @@ Operand _convertToX64Operand(X64Context context, Datum datum) {
     return context.getParameter((datum as ParameterDatum).index);
   } 
   if (datum is VarArgsBaseAddressDatum) {
-    return context.varArgsBaseAddress!;
+    return context.varargsBaseAddress!;
   } 
   if (datum is DereferenceDatum) {
     return dereferenceDatums(context, 'mov', datum as DereferenceDatum);
@@ -883,7 +883,7 @@ OperandList operandsForKeepAlive(X64Context context, Datum datum) {
     return [context.getParameter((datum as ParameterDatum).index)]:Operand;
   } 
   if (datum is VarArgsBaseAddressDatum) {
-    return [context.varArgsBaseAddress!]:Operand;
+    return [context.varargsBaseAddress!]:Operand;
   } 
   if (datum is BaseAndOffsetDatum) {
     return addLists(operandsForKeepAlive(context, (datum as BaseAndOffsetDatum).base), operandsForKeepAlive(context, (datum as BaseAndOffsetDatum).offset)) as OperandList;
@@ -957,9 +957,8 @@ Integer pushArguments(X64Context context, OperandList operands, DatumList argume
   return pushCount;
 }
 
-Null call(X64Context context, LocalDatum resultDatum, Datum target, DatumList arguments, String comment) {
+Null call(X64Context context, Datum target, DatumList arguments, String comment) {
   // TODO: make sure stack is aligned to 16 bit boundaries
-  Operand result = convertToWritableX64Operand(context, resultDatum);
   Operand tempResult = PlaceholderOperand(concat('result of ', comment));
   tempResult.assignOperand(rax);
   tempResult.pinOperand();
@@ -975,7 +974,6 @@ Null call(X64Context context, LocalDatum resultDatum, Datum target, DatumList ar
   X64Instruction shrinkStack = X64Opcode(context.indent, 'add', [rsp, ImmediateIntegerOperand(32 + 8 * pushCount, 'size of shadow space and pushed arguments')]:Operand, 'pop shadow space and pushed arguments');
   append(context.output, shrinkStack);
   shrinkStack.setStackDelta(0, -(4 + pushCount));
-  append(context.output, X64Opcode(context.indent, 'mov', [result, tempResult]:Operand, concat('save ', result.commentName))); // this will always get optimised out
 }
 
 Null callSystem(X64Context context, LocalDatum resultDatum, String functionName, String libraryName, DatumList arguments, String comment) {
@@ -1111,7 +1109,7 @@ Null convertToX64(X64Context context, PseudoInstruction instruction) {
       append(context.output, X64Opcode(context.indent, 'jnz', [CodeAddressOperand((instruction as Jmp).label, (instruction as Jmp).label.name)]:Operand, (instruction as Jmp).comment));
     }
   } else if (instruction is Call) {
-    call(context, (instruction as Call).result, (instruction as Call).target, (instruction as Call).arguments, (instruction as Call).comment);
+    call(context, (instruction as Call).target, (instruction as Call).arguments, (instruction as Call).comment);
   } else if (instruction is CallSystem) {
     callSystem(context, (instruction as CallSystem).result, (instruction as CallSystem).functionName, (instruction as CallSystem).libraryName, (instruction as CallSystem).arguments, (instruction as CallSystem).comment);
   } else if (instruction is StoreByte) {
@@ -1346,16 +1344,18 @@ Null convertToX64(X64Context context, PseudoInstruction instruction) {
 
 class X64Assembler extends Assembler {
   AssemblerFormat format; // MASM or FASM
-
   Integer lineLength = 64;
+  StringNullable pendingComment = null;
+  StringList code = []:String;
+
+  //#override
+  String stringToIdentifier(String value) {
+    return camelCase(value);
+  }
 
   String serializeOperand(Operand operand) {
     return operand.serialize(serializeLabel, format); // serializeLabel is the function used to, uh, serialize labels
   }
-
-  StringNullable pendingComment = null;
-
-  StringList code = []:String;
 
   Null addLine(Integer indent, String line, StringNullable comment, Boolean includePendingComment) {
     if (pendingComment != null) {

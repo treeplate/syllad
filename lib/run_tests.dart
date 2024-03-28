@@ -356,7 +356,7 @@ class TestResult {
       -1 => 'interpreter reported compile-time error', // interpreter-specific
       -2 => 'interpreter reported runtime error', // interpreter-specific
       -3 => 'interpreted program asserted', // interpreter-specific
-      -4 => 'interpreted program throw', // interpreter-specific
+      -4 => 'interpreted program threw', // interpreter-specific
       0 => '"success"',
       1 => '"failure"',
       254 => 'Dart reported compile-time error', // Dart-specific

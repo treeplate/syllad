@@ -3,4 +3,5 @@
     "editor.bracketPairColorization.enabled": true,
     "debug.console.collapseIdenticalLines": false,
     "dart.lineLength": 160,
+    "search.useParentIgnoreFiles": true,
 }

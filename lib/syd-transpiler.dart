@@ -87,7 +87,7 @@ String transpileExpression(Expression expression) {
     case ShiftRightExpression(a: Expression lhs, b: Expression rhs):
       return '(${transpileExpression(lhs)}) >> (${transpileExpression(rhs)})';
     case PowExpression(a: Expression lhs, b: Expression rhs):
-      return 'math.pow(${transpileExpression(lhs)}, ${transpileExpression(rhs)})';
+      return '(math.pow(${transpileExpression(lhs)}, ${transpileExpression(rhs)}) as core.int)';
     case LessExpression(a: Expression lhs, b: Expression rhs):
       return '(${transpileExpression(lhs)}) < (${transpileExpression(rhs)})';
     case GreaterExpression(a: Expression lhs, b: Expression rhs):

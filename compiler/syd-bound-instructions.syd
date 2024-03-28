@@ -104,22 +104,30 @@ class BoundInstruction extends Object {
       SentinelDatum('closure (N/A)'),
       SentinelDatum('this type (N/A)'),
       SentinelDatum('this pointer (N/A)'),
-      compute(output, LoadAddress(ScratchDatum(ScratchIdentifier.FakeReturnType, 'return type pointer'), 'calculate address for a return type (which will be thrown away)', 'return type pointer')),
-      compute(output, LoadAddress(ScratchDatum(ScratchIdentifier.FakeReturnValue, 'return value pointer'), 'calculate address for a return value (which will be thrown away)', 'return value pointer')),
+      compute(output, LoadAddress(
+        ScratchDatum(ScratchIdentifier.FakeReturnType, concat('ignored syd return type of ', subroutine.commentName)),
+        'calculate address for a return type (which will be thrown away)',
+        concat('pointer to ignored syd return type of ', subroutine.commentName),
+      )),
+      compute(output, LoadAddress(
+        ScratchDatum(ScratchIdentifier.FakeReturnValue, concat('ignored syd return value of ', subroutine.commentName)),
+        'calculate address for a return value (which will be thrown away)',
+        concat('pointer to ignored syd return value of ', subroutine.commentName),
+      )),
     ]:Datum;
     for (argument in arguments) {
       append(argumentValues, argument.currentTypeDatum());
       append(argumentValues, argument.currentValueDatum());
     }
-    append(output, Call(subroutine, argumentValues, subroutine.commentName, concat('return value of ', subroutine.commentName)));
+    append(output, Call(subroutine, argumentValues, concat('call ', subroutine.commentName, ' and discard result')));
   }
 
   // call a syd subroutine with no "this" pointer and no closure, and places the result in the given target bucket
   // no type checks are done here
   Null callFunction(PseudoInstructionList output, Datum subroutine, BucketList arguments, ValueBucket target) {
     target.assignDatums(
-      StackDatum(concat('return value of ', subroutine.commentName)), 
-      StackDatum(concat('return type of ', subroutine.commentName)),
+      StackDatum(concat('syd return value of ', subroutine.commentName)), 
+      StackDatum(concat('syd return type of ', subroutine.commentName)),
     );
     DatumList argumentValues = [
       IntegerDatum(len(arguments), 'parameter count'),
@@ -133,7 +141,7 @@ class BoundInstruction extends Object {
       append(argumentValues, argument.currentTypeDatum());
       append(argumentValues, argument.currentValueDatum());
     }
-    append(output, Call(subroutine, argumentValues, subroutine.commentName, concat('return value of ', subroutine.commentName)));
+    append(output, Call(subroutine, argumentValues, concat('call ', subroutine.commentName)));
     target.typeInference.setDefinitelyNotSentinel();
     append(output, KeepAlive(target.currentValueDatum()));
     append(output, KeepAlive(target.currentTypeDatum()));
@@ -976,7 +984,7 @@ class SetReturnValueInstruction extends BoundInstruction {
         ow.QWord,
         returnValueStaticType,
         true, // isGCRoot
-        LazyComment('return value of the current function'),
+        LazyComment('syd return value of the current function'),
       ),
       context,
     ); // matched by doing a decref on the receiving end (see CallInstruction)
@@ -1394,7 +1402,7 @@ class CallInstruction extends ComputationBoundInstruction {
       append(argumentDatums, argument.currentTypeDatum());
       append(argumentDatums, argument.currentValueDatum());
     }
-    append(output, Call(targetLabel.currentValueDatum(), argumentDatums, targetLabel.currentValueDatum().commentName, target.commentName()));
+    append(output, Call(targetLabel.currentValueDatum(), argumentDatums, concat('call ', targetLabel.currentValueDatum().commentName)));
     target.typeInference.setDefinitelyNotSentinel();
     append(output, KeepAlive(target.currentValueDatum()));
     append(output, KeepAlive(target.currentTypeDatum()));

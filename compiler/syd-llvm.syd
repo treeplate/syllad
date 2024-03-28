@@ -52,36 +52,40 @@ class LLVMOperand extends Object {
   String serialize(StringFunction serializeLabel) {
     abstract();
   }
+
+  AssemblerLabelNullable label() {
+    return null;
+  }
+}
+
+class LLVMSymbolicOperand extends LLVMOperand {
+  AssemblerLabel symbolLabel;
+
+  //#override
+  AssemblerLabel label() {
+    return symbolLabel;
+  }
+
+  Null constructor(AssemblerLabel symbolLabelArg) {
+    super.constructor();
+    symbolLabel = symbolLabelArg;
+  }
 }
 
 // %foo
-class LLVMRegisterOperand extends LLVMOperand {
-  AssemblerLabel registerName;
-
+class LLVMRegisterOperand extends LLVMSymbolicOperand {
   //#override
   String serialize(StringFunction serializeLabel) {
-    return concat('%', serializeLabel(registerName));
-  }
-
-  Null constructor(AssemblerLabel registerNameArg) {
-    super.constructor();
-    registerName = registerNameArg;
+    return concat('%', serializeLabel(symbolLabel));
   }
 }
 
 // @foo
 // this includes global variables and functions
-class GlobalOperand extends LLVMOperand {
-  AssemblerLabel registerName;
-
+class GlobalOperand extends LLVMSymbolicOperand {
   //#override
   String serialize(StringFunction serializeLabel) {
-    return concat('@', serializeLabel(registerName));
-  }
-
-  Null constructor(AssemblerLabel registerNameArg) {
-    super.constructor();
-    registerName = registerNameArg;
+    return concat('@', serializeLabel(symbolLabel));
   }
 }
 
@@ -213,6 +217,7 @@ class LLVMSubroutine extends Object {
   AssemblerLabelNullable returnValuePointer;
   AssemblerLabelNullable returnTypePointer;
   LLVMRegisterOperandList localVariables;
+  AssemblerLabel varargsBaseAddress;
 
   Null serialize(LLVMAssembler assembler) {
     String debugCode = assembler.addDebugLine(concat(
@@ -248,13 +253,13 @@ class LLVMSubroutine extends Object {
         ' {',
       ), null, false, false);
       // TODO: comments
-      assembler.addLine(1, '%$varargs_count = mul i64 2, %parameterCount', null, false, true);
-      assembler.addLine(1, '%$syd_arguments_array = alloca i64, i64 %$varargs_count', null, false, true); // must match subroutineBuilder.varargsBaseAddress
+      assembler.addLine(1, concat('%$varargs_count = mul i64 2, %', assembler.serializeLabel(parameterCount!)), null, false, true);
+      assembler.addLine(1, concat('%', assembler.serializeLabel(varargsBaseAddress), ' = alloca i64, i64 %$varargs_count'), null, false, true);
       assembler.addLine(1, '%$valist = alloca ptr', null, false, true);
       assembler.addLine(1, 'call void @llvm.va_start(ptr %$valist)', null, false, true);
       assembler.addLine(1, '%$cursor_ptr_ptr = alloca ptr', null, false, true);
       assembler.addLine(1, '%$remaining_ptr_ptr = alloca i64', null, false, true);
-      assembler.addLine(1, 'store ptr %$syd_arguments_array, ptr %$cursor_ptr_ptr', null, false, true);
+      assembler.addLine(1, concat('store ptr %', assembler.serializeLabel(varargsBaseAddress), ', ptr %$cursor_ptr_ptr'), null, false, true);
       assembler.addLine(1, 'store i64 %$varargs_count, ptr %$remaining_ptr_ptr', null, false, true);
       assembler.addComment(1, 'for each argument...');
       assembler.addLine(1, 'br label %$arguments_copying_loop', null, false, true);
@@ -295,7 +300,7 @@ class LLVMSubroutine extends Object {
     assembler.addLine(0, '}', null, false, false);
   }
 
-  Null constructor(AssemblerLabel nameArg, AssemblerLabelNullable annotationArg, LLVMBlockList blocksArg, Boolean isThunkArg, AssemblerLabelNullable parameterCountArg, AssemblerLabelNullable closurePointerArg, AssemblerLabelNullable thisPointerArg, AssemblerLabelNullable thisTypeArg, AssemblerLabelNullable returnValuePointerArg, AssemblerLabelNullable returnTypePointerArg, LLVMRegisterOperandList localVariablesArg) {
+  Null constructor(AssemblerLabel nameArg, AssemblerLabelNullable annotationArg, LLVMBlockList blocksArg, Boolean isThunkArg, AssemblerLabelNullable parameterCountArg, AssemblerLabelNullable closurePointerArg, AssemblerLabelNullable thisPointerArg, AssemblerLabelNullable thisTypeArg, AssemblerLabelNullable returnValuePointerArg, AssemblerLabelNullable returnTypePointerArg, LLVMRegisterOperandList localVariablesArg, AssemblerLabel varargsBaseAddressArg) {
     super.constructor();
     name = nameArg;
     annotation = annotationArg;
@@ -308,6 +313,7 @@ class LLVMSubroutine extends Object {
     returnValuePointer = returnValuePointerArg;
     returnTypePointer = returnTypePointerArg;
     localVariables = localVariablesArg;
+    varargsBaseAddress = varargsBaseAddressArg;
   }
 }
 
@@ -397,7 +403,7 @@ class LLVMSubroutineBuilder extends Object {
   }
 
   LLVMSubroutine build() {
-    return LLVMSubroutine(name!, annotation, blocks, isThunk, parameterCount, closurePointer, thisPointer, thisType, returnValuePointer, returnTypePointer, localVariables.values() as LLVMRegisterOperandList);
+    return LLVMSubroutine(name!, annotation, blocks, isThunk, parameterCount, closurePointer, thisPointer, thisType, returnValuePointer, returnTypePointer, localVariables.values() as LLVMRegisterOperandList, varargsBaseAddress);
   }
 
   Null constructor(AssemblerLabelNullable currentFunctionNameArg, AssemblerLabel currentRootLabelArg, AssemblerLabelNullable parameterCountArg, AssemblerLabelNullable closurePointerArg, AssemblerLabelNullable thisPointerArg, AssemblerLabelNullable thisTypeArg, AssemblerLabelNullable returnValuePointerArg, AssemblerLabelNullable returnTypePointerArg) {
@@ -410,19 +416,21 @@ class LLVMSubroutineBuilder extends Object {
     thisType = thisTypeArg;
     returnValuePointer = returnValuePointerArg;
     returnTypePointer = returnTypePointerArg;
-    varargsBaseAddress = rootLabel.deriveWith('$syd_arguments_array'); // this must match the variable declared in LLVMSubroutine
+    varargsBaseAddress = rootLabel.deriveWith('$syd_arguments_array');
     currentBlockName = rootLabel.deriveWith('$entry'); // this must match the block jumped to in LLVMSubroutine
   }
 }
 
 class LLVMAssembler extends Assembler {
   Integer lineLength = 128;
-  
   StringNullable pendingComment = null;
-
   StringList code = []:String;
-
   String currentSerializedFunctionDebugCode; // the !n representing the current function
+
+  //#override
+  String stringToIdentifier(String value) {
+    return snakeCase(value);
+  }
   
   Null enterNewFunction(String newFunctionCode) {
     currentSerializedFunctionDebugCode = newFunctionCode;
@@ -530,13 +538,25 @@ class LLVMAssembler extends Assembler {
   }
 
   LLVMRegisterOperand inttoptr(LLVMSubroutineBuilder subroutineBuilder, LLVMOperand source) {
-    LLVMRegisterOperand result = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith('inttoptr result'));
+    AssemblerLabelNullable label = source.label();
+    if (label == null) {
+      label = subroutineBuilder.rootLabel.deriveWith('intoptr result');
+    } else {
+      label = label!.deriveWith('_ptr');
+    }
+    LLVMRegisterOperand result = LLVMRegisterOperand(label!);
     append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, [result, ' = inttoptr i64 ', source, ' to ptr'], 'convert integer to pointer'));
     return result;
   }
 
   LLVMRegisterOperand ptrtoint(LLVMSubroutineBuilder subroutineBuilder, LLVMOperand source) {
-    LLVMRegisterOperand result = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith('ptrtoint result'));
+    AssemblerLabelNullable label = source.label();
+    if (label == null) {
+      label = subroutineBuilder.rootLabel.deriveWith('ptrtoint result');
+    } else {
+      label = label!.deriveWith('_int');
+    }
+    LLVMRegisterOperand result = LLVMRegisterOperand(label!);
     append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, [result, ' = ptrtoint ptr ', source, ' to i64'], 'convert pointer to integer'));
     return result;
   }
@@ -555,7 +575,7 @@ class LLVMAssembler extends Assembler {
 
   LLVMRegisterOperand obtainIdentifiedStackAllocatedOperand(Anything key, String commentName, LLVMSubroutineBuilder subroutineBuilder) {
     if (subroutineBuilder.localVariables.get(key) == null) {
-      LLVMRegisterOperand register = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith(concat('ptr to ', commentName)));
+      LLVMRegisterOperand register = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith(concat(commentName, '_ptr')));
       subroutineBuilder.localVariables.set(key, register);
     }
     return subroutineBuilder.localVariables.get(key) as LLVMRegisterOperand;
@@ -574,7 +594,7 @@ class LLVMAssembler extends Assembler {
         subroutineBuilder.rootLabel.deriveWith(datum.commentName),
         ow.QWord,
         obtainIdentifiedStackAllocatedOperand(datum, datum.commentName, subroutineBuilder),
-        datum.commentName,
+        concat('load ', datum.commentName, ' into register'),
       );
     } else if (datum is StackDatum) {
       return dereferenceOperandIntoRegister(
@@ -582,21 +602,21 @@ class LLVMAssembler extends Assembler {
         subroutineBuilder.rootLabel.deriveWith(datum.commentName),
         ow.QWord,
         obtainIdentifiedStackAllocatedOperand(datum, datum.commentName, subroutineBuilder),
-        datum.commentName,
+        concat('load ', datum.commentName, ' into register'),
       );
     } else if (datum is CompileTimeNumericDatum) {
       return IntegerOperand((datum as CompileTimeNumericDatum).numericValue()!);
     } else if (datum is VarArgsBaseAddressDatum) {
       return ptrtoint(subroutineBuilder, LLVMRegisterOperand(subroutineBuilder.varargsBaseAddress));
     } else if (datum is DereferenceDatum) {
-      LLVMRegisterOperand sum = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith(concat('ptr to ', datum.commentName)));
+      LLVMRegisterOperand sum = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith(concat(datum.commentName, '_ptr')));
       append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, [sum, ' = add i64 ', convertDatumToOperandForRead((datum as DereferenceDatum).base, subroutineBuilder), ', ', convertDatumToOperandForRead((datum as DereferenceDatum).offset, subroutineBuilder)], 'calculate sum of base and offset for dereference'));
       return dereferenceOperandIntoRegister(
         subroutineBuilder,
         subroutineBuilder.rootLabel.deriveWith(datum.commentName),
         (datum as DereferenceDatum).width,
         inttoptr(subroutineBuilder, sum),
-        datum.commentName,
+        concat('load ', datum.commentName, ' into register'),
       );
     } else if (datum is ReferenceDatum) {
       LLVMRegisterOperand result = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith(datum.commentName));
@@ -608,7 +628,7 @@ class LLVMAssembler extends Assembler {
         subroutineBuilder.rootLabel.deriveWith(datum.commentName),
         ow.QWord,
         GlobalOperand(scratchSpaceLabel),
-        datum.commentName,
+        concat('load ', datum.commentName, ' into register (undefined result)'),
       );
     } else if (datum is ParameterDatum) {
       Integer index = (datum as ParameterDatum).index;
@@ -625,16 +645,16 @@ class LLVMAssembler extends Assembler {
       } else if (index == 5) {
         return LLVMRegisterOperand(subroutineBuilder.returnValuePointer!);
       } else {
-        LLVMRegisterOperand parameterOffset = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith(concat('offset to ', datum.commentName)));
+        LLVMRegisterOperand parameterOffset = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith(concat(datum.commentName, '_offset')));
         append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, [parameterOffset, ' = mul i64 ', IntegerOperand(index - 6), ', 8'], 'convert parameter index to offset from base address'));
-        LLVMRegisterOperand parameterPtr = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith(concat('ptr to ', datum.commentName)));
+        LLVMRegisterOperand parameterPtr = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith(concat(datum.commentName, '_ptr')));
         append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, [parameterPtr, ' = add i64 ', ptrtoint(subroutineBuilder, LLVMRegisterOperand(subroutineBuilder.varargsBaseAddress)), ', ', parameterOffset], 'calculate sum of varargs base and paramter offset for dereference'));
         return dereferenceOperandIntoRegister(
           subroutineBuilder, 
           subroutineBuilder.rootLabel.deriveWith(datum.commentName), 
           ow.QWord,
           inttoptr(subroutineBuilder, parameterPtr),
-          datum.commentName,
+          concat('load ', datum.commentName, ' into register'),
         );
       }
     } else if (datum is GlobalVariableDatum) {
@@ -643,7 +663,7 @@ class LLVMAssembler extends Assembler {
         subroutineBuilder.rootLabel.deriveWith(datum.commentName),
         ow.QWord,
         GlobalOperand((datum as GlobalVariableDatum).label),
-        datum.commentName,
+        concat('load ', datum.commentName, ' into register'),
       );
     } else if (datum is DataLabelDatum) {
       return ptrtoint(subroutineBuilder, GlobalOperand((datum as DataLabelDatum).label));
@@ -809,7 +829,7 @@ class LLVMAssembler extends Assembler {
           convertDatumToOperandForRead((instruction as ReplaceParameter).source, subroutineBuilder),
         );
       } else if (instruction is UpdateGlobalVariable) {
-        append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, ['store i64 ', convertDatumToOperandForRead((instruction as UpdateGlobalVariable).source, subroutineBuilder), ', ptr ', GlobalOperand(((instruction as UpdateGlobalVariable).target).label)], 'update global variable'));
+        append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, ['store i64 ', convertDatumToOperandForRead((instruction as UpdateGlobalVariable).source, subroutineBuilder), ', ptr ', GlobalOperand(((instruction as UpdateGlobalVariable).target).label)], concat('set ', (instruction as UpdateGlobalVariable).target.commentName, ' to ', (instruction as UpdateGlobalVariable).source.commentName)));
       } else if (instruction is Comment) {
         append(subroutineBuilder.currentBlockInstructions, LLVMComment(subroutineBuilder.indent, (instruction as Comment).comment, false));
       } else if (instruction is Jmp) {
@@ -832,8 +852,7 @@ class LLVMAssembler extends Assembler {
         append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, [sum, ' = add i64 ', convertDatumToOperandForRead((instruction as StoreQuad).targetPointer, subroutineBuilder), ', ', convertDatumToOperandForRead((instruction as StoreQuad).offset, subroutineBuilder)], 'calculate sum of base and offset for dereference'));
         append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, ['store i64 ', convertDatumToOperandForRead((instruction as StoreQuad).source, subroutineBuilder), ', ptr ', inttoptr(subroutineBuilder, sum)], (instruction as StoreQuad).comment));
       } else if (instruction is Call) {
-        LLVMRegisterOperand result = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith('return value'));
-        AnythingList instructionParts = [result, ' = call i64 ', inttoptr(subroutineBuilder, convertDatumToOperandForRead((instruction as Call).target, subroutineBuilder)), '('];
+        AnythingList instructionParts = ['call i64 ', inttoptr(subroutineBuilder, convertDatumToOperandForRead((instruction as Call).target, subroutineBuilder)), '('];
         Boolean first = true;
         for (arg in (instruction as Call).arguments) {
           if (!first) {
@@ -845,7 +864,6 @@ class LLVMAssembler extends Assembler {
         }
         append(instructionParts, ')');
         append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, instructionParts, (instruction as Call).comment));
-        writeToLocalDatum(result, (instruction as Call).result, subroutineBuilder, 'store result');
       } else if (instruction is CallSystem) {
         externs.set((instruction as CallSystem).functionName, (instruction as CallSystem).signature);
         LLVMRegisterOperand result = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith('return value'));
@@ -861,29 +879,27 @@ class LLVMAssembler extends Assembler {
         }
         append(instructionParts, ')');
         append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, instructionParts, (instruction as CallSystem).comment));
-        writeToLocalDatum(result, (instruction as CallSystem).result, subroutineBuilder, 'store result');
+        writeToLocalDatum(result, (instruction as PseudoComputation).result, subroutineBuilder, concat('store ', (instruction as PseudoComputation).result.commentName));
       } else if (instruction is LoadByte) {
         LLVMRegisterOperand resultI8 = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith(concat((instruction as LoadByte).result.commentName, 'i8')));
         append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, [resultI8, ' = load i8, ptr ', inttoptr(subroutineBuilder, convertDatumToOperandForRead((instruction as LoadByte).source, subroutineBuilder))], (instruction as PseudoComputation).comment));
         LLVMRegisterOperand result = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith('result'));
         append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, [result, ' = zext i8 ', resultI8, ' to i64'], 'zero-extend load result to i64'));
-        writeToLocalDatum(result, (instruction as LoadByte).result, subroutineBuilder, 'store result');
+        writeToLocalDatum(result, (instruction as PseudoComputation).result, subroutineBuilder, concat('store ', (instruction as PseudoComputation).result.commentName));
       } else if (instruction is LoadQuad) {
-        LLVMRegisterOperand sum = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith(concat('ptr to ', (instruction as LoadQuad).result.commentName)));
+        LLVMRegisterOperand sum = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith(concat((instruction as LoadQuad).result.commentName, '_ptr')));
         append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, [sum, ' = add i64 ', convertDatumToOperandForRead((instruction as LoadQuad).source, subroutineBuilder), ', ', convertDatumToOperandForRead((instruction as LoadQuad).offset, subroutineBuilder)], 'calculate sum of base and offset for dereference'));
         LLVMRegisterOperand result = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith('result'));
         append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, [result, ' = load i64, ptr ', inttoptr(subroutineBuilder, sum)], (instruction as PseudoComputation).comment));
-        writeToLocalDatum(result, (instruction as LoadQuad).result, subroutineBuilder, 'store result');
+        writeToLocalDatum(result, (instruction as PseudoComputation).result, subroutineBuilder, concat('store ', (instruction as PseudoComputation).result.commentName));
       } else if (instruction is LoadAddress) {
-        LLVMRegisterOperand result = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith('result'));
-        append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, [result, ' = add i64 0, ', readAddressOfDatumAsOperand((instruction as LoadAddress).source, subroutineBuilder)], (instruction as LoadAddress).comment));
-        writeToLocalDatum(result, (instruction as LoadAddress).result, subroutineBuilder, 'store result');
+        writeToLocalDatum(readAddressOfDatumAsOperand((instruction as LoadAddress).source, subroutineBuilder), (instruction as LoadAddress).result, subroutineBuilder, concat('store ', (instruction as PseudoComputation).result.commentName));
       } else if (instruction is Cmp) {
         LLVMRegisterOperand i1 = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith(concat((instruction as Cmp).result.commentName, 'i1')));
         append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, [i1, ' = icmp ', comparisonToIcmpCondition((instruction as Cmp).comparison), ' i64 ', convertDatumToOperandForRead((instruction as Cmp).left, subroutineBuilder), ', ', convertDatumToOperandForRead((instruction as Cmp).right, subroutineBuilder)], (instruction as PseudoComputation).comment));
         LLVMRegisterOperand result = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith('result'));
         append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, [result, ' = zext i1 ', i1, ' to i64'], 'zero-extend icmp result to i64'));
-        writeToLocalDatum(result, (instruction as Cmp).result, subroutineBuilder, 'store result');
+        writeToLocalDatum(result, (instruction as PseudoComputation).result, subroutineBuilder, concat('store ', (instruction as PseudoComputation).result.commentName));
       } else if (instruction is BitTest) {
         LLVMRegisterOperand mask = LLVMRegisterOperand(subroutineBuilder.rootLabel.deriveWith('bit mask for bit test'));
         LLVMOperand bitOffset = convertDatumToOperandForRead((instruction as BitTest).bitOffset, subroutineBuilder);
@@ -1013,22 +1029,32 @@ class LLVMAssembler extends Assembler {
     stderr('serializeGlobalVariables...');
     serializedGlobalVariables = serializeGlobalVariables(uninitializedGlobals);
     String output1 = concat(
+      '; syd compiler output for ', mainProgramFilename, '\n',
+      '; target platform: win64 on x86_64\n',
+      '\n',
       'source_filename = "', escapeLL(mainProgramFilename), '"\n',
-      'target datalayout = "S128"\n',
+      'target datalayout = "S128" ; win64 requires 16-byte alignment of the stack\n',
       'target triple = "x86_64-pc-windows-msvc19.30.30706"\n',
+      '\n',
+      '; Declare the LLVM intrinsics used by the syd compiler.\n',
       'declare void @llvm.debugtrap()\n',
       'declare void @llvm.va_start(ptr)\n',
       'declare void @llvm.va_end(ptr)\n',
+      '\n',
       serializedDebugComments,
-      '\n\n',
+      '\n',
+      '; CONSTANTS\n',
       serializedConst,
-      '\n\n',
+      '\n',
+      '; MUTABLE DATA\n',
       serializedData,
-      '\n\n',
+      '\n',
+      '; IMPORTS\n',
       serializedImports,
-      '\n\n',
+      '\n',
+      '; GLOBAL VARIABLES\n',
       serializedGlobalVariables,
-      '\n\n',
+      '\n',
     );
     Integer lineCount = 0;
     for (char in scalarValues(output1)) {

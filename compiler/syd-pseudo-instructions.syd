@@ -450,6 +450,36 @@ class StoreQuad extends PseudoInstruction {
   }
 }
 
+class Call extends PseudoInstruction {
+  String comment;
+  Datum target;
+  DatumList arguments;
+
+  //#override
+  Null reportDatums(Set datumsUsed, Set datumsCreated) {
+    datumsUsed.add(target);
+    datumsUsed.addAll(arguments as AnythingList);
+  }
+
+  //#override
+  Null walkDatums(DatumFunction f) {
+    super.walkDatums(f);
+    target = f(target);
+    Integer i = 0;
+    for (argument in arguments) {
+      arguments[i] = f(argument);
+      i += 1;
+    }
+  }
+
+  Null constructor(Datum targetArg, DatumList argumentsArg, String commentArg) {
+    super.constructor();
+    comment = commentArg;
+    target = targetArg;
+    arguments = argumentsArg;
+  }
+}
+
 class PseudoComputation extends PseudoInstruction {
   LocalDatum result;
   String comment;
@@ -476,35 +506,6 @@ class PseudoComputation extends PseudoInstruction {
 Datum compute(PseudoInstructionList result, PseudoComputation instruction) {
   append(result, instruction);
   return instruction.result;
-}
-
-class Call extends PseudoComputation {
-  Datum target;
-  DatumList arguments;
-
-  //#override
-  Null reportDatums(Set datumsUsed, Set datumsCreated) {
-    super.reportDatums(datumsUsed, datumsCreated);
-    datumsUsed.add(target);
-    datumsUsed.addAll(arguments as AnythingList);
-  }
-
-  //#override
-  Null walkDatums(DatumFunction f) {
-    super.walkDatums(f);
-    target = f(target);
-    Integer i = 0;
-    for (argument in arguments) {
-      arguments[i] = f(argument);
-      i += 1;
-    }
-  }
-
-  Null constructor(Datum targetArg, DatumList argumentsArg, String commentArg, String resultCommentArg) {
-    super.constructor(commentArg, resultCommentArg);
-    target = targetArg;
-    arguments = argumentsArg;
-  }
 }
 
 class CallSystem extends PseudoComputation {

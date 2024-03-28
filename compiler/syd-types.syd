@@ -1127,3 +1127,13 @@ class TypeRegistry extends Object {
     return lookupType(name, requireDeclared);
   }
 }
+
+Type elementTypeOf(Type type) {
+  if (type is IterableType) {
+    return (type as IterableType).elementType;
+  }
+  if (type is AbstractListType) {
+    return (type as AbstractListType).elementType;
+  }
+  throw(concat('Unrecognized iterable type: ', type));
+}
