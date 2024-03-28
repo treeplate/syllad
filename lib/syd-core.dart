@@ -1812,8 +1812,8 @@ class FunctionValueType<T extends Object?> extends GenericFunctionValueType<T> {
   Iterable<ValueType> parameters;
   ValueType returnType;
   late final String stringParams = parameters.toString();
-  late final Identifier name = environment.identifiers["${returnType}Function(${stringParams.substring(1, stringParams.length - 1)})"] ??=
-      Identifier("${returnType}Function(${stringParams.substring(1, stringParams.length - 1)})");
+  late final Identifier name = environment.identifiers["${returnType}Function(${parameters is InfiniteIterable ? '${parameters.first}...' : parameters.join(', ')})"] ??=
+      Identifier("${returnType}Function(${parameters is InfiniteIterable ? '${parameters.first}...' : parameters.join(', ')})");
 
   FunctionValueType.internal(this.returnType, this.parameters, String file, Environment environment, TypeTable typeTable)
       : super.internal(returnType, file, environment, typeTable);
@@ -1822,10 +1822,11 @@ class FunctionValueType<T extends Object?> extends GenericFunctionValueType<T> {
   }
 
   factory FunctionValueType(ValueType returnType, Iterable<ValueType> parameters, String file, Environment environment, TypeTable typeTable) {
-    return typeTable[environment.identifiers["${returnType}Function(${parameters.toString().substring(1, parameters.toString().length - 1)})"] ??=
-        Identifier("${returnType}Function(${parameters.toString().substring(1, parameters.toString().length - 1)})")] = typeTable[
-            environment.identifiers["${returnType}Function(${parameters.toString().substring(1, parameters.toString().length - 1)})"] ??=
-                Identifier("${returnType}Function(${parameters.toString().substring(1, parameters.toString().length - 1)})")] as FunctionValueType<T>? ??
+    String name = "${returnType}Function(${parameters is InfiniteIterable ? '${parameters.first}...' : parameters.join(', ')})";
+    return typeTable[environment.identifiers[name] ??=
+        Identifier(name)] = typeTable[
+            environment.identifiers[name] ??=
+                Identifier(name)] as FunctionValueType<T>? ??
         FunctionValueType<T>.internal(returnType, parameters, file, environment, typeTable);
   }
   @override
