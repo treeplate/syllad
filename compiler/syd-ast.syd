@@ -1253,7 +1253,7 @@ class BooleanNotExpression extends UnaryExpression {
 
   //#override
   ConstantBucket computeConstantResult(ConstantBucket rhsValue, CompilationEnvironment environment) {
-    if (rhsValue.numericValue() == 0) {
+    if (rhsValue.numericValue()! == 0) {
       return IntegerBucket(1, environment.coreBooleanType);
     } else {
       return IntegerBucket(0, environment.coreBooleanType);
@@ -1817,6 +1817,14 @@ class OperatorEqualsEqualsExpression extends OperatorExpression {
   }
 
   //#override
+  ConstantBucket computeConstantResult(ConstantBucket lhsValue, ConstantBucket rhsValue, CompiledScope scope) {
+    if (lhsValue.numericValue()! == rhsValue.numericValue()!) {
+      return scope.environment().coreTrue;
+    }
+    return scope.environment().coreFalse;
+  }
+
+  //#override
   Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
     return scope.compute(EqualityInstruction(lhsValue, rhsValue, scope.environment().coreBooleanType, false, LazyComment('result of binary == operator')));
   }
@@ -1854,6 +1862,14 @@ class OperatorBangEqualsExpression extends OperatorExpression {
   }
 
   //#override
+  ConstantBucket computeConstantResult(ConstantBucket lhsValue, ConstantBucket rhsValue, CompiledScope scope) {
+    if (lhsValue.numericValue()! != rhsValue.numericValue()!) {
+      return scope.environment().coreTrue;
+    }
+    return scope.environment().coreFalse;
+  }
+
+  //#override
   Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
     return scope.compute(EqualityInstruction(lhsValue, rhsValue, scope.environment().coreBooleanType, true, LazyComment('result of binary != operator')));
   }
@@ -1879,6 +1895,18 @@ class OperatorNumericCmpExpression extends OperatorExpression {
     return environment.coreBooleanType;
   }
 
+  Boolean evaluate(Integer lhs, Integer rhs) {
+    abstract();
+  }
+
+  //#override
+  ConstantBucket computeConstantResult(ConstantBucket lhsValue, ConstantBucket rhsValue, CompiledScope scope) {
+    if (evaluate(lhsValue.numericValue()!, rhsValue.numericValue()!)) {
+      return scope.environment().coreTrue;
+    }
+    return scope.environment().coreFalse;
+  }
+
   //#override
   Bucket generateExpressionInstructions(Bucket lhsValue, Bucket rhsValue, CompiledScope scope) {
     return scope.compute(InequalityInstruction(flag(), lhsValue, rhsValue, scope.environment().coreBooleanType, LazyComment('result of binary ', describeOperator(), ' operator')));
@@ -1889,6 +1917,11 @@ class OperatorLessThanExpression extends OperatorNumericCmpExpression {
   //#override
   String describeOperator() {
     return '<';
+  }
+
+  //#override
+  Boolean evaluate(Integer lhs, Integer rhs) {
+    return lhs < rhs;
   }
 
   //#override
@@ -1904,6 +1937,11 @@ class OperatorLessThanOrEqualsExpression extends OperatorNumericCmpExpression {
   }
 
   //#override
+  Boolean evaluate(Integer lhs, Integer rhs) {
+    return lhs <= rhs;
+  }
+
+  //#override
   Comparison flag() {
     return Comparison.LessThanOrEqual;
   }
@@ -1916,6 +1954,11 @@ class OperatorGreaterThanExpression extends OperatorNumericCmpExpression {
   }
 
   //#override
+  Boolean evaluate(Integer lhs, Integer rhs) {
+    return lhs > rhs;
+  }
+
+  //#override
   Comparison flag() {
     return Comparison.GreaterThan;
   }
@@ -1925,6 +1968,11 @@ class OperatorGreaterThanOrEqualsExpression extends OperatorNumericCmpExpression
   //#override
   String describeOperator() {
     return '>=';
+  }
+
+  //#override
+  Boolean evaluate(Integer lhs, Integer rhs) {
+    return lhs >= rhs;
   }
 
   //#override
@@ -1967,6 +2015,7 @@ class OperatorLogicalAndExpression extends Expression {
   //#override
   Bucket generateInstructions(CompiledScope scope) {
     // evaluate lhs
+    // TODO: handle constants more efficiently
     LocalVariable result = LocalVariable(scope.environment().coreBooleanType, scope.environment().coreSentinel, '$result$');
     scope.emit(VariableDeclarationInstruction(result));
     Bucket lhsValue = lhs.generateInstructions(scope);
@@ -2041,6 +2090,7 @@ class OperatorLogicalOrExpression extends Expression {
   //#override
   Bucket generateInstructions(CompiledScope scope) {
     // evaluate lhs
+    // TODO: handle constants more efficiently
     LocalVariable result = LocalVariable(scope.environment().coreBooleanType, scope.environment().coreSentinel, '$result$');
     scope.emit(VariableDeclarationInstruction(result));
     Bucket lhsValue = lhs.generateInstructions(scope);

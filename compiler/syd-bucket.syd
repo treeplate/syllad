@@ -94,12 +94,13 @@ class Bucket extends Object {
   }
 
   // this casts the bucket to the given type (it doesn't turn it into a type!)
+  // TODO: rename this to "withType"
   Bucket asType(Type newStaticType) {
     return StaticCastBucket(this, newStaticType);
   }
 
   Boolean isConstant() {
-    return currentValueDatum().isConstant();
+    return false;
   }
 
   ConstantBucket asConstant() {
@@ -145,6 +146,11 @@ class ConstantBucket extends Bucket {
   //#override
   Boolean isGCRoot() {
     return false;
+  }
+
+  //#override
+  Boolean isConstant() {
+    return true;
   }
 
   //#override
@@ -323,14 +329,6 @@ class DynamicBucket extends Bucket {
   Datum currentTypeDatum() {
     assert(_currentTypeDatum != null, concat('datums of ', this, ' have not yet been set'));
     return _currentTypeDatum!;
-  }
-
-  //#override
-  Boolean isConstant() {
-    if (_currentValueDatum == null) {
-      return false;
-    }
-    return super.isConstant();
   }
 }
 
@@ -633,14 +631,6 @@ class DeferredBucket extends Bucket {
     typeInference = target!.typeInference;
   }
 
-  //#override
-  Boolean isConstant() {
-    if (target == null) {
-      return false;
-    }
-    return target!.isConstant();
-  }
-
   Null constructor(Type staticTypeArg, LazyComment commentNameArg) {
     super.constructor(staticTypeArg);
     _commentName = commentNameArg;
@@ -851,11 +841,6 @@ class DereferenceWithStaticTypeBucket extends Bucket {
     return TypeCodeDatum(staticType);
   }
 
-  //#override
-  Boolean isConstant() {
-    return false;
-  }
-
   Null constructor(Bucket targetArg, Bucket offsetArg, ow widthArg, Type staticTypeArg, LazyComment commentNameArg) {
     super.constructor(staticTypeArg);
     target = targetArg;
@@ -895,11 +880,6 @@ class DereferenceWithOffsetsBucket extends Bucket {
   //#override
   Datum currentTypeDatum() {
     return DereferenceDatum(target.currentValueDatum(), typeOffset.currentValueDatum(), width, concat('type of ', commentName()));
-  }
-
-  //#override
-  Boolean isConstant() {
-    return false;
   }
 
   Null constructor(Bucket targetArg, Bucket valueOffsetArg, Bucket typeOffsetArg, ow widthArg, Type staticTypeArg, LazyComment commentNameArg) {
@@ -942,11 +922,6 @@ class DereferenceTwoBucketsBucket extends Bucket {
   //#override
   Datum currentTypeDatum() {
     return DereferenceDatum(typeTarget.currentValueDatum(), IntegerDatum(0, 'zero offset'), width, concat('type of ', commentName()));
-  }
-
-  //#override
-  Boolean isConstant() {
-    return false;
   }
 
   Null constructor(Bucket valueTargetArg, Bucket typeTargetArg, ow widthArg, Type staticTypeArg, Boolean isGCRootArg, LazyComment commentNameArg) {
@@ -1141,11 +1116,6 @@ class VarArgsParameterBucket extends Bucket {
     return TypeCodeDatum(staticType);
   }
 
-  //#override
-  Boolean isConstant() {
-    return false;
-  }
-
   Null constructor(Type staticTypeArg, Bucket parameterCountArg) {
     super.constructor(staticTypeArg);
     parameterCount = parameterCountArg;
@@ -1167,6 +1137,11 @@ class SentinelBucket extends DynamicBucket {
   //#override
   Boolean isGCRoot() {
     return false;
+  }
+
+  //#override
+  Boolean isConstant() {
+    return true;
   }
 
   Null constructor(SentinelType staticTypeArg) {
