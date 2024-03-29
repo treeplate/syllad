@@ -67,10 +67,7 @@ IF NOT !ERRORLEVEL! == 0 (
         C:/dev/fasm/fasm "%~1.%EXTENSION%" "%~1.exe"
       ) ELSE (
         IF %COMPILATIONMODE% == LLVM (
-          REM TODO: WHAT ABOUT MORE DEFAULT LIBS??
-          REM LLD knows how to read .drectve, we should put the /defaultlib arguments there
-          REM but how do we add a .drectve section to a .ll file?
-          CLANG -v -nostdlib -g -gcodeview -O3 -fuse-ld=lld --for-linker /subsystem:console --for-linker /entry:main --for-linker /defaultlib:KERNEL32 --for-linker /defaultlib:SHELL32 "%~1.%EXTENSION%" --for-linker "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.30.30705\lib\x64\chkstk.obj" --for-linker /out:"%~1.EXE"
+          CLANG -v -nostdlib -g -gcodeview -O3 -fuse-ld=lld --for-linker /subsystem:console "%~1.%EXTENSION%" --for-linker "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.30.30705\lib\x64\chkstk.obj" --for-linker /out:"%~1.EXE"
         ) ELSE (
           ECHO INVALID COMPILATION MODE
           EXIT /B 1

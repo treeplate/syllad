@@ -656,17 +656,18 @@ class LLVMAssembler extends Assembler {
     return join(buffer, '');
   }
 
-  Map externs = Map(); // String -> SubroutineTypeWithSpecificParameters
+  Map externSignatures = Map(); // String -> SubroutineTypeWithSpecificParameters
+  Set defaultLibraries = Set(); // String
 
   String serializeImports() {
     StringBuffer buffer = createStringBuffer();
-    for (name in externs.keys() as StringList) {
+    for (name in externSignatures.keys() as StringList) {
       writeStringBuffer(buffer, 'declare dllimport i64 @');
       writeStringBuffer(buffer, name);
       writeStringBuffer(buffer, '(');
       Boolean firstArg = true;
       //#ignore_unused
-      for (parameter in (externs.get(name) as SubroutineTypeWithSpecificParameters).parameterTypes) {
+      for (parameter in (externSignatures.get(name) as SubroutineTypeWithSpecificParameters).parameterTypes) {
         if (!firstArg) {
           writeStringBuffer(buffer, ', ');
         }
@@ -997,7 +998,8 @@ class LLVMAssembler extends Assembler {
         append(instructionParts, ')');
         append(subroutineBuilder.currentBlockInstructions, LLVMOpcode(subroutineBuilder.indent, instructionParts, (instruction as Call).comment));
       } else if (instruction is CallSystem) {
-        externs.set((instruction as CallSystem).functionName, (instruction as CallSystem).signature);
+        externSignatures.set((instruction as CallSystem).functionName, (instruction as CallSystem).signature);
+        defaultLibraries.add((instruction as CallSystem).libraryName); 
         LLVMRegisterOperand result = subroutineBuilder.createRegisterOperand(concat('return value of ', (instruction as CallSystem).functionName), RegisterType.i64);
         AnythingList instructionParts = [result, ' = call i64 @', (instruction as CallSystem).functionName, '('];
         Boolean first = true;
@@ -1143,9 +1145,17 @@ class LLVMAssembler extends Assembler {
   Null initDebugLines(String mainProgramFilename, String mainProgramDirectory) {
     fileCode = addDebugLine(concat('!DIFile(filename: "', escapeLL(mainProgramFilename), '", directory: "', escapeLL(mainProgramDirectory), '")'));
     cuCode = addDebugLine(concat('distinct !DICompileUnit(file: ', fileCode, ', language: 0, emissionKind: FullDebug, splitDebugInlining: false, nameTableKind: None)'));
+    StringBuffer defaultLibs = createStringBuffer();
+    writeStringBuffer(defaultLibs, '/entry:main');
+    for (lib in defaultLibraries.values() as StringList) {
+      writeStringBuffer(defaultLibs, ' /defaultlib:');
+      writeStringBuffer(defaultLibs, lib);
+      writeStringBuffer(defaultLibs, '.lib');
+    }
     serializedDebugPrefix = concat(
       '!llvm.dbg.cu = !{', cuCode, '}\n',
       '!llvm.module.flags = !{', addDebugLine('!{i32 2, !"CodeView", i32 1}'), ', ', addDebugLine('!{i32 2, !"Debug Info Version", i32 3}'), '}\n',
+      '!llvm.linker.options = !{', addDebugLine(concat('!{!"', readStringBuffer(defaultLibs), '"}')), '}',
     );
     subroutineTypeCode = addDebugLine(concat('!DISubroutineType(types: ', addDebugLine('!{}'), ')'));
   }
