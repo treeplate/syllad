@@ -454,8 +454,45 @@ class CompilationEnvironment extends TypeRegistry {
     return result;
   }
 
+  Boolean foundRedundantJumpAt(PseudoInstructionList instructions, Integer index) {
+    return index + 7 < len(instructions)
+        && instructions[index] is Jmp
+        && instructions[index + 1] is Jmp
+        && instructions[index + 2] is Label
+        && instructions[index + 3] is BlockStartMarker
+        && instructions[index + 4] is Jmp
+        && instructions[index + 5] is BlockEndMarker
+        && instructions[index + 6] is Label
+        && (instructions[index] as Jmp).condition != null
+        && (instructions[index + 1] as Jmp).condition == null
+        && (instructions[index + 4] as Jmp).condition == null
+        && (instructions[index] as Jmp).label == (instructions[index + 2] as Label).label
+        && (instructions[index + 1] as Jmp).label == (instructions[index + 6] as Label).label;
+  }
+
   PseudoInstructionList optimizePseudoInstructionsWithoutTypeCodes(PseudoInstructionList instructions) {
-    return instructions;
+    PseudoInstructionList result = []:PseudoInstruction;
+    Integer index = 0;
+    while (index < len(instructions)) {
+      if (foundRedundantJumpAt(instructions, index)) {
+        // convert:
+        //   jmp condition -> if
+        //   jmp -> else
+        //   if:
+        //   block start
+        //   jmp -> endif
+        //   block end
+        //   else:
+        // to:
+        //   jmp condition -> endif
+        append(result, Jmp((instructions[index] as Jmp).condition, (instructions[index+4] as Jmp).label, (instructions[index] as Jmp).comment));
+        index += 6;
+      } else {
+        append(result, instructions[index]);
+      }
+      index += 1;
+    }
+    return result;
   }
 
   AssemblerLabel typeTableLabel;
