@@ -193,6 +193,10 @@ class LLVMInstruction extends Object {
     abstract();
   }
 
+  Boolean isTerminator() {
+    return false;
+  }
+
   Null constructor(Integer indentArg) {
     super.constructor();
     indent = indentArg;
@@ -240,8 +244,29 @@ class LLVMOpcode extends LLVMInstruction {
     assembler.addLine(indent, readStringBuffer(line), comment, true, true);
   }
 
+  //#override
+  Boolean isTerminator() {
+    Anything firstPart = first(parts);
+    if (!(firstPart is String)) {
+      return false;
+    }
+    String opcode = first(split(firstPart as String, ' '));
+    return opcode == 'ret'
+        || opcode == 'br'
+        || opcode == 'switch'
+        || opcode == 'indirectbr'
+        || opcode == 'invoke'
+        || opcode == 'callbr'
+        || opcode == 'resume'
+        || opcode == 'catchswitch'
+        || opcode == 'catchret'
+        || opcode == 'cleanupret'
+        || opcode == 'unreachable';
+  }
+
   Null constructor(Integer indentArg, AnythingList partsArg, String commentArg) {
     super.constructor(indentArg);
+    assert(len(partsArg) >= 1, 'contract violation');
     parts = partsArg;
     comment = commentArg;
   }
@@ -255,8 +280,13 @@ class LLVMBlock extends Object {
   
   Null serialize(LLVMAssembler assembler) {
     assembler.addLine(indent, concat(assembler.serializeLabel(name), ':'), null, true, false);
-    for (instruction in instructions) {
+    assert(len(instructions) > 0, 'invariant violation');
+    assert((last(instructions) as LLVMInstruction).isTerminator(), 'contract violation');
+    Integer remaining = len(instructions);
+    for (instruction in instructions as LLVMInstructionList) {
       instruction.serialize(assembler);
+      remaining -= 1;
+      assert(remaining > 0 || instruction.isTerminator(), 'contract violation');
     }
   }
 
@@ -475,7 +505,9 @@ class LLVMSubroutineBuilder extends Object {
       assert(single(currentBlockInstructions) is LLVMComment, 'first label should be after one comment and no opcodes');
       name = label;
     } else {
-      append(currentBlockInstructions, LLVMOpcode(indent, ['br label %', label], 'continue to next block'));
+      if (len(currentBlockInstructions) == 0 || !(last(currentBlockInstructions) as LLVMInstruction).isTerminator()) {
+        append(currentBlockInstructions, LLVMOpcode(indent, ['br label %', label], 'continue to next block'));
+      }
       newBlock(label);
     }
   }

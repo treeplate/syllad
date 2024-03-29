@@ -214,7 +214,7 @@ class BoundInstruction extends Object {
     PseudoInstructionList output = []:PseudoInstruction;
     append(output, Comment(concat('increment reference count for ', blockPointer.commentName)));
     Datum referenceCount = compute(output, LoadQuad(blockPointer, IntegerDatum(_gcBlockHeaderRefCount, '_gcBlockHeaderRefCount'), 'load current reference count from the pointer', 'reference count'));
-    Datum result = compute(output, Cmp(referenceCount, IntegerDatum(0, 'zero'), Comparison.LessThan, 'negative reference count means it is a constant, non-ref-counted block', '"is refcount < 0?"'));
+    Datum result = compute(output, Cmp(referenceCount, IntegerDatum(0, 'zero'), Comparison.LessThan, 'negative reference count means it is a constant, non-ref-counted block', '"is constant"'));
     PseudoInstructionList doIncrefBlock = []:PseudoInstruction;
     Datum newReferenceCount = compute(doIncrefBlock, SignedAdd(referenceCount, IntegerDatum(1, 'one'), 'increment reference count', 'new reference count'));
     append(doIncrefBlock, StoreQuad(newReferenceCount, blockPointer, IntegerDatum(_gcBlockHeaderRefCount, '_gcBlockHeaderRefCount'), 'store new reference count'));
@@ -301,7 +301,7 @@ class BoundInstruction extends Object {
       Datum condition = compute(doDecrefBlock, Cmp(newReferenceCount, IntegerDatum(0, 'zero'), Comparison.Equal, 'is zero?', '"is new reference count zero?"'));
       append(doDecrefBlock, If(condition, freeBlock, []:PseudoInstruction, scopeLabel.deriveWith('free'), Map(), concat(blockPointer.commentName(), ' has a reference count that reached zero'), concat('else, ', blockPointer.commentName(), ' still has a positive reference count')));
     }
-    Datum condition = compute(output, Cmp(referenceCount, IntegerDatum(0, 'zero'), Comparison.LessThan, 'negative reference count means it is a constant, non-ref-counted block', '"is refcount < 0?"'));
+    Datum condition = compute(output, Cmp(referenceCount, IntegerDatum(0, 'zero'), Comparison.LessThan, 'negative reference count means it is a constant, non-ref-counted block', '"is constant"'));
     append(output, If(condition, []:PseudoInstruction, doDecrefBlock, scopeLabel.deriveWith('decref'), Map(), concat('if ', blockPointer.commentName(), ' is not a constant'), concat('else, ', blockPointer.commentName(), ' is a constant')));
     return output;
   }
