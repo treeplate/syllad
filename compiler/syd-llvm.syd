@@ -832,12 +832,18 @@ class LLVMAssembler extends Assembler {
     return IntegerOperand(7);
   }
 
-  String serializeData(ConstantList data) {
+  String serializeData(ConstantList data, Boolean isConstant) {
     StringBuffer buffer = createStringBuffer();
     for (constant in data) {
       writeStringBuffer(buffer, '@');
       writeStringBuffer(buffer, serializeLabel(constant.label));
-      writeStringBuffer(buffer, ' = global <{');
+      writeStringBuffer(buffer, ' = ');
+      if (isConstant) {
+        writeStringBuffer(buffer, 'constant');
+      } else {
+        writeStringBuffer(buffer, 'global');
+      }
+      writeStringBuffer(buffer,' <{');
       Boolean first = true;
       Integer i = 0;
       for (part in constant.data) {
