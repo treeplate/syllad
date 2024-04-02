@@ -204,6 +204,32 @@ class IntegerBucket extends ConstantBucket {
   }
 }
 
+// reference to data in the .const section
+class ConstantDataBucket extends ConstantBucket {
+  Constant value;
+
+  //#override
+  String commentName() {
+    return value.commentName;
+  }
+
+  //#override
+  Datum currentValueDatum() {
+    return ConstantDatum(value, commentName());
+  }
+
+  //#override
+  BucketNullable autoDecrefRepresentative() {
+    return null;
+  }
+
+  Null constructor(Constant valueArg, Type staticTypeArg) {
+    super.constructor(staticTypeArg);
+    value = valueArg;
+  }
+}
+
+// same as ConstantDataBucket except the value is a StringConstant specifically
 class StringBucket extends ConstantBucket {
   StringConstant value;
 

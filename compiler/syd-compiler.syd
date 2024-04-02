@@ -209,6 +209,20 @@ class CompilationEnvironment extends TypeRegistry {
     return StringBucket(maybeConstant!, type);
   }
 
+  ConstantDataBucket registerDatumListConstant(AssemblerLabel scopeLabel, ImmediateDatumList datums, String name, String comment) {
+    Constant constant = Constant(
+      scopeLabel.deriveWith(name),
+      [ConstantPart(ow.QWord, datums, '...')]:ConstantPart,
+      comment,
+      name,
+    );
+    append(constants, constant);
+    return ConstantDataBucket(
+      constant,
+      coreIntegerType,
+    );
+  }
+
   Bucket errorMessage(String value) { 
     return registerStringConstant(rootLabel.deriveWith('error'), value, coreStringType, 'built-in error message', commentNameForString(value));
   }
@@ -261,6 +275,7 @@ class CompilationEnvironment extends TypeRegistry {
   String modulusIntrinsicName = 'mod#';
   String equalityIntrinsicName = 'equals#';
   String listConstructorIntrinsicName = 'listConstructor#';
+  String listConstructorFromConstantIntrinsicName = 'listConstructorFromConstant#';
   String classAllocatorIntrinsicName = '_classAllocator';
   String appendIntrinsicName = 'append';
   String iteratorIntrinsicName = 'iterator';

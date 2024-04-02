@@ -15,12 +15,27 @@ import 'syd-rtl-memory.syd';
 // The list data just has the values.
 
 WhateverList listConstructor#(Integer typeCode, Integer initialSize) intrinsic# {
-  assert(initialSize > 0, 'listConstructor needs initialSize to be greater than 0');
+  assert(initialSize > 0, 'listConstructor# needs initialSize to be greater than 0');
   _gcLocked += 1;
   WhateverList list = _constructor(typeCode, 2, 2) as WhateverList;
   __ListData data = _constructor(__typeCodeOf __ListData, 0, initialSize) as __ListData;
   __writeToAddress(list __as__ Integer + _gcBlockData + 0, __typeOf initialSize);
   __writeToAddress(list __as__ Integer + _gcBlockData + 8, initialSize);
+  __writeToAddress(list __as__ Integer + _gcBlockData + 16, __typeOf data);
+  __writeToAddress(list __as__ Integer + _gcBlockData + 24, data __as__ Integer);
+  _gcLocked -= 1;
+  return list;
+}
+
+// constantPointer is a pointer to a sequence of (type, value) pairs
+WhateverList listConstructorFromConstant#(Integer typeCode, Integer length, Integer constantPointer) intrinsic# {
+  assert(length > 0, 'call listConstructor# for empty lists, not listConstructorFromConstant#');
+  _gcLocked += 1;
+  WhateverList list = _constructor(typeCode, 2, 2) as WhateverList;
+  __ListData data = _constructor(__typeCodeOf __ListData, length, length) as __ListData;
+  _moveBytes(constantPointer, data __as__ Integer + _gcBlockData, length * 16);
+  __writeToAddress(list __as__ Integer + _gcBlockData + 0, __typeOf length);
+  __writeToAddress(list __as__ Integer + _gcBlockData + 8, length);
   __writeToAddress(list __as__ Integer + _gcBlockData + 16, __typeOf data);
   __writeToAddress(list __as__ Integer + _gcBlockData + 24, data __as__ Integer);
   _gcLocked -= 1;

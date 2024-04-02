@@ -283,7 +283,36 @@ class ListLiteralExpression extends Expression {
     type.markConstructed();
     createOrFindIteratorType(environment, evaluatedElementType).markConstructed();
     assert(initialLength > 0, 'List must not be constructed with zero elements.');
-    Bucket list = scope.emitIntrinsicCall(environment.listConstructorIntrinsicName, [ TypeCodeBucket(type, scope.environment().coreIntegerType), environment.integer(initialLength) ]:Bucket).asType(type);
+
+    Boolean isConstant = true;
+    for (element in elements) {
+      if (!element.isConstant()) {
+        isConstant = false;
+        break;
+      }
+    }
+
+    if (isConstant && len(elements) > 0) {
+      ImmediateDatumList datums = []:ImmediateDatum;
+      for (element in elements) {
+        // we believe it is an invariant that these Datums are ImmediateDatums if the Bucket isConstant
+        append(datums, element.currentTypeDatum() as ImmediateDatum);
+        append(datums, element.currentValueDatum() as ImmediateDatum);
+      }
+      return scope.emitIntrinsicCall(
+        environment.listConstructorFromConstantIntrinsicName,
+        [
+          TypeCodeBucket(type, scope.environment().coreIntegerType),
+          environment.integer(len(elements)),
+          scope.environment().registerDatumListConstant(scope.label, datums, 'list initializer', 'list values and types'),
+        ]:Bucket,
+      ).asType(type);
+    }
+
+    Bucket list = scope.emitIntrinsicCall(
+      environment.listConstructorIntrinsicName,
+      [ TypeCodeBucket(type, scope.environment().coreIntegerType), environment.integer(initialLength) ]:Bucket,
+    ).asType(type);
     for (element in elements) {
       scope.emitIntrinsicCall(environment.appendIntrinsicName, [ list, element ]:Bucket);
     }

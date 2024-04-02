@@ -1171,8 +1171,8 @@ class LLVMAssembler extends Assembler {
     initDebugLines(concat(mainProgramFilename, '.ll'), ''); // TODO: check on the directory thing, TODO: consider not hardcoding <input>.ll
     stderr('serializeData...');
     serializedDebugComments = serializeDebugComments(debugComments);
-    serializedConst = serializeData(constants);
-    serializedData = serializeData(data);
+    serializedConst = serializeData(constants, true);
+    serializedData = serializeData(data, false);
     serializedImports = serializeImports();
     stderr('serializeGlobalVariables...');
     serializedGlobalVariables = serializeGlobalVariables(uninitializedGlobals);
