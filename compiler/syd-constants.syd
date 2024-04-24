@@ -1,27 +1,38 @@
 // Data structures:
 //
 // GarbageCollectables:
-//   8 bytes reference count
-//   8 bytes number of fields
-//   8 bytes scratch space for garbage collector
-//   8 bytes pointer into block list (relative to block start)
-//   fields, 16 bytes each:
+//   8 bytes reference count (_gcBlockHeaderRefCount)
+//   8 bytes number of fields (_gcBlockHeaderLength)
+//   8 bytes scratch space for garbage collector (_gcBlockHeaderScratchSpace)
+//   8 bytes pointer into block list (relative to block start) (_gcBlockHeaderEntryPointer)
+//   fields, 16 bytes each: (_gcBlockData)
 //      8 bytes type
 //      8 bytes value
 //   
 // Strings (first 16 bytes intentionally match GarbageCollectables):
-//   8 bytes reference count
-//   8 bytes number of bytes
-//   String data (right-padded to 8 byte boundary with 0x00)
+//   8 bytes reference count (_gcBlockHeaderRefCount)
+//   8 bytes number of bytes (_gcBlockHeaderLength)
+//   String data (right-padded to 8 byte boundary with 0x00) (_gcBlockStringData)
+//
+// Lists (kind of GarbageCollectable):
+//   GarbageCollectable header
+//   8 bytes integer type
+//   8 bytes size of list data (_listBlockSize)
+//   8 bytes integer type
+//   8 bytes pointer to __ListData (_listBlockData)
+//
+// __ListData (kind of GarbageCollectable):
+//   GarbageCollectable header; number of fields is list length (block may be longer)
+//   (list data)
 //
 // Function pointers (kind of GarbageCollectable):
 //   GarbageCollectable header
-//   8 bytes type of object (this pointer type)
-//   8 bytes pointer to object (this pointer value)
-//   8 bytes either internal closure type or sentinel type
-//   8 bytes pointer to closure
-//   8 bytes internal code address type
-//   8 bytes pointer to code (with annotation at -8 bytes) as an Integer
+//   8 bytes type of object (this pointer type) (_subroutineReceiverType)
+//   8 bytes pointer to object (this pointer value) (_subroutineReceiverPointer)
+//   8 bytes either internal closure type or sentinel type (_subroutineClosureType)
+//   8 bytes pointer to closure (_subroutineClosurePointer)
+//   8 bytes internal code address type (_subroutineCodeType)
+//   8 bytes pointer to code (with annotation at -8 bytes) as an Integer (_subroutineCodePointer)
 //
 // Reified Enum Table
 //   8 bytes pointer to name
