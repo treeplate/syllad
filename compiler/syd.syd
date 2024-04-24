@@ -7,37 +7,17 @@ import 'syd-ast.syd';
 import 'syd-compiler.syd';
 
 stderr('syllad self-hosting compiler');
-// syllad spec:
-// some built-in functions
-// while loop
-// for-in loops
-// classical if-else
-// classical variables, but with no 'var' or 'final'
-// enums (enum X {a b c}  ...  X state = Xa; ... state = Xb;   if(state == Xa) { ... })
-// values are functions or true or false or null or int literal or list literal (e.g. [1, 2]) or string literal ('' or "", newlines ok, single-character escapes)
-// types, or <t>, are:
-// Anything, Integer, String, Boolean, <t>List, <t>Iterable, <t>Iterator, Null, <t> (enums/classes)
-// operators: [], <, >, +, -, /, *, &, &&, |, ^, ||, >=, <=, >>, <<
 
-// WISHLIST
-// P1 (blocking progress):
-//   language changes that I think have been announced but not yet implemented:
-//     - type declarations leak out of blocks (e.g. "if (true) { enum X { a } } X a;" does not fail)
-// P3 (nice-to-haves for which i've found workarounds):
-//   performance
-//   soundness in type system -- a variable being of type X should be a guarantee that it will have a value of type X
-//     - functions without returns aren't statically checked
-//     - toString returning non-string isn't checked for either
-//   function types with signatures
-//   string interpolation
-//   new features in classes: abstract classes and methods
-//   functions to have named arguments with default values
-//   some way to call syscalls / OS functions
-//   switch (especially if the compiler can report missing enum values)
-//   no way to catch exceptions
-//   try-finally
-//   detailed language reference
-//   [] could have its type inferred from context
+// TODO
+//  - performance of compiler and compilee
+//  - productionize self-hosting
+//  - language features:
+//     - statics
+//     - unary ++ and --
+//     - string encodings
+//     - override pragma
+//     - unused variable detection, ignore unused pragma
+//  - pdb support at syd level rather than .ll / .asm level
 
 Library processFile(String filename, MapNullable librariesArg, Boolean isProgram, Boolean isInternal) {
   Map libraries;
