@@ -332,6 +332,11 @@ class ConstantValueBucket extends ConstantBucket {
   Datum currentTypeDatum() {
     return _currentTypeDatum;
   }
+
+  //#override
+  IntegerNullable numericValue() {
+    return _currentValueDatum.numericValue();
+  }
   
   Null constructor(Type staticTypeArg, Datum currentValueDatumArg, Datum currentTypeDatumArg, String commentNameArg, TypeInference typeInferenceArg) {
     super.constructor(staticTypeArg);
