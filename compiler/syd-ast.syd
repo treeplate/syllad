@@ -1228,6 +1228,7 @@ class IntegerNegationExpression extends UnaryExpression {
 
   //#override
   ConstantBucket computeConstantResult(ConstantBucket rhsValue, CompilationEnvironment environment) {
+    assert(rhsValue.numericValue() != null, concat(rhsValue, ' does not have a numericValue'));
     return IntegerBucket(-rhsValue.numericValue()!, environment.coreIntegerType);
   }
 }
@@ -1282,6 +1283,7 @@ class BooleanNotExpression extends UnaryExpression {
 
   //#override
   ConstantBucket computeConstantResult(ConstantBucket rhsValue, CompilationEnvironment environment) {
+    assert(rhsValue.numericValue() != null, concat(rhsValue, ' does not have a numericValue'));
     if (rhsValue.numericValue()! == 0) {
       return IntegerBucket(1, environment.coreBooleanType);
     } else {
@@ -1313,6 +1315,7 @@ class BitwiseNotExpression extends UnaryExpression {
 
   //#override
   ConstantBucket computeConstantResult(ConstantBucket rhsValue, CompilationEnvironment environment) {
+    assert(rhsValue.numericValue() != null, concat(rhsValue, ' does not have a numericValue'));
     return IntegerBucket(~rhsValue.numericValue()!, environment.coreIntegerType);
   }
 }
@@ -1623,6 +1626,8 @@ class NumericOperatorExpression extends OperatorExpression {
 
   //#override
   ConstantBucket computeConstantResult(ConstantBucket lhsValue, ConstantBucket rhsValue, CompiledScope scope) {
+    assert(rhsValue.numericValue() != null, concat(rhsValue, ' (rhs) does not have a numericValue'));
+    assert(lhsValue.numericValue() != null, concat(lhsValue, ' (lhs) does not have a numericValue'));
     return IntegerBucket(evaluate(lhsValue.numericValue()!, rhsValue.numericValue()!), returnType(scope.environment()) as NumericType);
   }
 }
@@ -1847,6 +1852,8 @@ class OperatorEqualsEqualsExpression extends OperatorExpression {
 
   //#override
   ConstantBucket computeConstantResult(ConstantBucket lhsValue, ConstantBucket rhsValue, CompiledScope scope) {
+    assert(rhsValue.numericValue() != null, concat(rhsValue, ' (rhs) does not have a numericValue'));
+    assert(lhsValue.numericValue() != null, concat(lhsValue, ' (lhs) does not have a numericValue'));
     if (lhsValue.numericValue()! == rhsValue.numericValue()!) {
       return scope.environment().coreTrue;
     }
@@ -1892,6 +1899,8 @@ class OperatorBangEqualsExpression extends OperatorExpression {
 
   //#override
   ConstantBucket computeConstantResult(ConstantBucket lhsValue, ConstantBucket rhsValue, CompiledScope scope) {
+    assert(rhsValue.numericValue() != null, concat(rhsValue, ' (rhs) does not have a numericValue'));
+    assert(lhsValue.numericValue() != null, concat(lhsValue, ' (lhs) does not have a numericValue'));
     if (lhsValue.numericValue()! != rhsValue.numericValue()!) {
       return scope.environment().coreTrue;
     }
@@ -1930,6 +1939,8 @@ class OperatorNumericCmpExpression extends OperatorExpression {
 
   //#override
   ConstantBucket computeConstantResult(ConstantBucket lhsValue, ConstantBucket rhsValue, CompiledScope scope) {
+    assert(rhsValue.numericValue() != null, concat(rhsValue, ' (rhs) does not have a numericValue'));
+    assert(lhsValue.numericValue() != null, concat(lhsValue, ' (lhs) does not have a numericValue'));
     if (evaluate(lhsValue.numericValue()!, rhsValue.numericValue()!)) {
       return scope.environment().coreTrue;
     }
