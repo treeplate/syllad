@@ -1,6 +1,7 @@
 // RUNTIME LIBRARY - SEQUENCE TYPES
 
 import 'syd-rtl-memory.syd';
+import 'syd-rtl-core-lists.syd';
 
 // LISTS
 
@@ -13,19 +14,6 @@ import 'syd-rtl-memory.syd';
 // The second value is a pointer to the data block (type __ListData).
 //
 // The list data just has the values.
-
-WhateverList listConstructor#(Integer typeCode, Integer initialSize) intrinsic# {
-  assert(initialSize > 0, 'listConstructor# needs initialSize to be greater than 0');
-  _gcLocked += 1;
-  WhateverList list = _constructor(typeCode, 2, 2) as WhateverList;
-  __ListData data = _constructor(__typeCodeOf __ListData, 0, initialSize) as __ListData;
-  __writeToAddress(list __as__ Integer + _gcBlockData + 0, __typeOf initialSize);
-  __writeToAddress(list __as__ Integer + _gcBlockData + 8, initialSize);
-  __writeToAddress(list __as__ Integer + _gcBlockData + 16, __typeOf data);
-  __writeToAddress(list __as__ Integer + _gcBlockData + 24, data __as__ Integer);
-  _gcLocked -= 1;
-  return list;
-}
 
 // constantPointer is a pointer to a sequence of (type, value) pairs
 WhateverList listConstructorFromConstant#(Integer typeCode, Integer length, Integer constantPointer) intrinsic# {
@@ -40,44 +28,6 @@ WhateverList listConstructorFromConstant#(Integer typeCode, Integer length, Inte
   __writeToAddress(list __as__ Integer + _gcBlockData + 24, data __as__ Integer);
   _gcLocked -= 1;
   return list;
-}
-
-Null _growList(WhateverList list) {
-  assert(len(list) > 0, '_growList got empty list');
-  _gcLocked += 1;
-  Integer newSize = len(list) * 2;
-  __ListData newData = _constructor(__typeCodeOf __ListData, len(list), newSize) as __ListData;
-  __ListData oldData = __readFromAddress(list __as__ Integer + _gcBlockData + 16 + 8) __as__ __ListData;
-  _moveBytes(oldData __as__ Integer + _gcBlockData, newData __as__ Integer + _gcBlockData, len(list) * 16);
-  __writeToAddress(list __as__ Integer + _gcBlockData + 8, newSize);
-  __writeToAddress(list __as__ Integer + _gcBlockData + 16 + 8, newData __as__ Integer);
-  _gcLocked -= 1;
-}
-
-Null append(WhateverList list, Anything element) intrinsic# {
-  if (!(element __dynamic_is__ __elementTypeFrom __typeOf list)) {
-    throw('type error in append');
-  }
-  _gcLocked += 1;
-  Integer intermediaryAddress = list __as__ Integer;
-  Integer size = __readFromAddress(intermediaryAddress + _gcBlockData + 0 + 8);
-  assert(size > 0, '0 size list should not be possible');
-  Integer dataAddress = __readFromAddress(intermediaryAddress + _gcBlockData + 16 + 8);
-  Integer length = len(list);
-  if (length == size) {
-    _growList(list);
-    dataAddress = __readFromAddress(intermediaryAddress + _gcBlockData + 16 + 8);
-  }
-  __writeToAddress(dataAddress + _gcBlockData + length * 16, __typeOf element);
-  __writeToAddress(dataAddress + _gcBlockData + length * 16 + 8, element __as__ Integer);
-  __writeToAddress(dataAddress + _gcBlockHeaderLength, length + 1);
-  if (element is String) {
-    Integer refcount = __readFromAddress(element __as__ Integer + _gcBlockHeaderRefCount);
-    if (refcount >= 0) {
-      __writeToAddress(element __as__ Integer + _gcBlockHeaderRefCount, refcount + 1);
-    }
-  }
-  _gcLocked -= 1;
 }
 
 Anything pop(WhateverList list) {
@@ -95,44 +45,84 @@ Anything pop(WhateverList list) {
 
 // ITERABLES AND ITERATORS
 
-// Iterators are blocks with the following values:
-//  1: pointer to iterable
-//  2: cursor (semantics vary based on the iterable)
+class Iterator# {
+  Whatever current() { }
+  Boolean next() { }
+}
 
-// Iterables are currently just lists. This will have to change when we implement scalarValues.
+class ArrayIterator# extends Iterator# {
+  WhateverArray array;
+  Integer index = -1;
+
+  //#override
+  Whatever current() {
+    assert(index >= 0, 'contract violation');
+    assert(index < len(array), 'contract violation');
+    return array[index];
+  }
+
+  //#override
+  Boolean next() {
+    index += 1;
+    return index < len(array);
+  }
+
+  Null constructor(WhateverArray arrayArg) {
+    array = arrayArg;
+  }
+}
+
+class Iterable# {
+  WhateverIterator iterator() { }
+
+  Integer len() {
+    // default implementation (expensive)
+    Iterator# lengthCountingIterator = iterator() __as__ Iterator#;
+    Integer count = 0;
+    while (lengthCountingIterator.next()) {
+      count += 1;
+    }
+    return count;
+  }
+}
+
+// creates an iterator for the iterable
+WhateverIterator iterator(WhateverIterable iterableArg) intrinsic# {
+  if (iterableArg is WhateverArray) {
+    return (ArrayIterator#(iterableArg as WhateverArray) __dynamic_as__ __iteratorTypeFrom __typeOf iterableArg) as WhateverIterator;
+  }
+  Iterable# iterable = iterableArg __as__ Iterable#;
+  return iterable.iterator();
+}
+
+Integer len#(WhateverIterable iterableArg) intrinsic# {
+  if (iterableArg is WhateverArray) {
+    // We only get here if the type could not be determined statically
+    // (the static case is inlined by the compiler), or if someone is
+    // using a pointer to len() (e.g. as a callback).
+    Integer listPointer = iterableArg __as__ Integer;
+    Integer dataPointer = __readFromAddress(listPointer + _listBlockData);
+    return __readFromAddress(dataPointer + _gcBlockHeaderLength);
+  }
+  Iterable# iterable = iterableArg __as__ Iterable#;
+  return iterable.len();
+}
 
 // returns value at cursor of iterator
 // it is a fatal error to call current when the cursor
 // points before the beginning or after the end of the iterable
 // (i.e. if next() has not been called or has returned false)
 Whatever current(WhateverIterator iteratorArg) intrinsic# {
-  WhateverArray list = (__readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 8) __dynamic_as__ __readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 0)) as WhateverArray;
-  Integer index = (__readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 24) __dynamic_as__ __readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 16)) as Integer;
-  return list[index];
+  Iterator# iterator = iteratorArg __as__ Iterator#;
+  return iterator.current();
 }
 
 // advances cursor of iterator by one
 // return true if cursor is before end of iterable; current returns value at cursor
 // return false if cursor is after end of iterable
 Boolean next(WhateverIterator iteratorArg) intrinsic# {
-  WhateverArray list = (__readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 8) __dynamic_as__ __readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 0)) as WhateverArray;
-  Integer index = (__readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 24) __dynamic_as__ __readFromAddress(iteratorArg __as__ Integer + _gcBlockData + 16)) as Integer;
-  index += 1;
-  __writeToAddress(iteratorArg __as__ Integer + _gcBlockData + 24, index);
-  return index < len(list);
-}
-
-// creates an iterator for the iterable
-WhateverIterator iterator(WhateverIterable iterable) intrinsic# {
-  assert(iterable is WhateverArray, 'iterables are only implemented for lists');
-  _gcLocked += 1;
-  WhateverIterator result = _constructor(__iteratorTypeFrom __typeOf iterable, 2, 2) as WhateverIterator;
-  __writeToAddress(result __as__ Integer + _gcBlockData + 0, __typeOf iterable);
-  __writeToAddress(result __as__ Integer + _gcBlockData + 8, iterable __as__ Integer);
-  __writeToAddress(result __as__ Integer + _gcBlockData + 16, __typeCodeOf Integer);
-  __writeToAddress(result __as__ Integer + _gcBlockData + 24, -1);
-  _gcLocked -= 1;
-  return result;
+  Iterator# iterator = iteratorArg __as__ Iterator#;
+  return iterator.next();
 }
 
 WhateverList copy(WhateverIterable iterable) {

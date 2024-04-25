@@ -21,7 +21,7 @@ String readFile(File file) {
 
 //#ignore_unused
 Null writeFile(File file, String string) {
-  return writeFileBytes(file, utf8Encode(string));
+  return writeFileBytes(file, utf8Encode(string) as IntegerArray);
 }
 
 Integer abs(Integer number) {

@@ -513,7 +513,7 @@ class Environment {
           if (!getType(args.single, dummyVariableGroup, -2, 0, 'intrinsics', false).isSubtypeOf(
               IterableValueType(ValueType.create(whateverVariable, -2, 0, 'intrinsics', this, rootTypeTable), 'intrinsics', this, rootTypeTable))) {
             throw RuntimeSydException(
-                'len() takes a list as its argument, not a ${getType(args.single, dummyVariableGroup, -2, 0, 'intrinsics', false)} ${stack.reversed.join('\n')}',
+                'len() takes an iterable as its argument, not a ${getType(args.single, dummyVariableGroup, -2, 0, 'intrinsics', false)} ${stack.reversed.join('\n')}',
                 dummyVariableGroup);
           }
           stack.removeLast();
@@ -647,7 +647,7 @@ class Environment {
         (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
           return SydList(
             (args.single as SydIterable).iterable.toList(),
-            ListValueType<Object?>(anythingType, 'intrinsics', this, rootTypeTable),
+            ListValueType<Object?>(elementTypeOf((args.single as SydIterable).type), 'intrinsics', this, rootTypeTable),
           );
         },
         FunctionValueType(
@@ -749,7 +749,7 @@ class Environment {
             if (file.used && !file.appendMode) {
               throw RuntimeSydException('${file.file.path} was written to twice ${stack.reversed.join('\n')}', dummyVariableGroup);
             }
-            file.file.writeFromSync((args.last as SydArray<int>).array);
+            file.file.writeFromSync((args.last as SydArray).array as List<int>);
             file.used = true;
             return null;
           } catch (e) {
@@ -803,7 +803,7 @@ class Environment {
                 'error $e when encoding utf8 ${toStringWithStacker(args.single, -2, 0, 'file', false)}\n${stack.reversed.join('\n')}', dummyVariableGroup);
           }
         },
-        FunctionValueType(ArrayValueType(integerType, 'intrinsics', this, rootTypeTable), [stringType], 'intrinsics', this, rootTypeTable),
+        FunctionValueType(IterableValueType(integerType, 'intrinsics', this, rootTypeTable), [stringType], 'intrinsics', this, rootTypeTable),
         'utf8Decode intrinsic',
       ),
       'throw': SydFunction(

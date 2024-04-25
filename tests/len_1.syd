@@ -1,0 +1,6 @@
+// expected output: 3
+// expected output: 3
+
+println(len([1,2,1]));
+WhateverFunction lenToo = len;
+println(lenToo([1,2,1]));

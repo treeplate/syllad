@@ -1,0 +1,12 @@
+// expected output: 97
+// expected output: 98
+// expected output: 99
+// expected output: 100
+// expected output: 101
+// expected output: [97, 98, 99, 100, 101]
+
+IntegerIterable bytes = utf8Encode('abcde'); // 97...101
+for (byte in bytes) {
+  println(byte);
+}
+println(concat(bytes));

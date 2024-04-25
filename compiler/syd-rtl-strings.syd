@@ -3,6 +3,7 @@
 import 'syd-rtl-memory.syd';
 import 'syd-rtl-core-strings.syd';
 import 'syd-rtl-types.syd';
+import 'syd-rtl-lists.syd';
 
 typedef# StringBuffer is GarbageCollectable;
 
@@ -266,19 +267,22 @@ String stringifyImplementation#(Anything arg) {
     Integer annotation = __readFromAddress(__readFromAddress(func + _subroutineCodePointer) - 8);
     return concat('<function (', annotation __as__ String, ')>');
   }
-  if (arg is StringList) {
-    return concat('[', join(arg as StringList, ', '), ']');
-  }
-  if (arg is WhateverArray) {
-    StringList new = []:String;
-    WhateverArray old = arg as WhateverArray;
-    Integer i = 0;
-    while (i < len(old)) {
+  if (arg is WhateverIterable) {
+    StringBuffer result = createStringBuffer();
+    writeStringBuffer(result, '[');
+    WhateverIterator source = iterator(arg as WhateverIterable);
+    Boolean first = true;
+    while (next(source)) {
+      if (!first) {
+        writeStringBuffer(result, ', ');
+      } else {
+        first = false;
+      }
       // TODO: beware infinite loops from cyclic references
-      append(new, stringify#(old[i]));
-      i += 1;
+      writeStringBuffer(result, stringify#(current(source)));
     }
-    return concat('[', join(new, ', '), ']');
+    writeStringBuffer(result, ']');
+    return readStringBuffer(result);
   }
   if (arg is StringBuffer) {
     return '<StringBuffer>';
@@ -308,26 +312,61 @@ String chr(Integer code) {
   return resultPointer __as__ String;
 }
 
+class ByteIterator# extends Iterator# {
+  String value;
+  Integer index = -1;
+  Integer cache;
+
+  //#override
+  Integer current() {
+    assert(index >= 0, 'contract violation');
+    assert(index < _stringByteLength(value), 'contract violation');
+    return (cache >> ((index % 8) * 8)) & 0xFF;
+  }
+
+  //#override
+  Boolean next() {
+    index += 1;
+    if (index >= _stringByteLength(value)) {
+      return false;
+    }
+    if (index % 8 == 0) {
+      Integer cursor = value __as__ Integer + _gcBlockStringData + index;
+      assert(cursor % 8 == 0, 'string is misaligned');
+      cache = __readFromAddress(cursor);
+    }
+    return true;
+  }
+
+  Null constructor(String valueArg) {
+    value = valueArg;
+  }
+}
+
+class ByteIterable# extends Iterable# {
+  String value;
+
+  //#override
+  IntegerIterator iterator() {
+    return ByteIterator#(value) __as__ IntegerIterator;
+  }
+
+  //#override
+  Integer len() {
+    return __readFromAddress(value __as__ Integer + _gcBlockHeaderLength);
+  }
+
+  Null constructor(String valueArg) {
+    value = valueArg;
+  }
+}
+
 // We define that Strings use UTF-8 encoded storage, so this
 // just expands the byte array that is String into a 64 bit integer
 // array that has the same 8-bit integers.
 // This is currently quite expensive O(N).
-IntegerList utf8Encode(String value) {
-  IntegerList result = []:Integer;
-  Integer length = _stringByteLength(value);
-  Integer cursor = value __as__ Integer + _gcBlockStringData;
-  assert(cursor % 8 == 0, 'string is misaligned');
-  Integer end = cursor + length;
-  while (cursor < end) {
-    Integer code = __readFromAddress(cursor);
-    Integer shift = 0;
-    while (shift < 64 && cursor < end) {
-      append(result, (code >> shift) & 0xFF);
-      cursor += 1;
-      shift += 8;
-    }
-  }
-  return result;
+IntegerIterable utf8Encode(String value) {
+  return ByteIterable#(value) __as__ IntegerIterable;
 }
 
 // Returns the integer representation of the Unicode Scalar Values in a String.
@@ -344,7 +383,7 @@ IntegerList scalarValues(String value) {
     Integer shift = 0;
     while (shift < 64 && cursor < end) {
       Integer code = (bytes >> shift) & 0xFF;
-      assert(code <= 127, concat('charsOf does not support non-ASCII bytes like 0x', hex(code)));
+      assert(code <= 127, concat('scalarValues does not support non-ASCII bytes like 0x', hex(code)));
       append(result, code);
       cursor += 1;
       shift += 8;

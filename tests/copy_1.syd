@@ -1,0 +1,3 @@
+// expected output: true
+
+println(copy(['a']:String) is StringList);

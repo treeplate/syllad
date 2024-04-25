@@ -279,6 +279,7 @@ class CompilationEnvironment extends TypeRegistry {
   String classAllocatorIntrinsicName = '_classAllocator';
   String appendIntrinsicName = 'append';
   String iteratorIntrinsicName = 'iterator';
+  String lenIntrinsicName = 'len#';
   String currentIntrinsicName = 'current';
   String nextIntrinsicName = 'next';
   String createFunctionPointerIntrinsicName = '_createFunctionPointer';
@@ -3302,30 +3303,32 @@ class BuiltInLenSubroutine extends BuiltInSubroutine {
       if (varArgs != null) {
         return varArgs!.parameterCount;
       }
+      if (arguments[0].staticType.isSubtypeOf(environment().coreSubscriptableType)) {
+        // we have to inline this case because the RTL uses len() before we can define enough of the language to implement len#().
+        return DereferenceWithStaticTypeBucket(
+          DereferenceWithStaticTypeBucket(
+            arguments[0], 
+            environment().integer(_listBlockData),  
+            ow.QWord,
+            environment().coreIntegerType,
+            LazyComment('list block data of ', arguments[0].commentName()),
+          ), 
+          environment().integer(_gcBlockHeaderLength),  
+          ow.QWord,
+          environment().coreIntegerType,
+          LazyComment('length of ', arguments[0].commentName()),
+        );
+      }
     }
-    return null;
+    return scope.emitIntrinsicCall(scope.environment().lenIntrinsicName, arguments);
   }
 
   //#override
   Null generateInstructions() {
     super.generateInstructions();
-    emitReturnFrom(
-      this, 
-      DereferenceWithStaticTypeBucket(
-        DereferenceWithStaticTypeBucket(
-          parameters[0], 
-          environment().integer(_listBlockData),  
-          ow.QWord,
-          environment().coreIntegerType,
-          LazyComment('list block data of ', parameters[0].commentName()),
-        ), 
-        environment().integer(_gcBlockHeaderLength),  
-        ow.QWord,
-        environment().coreIntegerType,
-        LazyComment('length of ', parameters[0].commentName()),
-      ),
-      false,
-    );
+    // This is only relevant when a pointer to len() is used (e.g. as a callback).
+    // We just defer directly to the len# intrinsic which supports all cases.
+    emitReturnFrom(this, emitIntrinsicCall(environment().lenIntrinsicName, parameters as BucketList), /*isFallbackReturn:*/ false);
   }
 
   Null constructor(CompiledIntrinsicsLibrary parentArg) { 
@@ -3408,6 +3411,8 @@ class CompilerIntrinsic extends BuiltInSubroutine {
     assert(result.staticType == signature.returnType, concat(this, ' returned bucket of wrong type (expected ', signature.returnType, ' but got ', result.staticType, ')'));
     return result;
   }
+
+  // TODO: generateInstructions should call inlineBody
 }
 
 class BuiltInReadFromAddressIntrinsic extends CompilerIntrinsic {

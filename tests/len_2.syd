@@ -1,0 +1,11 @@
+// expected output: 3
+// expected output: 3
+// expected output: 3
+
+IntegerIterable iterable = [1,2,1]:Integer;
+println(len(iterable));
+WhateverFunction lenToo = len;
+println(lenToo(iterable));
+Whatever someLen = lenToo;
+Whatever someIterable = iterable;
+println(someLen(someIterable));

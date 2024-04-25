@@ -2,7 +2,7 @@
 
 import 'syd-rtl-system.syd';
 import 'syd-rtl-memory.syd';
-import 'syd-rtl-lists.syd';
+import 'syd-rtl-core-lists.syd';
 import 'syd-constants.syd';
 
 Integer _stringByteLength(String data) {
