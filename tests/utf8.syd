@@ -1,0 +1,46 @@
+// expected output: PASS
+
+import '../compiler/core.syd';
+
+String read(String filename) {
+  File file = openFile(pathResolve(args[0], filename), fileModeRead);
+  String result = readFile(file);
+  closeFile(file);
+  return result;
+}
+
+String test = read('artifacts/utf-8 tests/utf8tests.bin');
+String golden = read('artifacts/utf-8 tests/utf8.replace.ref.txt');
+
+IntegerList testScalarValues = copy(scalarValues(test));
+IntegerList goldenScalarValues = copy(scalarValues(golden));
+
+Integer index = 0;
+Integer length = len(testScalarValues);
+if (len(goldenScalarValues) < length) {
+  length = len(goldenScalarValues);
+}
+
+Integer line = 1;
+Integer column = 0;
+while (index < length) {
+  if (goldenScalarValues[index] == 0x0A) {
+    line += 1;
+    column = 0;
+  }
+  column += 1;
+  if (testScalarValues[index] != goldenScalarValues[index]) {
+    throw(concat('FAIL - value mismatch - got U+', hex(testScalarValues[index]), ', expected U+', hex(goldenScalarValues[index]), ' at line ', line, ' column ', column));
+  }
+  index += 1;
+}
+
+if (len(goldenScalarValues) < len(testScalarValues)) {
+  throw(concat('stray output at end of decode at line ', line));
+}
+
+if (len(goldenScalarValues) > len(testScalarValues)) {
+  throw(concat('output ended prematurely at line ', line));
+}
+
+println('PASS');

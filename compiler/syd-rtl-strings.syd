@@ -369,27 +369,156 @@ IntegerIterable utf8Encode(String value) {
   return ByteIterable#(value) __as__ IntegerIterable;
 }
 
-// Returns the integer representation of the Unicode Scalar Values in a String.
-// NOT IMPLEMENTED FOR ANYTHING OUTSIDE ASCII.
-IntegerList scalarValues(String value) {
-  // TODO: This should decode UTF-8.
-  IntegerList result = []:Integer;
-  Integer length = _stringByteLength(value);
-  Integer cursor = value __as__ Integer + _gcBlockStringData;
-  assert(cursor % 8 == 0, 'string is misaligned');
-  Integer end = cursor + length;
-  while (cursor < end) {
-    Integer bytes = __readFromAddress(cursor);
-    Integer shift = 0;
-    while (shift < 64 && cursor < end) {
-      Integer code = (bytes >> shift) & 0xFF;
-      assert(code <= 127, concat('scalarValues does not support non-ASCII bytes like 0x', hex(code)));
-      append(result, code);
-      cursor += 1;
-      shift += 8;
-    }
+class ScalarValueIterator# extends Iterator# {
+  String value;
+  Integer _currentQuad;
+  Integer _bytePosition = -1;
+  Integer _current;
+  Integer _pendingBadCount = 0;
+
+  //#override
+  Integer current() {
+    return _current;
   }
-  return result;
+
+  //#override
+  Integer _nextByte() {
+    _bytePosition += 1;
+    if (_bytePosition >= _stringByteLength(value)) {
+      return -1;
+    }
+    if (_bytePosition % 8 == 0) {
+      Integer cursor = value __as__ Integer + _gcBlockStringData + _bytePosition;
+      assert(cursor % 8 == 0, 'string is misaligned');
+      _currentQuad = __readFromAddress(cursor);
+    }
+    return (_currentQuad >> ((_bytePosition % 8) * 8)) & 0xFF;
+  }
+
+// E0 80 => XX
+
+  //#override
+  Boolean next() {
+    if (_pendingBadCount > 0) {
+      assert(_current == 0xFFFD, 'invariant violation');
+      _pendingBadCount -= 1;
+      return true;
+    }
+    Integer firstByte = _nextByte();
+    if (firstByte < 0x00) { // End of file.
+      return false;
+    }
+    if (firstByte < 0x80) { // ASCII range.
+      _current = firstByte;
+    } else if (firstByte < 0xC0) { // Stray continuation byte.
+      _current = 0xFFFD;
+    } else if (firstByte < 0xE0) { // Two byte sequence (C0..DF).
+      Integer secondByte = _nextByte();
+      if (secondByte < 0x00) { // Truncated file.
+        _current = 0xFFFD;
+      } else if ((secondByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
+        _current = 0xFFFD;
+        _bytePosition -= 1; // Redecode next byte.
+      } else {
+        Integer value = ((firstByte & 0x1F) << 6) | (secondByte & 0x3F);
+        if (value < 0x80) { // Overlong sequence.
+          _pendingBadCount = 1;
+          _current = 0xFFFD;
+        } else {
+          _current = value;
+        }
+      }
+    } else if (firstByte < 0xF0) { // Three byte sequence (E0..EF).
+      Integer secondByte = _nextByte();
+      if (secondByte < 0x00) { // Truncated file.
+        _current = 0xFFFD;
+      } else if ((secondByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
+        _current = 0xFFFD;
+        _bytePosition -= 1; // Redecode next byte.
+      } else if (firstByte == 0xE0 && secondByte < 0xA0) { // Overlong sequence.
+        _current = 0xFFFD;
+        _pendingBadCount = 1;
+      } else if (firstByte == 0xED && secondByte >= 0xA0) { // Surrogate non-characters (U+D800 .. U+DFFF).
+        _current = 0xFFFD;
+        _pendingBadCount = 1;
+      } else {
+        Integer thirdByte = _nextByte();
+        if (thirdByte < 0x00) { // Truncated file.
+          _current = 0xFFFD;
+        } else if ((thirdByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
+          _current = 0xFFFD;
+          _bytePosition -= 1; // Redecode next byte.
+        } else {
+          Integer value = ((firstByte & 0x0F) << 12) | ((secondByte & 0x3F) << 6) | (thirdByte & 0x3F);
+          assert(value >= 0x800, 'invariant violation');
+          _current = value;
+        }
+      }
+    } else if (firstByte < 0xF5) { // Four byte sequence. (0xF4 is the highest valid lead byte, 0xF5 would be above U+10FFFF)
+      Integer secondByte = _nextByte();
+      if (secondByte < 0x00) { // Truncated file.
+        _current = 0xFFFD;
+      } else if ((secondByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
+        _current = 0xFFFD;
+        _bytePosition -= 1;
+      } else if ((firstByte == 0xF4 && secondByte > 0x8F) || // Out of range character
+                 (firstByte == 0xF0 && secondByte < 0x90)) { // Overlong sequence
+        _current = 0xFFFD;
+        _pendingBadCount = 1;
+      } else {
+        Integer thirdByte = _nextByte();
+        if (thirdByte < 0x00) { // Truncated file.
+          _current = 0xFFFD;
+        } else if ((thirdByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
+          _current = 0xFFFD;
+          _bytePosition -= 1; // Redecode next byte.
+        } else {
+          Integer fourthByte = _nextByte();
+          if (fourthByte < 0x00) { // Truncated file.
+            _current = 0xFFFD;
+          } else if ((fourthByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
+            _current = 0xFFFD;
+            _bytePosition -= 1; // Redecode next byte.
+          } else {
+            Integer value = ((firstByte & 0x07) << 18) | ((secondByte & 0x3F) << 12) | ((thirdByte & 0x3F) << 6) | (fourthByte & 0x3F);
+            if (value < 0x10000) { // Overlong sequence
+              _current = 0xFFFD;
+              _pendingBadCount = 3;
+            } else {
+              _current = value;
+            }
+          }
+        }
+      }
+    } else { // Overlong sequence or out of range character.
+      _current = 0xFFFD;
+    }
+    assert(_current <= 0x10FFFF, 'invariant violation (range)'); // out of range
+    //assert(_current < 0xD800 || _current > 0xDFFF, 'invariant violation (surrogates)'); // surrogates
+    return true;
+  }
+
+  Null constructor(String valueArg) {
+    value = valueArg;
+  }
+}
+
+class ScalarValueIterable# extends Iterable# {
+  String value;
+
+  //#override
+  IntegerIterator iterator() {
+    return ScalarValueIterator#(value) __as__ IntegerIterator;
+  }
+
+  Null constructor(String valueArg) {
+    value = valueArg;
+  }
+}
+
+// Returns the integer representation of the Unicode Scalar Values in a String.
+IntegerIterable scalarValues(String value) {
+  return ScalarValueIterable#(value) __as__ IntegerIterable;
 }
 
 // Returns the string representation of each extended grapheme cluster in a String.

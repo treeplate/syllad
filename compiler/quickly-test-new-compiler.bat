@@ -7,6 +7,7 @@ CALL compiler-build.bat 1
 IF NOT !ERRORLEVEL! == 0 GOTO END
 CALL build.bat %1
 IF NOT !ERRORLEVEL! == 0 GOTO END
+ECHO RUNNING...
 CALL %1.exe
 :END
 ECHO exit code !ERRORLEVEL!
