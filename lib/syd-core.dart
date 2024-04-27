@@ -785,7 +785,7 @@ class Environment {
         (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
           try {
             SydArray<Object?> input = args.single as SydArray<Object?>;
-            return utf8.decode(input.array.cast());
+            return utf8.decode(input.array.cast(), allowMalformed: true);
           } catch (e) {
             throw RuntimeSydException(
                 'error $e when decoding utf8 ${toStringWithStacker(args.single, -2, 0, 'file', false)}\n${stack.reversed.join('\n')}', dummyVariableGroup);

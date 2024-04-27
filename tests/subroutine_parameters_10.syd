@@ -1,0 +1,7 @@
+// expected runtime error: parameter of wrong type
+
+Null foo(Integer arg) {
+  println(arg);
+}
+
+foo('4' as Whatever);

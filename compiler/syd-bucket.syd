@@ -1059,16 +1059,16 @@ class ReturnValuePointerParameterBucket extends AbstractParameterBucket {
 
 // a particular parameter should only ever be represented by one ParameterBucket
 class ParameterBucket extends AbstractParameterBucket {
-  String _commentName;
+  String name;
 
   //#override
   String commentName() {
-    return _commentName;
+    return name;
   }
 
-  Null constructor(Type staticTypeArg, Integer parameterIndex, String commentNameArg) {
+  Null constructor(Type staticTypeArg, Integer parameterIndex, String nameArg) {
     super.constructor(staticTypeArg);
-    _commentName = commentNameArg;
+    name = nameArg;
     _currentTypeDatum = ParameterDatum((parameterIndex * 2) + 6, concat('type of ', commentName()));
     _currentValueDatum = ParameterDatum((parameterIndex * 2) + 7, commentName());
   }

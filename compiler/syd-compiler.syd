@@ -2988,7 +2988,7 @@ class CompiledSubroutineWithSpecificParameters extends CompiledSubroutine {
       emit(TypeCheckInstruction(
         parameter, 
         parameter.staticType, 
-        'parameter of wrong type', 
+        concat('parameter "', parameter.name, '" of ', name, ' of wrong type'), 
         false, 
         LazyComment('check type of parameter ', index, ' (expecting ', parameter.staticType, ')'),
       ));
