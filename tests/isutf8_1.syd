@@ -1,0 +1,26 @@
+// expected output: true
+// expected output: true
+// expected output: false
+// expected output: false
+// expected output: false
+// expected output: true
+// expected output: false
+// expected output: false
+
+IntegerList list;
+list = [0x0];
+println(isUtf8(list));
+list = [0x20];
+println(isUtf8(list));
+list = [0x80];
+println(isUtf8(list));
+list = [-0x1];
+println(isUtf8(list));
+list = [0xBF];
+println(isUtf8(list));
+list = [0xC2, 0xBF];
+println(isUtf8(list));
+list = [0xFF, 0xBF, 0xBF, 0xBF, 0xBF];
+println(isUtf8(list));
+list = [0xC0];
+println(isUtf8(list));

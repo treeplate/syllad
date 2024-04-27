@@ -781,11 +781,30 @@ class Environment {
         FunctionValueType(nullType, [stringType], 'intrinsics', this, rootTypeTable),
         'deleteFile intrinsic',
       ),
+      'isUtf8': SydFunction(
+        (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
+          try {
+            SydArray<Object?> input = args.single as SydArray<Object?>;
+            List<int> arr = input.array.cast();
+            try {
+              utf8.decode(arr);
+            } catch (e) {
+              return false;
+            }
+            return true;
+          } catch (e) {
+            throw RuntimeSydException(
+                'error $e ${toStringWithStacker(args.single, -2, 0, 'file', false)}\n${stack.reversed.join('\n')}', dummyVariableGroup);
+          }
+        },
+        FunctionValueType(booleanType, [ArrayValueType(integerType, 'intrinsics', this, rootTypeTable)], 'intrinsics', this, rootTypeTable),
+        'isUtf8 intrinsic',
+      ),
       'utf8Decode': SydFunction(
         (List<Object?> args, [Scope? thisScope, ValueType? thisType]) {
           try {
             SydArray<Object?> input = args.single as SydArray<Object?>;
-            return utf8.decode(input.array.cast(), allowMalformed: true);
+            return utf8.decode(input.array.cast());
           } catch (e) {
             throw RuntimeSydException(
                 'error $e when decoding utf8 ${toStringWithStacker(args.single, -2, 0, 'file', false)}\n${stack.reversed.join('\n')}', dummyVariableGroup);

@@ -2,6 +2,7 @@
 
 import 'syd-rtl-system.syd';
 import 'syd-rtl-core-strings.syd';
+import 'syd-rtl-strings.syd';
 import 'syd-rtl-memory.syd';
 
 // WIN32 API WRAPPER
@@ -74,6 +75,7 @@ Integer getFileSizeFromHandle#(Integer hFile) {
   return __readFromAddress(_scratch);
 }
 
+// May return a non-syd String (one that contains invalid UTF-8 bytes)
 String readStringFromHandle#(Integer handle, Integer bytesToRead) {
   Integer resultPointer = _alloc(16 + bytesToRead);
   __writeToAddress(resultPointer, 0); // ref count
@@ -82,7 +84,6 @@ String readStringFromHandle#(Integer handle, Integer bytesToRead) {
     exit(1);
   }
   __writeToAddress(resultPointer + 8, __readFromAddress(_scratch));
-  // TODO: check that data is valid UTF-8, throw if not
   return resultPointer __as__ String;
 }
 
@@ -93,6 +94,19 @@ Null writeStringToHandle#(Integer handle, String message) {
 class File# {
   Integer handle;
   Integer mode; // 0 (read), 1 (write), 2 (append) => 3 (done, for read/write) => 4 (closed)
+
+  Null markAsRead() {
+    if (mode == 4) {
+      throw('File cannot be read after being closed.');
+    }
+    if (mode == 3) {
+      throw('File is no longer active.');
+    }
+    if (mode != 0) {
+      throw('File is not open for reading.');
+    }
+    mode = 3;
+  }
 
   Null done() {
     assert(mode < 2, 'contract violation');
@@ -157,25 +171,53 @@ Null closeFile(File fileArg) {
   file.close();
 }
 
-String readFile(File fileArg) {
+// May return a non-Syd string (one that contains invalid UTF-8)
+String _readFileWithoutCheckingUtf8(File fileArg) {
   File# file = fileArg __as__ File#;
-  if (file.mode == 4) {
-    throw('File cannot be read after being closed.');
-  }
-  if (file.mode == 3) {
-    throw('File is no longer active.');
-  }
-  if (file.mode != 0) {
-    throw('File is not open for reading.');
-  }
-  file.done();
+  file.markAsRead();
   setFilePointerEx#(file.handle, 0, 0, FILE_BEGIN#);
   Integer size = getFileSizeFromHandle#(file.handle);
   return readStringFromHandle#(file.handle, size);
 }
 
-// TODO: not implemented; no current way to represent a byte array efficiently
-// IntegerList readFileBytes(File fileArg) { ... }
+String readFile(File fileArg) {
+  String result = _readFileWithoutCheckingUtf8(fileArg);
+  if (!isUtf8#(result)) {
+    stderr('failed to read file, file is not valid UTF-8');
+    exit(1);
+  }
+  return result;
+}
+
+// TODO: the returned value should use 8 bytes per byte, not 16.
+// THIS CODE IS HORRIFIC
+IntegerArray readFileBytes(File fileArg) {
+  File# file = fileArg __as__ File#;
+  file.markAsRead();
+  setFilePointerEx#(file.handle, 0, 0, FILE_BEGIN#);
+  Integer size = getFileSizeFromHandle#(file.handle);
+ 
+  Integer buffer = _alloc(size + 7); // need to be able to read 8 bytes from the last byte
+  if (!readFile#(file.handle, buffer, size, _scratch, 0)) {
+    stderr('failed to read file, error code:', _getLastError());
+    exit(1);
+  }
+  if (__readFromAddress(_scratch) != size) {
+    stderr('failed to read entire file, expected ', size, ' bytes but got ', __readFromAddress(_scratch));
+    exit(1);
+  }
+
+  IntegerList result = []:Integer;
+  Integer index = 0;
+  while (index < size) {
+    append(result, __readFromAddress(buffer + index) & 0xFF);
+    index += 1;
+  }
+
+  _free(buffer);
+
+  return result;
+}
 
 Null writeFile(File fileArg, String data) {
   File# file = fileArg __as__ File#;

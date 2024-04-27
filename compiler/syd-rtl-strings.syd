@@ -394,16 +394,153 @@ IntegerIterable utf8Encode(String value) {
   return ByteIterable#(value) __as__ IntegerIterable;
 }
 
-class ScalarValueIterator# extends Iterator# {
-  String value;
-  Integer _currentQuad;
+enum Utf8DecoderMode# { replace report }
+
+class Utf8DecoderIterator# extends Iterator# {
+  Utf8DecoderMode# mode;
+
   Integer _bytePosition = -1;
   Integer _current;
   Integer _pendingBadCount = 0;
 
   //#override
   Integer current() {
+    if (_current < 0 && mode == Utf8DecoderMode#.replace) {
+      return 0xFFFD;
+    }
     return _current;
+  }
+
+  Boolean _eof() {
+    throw('abstract');
+  }
+
+  Integer _nextByte() {
+    throw('abstract');
+  }
+
+  //#override
+  Boolean next() {
+    if (_pendingBadCount > 0) {
+      assert(_current == -1, 'invariant violation');
+      _pendingBadCount -= 1;
+      return true;
+    }
+    if (_eof()) { // End of file.
+      return false;
+    }
+    Integer firstByte = _nextByte();
+    if (firstByte < 0x00) { // Out-of-range data from an IntegerArray.
+      _current = -1;
+    } else if (firstByte < 0x80) { // ASCII range.
+      _current = firstByte;
+    } else if (firstByte < 0xC0) { // Stray continuation byte.
+      _current = -1;
+    } else if (firstByte < 0xE0) { // Two byte sequence (C0..DF).
+      Integer secondByte = _nextByte();
+      if (secondByte < 0x00) { // Truncated file.
+        _current = -1;
+        _bytePosition -= 1; // Redecode next byte.
+      } else if ((secondByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
+        _current = -1;
+        _bytePosition -= 1; // Redecode next byte.
+      } else {
+        Integer value = ((firstByte & 0x1F) << 6) | (secondByte & 0x3F);
+        if (value < 0x80) { // Overlong sequence.
+          _pendingBadCount = 1;
+          _current = -1;
+        } else {
+          _current = value;
+        }
+      }
+    } else if (firstByte < 0xF0) { // Three byte sequence (E0..EF).
+      Integer secondByte = _nextByte();
+      if (secondByte < 0x00) { // Truncated file.
+        _current = -1;
+        _bytePosition -= 1; // Redecode next byte.
+      } else if ((secondByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
+        _current = -1;
+        _bytePosition -= 1; // Redecode next byte.
+      } else if (firstByte == 0xE0 && secondByte < 0xA0) { // Overlong sequence.
+        _current = -1;
+        _pendingBadCount = 1;
+      } else if (firstByte == 0xED && secondByte >= 0xA0) { // Surrogate non-characters (U+D800 .. U+DFFF).
+        _current = -1;
+        _pendingBadCount = 1;
+      } else {
+        Integer thirdByte = _nextByte();
+        if (thirdByte < 0x00) { // Truncated file.
+          _current = -1;
+          _bytePosition -= 1; // Redecode next byte.
+        } else if ((thirdByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
+          _current = -1;
+          _bytePosition -= 1; // Redecode next byte.
+        } else {
+          Integer value = ((firstByte & 0x0F) << 12) | ((secondByte & 0x3F) << 6) | (thirdByte & 0x3F);
+          assert(value >= 0x800, 'invariant violation');
+          _current = value;
+        }
+      }
+    } else if (firstByte < 0xF5) { // Four byte sequence. (0xF4 is the highest valid lead byte, 0xF5 would be above U+10FFFF)
+      Integer secondByte = _nextByte();
+      if (secondByte < 0x00) { // Truncated file.
+        _current = -1;
+        _bytePosition -= 1; // Redecode next byte.
+      } else if ((secondByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
+        _current = -1;
+        _bytePosition -= 1;
+      } else if ((firstByte == 0xF4 && secondByte > 0x8F) || // Out of range character
+                 (firstByte == 0xF0 && secondByte < 0x90)) { // Overlong sequence
+        _current = -1;
+        _pendingBadCount = 1;
+      } else {
+        Integer thirdByte = _nextByte();
+        if (thirdByte < 0x00) { // Truncated file.
+          _current = -1;
+          _bytePosition -= 1; // Redecode next byte.
+        } else if ((thirdByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
+          _current = -1;
+          _bytePosition -= 1; // Redecode next byte.
+        } else {
+          Integer fourthByte = _nextByte();
+          if (fourthByte < 0x00) { // Truncated file.
+            _current = -1;
+            _bytePosition -= 1; // Redecode next byte.
+          } else if ((fourthByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
+            _current = -1;
+            _bytePosition -= 1; // Redecode next byte.
+          } else {
+            Integer value = ((firstByte & 0x07) << 18) | ((secondByte & 0x3F) << 12) | ((thirdByte & 0x3F) << 6) | (fourthByte & 0x3F);
+            if (value < 0x10000) { // Overlong sequence
+              _current = -1;
+              _pendingBadCount = 3;
+            } else {
+              _current = value;
+            }
+          }
+        }
+      }
+    } else { // Overlong sequence or out of range character.
+      _current = -1;
+    }
+    assert(_current <= 0x10FFFF, 'invariant violation (range)'); // out of range
+    assert(_current < 0xD800 || _current > 0xDFFF, 'invariant violation (surrogates)'); // surrogates
+    return true;
+  }
+
+  Null constructor(Utf8DecoderMode# modeArg) {
+    mode = modeArg;
+  }
+}
+
+class ScalarValueIterator# extends Utf8DecoderIterator# {
+  String value;
+
+  Integer _currentQuad;
+
+  //#override
+  Boolean _eof() {
+    return _bytePosition + 1 >= _stringByteLength(value);
   }
 
   //#override
@@ -420,128 +557,87 @@ class ScalarValueIterator# extends Iterator# {
     return (_currentQuad >> ((_bytePosition % 8) * 8)) & 0xFF;
   }
 
-  //#override
-  Boolean next() {
-    if (_pendingBadCount > 0) {
-      assert(_current == 0xFFFD, 'invariant violation');
-      _pendingBadCount -= 1;
-      return true;
-    }
-    Integer firstByte = _nextByte();
-    if (firstByte < 0x00) { // End of file.
-      return false;
-    }
-    if (firstByte < 0x80) { // ASCII range.
-      _current = firstByte;
-    } else if (firstByte < 0xC0) { // Stray continuation byte.
-      _current = 0xFFFD;
-    } else if (firstByte < 0xE0) { // Two byte sequence (C0..DF).
-      Integer secondByte = _nextByte();
-      if (secondByte < 0x00) { // Truncated file.
-        _current = 0xFFFD;
-      } else if ((secondByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
-        _current = 0xFFFD;
-        _bytePosition -= 1; // Redecode next byte.
-      } else {
-        Integer value = ((firstByte & 0x1F) << 6) | (secondByte & 0x3F);
-        if (value < 0x80) { // Overlong sequence.
-          _pendingBadCount = 1;
-          _current = 0xFFFD;
-        } else {
-          _current = value;
-        }
-      }
-    } else if (firstByte < 0xF0) { // Three byte sequence (E0..EF).
-      Integer secondByte = _nextByte();
-      if (secondByte < 0x00) { // Truncated file.
-        _current = 0xFFFD;
-      } else if ((secondByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
-        _current = 0xFFFD;
-        _bytePosition -= 1; // Redecode next byte.
-      } else if (firstByte == 0xE0 && secondByte < 0xA0) { // Overlong sequence.
-        _current = 0xFFFD;
-        _pendingBadCount = 1;
-      } else if (firstByte == 0xED && secondByte >= 0xA0) { // Surrogate non-characters (U+D800 .. U+DFFF).
-        _current = 0xFFFD;
-        _pendingBadCount = 1;
-      } else {
-        Integer thirdByte = _nextByte();
-        if (thirdByte < 0x00) { // Truncated file.
-          _current = 0xFFFD;
-        } else if ((thirdByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
-          _current = 0xFFFD;
-          _bytePosition -= 1; // Redecode next byte.
-        } else {
-          Integer value = ((firstByte & 0x0F) << 12) | ((secondByte & 0x3F) << 6) | (thirdByte & 0x3F);
-          assert(value >= 0x800, 'invariant violation');
-          _current = value;
-        }
-      }
-    } else if (firstByte < 0xF5) { // Four byte sequence. (0xF4 is the highest valid lead byte, 0xF5 would be above U+10FFFF)
-      Integer secondByte = _nextByte();
-      if (secondByte < 0x00) { // Truncated file.
-        _current = 0xFFFD;
-      } else if ((secondByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
-        _current = 0xFFFD;
-        _bytePosition -= 1;
-      } else if ((firstByte == 0xF4 && secondByte > 0x8F) || // Out of range character
-                 (firstByte == 0xF0 && secondByte < 0x90)) { // Overlong sequence
-        _current = 0xFFFD;
-        _pendingBadCount = 1;
-      } else {
-        Integer thirdByte = _nextByte();
-        if (thirdByte < 0x00) { // Truncated file.
-          _current = 0xFFFD;
-        } else if ((thirdByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
-          _current = 0xFFFD;
-          _bytePosition -= 1; // Redecode next byte.
-        } else {
-          Integer fourthByte = _nextByte();
-          if (fourthByte < 0x00) { // Truncated file.
-            _current = 0xFFFD;
-          } else if ((fourthByte & 0xC0) != 0x80) { // Truncated sequence (missing continuation byte).
-            _current = 0xFFFD;
-            _bytePosition -= 1; // Redecode next byte.
-          } else {
-            Integer value = ((firstByte & 0x07) << 18) | ((secondByte & 0x3F) << 12) | ((thirdByte & 0x3F) << 6) | (fourthByte & 0x3F);
-            if (value < 0x10000) { // Overlong sequence
-              _current = 0xFFFD;
-              _pendingBadCount = 3;
-            } else {
-              _current = value;
-            }
-          }
-        }
-      }
-    } else { // Overlong sequence or out of range character.
-      _current = 0xFFFD;
-    }
-    assert(_current <= 0x10FFFF, 'invariant violation (range)'); // out of range
-    //assert(_current < 0xD800 || _current > 0xDFFF, 'invariant violation (surrogates)'); // surrogates
-    return true;
-  }
-
-  Null constructor(String valueArg) {
+  Null constructor(String valueArg, Utf8DecoderMode# modeArg) {
+    super.constructor(modeArg);
     value = valueArg;
   }
 }
 
 class ScalarValueIterable# extends Iterable# {
   String value;
+  Utf8DecoderMode# mode;
 
   //#override
   IntegerIterator iterator() {
-    return ScalarValueIterator#(value) __as__ IntegerIterator;
+    return ScalarValueIterator#(value, mode) __as__ IntegerIterator;
   }
 
-  Null constructor(String valueArg) {
+  Null constructor(String valueArg, Utf8DecoderMode# modeArg) {
     value = valueArg;
+    mode = modeArg;
   }
 }
 
 // Returns the integer representation of the Unicode Scalar Values in a String.
 IntegerIterable scalarValues(String value) {
-  return ScalarValueIterable#(value) __as__ IntegerIterable;
+  return ScalarValueIterable#(value, Utf8DecoderMode#.replace) __as__ IntegerIterable;
+}
+
+// Returns the integer representation of the Unicode Scalar Values in a String.
+Boolean isUtf8#(String value) {
+  for (value in (ScalarValueIterable#(value, Utf8DecoderMode#.report) __as__ IntegerIterable)) {
+    if (value < 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+class IsUtf8Iterator# extends Utf8DecoderIterator# {
+  IntegerArray value;
+
+  //#override
+  Boolean _eof() {
+    return _bytePosition + 1 >= len(value);
+  }
+
+  //#override
+  Integer _nextByte() {
+    _bytePosition += 1;
+    if (_bytePosition >= len(value)) {
+      return -1;
+    }
+    return value[_bytePosition];
+  }
+
+  Null constructor(IntegerArray valueArg, Utf8DecoderMode# modeArg) {
+    super.constructor(modeArg);
+    value = valueArg;
+  }
+}
+
+class IsUtf8Iterable# extends Iterable# {
+  IntegerArray value;
+  Utf8DecoderMode# mode;
+
+  //#override
+  IntegerIterator iterator() {
+    return IsUtf8Iterator#(value, mode) __as__ IntegerIterator;
+  }
+
+  Null constructor(IntegerArray valueArg, Utf8DecoderMode# modeArg) {
+    value = valueArg;
+    mode = modeArg;
+  }
+}
+
+Boolean isUtf8(IntegerArray value) {
+  for (value in (IsUtf8Iterable#(value, Utf8DecoderMode#.report) __as__ IntegerIterable)) {
+    if (value < 0) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // Returns the string representation of each extended grapheme cluster in a String.

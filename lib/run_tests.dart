@@ -36,9 +36,11 @@ abstract class TestRunner {
     int newFailures = 0;
     int remaining = tests.length;
     print('Running ${tests.length} tests for $description...');
+    final Stopwatch stopwatch = Stopwatch()..start();
     for (File file in tests) {
+      final String remainingTime = tests.length - remaining > 0 ? '${(stopwatch.elapsed ~/ (tests.length - remaining)) * remaining}' : 'unknown';
       print(
-        '$passedCount passed ($newPasses new), $failedCount failed ($newFailures new), $skippedCount skipped; testing ${path.basename(file.path)} ($remaining remaining)',
+        '$passedCount passed ($newPasses new), $failedCount failed ($newFailures new), $skippedCount skipped; testing ${path.basename(file.path)} ($remaining remaining, estimated time remaining: $remainingTime)',
       );
       final StringBuffer message = StringBuffer();
       if (shouldSkipTest(file)) {

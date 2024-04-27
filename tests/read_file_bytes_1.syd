@@ -1,0 +1,15 @@
+// expected output: PASS
+
+StringList cwdParts = split(args[0], '\\');
+pop(cwdParts);
+if (len(cwdParts) == 0) {
+  append(cwdParts, '.');
+}
+String cwd = join(cwdParts, '/');
+String filename = concat(cwd, '/readfile.txt');
+
+IntegerArray file = readFileBytes(openFile(filename, fileModeRead));
+print(chr(file[0]));
+print(chr(file[1]));
+print(chr(file[2]));
+println(chr(file[3]));
