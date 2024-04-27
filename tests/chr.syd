@@ -1,0 +1,19 @@
+// expected output: PASS
+
+Null test(Integer code) {
+  String s = chr(code);
+  if (single(scalarValues(s)) != code) {
+    throw(concat('Failed to encode ', hex(code), '; got "', s, '" which decoded as ', hex(single(scalarValues(s)))));
+  }
+}
+
+Integer code = 0;
+while (code < 0x10FFFF) {
+  test(code);
+  code += 1;
+  if (code == 0xD800) {
+    code = 0xE000;
+  }
+}
+
+println('PASS');

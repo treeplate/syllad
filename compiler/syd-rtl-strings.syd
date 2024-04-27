@@ -302,13 +302,38 @@ String stringifyImplementation#(Anything arg) {
 stringify# = stringifyImplementation#;
 
 String chr(Integer code) {
-  assert(code >= 0, 'invalid Unicode value');
-  assert(code <= 0x10FFFF, 'invalid Unicode value');
-  assert(code <= 255, 'Unicode unimplemented');
-  Integer resultPointer = _alloc(16 + 1);
+  Integer byte1 = 0;
+  Integer byte2 = 0;
+  Integer byte3 = 0;
+  Integer byte4 = 0;
+  Integer length;
+  if (code < 0) {
+    throw('invalid Unicode value');
+  } else if (code < 0x80) { // one byte
+    byte1 = code;
+    length = 1;
+  } else if (code < 0x800) { // two byte sequence
+    byte1 = 0xC0 | (code >> 6);
+    byte2 = 0x80 | code & 0xBF;
+    length = 2;
+  } else if (code < 0x10000) { // three byte sequence
+    byte1 = 0xE0 | (code >> 12);
+    byte2 = 0x80 | (code >> 6) & 0xBF;
+    byte3 = 0x80 | code & 0xBF;
+    length = 3;
+  } else if (code < 0x10FFFF) { // four byte sequence
+    byte1 = 0xF0 | (code >> 18);
+    byte2 = 0x80 | (code >> 12) & 0xBF;
+    byte3 = 0x80 | (code >> 6) & 0xBF;
+    byte4 = 0x80 | code & 0xBF;
+    length = 4;
+  } else {
+    throw('invalid Unicode value');
+  }
+  Integer resultPointer = _alloc(24);
   __writeToAddress(resultPointer, 0); // ref count
-  __writeToAddress(resultPointer + _gcBlockHeaderLength, 1); // length
-  __writeToAddress(resultPointer + _gcBlockStringData, code); // the character
+  __writeToAddress(resultPointer + _gcBlockHeaderLength, length); // length
+  __writeToAddress(resultPointer + _gcBlockStringData, byte1 | byte2 << 8 | byte3 << 16 | byte4 << 24); // the character
   return resultPointer __as__ String;
 }
 
@@ -394,8 +419,6 @@ class ScalarValueIterator# extends Iterator# {
     }
     return (_currentQuad >> ((_bytePosition % 8) * 8)) & 0xFF;
   }
-
-// E0 80 => XX
 
   //#override
   Boolean next() {
