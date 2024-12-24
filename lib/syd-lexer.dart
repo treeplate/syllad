@@ -8,7 +8,7 @@ enum TokenType {
   asIdent,
   typeOfIdent,
   typeCodeOfIdent,
-  
+
   openParen, // (
   closeParen, // )
   openSquare, // [
@@ -357,6 +357,7 @@ Iterable<Token> lex(String file, String filename, Environment environment) sync*
 
       case _LexerState.stringDq:
         if (rune == 0x22) {
+          // "
           yield StringToken(buffer.toString(), startline, startcol);
           startline = line;
           startcol = col;
@@ -365,10 +366,12 @@ Iterable<Token> lex(String file, String filename, Environment environment) sync*
           startcol = col;
           state = _LexerState.top;
         } else if (rune == 0x5c) {
+          // \
           startline = line;
           startcol = col;
           state = _LexerState.stringDqBackslash;
         } else if (rune == 0xa) {
+          // newline
           line++;
           buffer.writeCharCode(rune);
         } else {
@@ -950,7 +953,9 @@ Iterable<Token> lex(String file, String filename, Environment environment) sync*
       break;
     case _LexerState.integer:
       yield IntToken(
-        int.tryParse(buffer.toString()) ?? (throw CompileTimeSydException('bad integer: $buffer', NoDataVG(environment))),
+        buffer.toString() == '9223372036854775808'
+            ? 0x8000000000000000
+            : int.tryParse(buffer.toString()) ?? (throw CompileTimeSydException('bad integer: $buffer', NoDataVG(environment))),
         line,
         col,
       );
@@ -1084,6 +1089,7 @@ class CommentFeatureToken extends Token {
 
   String toString() => "CommentFeatureToken($feature)";
 }
+
 String formatCursorPositionFromTokens(TokenIterator tokens) {
   return formatCursorPosition(tokens.current.line, tokens.current.col, tokens.file);
 }
@@ -1096,11 +1102,10 @@ class TokenIterator implements Iterator<Token> {
   final Environment environment;
   bool doneImports = false;
 
-  
   final String file;
 
   bool get next2Idents {
-    if(current is! IdentToken) return false;
+    if (current is! IdentToken) return false;
     moveNext();
     bool result = current is IdentToken;
     getPrevious();
@@ -1118,7 +1123,10 @@ class TokenIterator implements Iterator<Token> {
 
   TokenType get currentChar {
     if (current is! CharToken) {
-      throw CompileTimeSydException("Expected character, got $current on ${formatCursorPositionFromTokens(this)}", StringVariableGroup(StackTrace.current.toString(), environment));
+      throw CompileTimeSydException(
+        "Expected character, got $current on ${formatCursorPositionFromTokens(this)}",
+        StringVariableGroup(StackTrace.current.toString(), environment),
+      );
     }
     return (current as CharToken).type;
   }

@@ -94,7 +94,7 @@ class StaticFieldStatement extends Statement {
 
   @override
   StatementResult run(Scope scope) {
-    return StatementResult(StatementResultType.nothing); // StaticMemberStatement is dealt with specially
+    return StatementResult(StatementResultType.nothing); // this statement is dealt with specially
   }
 }
 
